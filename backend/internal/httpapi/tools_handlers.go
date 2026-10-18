@@ -20,6 +20,7 @@ type ToolRegistry interface {
 }
 
 var (
+	errNoSuchTool       = ErrNotFound("There is no such tool. Ask an administrator to add it in the settings.")
 	errToolsUnavailable = &APIError{Status: http.StatusServiceUnavailable, Code: "tools_unavailable",
 		Message: "Tool connections are not set up on this installation. An operator sets ROTOR_OPENBAO_ADDR to OpenBao."}
 	errToolUnreachable = &APIError{Status: http.StatusBadGateway, Code: "tool_unreachable",
@@ -35,7 +36,7 @@ func toolError(err error) error {
 	case errors.Is(err, tools.ErrUnreachable):
 		return errToolUnreachable
 	case errors.Is(err, tools.ErrNotFound):
-		return ErrNotFound("tool")
+		return errNoSuchTool
 	}
 	return err
 }

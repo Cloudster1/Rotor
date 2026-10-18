@@ -67,9 +67,9 @@ func TestEveryoneSignedInSeesTheTools(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("GET one tool = %d", resp.StatusCode)
 	}
-	resp, _ = serve(t, s.Routes(nil), withSession(httptest.NewRequest(http.MethodGet, APIPrefix+"/tools/"+uuid.NewString(), nil), "bob"))
-	if resp.StatusCode != http.StatusNotFound {
-		t.Errorf("GET an unknown tool = %d, want 404", resp.StatusCode)
+	resp, body = serve(t, s.Routes(nil), withSession(httptest.NewRequest(http.MethodGet, APIPrefix+"/tools/"+uuid.NewString(), nil), "bob"))
+	if resp.StatusCode != http.StatusNotFound || errorOf(t, body)["code"] != "not_found" {
+		t.Errorf("GET an unknown tool = %d %v, want 404 in a sentence", resp.StatusCode, body)
 	}
 }
 
