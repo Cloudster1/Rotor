@@ -54,6 +54,23 @@ else
   fail "compose refuses the file: $config"
 fi
 
+echo "== tool test double"
+if [[ -n "${config:-}" ]] && jq -e .services <<< "$config" > /dev/null 2>&1; then
+  # The control API lets anyone end grants and forget clients, so only the stack's network may reach it.
+  [[ "$(jq -r '[.services["tool-stub"].ports[]?.target] | map(tostring) | join(" ")' <<< "$config")" == 8080 ]] \
+    && pass "tool-stub publishes its tools alone, never its control API" || fail "tool-stub publishes other than port 8080"
+  stub_port="$(jq -r '.services["tool-stub"].ports[0].published' <<< "$config")"
+  [[ ",$(jq -r '.services.api.environment.ROTOR_TOOLS_BACKCHANNEL // ""' <<< "$config")," == *",http://localhost:$stub_port=http://tool-stub:8080,"* ]] \
+    && pass "the api reaches the tool-stub's published address on the stack's network" \
+    || fail "ROTOR_TOOLS_BACKCHANNEL does not rewrite the tool-stub's address $stub_port"
+fi
+[[ "$(tr -d '[:space:]' < "$SRC/deploy/suite/EXCITER_REF")" =~ ^[0-9a-f]{40}$ ]] \
+  && pass "the suite pins Exciter to a commit" || fail "deploy/suite/EXCITER_REF is not a full commit hash"
+for tool in exciter armature stator; do
+  [[ -s "$SRC/api/tools/$tool/openapi.json" && "$(cut -d' ' -f2 "$SRC/api/tools/$tool/SOURCE")" =~ ^[0-9a-f]{40}$ ]] \
+    && pass "$tool's document is vendored at a commit" || fail "api/tools/$tool lacks its document or the commit it came from"
+done
+
 echo "== keycloak realm"
 [[ "$(jq -r .realm "$REALM")" == dynamo ]] && pass "the realm is dynamo" || fail "the realm is not dynamo"
 

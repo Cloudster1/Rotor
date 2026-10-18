@@ -1,0 +1,62 @@
+# The tests against the real Exciter (#8): nightly, by hand, and on a pull request labelled suite. Building Exciter
+# adds minutes, so this is no required check; the gate in ci.yml tests against the tool-stub instead.
+name: Suite
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: suite-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-suite:
+    name: test-suite
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'suite')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      # The build stamp reads tags, which a shallow checkout does not carry.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore the Go module and build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/go
+          key: go-integration-${{ hashFiles('backend/go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            go-integration-${{ hashFiles('backend/go.sum') }}-
+            go-integration-
+
+      - name: Start Rotor's stack
+        run: make stack-up
+
+      - name: Start the suite's Exciter
+        run: make suite-up
+
+      - name: Run the tests against Exciter
+        run: make test-suite
+
+      - name: Say what the stacks logged
+        if: failure()
+        run: |
+          docker compose logs --tail 200 api tool-stub keycloak
+          make --no-print-directory suite-logs
+
+      - name: Keep the reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: suite-reports
+          path: reports/
+          retention-days: 7
+          if-no-files-found: ignore

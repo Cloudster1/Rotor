@@ -1,0 +1,23 @@
+# The real Exciter beside Rotor's stack (#8), over Exciter's own deploy/docker-compose.yml at the commit in
+# EXCITER_REF; mk/suite.mk applies it. Exciter signs people in through Rotor's Keycloak, so alice is one subject in
+# both, and what an OAuth connection needs runs: the api, its databases, its stubs and the web for the consent page.
+#
+# The two stacks meet on a network of their own, which mk/suite.mk connects their containers to by hand under
+# rotor-* and suite-exciter-* names alone. Compose would add each service's own name there too, and Rotor's
+# Keycloak would then send its back-channel logouts to whichever "api" answered first.
+services:
+  # Rotor's Keycloak serves the realm instead; nothing of Exciter's waits on its own.
+  keycloak:
+    profiles: ["off"]
+
+  # Mail, PDF printing and the outbox are not part of connecting, and the printer's image is the slowest to build.
+  mailpit:
+    profiles: ["off"]
+  worker:
+    profiles: ["off"]
+  render:
+    profiles: ["off"]
+
+  api:
+    environment:
+      EXCITER_OIDC_BACKCHANNEL: http://localhost:${KEYCLOAK_PORT}=http://rotor-keycloak:8080

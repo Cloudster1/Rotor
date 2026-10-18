@@ -30,3 +30,8 @@ vulnerability, and an installation never uses them:
   own volume so it can unseal itself on every start
 - the database and Valkey passwords defaulted in `deploy/docker-compose.yml`
   and `mk/stack.mk`
+- the tool-stub's tokens, codes and client secrets (`stub_*`), which open
+  nothing but the test double, and its personal tokens `stub_pat_<name>`
+- the suite's Exciter and its bootstrap administrator `admin@exciter.test` /
+  `exciter admin password`, Exciter's own development account, which
+  `make tool-snapshots` signs in with

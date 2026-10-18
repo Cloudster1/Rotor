@@ -14,6 +14,7 @@ KEYCLOAK_PORT := $(call stack_port,2)
 POSTGRES_PORT := $(call stack_port,3)
 VALKEY_PORT   := $(call stack_port,4)
 OPENBAO_PORT  := $(call stack_port,5)
+TOOLSTUB_PORT := $(call stack_port,6)
 
 # Credentials for the throwaway development stack; override them in the environment for anything else.
 POSTGRES_PASSWORD  ?= rotor
@@ -33,7 +34,7 @@ realm-check: ## Fail if deploy/keycloak/realm.json differs from Dynamo's canonic
 
 export COMPOSE_FILE := $(ROOT)/deploy/docker-compose.yml
 export COMPOSE_PROJECT_NAME := $(STACK_PROJECT)
-export WEB_PORT API_PORT KEYCLOAK_PORT POSTGRES_PORT VALKEY_PORT OPENBAO_PORT
+export WEB_PORT API_PORT KEYCLOAK_PORT POSTGRES_PORT VALKEY_PORT OPENBAO_PORT TOOLSTUB_PORT
 export POSTGRES_PASSWORD APP_DB_PASSWORD ADMIN_DB_PASSWORD VALKEY_PASSWORD OPENBAO_ROOT_TOKEN
 
 STACK_PG_URL = postgres://$(1):$(2)@$(3):5432/rotor?sslmode=disable
@@ -50,6 +51,9 @@ DOCKER_GO_STACK = $(call go_run,--network $(STACK_NET) \
 	-e ROTOR_TEST_OPENBAO_URL=http://openbao:8200 \
 	-e ROTOR_TEST_OPENBAO_SEALED_URL=http://openbao-sealed:8200 \
 	-e ROTOR_TEST_OPENBAO_ROOT_TOKEN='$(OPENBAO_ROOT_TOKEN)' \
+	-e ROTOR_TEST_TOOLSTUB_URL=http://localhost:$(TOOLSTUB_PORT) \
+	-e ROTOR_TEST_TOOLSTUB_INTERNAL_URL=http://tool-stub:8080 \
+	-e ROTOR_TEST_TOOLSTUB_CONTROL_URL=http://tool-stub:8081 \
 	-e ROTOR_TEST_BUILD_VERSION='$(ROTOR_BUILD_VERSION)' \
 	-e ROTOR_TEST_BUILD_COMMIT='$(ROTOR_BUILD_COMMIT)' \
 	$(1))
@@ -69,11 +73,14 @@ stack-env:
 		'POSTGRES_PORT=$(POSTGRES_PORT)' \
 		'VALKEY_PORT=$(VALKEY_PORT)' \
 		'OPENBAO_PORT=$(OPENBAO_PORT)' \
+		'TOOLSTUB_PORT=$(TOOLSTUB_PORT)' \
 		'ROTOR_WEB_URL=http://localhost:$(WEB_PORT)' \
 		'ROTOR_API_URL=http://localhost:$(API_PORT)' \
 		'ROTOR_KEYCLOAK_URL=http://localhost:$(KEYCLOAK_PORT)' \
 		'ROTOR_OIDC_ISSUER=http://localhost:$(KEYCLOAK_PORT)/realms/$(KEYCLOAK_REALM)' \
 		'ROTOR_OPENBAO_URL=http://localhost:$(OPENBAO_PORT)' \
+		'ROTOR_TOOLSTUB_URL=http://localhost:$(TOOLSTUB_PORT)' \
+		'ROTOR_SUITE_EXCITER_URL=http://localhost:$(SUITE_EXCITER_WEB_PORT)' \
 		'ROTOR_BUILD_VERSION=$(ROTOR_BUILD_VERSION)' \
 		'ROTOR_BUILD_COMMIT=$(ROTOR_BUILD_COMMIT)' \
 		'ROTOR_TEST_SUPERUSER_URL=postgres://rotor:$(POSTGRES_PASSWORD)@127.0.0.1:$(POSTGRES_PORT)/rotor?sslmode=disable' \
@@ -89,6 +96,7 @@ up: stack-env ## Build and start the whole stack in the background, and say wher
 	@$(call STACK_SAY,api,"API        http://localhost:$(API_PORT)/api/v1/meta")
 	@echo "Keycloak   http://localhost:$(KEYCLOAK_PORT) (admin / admin; realm $(KEYCLOAK_REALM); people alice, bob, carol, dave with password '<name> password')"
 	@echo "OpenBao    http://localhost:$(OPENBAO_PORT) (root token $(OPENBAO_ROOT_TOKEN))"
+	@$(call STACK_SAY,tool-stub,"Tool stub  http://localhost:$(TOOLSTUB_PORT)/t/<any name> (a tool that behaves as Exciter does; make suite-up for the real one)")
 	@echo "Postgres   127.0.0.1:$(POSTGRES_PORT)"
 	@echo "Valkey     127.0.0.1:$(VALKEY_PORT)"
 	@echo "Ports and project name are in $(STACK_ENV_FILE)."
