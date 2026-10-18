@@ -56,3 +56,16 @@ Adapted from Exciter at c3f81ae, its sign-in through the identity provider:
   back-channel logout (logouttoken.go, logout.go) is Rotor's own.
 - web/src/routes/shell.tsx's guard and the sign-in page's shape, and
   e2e/fixtures/auth.ts's walk through Keycloak's page
+
+Adapted from Exciter at 6706bd8, its OAuth authorization server, MCP endpoint
+and suite:
+- backend/internal/toolstub and backend/cmd/tool-stub: the wire shapes,
+  refusals, rotation and reuse rules of backend/internal/oauth and
+  httpapi/oauth_handlers.go and the JSON-RPC handling of httpapi/mcp.go,
+  rewritten as an in-memory test double with tenants and a control API, in
+  the shape of cmd/armature-stub and its contract test
+- mk/tools.mk from mk/armature.mk, and mk/suite.mk and deploy/suite/exciter.yml
+  from mk/suite.mk and deploy/suite/: one Exciter on Rotor's Keycloak instead
+  of three products on Exciter's
+- api/tools/exciter/tools-list.json is Exciter's own tools/list, recorded from
+  that commit

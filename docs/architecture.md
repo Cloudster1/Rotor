@@ -132,3 +132,13 @@ at `rotor/` with check-and-set required, transit, the policies in
 and never unsealed, so readiness is tested against a sealed server. `make up` derives
 the compose project and its ports from the checkout's path, in 30000 to
 32759, so worktrees and the siblings' stacks run side by side.
+
+The `tool-stub` (#8) stands in for the tools: every `/t/<name>` on its port is
+an OAuth authorization server and MCP endpoint that behaves as Exciter's does,
+held to the siblings' vendored documents in `api/tools/` and to a recording of
+Exciter's `tools/list` by a contract test. Its control API, on a port the
+stack never publishes, lets tests shape a tenant, count what Rotor did there,
+and end grants or forget clients as a tool would. `make suite-up` runs the real
+Exciter, from the commit in `deploy/suite/EXCITER_REF`, beside the stack: it
+signs people in through Rotor's Keycloak, and the two meet on a network of
+their own under `rotor-*` and `suite-exciter-*` names.

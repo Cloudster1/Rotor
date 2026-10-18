@@ -9,6 +9,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Rotor can be tested against tools without mocking them (#8). `make up`
+  starts a test double that behaves as Exciter does as an OAuth authorization
+  server and MCP endpoint, as many independent tools as tests need, kept
+  honest by contract tests against Exciter's, Armature's and Stator's own API
+  documents and a recording of Exciter's MCP tools. `make suite-up` runs the
+  real Exciter beside the stack, signing in through the same realm, and
+  `make test-suite` tests against it; CI does so nightly and on pull requests
+  labelled `suite`.
 - Rotor keeps its secrets in OpenBao (#10). The api signs in to OpenBao as
   the realm's service account `rotor-control-plane`, renews its token and
   signs in again when it ends; it may touch people's connections and the
