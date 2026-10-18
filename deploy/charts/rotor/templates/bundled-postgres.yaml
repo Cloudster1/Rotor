@@ -1,0 +1,118 @@
+{{- if .Values.postgresql.enabled }}
+{{/*
+A trial database, not a deployment's: one pod, one volume, no replica and no backup, as Exciter's chart brings one.
+Its superuser password is the owner's Secret, the one the roles and migrate Jobs connect with.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rotor.fullname" . }}-postgresql
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+spec:
+  type: ClusterIP
+  ports:
+    - name: postgres
+      port: {{ .Values.database.port }}
+      targetPort: postgres
+  selector:
+    {{- include "rotor.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "rotor.fullname" . }}-postgresql
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+spec:
+  serviceName: {{ include "rotor.fullname" . }}-postgresql
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "rotor.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: postgresql
+  template:
+    metadata:
+      labels:
+        {{- include "rotor.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: postgresql
+    spec:
+      automountServiceAccountToken: false
+      {{- with .Values.images.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.postgresql.runAsUser }}
+        runAsGroup: {{ .Values.postgresql.runAsGroup }}
+        fsGroup: {{ .Values.postgresql.runAsGroup }}
+        seccompProfile: { type: RuntimeDefault }
+      terminationGracePeriodSeconds: {{ .Values.postgresql.terminationGracePeriodSeconds }}
+      containers:
+        - name: postgresql
+          image: {{ include "rotor.image" (dict "root" $ "name" "psql") }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.database.ownerRole | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.database.name | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "rotor.credentialSecret" (dict "root" . "name" "dbOwner") }}
+                  key: password
+            - name: POSTGRES_INITDB_ARGS
+              value: "--auth-host=scram-sha-256"
+            - name: PGDATA
+              value: {{ .Values.postgresql.dataPath | quote }}
+          ports:
+            - name: postgres
+              containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.database.ownerRole | quote }}, "-d", {{ .Values.database.name | quote }}]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.database.ownerRole | quote }}, "-d", {{ .Values.database.name | quote }}]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.postgresql.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            # The socket directory and the entrypoint's scratch space, which a read only root would refuse.
+            - name: run
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.postgresql.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.postgresql.storage }}
+{{- end }}

@@ -1,0 +1,6 @@
+Rotor {{ .Chart.AppVersion }} is installed as {{ include "rotor.fullname" . }}.
+
+Open {{ include "rotor.appURL" . }} once the api and the web are ready. Each run executes in its own pod in the
+namespace {{ include "rotor.sandboxNamespace" . }}{{ if .Values.sandbox.runtimeClass }}, under the RuntimeClass {{ .Values.sandbox.runtimeClass }}{{ else }}, WITHOUT gVisor (sandbox.allowRunc){{ end }}.
+
+docs/deployment.md says what each value does and how to check an installation.

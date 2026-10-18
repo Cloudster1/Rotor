@@ -1,0 +1,16 @@
+# A trial: Rotor brings its own Postgres and Valkey and nothing else is needed but an OpenBao (openbao.addr) and a
+# cluster whose sandboxes may run. Not for real data: one pod each, no backup. Sign-in needs oidc.* as well.
+env: development
+ingress:
+  tls:
+    enabled: false
+database:
+  sslmode: disable
+postgresql:
+  enabled: true
+valkey:
+  bundled: true
+api:
+  replicas: 1
+web:
+  replicas: 1

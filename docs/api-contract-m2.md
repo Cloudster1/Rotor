@@ -364,6 +364,12 @@ type Spec struct {
 
     The `reason` label is one of `waiting`, `ended`, `orphan`, `unstarted`, `lost` or `deadline`.
 
+- **As built (#29):**
+  - **The chart:** `deploy/charts/rotor` renders the settings above for a cluster.
+    - `ROTOR_SANDBOX_BACKEND=kubernetes`, the namespace `<release namespace>-sandboxes` and `ROTOR_RUNNER_HOST` as the api's Service.
+    - `ROTOR_OPENBAO_AUTH=kubernetes`, with the role bound to the api's and the worker's accounts by the chart's OpenBao Job.
+  - **Tests:** `tests/test-helm.sh` checks the chart in the gate, and `make test-chart-install` installs it on kind.
+
 ## What is left for later
 
 - Approvals people answer in the browser (M5) and triggers (M6); the spec reserves `triggers`.

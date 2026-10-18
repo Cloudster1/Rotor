@@ -1,0 +1,183 @@
+# Rotor. The defaults describe a real deployment: your own Postgres, Valkey, OpenBao and Keycloak, and sandboxes
+# under gVisor. For a trial that brings Postgres and Valkey along, install with -f values-trial.yaml as well.
+# docs/deployment.md walks through both.
+
+nameOverride: ""
+fullnameOverride: ""
+
+images:
+  # deploy/Dockerfile.backend carries every Go binary; each workload runs the one it needs. An empty tag means the
+  # chart's appVersion.
+  backend: { repository: ghcr.io/cloudster1/rotor-backend, tag: "" }
+  web: { repository: ghcr.io/cloudster1/rotor-web, tag: "" }
+  # The sandboxes' image. Name it by digest in production, so every run executes exactly the image reviewed.
+  runner: { repository: ghcr.io/cloudster1/rotor-runner, tag: "", digest: "" }
+  # The client the roles Job runs and the server the bundled Postgres runs.
+  psql: { repository: postgres, tag: 18-alpine }
+  valkey: { repository: valkey/valkey, tag: 8-alpine }
+  # The secrets Job needs a shell next to kubectl; the OpenBao Job runs Rotor's init script with bao.
+  kubectl: { repository: alpine/kubectl, tag: 1.34.1 }
+  openbao: { repository: openbao/openbao, tag: 2.7.1 }
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# development, staging or production. Anything but development requires secure cookies and Keycloak.
+env: production
+logLevel: info
+
+ingress:
+  enabled: true
+  className: ""
+  # The host the browser uses. The session cookie and the same-site check are derived from it.
+  host: rotor.example.com
+  tls:
+    enabled: true
+    secretName: rotor-tls
+  annotations: {}
+
+api:
+  replicas: 2
+  port: 8080
+  # Where sandboxes dial the runner protocol, over TLS with a certificate from OpenBao's PKI.
+  runnerPort: 9443
+  terminationGracePeriodSeconds: 40
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { memory: 512Mi }
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+worker:
+  replicas: 1
+  # The worker's /metrics, in Prometheus's text format: live and reaped sandboxes and runs by state.
+  metricsPort: 9464
+  terminationGracePeriodSeconds: 20
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { memory: 256Mi }
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+web:
+  replicas: 2
+  # Stock nginx as its own user, so it listens above 1024 and the root filesystem stays read only.
+  runAsUser: 101
+  port: 8080
+  resources:
+    requests: { cpu: 20m, memory: 32Mi }
+    limits: { memory: 128Mi }
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+database:
+  # Where the workloads connect when the bundled postgresql is off; the chart never guesses it.
+  host: ""
+  port: 5432
+  name: rotor
+  sslmode: require
+  # The role the roles and migrate Jobs connect as, which owns the schema and may CREATE ROLE. The workloads connect
+  # as rotor_app, bound by every row level security policy, and rotor_admin, exempt by policy; those names are the
+  # migrations' own.
+  ownerRole: postgres
+
+# A trial database: one pod, one volume, no replica and no backup.
+postgresql:
+  enabled: false
+  storage: 8Gi
+  storageClass: ""
+  dataPath: /var/lib/postgresql/data/pgdata
+  runAsUser: 70
+  runAsGroup: 70
+  terminationGracePeriodSeconds: 30
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }
+
+valkey:
+  # The pub/sub that tells every api replica about a run's events and cancels, and the tools' catalog cache. A Valkey
+  # or Redis you run; ignored when the bundled one is on. Losing it costs latency, never data.
+  host: ""
+  port: 6379
+  db: 0
+  # Whether that server wants a password, read from the Secret secrets.names.valkey names, which you create.
+  auth: false
+  # A single pod for a trial, with a generated password.
+  bundled: false
+  storage: 1Gi
+  storageClass: ""
+  runAsUser: 999
+  runAsGroup: 1000
+  resources:
+    requests: { cpu: 20m, memory: 32Mi }
+    limits: { memory: 256Mi }
+
+oidc:
+  # The realm people sign in through, as the browser reaches it; Rotor's client and the Secret holding its secret.
+  issuer: ""
+  clientId: rotor
+  clientSecret: { name: "", key: client-secret }
+  # public=reachable pairs, for an issuer the pods reach at another address than the browser.
+  backchannel: {}
+
+openbao:
+  # Where every long-lived secret lives. The api and the worker sign in with their own ServiceAccount tokens
+  # (Kubernetes auth); sandboxes hold no OpenBao credential, only single-use wrapping tokens.
+  addr: ""
+  auth: kubernetes
+  role: rotor-control-plane
+  mount: rotor
+  # A hook Job that runs Rotor's init script against that OpenBao: the KV mount, the transit key, the runner PKI,
+  # the policy and the Kubernetes auth role. It needs a token allowed to configure OpenBao, from a Secret you make.
+  configure:
+    enabled: false
+    tokenSecret: { name: "", key: token }
+    # Where OpenBao reaches this cluster's API server to review the control plane's tokens.
+    kubernetesHost: https://kubernetes.default.svc
+
+tools:
+  # public=reachable pairs: a tool an administrator adds by the address a browser opens, reached by the pods at another.
+  backchannel: {}
+
+sandbox:
+  # Where every run's pod runs; empty is <release namespace>-sandboxes. The chart creates it with the restricted Pod
+  # Security standard unless told the namespace exists.
+  namespace: ""
+  createNamespace: true
+  # The gVisor RuntimeClass of the cluster. Empty runs sandboxes without gVisor, which only allowRunc permits, and
+  # never in production.
+  runtimeClass: gvisor
+  allowRunc: false
+  # The ServiceAccount every sandbox pod runs as; it carries no token.
+  serviceAccount: rotor-sandbox
+
+secrets:
+  # Generates the database and Valkey passwords once, inside the cluster, before anything else starts.
+  generate: true
+  passwordLength: 32
+  # Existing Secrets to use instead, each kubernetes.io/basic-auth with a password key: dbOwner, dbApp, dbAdmin,
+  # valkey.
+  names: {}
+
+jobs:
+  roles: { enabled: true }
+  migrate: { enabled: true }
+
+serviceAccount:
+  annotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  seccompProfile: { type: RuntimeDefault }
+
+containerSecurityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities: { drop: ["ALL"] }

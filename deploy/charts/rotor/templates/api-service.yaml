@@ -1,0 +1,20 @@
+{{/* The HTTP API for the web and the Ingress, and the runner protocol sandboxes dial by this Service's name. */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rotor.fullname" . }}-api
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.api.port }}
+      targetPort: http
+    - name: runner
+      port: {{ .Values.api.runnerPort }}
+      targetPort: runner
+  selector:
+    {{- include "rotor.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: api

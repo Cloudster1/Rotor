@@ -1,6 +1,6 @@
-# The Kubernetes tests (#26): sandboxes as hardened pods in a throwaway kind cluster. Nightly, by hand, on a pull
-# request labelled kube, and on one that changes what a cluster runs. A cluster adds minutes, so this is no required
-# check; the gate in ci.yml tests the Docker backend and the pod the Kubernetes backend builds.
+# The Kubernetes tests (#26, #29): sandboxes as hardened pods and the chart installed in a throwaway kind cluster.
+# Nightly, by hand, on a pull request labelled kube, and on one that changes what a cluster runs. A cluster adds
+# minutes, so this is no required check; the gate in ci.yml lints and renders the chart and tests the Docker backend.
 name: Kube
 
 on:
@@ -36,7 +36,7 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           if [ "$GITHUB_EVENT_NAME" != pull_request ] || [ "$LABELLED" = true ] || git diff --name-only "$BASE" HEAD \
-            | grep -qE '^(backend/internal/sandbox/|backend/cmd/worker/|backend/internal/runs/worker|backend/test/kube/|deploy/kube/|deploy/charts/|deploy/Dockerfile\.runner|scripts/kind/|mk/kind\.mk|\.github/workflows/kube\.yml)'; then
+            | grep -qE '^(backend/internal/sandbox/|backend/cmd/|backend/internal/runs/worker|backend/internal/runnerctl/|backend/internal/vault/|backend/internal/config/|backend/migrations/|backend/test/kube/|deploy/|scripts/kind/|scripts/chart-install-test\.sh|mk/kind\.mk|\.github/workflows/kube\.yml)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -59,6 +59,10 @@ jobs:
       - name: Run the Kubernetes tests
         if: steps.needed.outputs.run == 'true'
         run: make test-kube
+
+      - name: Install the chart and carry a run in a sandbox pod
+        if: steps.needed.outputs.run == 'true'
+        run: make test-chart-install
 
       - name: Say what the cluster saw
         if: failure() && steps.needed.outputs.run == 'true'

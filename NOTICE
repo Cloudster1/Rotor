@@ -86,3 +86,10 @@ Adapted from Exciter at 009762e, its outbox worker:
 Adapted from Exciter at 51c9127, its chart install tooling:
 - scripts/kind/Dockerfile: the image with kind, kubectl and helm, as Exciter's
 - mk/kind.mk: the tools container on the host's network driving kind through the Docker socket, from mk/kind.mk
+
+Adapted from Exciter at 51c9127, its Helm chart and chart tests:
+- deploy/charts/rotor: the names and labels, the image helper, the secrets, roles and migrate hook Jobs, the bundled
+  Postgres and Valkey, the nginx ConfigMap and the web Deployment of deploy/charts/exciter, without CloudNativePG,
+  S3 or the render service, and with the sandbox namespace, RBAC and OpenBao Job of Rotor's own
+- tests/test-helm.sh: lint, refusals and golden renders, as Exciter's
+- scripts/chart-install-test.sh: install into kind, check, upgrade, as Exciter's

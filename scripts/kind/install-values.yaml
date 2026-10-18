@@ -1,0 +1,12 @@
+# What the chart install test (#29) adds to values-trial.yaml: the dev OpenBao beside the release, configured by the
+# chart's own Job, and sandboxes under runc, which is all kind has. The images are set on the command line.
+openbao:
+  addr: http://openbao.rotor-chart.svc:8200
+  configure:
+    enabled: true
+    tokenSecret: { name: openbao-admin, key: token }
+sandbox:
+  runtimeClass: ""
+  allowRunc: true
+ingress:
+  enabled: false
