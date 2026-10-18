@@ -3,6 +3,22 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-18: A waiting run keeps nothing alive (#28)
+
+- **The idle time is zero.** A run that starts waiting loses its sandbox at
+  once (since #22) and now its tool tokens too, revoked at the tools. A
+  resume starts a fresh sandbox from the checkpoint, which is handed fresh
+  tokens. This replaces "destroyed when idle" in the shape of Rotor: a warm
+  sandbox kept for a quick approval would save a cold start but keep a
+  sandbox and live tokens around for nothing in every other case, so there
+  is no idle TTL to set, per installation or per workflow.
+- **Leases, not an elected reaper.** The worker leases each run it acts on
+  with `FOR UPDATE SKIP LOCKED`, so any number of workers reap without two
+  acting on one run and without electing one by an advisory lock.
+- **Metrics by hand until M7.** The worker serves `/metrics` in Prometheus's
+  text format, written in a small package of its own: three families do not
+  justify a client library before M7 chooses the observability stack.
+
 ## 2026-10-18: Sandboxes on Kubernetes for M4 (#26)
 
 - **A sandbox holds no identity.** No ServiceAccount token is mounted in a

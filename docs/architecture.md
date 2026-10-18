@@ -197,7 +197,8 @@ dies delays a run by at most its lease. Every pass:
 2. **Expire:** replaces a sandbox that never said Hello and one whose runner
    stopped answering (a replacement resumes from the last checkpoint, up to
    three sandboxes per run), ends a run past its deadline, destroys the
-   sandbox of a run that waits, and expires a run that waited a week.
+   sandbox of a run that waits and revokes its tokens (#28), and expires a
+   run that waited a week.
 3. **Start:** gives each queued run a sandbox with a fresh bootstrap token.
 4. **Teardown:** cleans up once after each run that ended.
 

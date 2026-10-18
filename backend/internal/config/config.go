@@ -77,6 +77,7 @@ type Config struct {
 	Sandbox Sandbox
 	Runner  Runner
 	Valkey  Valkey
+	Worker  Worker
 }
 
 // Auth is how a signed-in browser is remembered.
@@ -152,6 +153,7 @@ func Load() (Config, error) {
 		Sandbox: loadSandbox(l),
 		Runner:  loadRunner(l),
 		Valkey:  loadValkey(l),
+		Worker:  Worker{MetricsAddr: l.str("ROTOR_WORKER_METRICS_ADDR", DefaultWorkerMetricsAddr)},
 	}
 	if c.OIDC.RedirectURL == "" {
 		c.OIDC.RedirectURL = c.AppBaseURL + CallbackPath

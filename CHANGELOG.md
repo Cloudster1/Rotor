@@ -9,6 +9,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A run waiting for an answer keeps nothing alive (#28): besides its
+  sandbox, the tokens it was handed are now revoked at the tools as soon as
+  it starts waiting, and a resume starts with fresh ones. The worker serves
+  metrics for operators: the sandboxes alive, those it destroyed and why,
+  and the runs by status.
 - Runs can execute on Kubernetes (#26). Each sandbox is its own pod under
   gVisor, non-root, read-only, without capabilities or a ServiceAccount
   token, in a namespace under the restricted Pod Security standard; the

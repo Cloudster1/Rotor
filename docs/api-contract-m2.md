@@ -352,6 +352,17 @@ type Spec struct {
   - **The tool double:**
     - A scripted model turn may carry `delayMs` to hold its answer back.
     - A tenant made on first use as `/t/<product>--<rest>` answers as `<product>`.
+- **As built (#28, M4):**
+  - **Waiting runs keep no token:** when a run starts waiting, the worker drops its sandbox and then revokes every token the run was handed, at the tools. A revocation that fails is tried again on the next pass. A resume starts a sandbox from the checkpoint, and that sandbox is handed fresh tokens.
+  - **Worker metrics:** the worker serves `/metrics` on `ROTOR_WORKER_METRICS_ADDR` (`:9464`, never published) in Prometheus's text format:
+
+    | Metric | Type | Labels | What it counts |
+    |---|---|---|---|
+    | `rotor_sandboxes_live` | gauge | none | sandboxes alive at the last pass |
+    | `rotor_sandboxes_reaped_total` | counter | `reason` | sandboxes the worker destroyed |
+    | `rotor_runs` | gauge | `status` | runs, read at each scrape |
+
+    The `reason` label is one of `waiting`, `ended`, `orphan`, `unstarted`, `lost` or `deadline`.
 
 ## What is left for later
 
