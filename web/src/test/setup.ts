@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import { FakeEventSource } from "./eventsource";
 import "./layout";
 
 // Node's built-in localStorage is inert without --localstorage-file and shadows jsdom's, so tests get an
@@ -59,4 +60,24 @@ if (typeof HTMLDialogElement !== "undefined" && !HTMLDialogElement.prototype.sho
     this.removeAttribute("open");
     this.dispatchEvent(new Event("close"));
   };
+}
+
+// React Flow measures its nodes and reads transforms, which jsdom computes nothing of.
+class NoResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+class FlatMatrix {
+  m22 = 1;
+}
+for (const [name, value] of [
+  ["ResizeObserver", NoResizeObserver],
+  ["DOMMatrixReadOnly", FlatMatrix],
+  // A page that follows a run opens an event stream; the stand-in connects nowhere until a test sends it events.
+  ["EventSource", FakeEventSource],
+] as const) {
+  if (!(name in globalThis) || name === "EventSource") {
+    Object.defineProperty(globalThis, name, { value, writable: true, configurable: true });
+  }
 }

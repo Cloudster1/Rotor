@@ -91,17 +91,23 @@ type Publisher interface {
 	Publish(ctx context.Context, channel string, message []byte)
 }
 
-// Service starts, lists and cancels runs as the person on the context; the worker carries them.
+// Signals is pub/sub across api replicas, published to and listened on; *cache.Cache is the real one.
+type Signals interface {
+	Publisher
+	Subscribe(ctx context.Context, channel string) <-chan []byte
+}
+
+// Service starts, lists, follows and cancels runs as the person on the context; the worker carries them.
 type Service struct {
 	db          *db.Cluster
 	workflows   Workflows
 	tools       ToolFinder
 	connections Connections
-	signals     Publisher
+	signals     Signals
 }
 
-// NewService returns the runs; signals may be nil, and the runner's stream then finds a cancel on its next beat.
-func NewService(cluster *db.Cluster, wf Workflows, finder ToolFinder, conns Connections, signals Publisher) *Service {
+// NewService returns the runs; signals may be nil, and streams then find a cancel or an event on their next beat.
+func NewService(cluster *db.Cluster, wf Workflows, finder ToolFinder, conns Connections, signals Signals) *Service {
 	return &Service{db: cluster, workflows: wf, tools: finder, connections: conns, signals: signals}
 }
 

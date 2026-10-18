@@ -84,8 +84,11 @@ var m2Operations = []operation{
 		summary: "One run.", responses: map[int]any{http.StatusOK: runResponse{}, http.StatusNotFound: notFound}},
 	{method: "POST", path: "/runs/{runID}/cancel", handler: "handleCancelRun", tag: "runs",
 		summary: "Cancel a run that has not ended.", responses: map[int]any{http.StatusOK: runResponse{}, http.StatusNotFound: notFound, http.StatusConflict: errorEnvelope{}}},
-	{method: "GET", path: "/runs/{runID}/events", handler: "handleRunEvents", tag: "runs", pending: true,
-		summary:     "A run's events as server-sent events, from the start or after Last-Event-ID.",
-		description: "Content type text/event-stream; each event's id is its sequence number and its data the JSON payload in docs/api-contract-m2.md.",
-		responses:   map[int]any{http.StatusOK: nil, http.StatusNotFound: notFound}},
+	{method: "GET", path: "/runs/{runID}/events", handler: "handleRunEvents", tag: "runs",
+		summary: "A run's events as server-sent events, from the start or after Last-Event-ID, until the run ends.",
+		description: "Content type text/event-stream. Each event's id is its sequence number, its event name its type and its data the JSON " +
+			"{seq, type, node, payload, at}, with the payloads of docs/api-contract-m2.md. ?after= stands in for Last-Event-ID.",
+		query:     []param{{name: "after", description: "Send only the events numbered after this one."}},
+		headers:   []param{{name: "Last-Event-ID", description: "The id of the last event received; a reconnecting browser sends it."}},
+		responses: map[int]any{http.StatusOK: nil, http.StatusNotFound: notFound}},
 }

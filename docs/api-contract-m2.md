@@ -313,6 +313,16 @@ type Spec struct {
     - `versionResponse` carries the version's `inputs` schema and its `bindings`, for the run dialog.
   - **The worker** is `cmd/worker`, its own compose service; it alone holds the Docker socket. A cancel reaches the runner through `run_control`, with Valkey pub/sub on `runctl:<run>` waking the api that holds the stream.
   - **Returning after connecting:** `POST /tools/{toolID}/connection?next=<path>` returns the browser to that path of Rotor's once connected, with `connected=<toolID>`.
+- **As built (#24):**
+  - **The stream:** `GET /runs/{runID}/events` answers 404 before any stream for a run the caller may not see. Otherwise it is `text/event-stream`:
+    - `retry: 2000` first, then each event as `id: <seq>`, `event: <type>` and `data: {seq, type, node, payload, at}`.
+    - A comment every `EventHeartbeat` (15 seconds) while nothing happens.
+    - It ends once the run has ended and every event is sent. A waiting run's stream stays open.
+  - **Resuming:** `Last-Event-ID` (or `?after=`) sends only the events after it; a browser's EventSource sends the header itself when it reconnects.
+  - **Fan-out:** whoever stores an event (the api holding the runner's stream, a cancel, the worker) publishes on Valkey `runevents:<run>` after commit. Every replica's streams listen there, and also read every `EventPoll` (2 seconds) in case a signal was lost.
+  - **Lasting connections:** the stream is exempt from the request timeout and lifts the server's write deadline for itself.
+  - **The graph:** `GET /runs/{runID}` carries `graph {entry, nodes [{id, type}], edges [{from, to, label?}]}` from the pinned version. A router's cases are labelled edges, and its default is labelled `default`. Lists leave it out.
+  - **Who sees a run:** #22's policy decides who may see a run, for the list and the stream alike.
 - **Tokens (#23):** at `StartRun` and on `TokenRequest` the control plane mints per binding with `connections.Mint` and wraps the result with OpenBao response wrapping (single use, at most 2 minutes). The runner unwraps it. At the end every access token is revoked at its tool.
 
 - **As built (#23):**

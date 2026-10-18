@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cloudster1/rotor/backend/internal/boot"
+	"github.com/cloudster1/rotor/backend/internal/cache"
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/db"
@@ -67,6 +68,13 @@ func run() error {
 		return errors.New("ROTOR_OPENBAO_ADDR is not set, so the worker cannot hand sandboxes the runner CA; set it to OpenBao's address")
 	}
 
+	// Losing Valkey costs only latency: whoever follows a run also reads its events on their own.
+	store, err := cache.Open(cfg.Valkey.URL, log)
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
 	backend := docker.New(cfg.Sandbox.Socket, cfg.Sandbox.Network)
 	registry := tools.NewService(cluster, secrets, boot.ToolClient(cfg), cfg.ConnectionCallbackURL(), cfg.Env == config.EnvDevelopment)
 	people := connections.NewService(cluster, secrets, registry, boot.ToolClient(cfg), cfg.ConnectionCallbackURL(), log)
@@ -77,6 +85,7 @@ func run() error {
 	}, log)
 	// A run's tokens end with it, revoked at their tools.
 	worker.Teardown = people.RevokeRun
+	worker.Events = store
 	worker.Passed = func() {
 		now := time.Now()
 		if err := os.Chtimes(config.WorkerAliveFile, now, now); errors.Is(err, os.ErrNotExist) {

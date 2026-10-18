@@ -1,43 +1,33 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { cancelRun, type RunStatus, runQuery, runsQueryKey } from "@/api/runs";
+import { useMemo, useState } from "react";
+import { cancelRun, runQuery, runsQueryKey } from "@/api/runs";
 import { PageHeader } from "@/features/shell/EmptyState";
 import { s } from "@/strings";
+import { RunGraph } from "./RunGraph";
+import { RunStatusBadge } from "./RunStatusBadge";
+import { RunTimeline } from "./RunTimeline";
+import { entries, nodeStates } from "./timeline";
+import { useRunEvents } from "./useRunEvents";
 
 const secondary = "h-9 rounded-control border border-border-strong px-3 text-sm font-medium text-ink hover:bg-surface-raised disabled:opacity-60";
 const danger = "h-9 rounded-control bg-danger px-3 text-sm font-medium text-on-danger hover:bg-danger-hover disabled:opacity-60";
 
-/** How each state reads at a glance: settled ones in their colour, moving ones neutral. */
-const tone: Record<RunStatus, string> = {
-  queued: "bg-surface-raised text-ink",
-  starting: "bg-surface-raised text-ink",
-  running: "bg-accent-subtle text-ink",
-  waiting: "bg-warning-subtle text-ink",
-  succeeded: "bg-success-subtle text-ink",
-  failed: "bg-danger-subtle text-ink",
-  cancelled: "bg-surface-raised text-ink",
-  expired: "bg-surface-raised text-ink",
-};
-
-/** A run's state as a badge. */
-export function RunStatusBadge({ status }: { status: RunStatus }) {
-  return (
-    <span className={`rounded-control px-2 py-0.5 text-xs font-medium ${tone[status]}`} data-run-status={status}>
-      {s.runs.status[status]}
-    </span>
-  );
-}
-
-/** One run: where it is, why it ended, what it answered, and cancelling it while it has not ended. */
+/** One run, live: where it is, its graph lit up node by node, what it did step by step, and cancelling it. */
 export function RunPage({ runID }: { runID: string }) {
   const client = useQueryClient();
   const run = useQuery(runQuery(runID));
+  // A run's state moves with its last event, so the page asks for the run again then.
+  const { events, live } = useRunEvents(runID, (event) => {
+    if (event.type === "run.finished" || event.type === "runner.lost") void client.invalidateQueries({ queryKey: runQuery(runID).queryKey });
+  });
+  const timeline = useMemo(() => entries(events), [events]);
+  const states = useMemo(() => nodeStates(events), [events]);
   const [confirming, setConfirming] = useState(false);
   const cancel = useMutation({
     mutationFn: () => cancelRun(runID),
     onSuccess: (cancelled) => {
-      client.setQueryData(runQuery(runID).queryKey, cancelled);
+      client.setQueryData(runQuery(runID).queryKey, (before) => ({ ...cancelled, graph: before?.graph }));
       void client.invalidateQueries({ queryKey: runsQueryKey });
       setConfirming(false);
     },
@@ -55,7 +45,7 @@ export function RunPage({ runID }: { runID: string }) {
   if (!run.data) return <p className="text-sm text-ink-muted">{s.runs.page.loading}</p>;
   const r = run.data;
   return (
-    <div className="flex max-w-3xl flex-col gap-4">
+    <div className="flex max-w-6xl flex-col gap-4">
       <PageHeader title={s.runs.page.title(r.workflow.name)} />
       <div className="flex flex-wrap items-center gap-3 text-sm text-ink-muted">
         <RunStatusBadge status={r.status} />
@@ -70,14 +60,6 @@ export function RunPage({ runID }: { runID: string }) {
           <span className="font-medium">{s.runs.page.reason}: </span>
           {r.reason}
         </p>
-      )}
-      {r.output !== null && (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-lg font-semibold text-ink">{s.runs.page.output}</h2>
-          <pre className="overflow-x-auto rounded-control border border-border bg-surface-sunken p-3 text-xs text-ink" data-run-output>
-            {JSON.stringify(r.output, null, 2)}
-          </pre>
-        </section>
       )}
       {!r.ended &&
         (confirming ? (
@@ -101,6 +83,18 @@ export function RunPage({ runID }: { runID: string }) {
         <p role="alert" className="text-sm text-danger">
           {cancel.error.message}
         </p>
+      )}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        {r.graph && <RunGraph graph={r.graph} states={states} />}
+        <RunTimeline entries={timeline} live={live && !r.ended} />
+      </div>
+      {r.output !== null && (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-lg font-semibold text-ink">{s.runs.page.output}</h2>
+          <pre className="overflow-x-auto rounded-control border border-border bg-surface-sunken p-3 text-xs text-ink" data-run-output>
+            {JSON.stringify(r.output, null, 2)}
+          </pre>
+        </section>
       )}
     </div>
   );

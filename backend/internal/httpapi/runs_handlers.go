@@ -14,6 +14,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/runnerctl"
 	"github.com/cloudster1/rotor/backend/internal/runs"
+	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 )
 
 // Runs starts, lists and cancels runs as the caller; *runs.Service is the real one.
@@ -22,6 +23,8 @@ type Runs interface {
 	Get(ctx context.Context, id uuid.UUID) (runs.Run, error)
 	List(ctx context.Context, f runs.Filter) ([]runs.Run, error)
 	Cancel(ctx context.Context, id uuid.UUID) (runs.Run, error)
+	Follow(ctx context.Context, id uuid.UUID, after int64, to runs.Stream) error
+	Graph(ctx context.Context, r runs.Run) (spec.Graph, error)
 }
 
 // idempotencyHeader names the header a client retries a start with.
@@ -183,7 +186,12 @@ func (s *Server) handleGetRun(w http.ResponseWriter, r *http.Request) {
 		respondError(w, r, runError(err))
 		return
 	}
-	respondJSON(w, r, http.StatusOK, toRunResponse(run))
+	out := toRunResponse(run)
+	// A version that no longer reads still shows its run, without the graph.
+	if graph, err := s.Runs.Graph(r.Context(), run); err == nil {
+		out.Graph = &graph
+	}
+	respondJSON(w, r, http.StatusOK, out)
 }
 
 func (s *Server) handleCancelRun(w http.ResponseWriter, r *http.Request) {

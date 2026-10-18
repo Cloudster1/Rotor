@@ -51,6 +51,7 @@ DOCKER_GO_STACK = $(call go_run,--network $(STACK_NET) \
 	-e ROTOR_DB_ADMIN_URL='$(call STACK_PG_URL,rotor_admin,$(ADMIN_DB_PASSWORD),postgres)' \
 	-e ROTOR_TEST_SUPERUSER_URL='$(call STACK_PG_URL,rotor,$(POSTGRES_PASSWORD),postgres)' \
 	-e ROTOR_TEST_API_URL=http://api:8080 \
+	-e ROTOR_VALKEY_URL='redis://:$(VALKEY_PASSWORD)@valkey:6379/0' \
 	-e ROTOR_TEST_APP_URL=http://localhost:$(WEB_PORT) \
 	-e ROTOR_TEST_KEYCLOAK_URL=http://keycloak:8080 \
 	-e ROTOR_TEST_KEYCLOAK_PUBLIC_URL=http://localhost:$(KEYCLOAK_PORT) \

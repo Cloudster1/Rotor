@@ -2,12 +2,10 @@ import { expect, type Page, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { PEOPLE, signIn } from "../fixtures/auth";
 import { expectAccessible, startInScheme, type ColourScheme } from "../fixtures/shell";
+import { createWorkflow, RUN_TIMEOUT_MS } from "../fixtures/runs";
 import { toolStubURL } from "../fixtures/stack";
 
 const SCHEMES: ColourScheme[] = ["light", "dark"];
-
-/** How long a run may take, sandbox start included, before the test gives up on it. */
-const RUN_TIMEOUT_MS = 120_000;
 
 /** A workflow that greets with its input in a code node, binding the tool when one is named. */
 function greeter(name: string, tool?: string): string {
@@ -36,14 +34,6 @@ function greeter(name: string, tool?: string): string {
   ]
     .filter((line) => line !== "")
     .join("\n");
-}
-
-/** Saves a workflow as whoever the page is signed in as, and answers its id. */
-async function createWorkflow(page: Page, source: string): Promise<string> {
-  const response = await page.request.post("/api/v1/workflows", { data: { specYAML: source, comment: "e2e" } });
-  expect(response.status(), await response.text()).toBe(201);
-  const body = (await response.json()) as { workflow: { id: string } };
-  return body.workflow.id;
 }
 
 async function startFromDialog(page: Page, greeting: string): Promise<void> {

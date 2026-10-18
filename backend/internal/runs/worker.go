@@ -53,6 +53,15 @@ type Worker struct {
 	Teardown Teardown
 	// Passed is told after every pass, such as for a health check; nil tells nobody.
 	Passed func()
+	// Events tells those following a run that the worker wrote it an event; nil leaves them to poll.
+	Events Publisher
+}
+
+// announce tells those following the run that it has a new event, once the event is committed.
+func (w *Worker) announce(ctx context.Context, runID uuid.UUID) {
+	if w.Events != nil {
+		w.Events.Publish(ctx, runnerctl.EventsChannel(runID), nil)
+	}
 }
 
 // NewWorker returns a worker that starts sandboxes on backend as launch says.
@@ -226,7 +235,11 @@ func (w *Worker) dropSandbox(ctx context.Context, c claimed) error {
 
 // end ends a run the worker gives up on, with a message the person reads.
 func (w *Worker) end(ctx context.Context, runID uuid.UUID, status, reason, message string) error {
-	return w.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
+	err := w.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		return runnerctl.End(ctx, tx, runID, status, reason, map[string]any{"message": message})
 	})
+	if err == nil {
+		w.announce(ctx, runID)
+	}
+	return err
 }

@@ -69,3 +69,13 @@
 @utility bg-backdrop {
   background: radial-gradient(120% 80% at 20% 0%, var(--color-backdrop-from), var(--color-backdrop-to));
 }
+
+/* React Flow's credit, in the theme's colours so it reads in light and dark alike. */
+.react-flow .react-flow__attribution {
+  background: var(--color-surface);
+}
+
+.react-flow .react-flow__attribution a {
+  color: var(--color-ink-muted);
+  font-size: 0.75rem;
+}

@@ -9,6 +9,13 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- People follow a run live (#24). Its page draws the workflow's graph and
+  lights it up node by node. Beside it, a timeline says what happened: steps
+  started and finished, each tool call with its arguments and answer, what
+  the model wrote, and links to what the run created in the tools. A dropped
+  connection picks up where it left off. The Runs page lists the runs you may
+  see, filtered by workflow, state and the runs you started. The stream works
+  through any api replica.
 - A run's tokens reach only its sandbox and end with it (#23). Each token and
   the provider key arrive wrapped in a single-use OpenBao token that only the
   sandbox opens, within two minutes; the runner keeps them in memory and cuts

@@ -326,8 +326,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * A run's events as server-sent events, from the start or after Last-Event-ID.
-         * @description Content type text/event-stream; each event's id is its sequence number and its data the JSON payload in docs/api-contract-m2.md.
+         * A run's events as server-sent events, from the start or after Last-Event-ID, until the run ends.
+         * @description Content type text/event-stream. Each event's id is its sequence number, its event name its type and its data the JSON {seq, type, node, payload, at}, with the payloads of docs/api-contract-m2.md. ?after= stands in for Last-Event-ID.
          */
         get: operations["runEvents"];
         put?: never;
@@ -677,6 +677,20 @@ export interface components {
         ErrorEnvelope: {
             error: components["schemas"]["APIError"];
         };
+        Graph: {
+            edges: components["schemas"]["GraphEdge"][];
+            entry: string;
+            nodes: components["schemas"]["GraphNode"][];
+        };
+        GraphEdge: {
+            from: string;
+            label?: string;
+            to: string;
+        };
+        GraphNode: {
+            id: string;
+            type: string;
+        };
         Info: {
             description?: string;
             title: string;
@@ -790,6 +804,7 @@ export interface components {
             ended: boolean;
             /** Format: date-time */
             finishedAt: string | null;
+            graph?: components["schemas"]["Graph"];
             id: string;
             /** @description A JSON value. */
             inputs: unknown;
@@ -1687,8 +1702,14 @@ export interface operations {
     };
     runEvents: {
         parameters: {
-            query?: never;
-            header?: never;
+            query?: {
+                /** @description Send only the events numbered after this one. */
+                after?: string;
+            };
+            header?: {
+                /** @description The id of the last event received; a reconnecting browser sends it. */
+                "Last-Event-ID"?: string;
+            };
             path: {
                 runID: string;
             };
@@ -1705,15 +1726,6 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
