@@ -46,6 +46,10 @@ type Options struct {
 	Capabilities *[]string `json:"capabilities,omitempty"`
 	// AccessTokenSeconds overrides AccessTTL, for tests that watch a token expire.
 	AccessTokenSeconds int `json:"accessTokenSeconds,omitempty"`
+	// LLMKey is the key the tenant's stub model takes; empty takes any.
+	LLMKey string `json:"llmKey,omitempty"`
+	// LLMScript is what the tenant's stub model answers, one turn per chat call.
+	LLMScript []LLMTurn `json:"llmScript,omitempty"`
 }
 
 // Stats count what happened at a tenant, for tests to check what Rotor did there.
@@ -59,6 +63,7 @@ type Stats struct {
 	Revocations    int `json:"revocations"`
 	GrantsEnded    int `json:"grantsEnded"`
 	MCPCalls       int `json:"mcpCalls"`
+	LLMCalls       int `json:"llmCalls"`
 	// LiveGrants and LiveAccessTokens are counted when asked, not kept.
 	LiveGrants       int `json:"liveGrants"`
 	LiveAccessTokens int `json:"liveAccessTokens"`
@@ -94,6 +99,7 @@ type tenant struct {
 	grants   map[string]*grant
 	tokens   map[string]*token
 	stats    Stats
+	llmNext  int
 }
 
 func (t *tenant) oauth() bool          { return t.opts.OAuth == nil || *t.opts.OAuth }
@@ -160,6 +166,8 @@ func (s *Stub) Public() http.Handler {
 		r.Post(apiPrefix+"/oauth/revoke", s.withOAuth(s.handleRevoke))
 		r.Get("/oauth/consent", s.withOAuth(s.handleConsentPage))
 		r.Post("/oauth/consent", s.withOAuth(s.handleConsent))
+		r.Get(llmPath+"/models", s.withTenant(s.handleLLMModels))
+		r.Post(llmPath+"/chat/completions", s.withTenant(s.handleLLMChat))
 	})
 	r.Get("/.well-known/oauth-authorization-server"+TenantPrefix+"/{tenant}", s.withOAuth(s.handleServerMetadata))
 	r.Get("/.well-known/oauth-protected-resource"+TenantPrefix+"/{tenant}"+mcpPath, s.withOAuth(s.handleProtectedResource))

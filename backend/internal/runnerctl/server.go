@@ -30,6 +30,8 @@ type Server struct {
 	Checkpoints Checkpoints
 	// Reach turns a tool's public address into one a sandbox reaches, as the api's own calls do.
 	Reach func(string) string
+	// Models resolves a run's model and its key (#20); nil starts runs without one.
+	Models Models
 
 	store store
 	mu    sync.Mutex
@@ -113,8 +115,9 @@ func (s *Server) Connect(stream runnerpb.RunnerControlService_ConnectServer) err
 	if err != nil {
 		return s.fail(runID, "read what the runner has not acknowledged", err)
 	}
+	s.resolveModel(ctx, r)
 	if !sent || r.Status == "starting" {
-		msg, err := s.store.enqueue(ctx, runID, startRun(r, bindings))
+		msg, err := s.store.enqueue(ctx, runID, startRun(r, bindings, s.modelConfig(r)))
 		if err != nil {
 			return s.fail(runID, "queue StartRun", err)
 		}
@@ -128,6 +131,15 @@ func (s *Server) Connect(stream runnerpb.RunnerControlService_ConnectServer) err
 	for _, msg := range pending {
 		msg.Ack = last
 		if err := stream.Send(msg); err != nil {
+			return err
+		}
+	}
+	if r.model != nil {
+		grant, err := s.secret(ctx, r)
+		if err != nil {
+			return s.fail(runID, "read the provider key", err)
+		}
+		if err := stream.Send(grant); err != nil {
 			return err
 		}
 	}

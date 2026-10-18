@@ -13,6 +13,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import grpc
+from langchain_core.language_models import BaseChatModel
 from langgraph.checkpoint.base import BaseCheckpointSaver
 
 from rotor_runner import __version__
@@ -29,6 +30,7 @@ from rotor_runner.config import (
     TOKEN_WAIT_S,
 )
 from rotor_runner.mcp import Binding, McpGateway, ToolFailedError
+from rotor_runner.models import build_model
 from rotor_runner.pb.rotor.runner.v1 import runner_pb2 as pb
 from rotor_runner.pb.rotor.runner.v1 import runner_pb2_grpc as pb_grpc
 from rotor_runner.spec import parse
@@ -93,6 +95,7 @@ class Channel:
         self._run: asyncio.Task[None] | None = None
         self._finished = asyncio.Event()
         self.tokens = Tokens(self)
+        self._keys: dict[str, asyncio.Future[str]] = {}
         self.replies: dict[str, asyncio.Future[pb.ConnectResponse]] = {}
         self.checkpointer: BaseCheckpointSaver[Any] = RemoteSaver(self)
 
@@ -205,6 +208,10 @@ class Channel:
             self._run.cancel()
         elif kind == "token_grant":
             self.tokens.deliver(response.token_grant)
+        elif kind == "secret_grant":
+            awaited = self._key(response.secret_grant.provider_id)
+            if not awaited.done():
+                awaited.set_result(response.secret_grant.api_key)
         elif kind.startswith("checkpoint_"):
             reply = getattr(response, kind)
             future = self.replies.pop(reply.request_id, None)
@@ -212,6 +219,11 @@ class Channel:
                 future.set_result(response)
         if response.seq:
             self.send(pb.ConnectRequest())
+
+    def _key(self, provider_id: str) -> asyncio.Future[str]:
+        if provider_id not in self._keys:
+            self._keys[provider_id] = asyncio.get_running_loop().create_future()
+        return self._keys[provider_id]
 
     async def _heartbeat(self, queue: asyncio.Queue[pb.ConnectRequest | None]) -> None:
         while True:
@@ -241,10 +253,20 @@ class Channel:
             b.binding: Binding(b.binding, b.mcp_url, tuple(b.scopes), b.access, tuple(b.allow_tools))
             for b in start.tools
         }
+        model = None
+        if start.HasField("model") and start.model.model:
+            # The key arrives in a SecretGrant right after StartRun, and after every reconnect.
+            key = await asyncio.wait_for(self._key(start.model.provider_id), TOKEN_WAIT_S)
+            config = start.model
+
+            def model() -> BaseChatModel:
+                return build_model(config, key)
+
         ctx = RunContext(
             spec=spec,
             tools=McpGateway(bindings=bindings, tokens=self.tokens, emit=self.emit),
             emit=self.emit,
+            model=model,
             code=CodeNodeRunner(),
         )
         inputs = json.loads(start.inputs_json or "{}")

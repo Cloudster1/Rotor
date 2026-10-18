@@ -1,10 +1,13 @@
 package toolstub
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"slices"
 	"strings"
@@ -293,4 +296,49 @@ func scopesOf(me map[string]any) []string {
 		out = append(out, s.(string))
 	}
 	return out
+}
+
+// The stub model answers from its tenant's script behind its key, in OpenAI's shapes, streamed or not.
+func TestTheStubModelAnswersFromItsScript(t *testing.T) {
+	stub := newTestStub(t)
+	public, control := httptest.NewServer(stub.Public()), httptest.NewServer(stub.Control())
+	t.Cleanup(public.Close)
+	t.Cleanup(control.Close)
+	send := func(base, method, path, bearer string, body any) (int, string) {
+		t.Helper()
+		var reader io.Reader
+		if body != nil {
+			encoded, _ := json.Marshal(body)
+			reader = bytes.NewReader(encoded)
+		}
+		req, _ := http.NewRequest(method, base+path, reader)
+		req.Header.Set("Authorization", "Bearer "+bearer)
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		raw, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(raw)
+	}
+	script := []map[string]any{{"toolCalls": []map[string]any{{"name": "whoami"}}}, {"content": "You are bob."}}
+	if status, raw := send(control.URL, "POST", "/control/tenants", "", map[string]any{"name": "model", "llmKey": "k", "llmScript": script}); status != http.StatusCreated {
+		t.Fatalf("make the tenant = %d %s", status, raw)
+	}
+	if status, _ := send(public.URL, "GET", "/t/model"+llmPath+"/models", "wrong", nil); status != http.StatusUnauthorized {
+		t.Errorf("models with the wrong key = %d", status)
+	}
+	if status, raw := send(public.URL, "GET", "/t/model"+llmPath+"/models", "k", nil); status != http.StatusOK || !strings.Contains(raw, StubModel) {
+		t.Errorf("models = %d %s", status, raw)
+	}
+	status, raw := send(public.URL, "POST", "/t/model"+llmPath+"/chat/completions", "k", map[string]any{"model": StubModel, "messages": []any{}})
+	if status != http.StatusOK || !strings.Contains(raw, `"finish_reason":"tool_calls"`) || !strings.Contains(raw, `"name":"whoami"`) {
+		t.Errorf("the first turn = %d %s", status, raw)
+	}
+	status, raw = send(public.URL, "POST", "/t/model"+llmPath+"/chat/completions", "k",
+		map[string]any{"model": StubModel, "messages": []any{}, "stream": true, "stream_options": map[string]any{"include_usage": true}})
+	if status != http.StatusOK || !strings.Contains(raw, "You are bob.") || !strings.Contains(raw, `"usage"`) || !strings.HasSuffix(strings.TrimSpace(raw), "data: [DONE]") {
+		t.Errorf("the streamed second turn = %d %s", status, raw)
+	}
 }
