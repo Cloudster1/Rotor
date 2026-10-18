@@ -1,0 +1,361 @@
+{
+  "realm": "dynamo",
+  "displayName": "Dynamo development",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "groups": [
+    {
+      "name": "armature-administrators",
+      "path": "/armature-administrators"
+    },
+    {
+      "name": "exciter-administrators",
+      "path": "/exciter-administrators"
+    },
+    {
+      "name": "stator-administrators",
+      "path": "/stator-administrators"
+    },
+    {
+      "name": "portal-owners",
+      "path": "/portal-owners"
+    },
+    {
+      "name": "scrum-masters",
+      "path": "/scrum-masters"
+    },
+    {
+      "name": "developers",
+      "path": "/developers"
+    },
+    {
+      "name": "readers",
+      "path": "/readers"
+    },
+    {
+      "name": "engineering",
+      "path": "/engineering"
+    },
+    {
+      "name": "quality",
+      "path": "/quality"
+    },
+    {
+      "name": "marketing",
+      "path": "/marketing"
+    },
+    {
+      "name": "rotor-administrators",
+      "path": "/rotor-administrators"
+    }
+  ],
+  "users": [
+    {
+      "username": "alice",
+      "email": "alice@suite.test",
+      "firstName": "Alice",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "alice password",
+          "temporary": false
+        }
+      ],
+      "groups": [
+        "/armature-administrators",
+        "/exciter-administrators",
+        "/stator-administrators",
+        "/rotor-administrators",
+        "/engineering"
+      ]
+    },
+    {
+      "username": "bob",
+      "email": "bob@suite.test",
+      "firstName": "Bob",
+      "lastName": "Builder",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "bob password",
+          "temporary": false
+        }
+      ],
+      "groups": [
+        "/developers",
+        "/engineering"
+      ]
+    },
+    {
+      "username": "carol",
+      "email": "carol@suite.test",
+      "firstName": "Carol",
+      "lastName": "Checker",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "carol password",
+          "temporary": false
+        }
+      ],
+      "groups": [
+        "/portal-owners",
+        "/scrum-masters",
+        "/quality"
+      ]
+    },
+    {
+      "username": "dave",
+      "email": "dave@suite.test",
+      "firstName": "Dave",
+      "lastName": "Visitor",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dave password",
+          "temporary": false
+        }
+      ],
+      "groups": [
+        "/readers",
+        "/marketing"
+      ]
+    },
+    {
+      "username": "service-account-rotor-control-plane",
+      "enabled": true,
+      "serviceAccountClientId": "rotor-control-plane",
+      "groups": []
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "armature",
+      "name": "Armature",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "armature-dev-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost*",
+        "http://127.0.0.1*",
+        "http://web/*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "+"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "basic",
+        "roles",
+        "profile",
+        "email"
+      ],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "false",
+            "claim.name": "groups",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "exciter",
+      "name": "Exciter",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "exciter-dev-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost*",
+        "http://127.0.0.1*",
+        "http://web/*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "+",
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "basic",
+        "roles",
+        "profile",
+        "email"
+      ],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "false",
+            "claim.name": "groups",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "stator",
+      "name": "Stator",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "stator-dev-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost*",
+        "http://127.0.0.1*",
+        "http://web/*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "+",
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "basic",
+        "roles",
+        "profile",
+        "email"
+      ],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "false",
+            "claim.name": "groups",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "rotor",
+      "name": "Rotor",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "rotor-dev-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost*",
+        "http://127.0.0.1*",
+        "http://web/*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "+",
+        "pkce.code.challenge.method": "S256",
+        "backchannel.logout.url": "http://api:8080/api/v1/auth/oidc/backchannel-logout",
+        "backchannel.logout.session.required": "true",
+        "backchannel.logout.revoke.offline.tokens": "false"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "basic",
+        "roles",
+        "profile",
+        "email"
+      ],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "false",
+            "claim.name": "groups",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ],
+      "frontchannelLogout": false
+    },
+    {
+      "clientId": "rotor-control-plane",
+      "name": "Rotor control plane",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "rotor-control-plane-dev-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "defaultClientScopes": [
+        "basic",
+        "roles"
+      ],
+      "protocolMappers": [
+        {
+          "name": "openbao audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "openbao",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+Rotor
+Copyright (C) 2026 Tobias Kluge
+Licensed under the Apache License, Version 2.0, see LICENSE.
+
+This product contains code adapted from Exciter
+(https://github.com/Cloudster1/Exciter), which in turn adapted much of it from
+Armature (https://github.com/Cloudster1/Armature) and Stator
+(https://github.com/praetorianer777/Stator, Copyright (C) 2026 praetorianer777),
+all licensed under the Apache License, Version 2.0, the license of Rotor
+itself. Exciter's NOTICE names what it took from Armature and Stator; files
+Rotor took from Exciter keep that lineage. Each entry below names the commit
+the files were taken from.
+
+Adapted from Exciter at c3f81ae:
+- Makefile, mk/go.mk, biome.mk, actions.mk and stack.mk: renamed to Rotor, cut
+  to Rotor's services, each area's targets defined only once its directory
+  exists, the port slots moved to 30000-32759
+- run-tests.sh, scripts/build-stamp.sh, go-test.sh, test-summary.sh and
+  stack-ports.sh, tests/test-build-stamp.sh, test-ci.sh, test-ports.sh and
+  test-stack.sh: renamed, with a check-python layer and Rotor's clients
+- .claude/hooks/branch-guard.sh, gate-layers.sh, issue-context.sh and
+  tests/branch-guard-test.sh, .claude/settings.json and .claude/skills/gh:
+  renamed, with a check-python layer
+- .github/workflows/ci.yml, .github/ISSUE_TEMPLATE and
+  .github/PULL_REQUEST_TEMPLATE.md: one browser shard, a uv cache, and run and
+  sandbox fields in the bug template
+- CLAUDE.md, CONTRIBUTING.md and SECURITY.md: rewritten for Rotor in the same
+  shape
+- deploy/docker-compose.yml, deploy/postgres/init-roles.sh: the
+  infrastructure services without the replica, object store and mail
+- deploy/keycloak/realm.json and realm-check.mjs: the suite's realm, with
+  Rotor's clients and group added
+- biome.json, .gitignore and .dockerignore
