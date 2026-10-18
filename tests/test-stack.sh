@@ -38,6 +38,18 @@ if config="$(docker compose -f "$COMPOSE" config --format json 2>&1)"; then
        (.value.environment.ROTOR_OIDC_CLIENT_SECRET // "")] | @tsv' <<< "$config")
   [[ "$(jq -r '.services.api.environment.ROTOR_OIDC_CLIENT_ID // ""' <<< "$config")" == rotor ]] \
     && pass "the api signs people in as the realm's client rotor" || fail "the api does not sign in as client rotor"
+
+  # The api signs in to OpenBao as the realm's service account, with the secret the realm holds for it.
+  read -r bao_id bao_secret < <(jq -r '.services.api.environment | [.ROTOR_CONTROL_PLANE_CLIENT_ID // "", .ROTOR_CONTROL_PLANE_CLIENT_SECRET // ""] | @tsv' <<< "$config")
+  [[ "$bao_id" == rotor-control-plane && "$(client rotor-control-plane | jq -r .secret)" == "$bao_secret" ]] \
+    && pass "the api signs in to OpenBao as rotor-control-plane with the realm's secret" \
+    || fail "the api signs in to OpenBao as '$bao_id' with a secret the realm does not hold"
+  [[ "$(jq -r '.services.api.environment.ROTOR_OPENBAO_ADDR // ""' <<< "$config")" == http://openbao:8200 ]] \
+    && pass "the api keeps its secrets in the stack's OpenBao" || fail "the api does not name the stack's OpenBao"
+  jq -e '.services.openbao.volumes[] | select(.target == "/openbao/file" and .type == "volume")' <<< "$config" > /dev/null \
+    && pass "OpenBao keeps its data on a volume" || fail "OpenBao keeps its data nowhere that survives a restart"
+  [[ "$(jq -r '.services["openbao-sealed"].environment.ROTOR_OPENBAO_STAY_SEALED // ""' <<< "$config")" == 1 ]] \
+    && pass "a second OpenBao stays sealed, for the readiness test" || fail "no sealed OpenBao for the readiness test"
 else
   fail "compose refuses the file: $config"
 fi

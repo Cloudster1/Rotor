@@ -70,6 +70,7 @@ check-go: fmt-check vet test-go openapi-check ## The backend gate: formatting, v
 test-integration: | $(GO_CACHE) ## Run the integration suite against this checkout's running stack
 	@docker compose ps --status running --services 2>/dev/null | grep -qx api \
 		|| { echo "The stack for this checkout is not running. Start it with make up or make stack-up, then run this again."; exit 1; }
+	$(ROOT)/tests/test-openbao-persist.sh
 	$(ROOT)/scripts/go-test.sh $(REPORTS)/integration.json $(DOCKER_GO_STACK) go test -race -json -tags integration -count=1 $(TESTFLAGS) ./test/...
 
 .PHONY: shell

@@ -112,8 +112,12 @@ page in the browser suite.
 
 ## Development stack (`deploy/docker-compose.yml`, #1)
 
-Postgres 18, Valkey 8, Keycloak 26 importing the suite's realm, and an
-OpenBao dev server configured by `deploy/openbao/init.sh` on every start
-(kv-v2 at `rotor/`, transit, JWT auth trusting the realm). `make up` derives
+Postgres 18, Valkey 8, Keycloak 26 importing the suite's realm, and OpenBao
+with integrated storage on a volume, initialized and unsealed by its
+entrypoint and configured by `deploy/openbao/init.sh` on every start: kv-v2
+at `rotor/` with check-and-set required, transit, the policies in
+`deploy/openbao/policies/`, and JWT auth trusting the realm for the role
+`rotor-control-plane`. A second OpenBao, `openbao-sealed`, is initialized
+and never unsealed, so readiness is tested against a sealed server. `make up` derives
 the compose project and its ports from the checkout's path, in 30000 to
 32759, so worktrees and the siblings' stacks run side by side.

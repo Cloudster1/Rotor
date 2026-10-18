@@ -20,10 +20,17 @@ type Database interface {
 	Ping(ctx context.Context) error
 }
 
+// Secrets is OpenBao as readiness sees it; *vault.Client is the real one.
+type Secrets interface {
+	Ready(ctx context.Context) error
+}
+
 // Server holds everything the handlers need.
 type Server struct {
 	DB  Database
 	Log *slog.Logger
+	// Vault is nil where OpenBao is not configured, in development outside the stack.
+	Vault Secrets
 	// Sessions and SignIn are nil only in tests that exercise neither.
 	Sessions Sessions
 	SignIn   SignIn
@@ -115,7 +122,7 @@ func (s *Server) handleLiveness(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, r, http.StatusOK, statusResponse{Status: "ok"})
 }
 
-// handleReadiness answers whether the process can serve traffic. Nobody has
+// handleReadiness answers whether the process can serve traffic: the database and OpenBao answer. Nobody has
 // signed in to read it, so a failure says whether, not why.
 func (s *Server) handleReadiness(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), config.ReadinessTimeout)
@@ -129,6 +136,14 @@ func (s *Server) handleReadiness(w http.ResponseWriter, r *http.Request) {
 		loggerFrom(r.Context()).Error("not ready", "error", err)
 		respondJSON(w, r, http.StatusServiceUnavailable, statusResponse{Status: "unavailable"})
 		return
+	}
+	// Without OpenBao no connection can be made or used, so a sealed one takes the api out of rotation.
+	if s.Vault != nil {
+		if err := s.Vault.Ready(ctx); err != nil {
+			loggerFrom(r.Context()).Error("not ready", "error", err)
+			respondJSON(w, r, http.StatusServiceUnavailable, statusResponse{Status: "unavailable"})
+			return
+		}
 	}
 	respondJSON(w, r, http.StatusOK, statusResponse{Status: "ok"})
 }

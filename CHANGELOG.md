@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Rotor keeps its secrets in OpenBao (#10). The api signs in to OpenBao as
+  the realm's service account `rotor-control-plane`, renews its token and
+  signs in again when it ends; it may touch people's connections and the
+  tools' clients and nothing else, and every write names the version it
+  read. `/readyz` reports unavailable while OpenBao is sealed or
+  unreachable. The development OpenBao now keeps its data across restarts.
 - People sign in with their suite account (#6). Rotor sends the browser to
   the realm `dynamo` and keeps the session as an HttpOnly cookie whose
   SHA-256 alone is stored; `rotor-administrators` makes an administrator,

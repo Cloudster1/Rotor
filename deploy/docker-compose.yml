@@ -85,18 +85,18 @@ services:
       start_period: 90s
       start_interval: 2s
 
-  # A dev server keeps everything in memory, so the entrypoint configures it again on every start.
+  # Integrated storage on a volume keeps people's connections across restarts; the entrypoint unseals and configures it.
   openbao:
     image: openbao/openbao:2.7.1
     entrypoint: ["/bin/sh", "/rotor/entrypoint.sh"]
     environment:
-      BAO_DEV_ROOT_TOKEN_ID: ${OPENBAO_ROOT_TOKEN:-rotor-dev-root}
       BAO_ADDR: http://127.0.0.1:8200
       BAO_TOKEN: ${OPENBAO_ROOT_TOKEN:-rotor-dev-root}
       ROTOR_OIDC_ISSUER: http://localhost:${KEYCLOAK_PORT:-8302}/realms/dynamo
       ROTOR_OIDC_JWKS_URL: http://keycloak:8080/realms/dynamo/protocol/openid-connect/certs
     volumes:
       - ./openbao:/rotor:ro
+      - openbao-data:/openbao/file
     cap_add:
       - IPC_LOCK
     depends_on:
@@ -110,6 +110,25 @@ services:
       timeout: 5s
       retries: 30
       start_period: 20s
+      start_interval: 1s
+
+  # The same server, initialized and never unsealed, so readiness is tested against a sealed OpenBao.
+  openbao-sealed:
+    image: openbao/openbao:2.7.1
+    entrypoint: ["/bin/sh", "/rotor/entrypoint.sh"]
+    environment:
+      BAO_ADDR: http://127.0.0.1:8200
+      ROTOR_OPENBAO_STAY_SEALED: "1"
+    volumes:
+      - ./openbao:/rotor:ro
+    tmpfs:
+      - /openbao/file:uid=100,gid=1000
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/rotor-configured && { bao status >/dev/null; [ $$? -eq 2 ]; }"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
       start_interval: 1s
 
   # Migrations run as the database owner, which is what lets them set the runtime roles' default privileges.
@@ -151,6 +170,10 @@ services:
       ROTOR_OIDC_CLIENT_ID: rotor
       ROTOR_OIDC_CLIENT_SECRET: rotor-dev-secret
       ROTOR_OIDC_BACKCHANNEL: http://localhost:${KEYCLOAK_PORT:-8302}=http://keycloak:8080
+      # The api signs in to OpenBao as the realm's service account rotor-control-plane.
+      ROTOR_OPENBAO_ADDR: http://openbao:8200
+      ROTOR_CONTROL_PLANE_CLIENT_ID: rotor-control-plane
+      ROTOR_CONTROL_PLANE_CLIENT_SECRET: rotor-control-plane-dev-secret
     ports:
       - "127.0.0.1:${API_PORT:-8301}:8080"
     healthcheck:
@@ -183,3 +206,4 @@ services:
 volumes:
   postgres-data:
   valkey-data:
+  openbao-data:

@@ -69,9 +69,10 @@ type Config struct {
 	// RequestTimeout bounds every request's handler.
 	RequestTimeout time.Duration
 
-	DB   DB
-	Auth Auth
-	OIDC OIDC
+	DB      DB
+	Auth    Auth
+	OIDC    OIDC
+	OpenBao OpenBao
 }
 
 // Auth is how a signed-in browser is remembered.
@@ -142,6 +143,7 @@ func Load() (Config, error) {
 			RedirectURL:  l.str("ROTOR_OIDC_REDIRECT_URL", ""),
 			Backchannel:  l.str("ROTOR_OIDC_BACKCHANNEL", ""),
 		},
+		OpenBao: loadOpenBao(l),
 	}
 	if c.OIDC.RedirectURL == "" {
 		c.OIDC.RedirectURL = c.AppBaseURL + CallbackPath
@@ -175,6 +177,7 @@ func Load() (Config, error) {
 	if c.Env != EnvDevelopment && c.OIDC.Issuer == "" {
 		l.problem("Set ROTOR_OIDC_ISSUER to the identity provider's issuer, such as https://id.example.com/realms/dynamo; it is the only way to sign in.")
 	}
+	checkOpenBao(l, c)
 	if c.DB.AdminURL == "" {
 		c.DB.AdminURL = c.DB.URL
 	}
