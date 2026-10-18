@@ -19,6 +19,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/httpapi"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
+	"github.com/cloudster1/rotor/backend/internal/tools"
 	"github.com/cloudster1/rotor/backend/internal/vault"
 	"github.com/cloudster1/rotor/backend/internal/version"
 )
@@ -83,6 +84,7 @@ func run() error {
 	}
 	if secrets != nil {
 		server.Vault = secrets
+		server.Tools = tools.NewService(cluster, secrets, toolClient(cfg), cfg.ConnectionCallbackURL(), cfg.Env == config.EnvDevelopment)
 	}
 	origins := cfg.CORSOrigins
 	if len(origins) == 0 && !cfg.IsProduction() {
@@ -146,6 +148,11 @@ func openSecrets(ctx context.Context, cfg config.Config, log *slog.Logger) (*vau
 	}
 	go client.Run(ctx)
 	return client, nil
+}
+
+// toolClient reaches the tools an administrator adds, at the addresses Rotor can reach them.
+func toolClient(cfg config.Config) *http.Client {
+	return &http.Client{Timeout: config.ToolTimeout, Transport: oidc.HTTPClient(oidc.ParseRewrites(cfg.Tools.Backchannel)).Transport}
 }
 
 // healthcheck probes the local readiness endpoint and fails unless it is ready.

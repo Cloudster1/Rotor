@@ -21,10 +21,13 @@ const (
 	ActionRoleChanged            = "user.role_changed"
 	ActionSwitchedOff            = "user.switched_off"
 	ActionSessionEndedByProvider = "session.ended_by_provider"
+	ActionToolAdded              = "tool.added"
+	ActionToolRemoved            = "tool.removed"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
-var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, ActionSwitchedOff, ActionSessionEndedByProvider}
+var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, ActionSwitchedOff, ActionSessionEndedByProvider,
+	ActionToolAdded, ActionToolRemoved}
 
 // Redacted stands in the record for a value that looked like a credential.
 const Redacted = "[redacted]"
@@ -32,7 +35,7 @@ const Redacted = "[redacted]"
 // SecretPrefixes start the credentials Rotor and the tools issue, and every JWT,
 // so such a value never reaches the record whatever key it hides under.
 var SecretPrefixes = []string{
-	"rotor_pat_", "exciter_pat_", "exciter_whs_", "armature_pat_", "armature_whs_", "stator_pat_", "stator_whs_", "eyJ",
+	"rotor_pat_", "exciter_pat_", "exciter_whs_", "exciter_oat_", "exciter_ort_", "exciter_ocs_", "exciter_oac_", "armature_pat_", "armature_whs_", "stator_pat_", "stator_whs_", "eyJ",
 }
 
 // secretWords mark a key whose value would be a credential if it were text.

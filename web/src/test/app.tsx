@@ -24,8 +24,14 @@ export const ME: Me = {
 
 const NOBODY = { error: { code: "unauthorized", message: "Sign in to continue." } };
 
-/** Answers the client's requests from a table of path to body; anything else is a 404 in the error envelope. */
-export function stubApi(answers: Record<string, unknown> = { "/api/v1/meta": META, "/api/v1/auth/me": ME }) {
+/** An answer: a body sent as JSON with 200, or a function of the request for anything else. */
+export type Answer = unknown | ((request: Request) => Response | Promise<Response>);
+
+/**
+ * Answers the client's requests from a table keyed by "METHOD /path" or by path alone; anything else is a 404
+ * in the error envelope.
+ */
+export function stubApi(answers: Record<string, Answer> = { "/api/v1/meta": META, "/api/v1/auth/me": ME }) {
   // Like the real server, nobody is signed in any more once the session is ended.
   let signedOut = false;
   const fetch = vi.fn(async (request: Request) => {
@@ -35,7 +41,10 @@ export function stubApi(answers: Record<string, unknown> = { "/api/v1/meta": MET
       return new Response(null, { status: 204 });
     }
     if (path === "/api/v1/auth/me" && (answers[path] === null || signedOut)) return Response.json(NOBODY, { status: 401 });
-    if (path in answers) return Response.json(answers[path]);
+    const key = `${request.method} ${path}`;
+    const answer = key in answers ? answers[key] : request.method === "GET" && path in answers ? answers[path] : undefined;
+    if (typeof answer === "function") return (answer as (request: Request) => Response | Promise<Response>)(request);
+    if (answer !== undefined) return Response.json(answer);
     return Response.json({ error: { code: "not_found", message: "Not found." } }, { status: 404 });
   });
   vi.stubGlobal("fetch", fetch);
@@ -43,8 +52,8 @@ export function stubApi(answers: Record<string, unknown> = { "/api/v1/meta": MET
 }
 
 /** Starts the real router at a path, against a stand-in server, and waits for the page to draw; me null signs nobody in. */
-export async function renderAt(path: string, { me = ME as Me | null } = {}) {
-  const fetch = stubApi({ "/api/v1/meta": META, "/api/v1/auth/me": me });
+export async function renderAt(path: string, { me = ME as Me | null, answers = {} as Record<string, Answer> } = {}) {
+  const fetch = stubApi({ "/api/v1/meta": META, "/api/v1/auth/me": me, "/api/v1/tools": { tools: [] }, ...answers });
   // The router is made right below; a 401 can only arrive once it exists.
   const queryClient = createQueryClient((client) => sendToLogin(router, client));
   const router = buildRouter(queryClient, createMemoryHistory({ initialEntries: [path] }));
