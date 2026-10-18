@@ -60,6 +60,13 @@ def allowed(binding: Binding, name: str, annotations: dict[str, Any] | None) -> 
     return binding.writes or bool((annotations or {}).get("readOnlyHint"))
 
 
+def leaf(err: BaseException) -> BaseException:
+    """The first error inside nested exception groups: what went wrong, beneath the client's plumbing."""
+    while isinstance(err, BaseExceptionGroup) and err.exceptions:
+        err = err.exceptions[0]
+    return err
+
+
 def result_value(result: Any) -> Any:
     """An MCP result as plain data: its structured content, else its text read as JSON when it is JSON."""
     structured = getattr(result, "structuredContent", None)
@@ -103,10 +110,17 @@ class McpGateway:
         b = self.bindings.get(binding)
         if b is None:
             raise ToolRefusedError(f"{binding} is not one of the workflow's tools")
-        if not allowed(b, name, (await self.annotations(b)).get(name)):
+        try:
+            hints = await self.annotations(b)
+        except Exception as err:
+            raise ToolFailedError(f"{binding} cannot be reached at {b.mcp_url}: {leaf(err)}") from err
+        if not allowed(b, name, hints.get(name)):
             raise ToolRefusedError(f"{binding} does not allow {name}")
-        async with (await self._client(b)).session(binding) as session:
-            result = await session.call_tool(name, arguments)
+        try:
+            async with (await self._client(b)).session(binding) as session:
+                result = await session.call_tool(name, arguments)
+        except Exception as err:
+            raise ToolFailedError(f"calling {name} at {binding} failed: {leaf(err)}") from err
         failed = bool(getattr(result, "isError", False))
         value = result_value(result)
         await self.emit(

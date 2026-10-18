@@ -154,6 +154,33 @@ func (s *Service) Lookup(ctx context.Context, id uuid.UUID) (Tool, error) {
 	return t, err
 }
 
+// ByName is the tool a workflow's binding names, for the control plane; ErrNotFound when none or several have it.
+func (s *Service) ByName(ctx context.Context, name string) (Tool, error) {
+	var found []Tool
+	err := s.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
+		rows, err := tx.Query(ctx, `SELECT `+toolColumns+` FROM tool WHERE name = $1`, name)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			t, err := scanTool(rows)
+			if err != nil {
+				return err
+			}
+			found = append(found, t)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return Tool{}, err
+	}
+	if len(found) != 1 {
+		return Tool{}, fmt.Errorf("%w: %d tools are called %s", ErrNotFound, len(found), name)
+	}
+	return found[0], nil
+}
+
 // Client is Rotor's client at a tool, secret included, for the token endpoint.
 func (s *Service) Client(ctx context.Context, id uuid.UUID) (vault.ToolClient, error) {
 	c, _, err := s.vault.ToolClient(ctx, id)

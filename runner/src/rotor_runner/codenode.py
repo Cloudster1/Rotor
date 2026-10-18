@@ -7,7 +7,6 @@ import asyncio
 import contextlib
 import json
 import os
-import resource
 import signal
 import sys
 from typing import TYPE_CHECKING, Any
@@ -48,14 +47,6 @@ def timeout_of(node: dict[str, Any]) -> float:
     return min(seconds, CODE_MAX_TIMEOUT_S)
 
 
-def _limits(memory: int, cpu_seconds: int) -> None:
-    """Runs in the child between fork and exec, so the limits bind the node's code alone."""
-    resource.setrlimit(resource.RLIMIT_AS, (memory, memory))
-    resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds))
-    resource.setrlimit(resource.RLIMIT_NOFILE, (CODE_OPEN_FILES, CODE_OPEN_FILES))
-    resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
-
-
 class CodeNodeRunner:
     """The CodeRunner a run's code nodes use."""
 
@@ -63,19 +54,22 @@ class CodeNodeRunner:
         from rotor_runner.compile import failed
 
         memory, seconds = memory_limit(node), timeout_of(node)
+        # The child lowers its own limits before it reads the code: Python between fork and exec is unsafe in a
+        # runner whose gRPC threads are running.
+        limits = (str(memory), str(int(seconds) + 1), str(CODE_OPEN_FILES))
         child = await asyncio.create_subprocess_exec(
             sys.executable,
             "-I",
             "-B",
             "-m",
             "rotor_runner.codehost",
+            *limits,
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=CHILD_ENV,
             start_new_session=True,
             limit=CODE_LINE_BYTES,
-            preexec_fn=lambda: _limits(memory, int(seconds) + 1),
         )
         try:
             async with asyncio.timeout(seconds):

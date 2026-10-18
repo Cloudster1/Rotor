@@ -66,3 +66,13 @@ func (s *Service) providerContext(ctx context.Context) context.Context {
 	ctx = coreoidc.ClientContext(ctx, s.http)
 	return context.WithValue(ctx, oauth2.HTTPClient, s.http)
 }
+
+// Rewrite answers where a public address is reached from inside the stack, by the first pair whose origin it has.
+func Rewrite(rewrites map[string]string, address string) string {
+	for public, reachable := range rewrites {
+		if address == public || strings.HasPrefix(address, public+"/") {
+			return reachable + strings.TrimPrefix(address, public)
+		}
+	}
+	return address
+}

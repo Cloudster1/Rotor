@@ -22,6 +22,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/httpapi"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
+	"github.com/cloudster1/rotor/backend/internal/runnerctl"
 	"github.com/cloudster1/rotor/backend/internal/sandbox"
 	"github.com/cloudster1/rotor/backend/internal/sandbox/docker"
 	"github.com/cloudster1/rotor/backend/internal/tools"
@@ -103,7 +104,16 @@ func run() error {
 		server.Tools, server.Connections = registry, people
 		reader := catalog.NewService(registry, people, toolClient(cfg), store, log)
 		server.Catalogs, catalogs = reader, reader
+		runners := runnerctl.NewServer(cluster, registry, people, log)
+		reach := oidc.ParseRewrites(cfg.Tools.Backchannel)
+		runners.Reach = func(address string) string { return oidc.Rewrite(reach, address) }
+		go func() {
+			if err := runners.Serve(ctx, cfg.Runner.Addr, secrets); err != nil {
+				log.Error("the runner protocol stopped", "error", err)
+			}
+		}()
 	}
+	server.Workflows = workflows.NewService(cluster, catalogs)
 	sweepSandboxes(ctx, cfg, log)
 	server.Workflows = workflows.NewService(cluster, catalogs)
 	origins := cfg.CORSOrigins
