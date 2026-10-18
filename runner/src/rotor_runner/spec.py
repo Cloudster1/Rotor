@@ -13,7 +13,7 @@ from jsonschema import Draft202012Validator
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
 
-from rotor_runner.config import MAX_SPEC_BYTES
+from rotor_runner.config import CODE_MAX_MEMORY, CODE_MAX_TIMEOUT_S, DURATION_UNITS, MAX_SPEC_BYTES, MEBIBYTE
 
 TEMPLATE_REF = re.compile(r"\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}")
 
@@ -144,6 +144,20 @@ def _escape(key: str) -> str:
     return key.replace("~", "~0").replace("/", "~1")
 
 
+def _code_limits(node: dict[str, Any], base: str) -> list[Problem]:
+    """A code node asking for more time or memory than any node gets, as Go's codeLimits."""
+    out: list[Problem] = []
+    timeout = str(node.get("timeout") or "")
+    if timeout and float(timeout[:-1]) * DURATION_UNITS[timeout[-1]] > CODE_MAX_TIMEOUT_S:
+        out.append(Problem(f"{base}/timeout", "code_limits", f"A code node may run for 5m at most, not {timeout}."))
+    memory = str(node.get("memory") or "")
+    if memory and int(memory[:-2]) * {"Mi": MEBIBYTE, "Gi": 1024 * MEBIBYTE}[memory[-2:]] > CODE_MAX_MEMORY:
+        out.append(
+            Problem(f"{base}/memory", "code_limits", f"A code node may use 1Gi of memory at most, not {memory}.")
+        )
+    return out
+
+
 def check_sense(document: dict[str, Any]) -> list[Problem]:
     """What the schema cannot find: names pointing nowhere and nodes nothing leads to, as Go's checkSense."""
     out: list[Problem] = []
@@ -200,6 +214,8 @@ def check_sense(document: dict[str, Any]) -> list[Problem]:
                 if ref not in index:
                     out.append(Problem(path, "unknown_node", f"The argument reads {ref}, which is not a node."))
         elif node["type"] in ("agent", "code"):
+            if node["type"] == "code":
+                out.extend(_code_limits(node, base))
             for j, name in enumerate(node.get("tools", [])):
                 if name not in tools:
                     out.append(

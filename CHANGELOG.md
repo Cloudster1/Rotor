@@ -15,6 +15,13 @@ and the versioning [Semantic Versioning](https://semver.org/).
   limits, on an internal network that reaches the api and the tools and not
   the internet. At start the api destroys sandboxes left from before.
   `make up` builds the runner image.
+- Workflows can run a small Python step (#17): a code node's
+  `run(state, ctx)` runs in its own process with none of the run's tokens or
+  keys in its environment, its own memory and time limits (256 MiB and 30
+  seconds unless it says otherwise, at most 1 GiB and 5 minutes) and no file
+  writes. It calls tools only through `ctx.call_tool`, which the runner
+  checks against the node's bindings; it must return JSON matching its
+  output schema, and what it prints becomes capped log events.
 - The runner turns a workflow into a LangGraph graph (#16): agents built on
   the workflow's model with the tools their bindings allow (only tools that
   say they only read, unless a binding may write), single MCP calls with
