@@ -7,6 +7,20 @@ x-db-env: &db-env
   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rotor}
   POSTGRES_DB: rotor
 
+# The runtime roles, which row level security binds (rotor_app) or exempts by policy (rotor_admin).
+x-app-db-env: &app-db-env
+  ROTOR_DB_URL: postgres://rotor_app:${APP_DB_PASSWORD:-rotor_app}@postgres:5432/rotor?sslmode=disable
+  ROTOR_DB_ADMIN_URL: postgres://rotor_admin:${ADMIN_DB_PASSWORD:-rotor_admin}@postgres:5432/rotor?sslmode=disable
+
+x-backend: &backend
+  image: ${COMPOSE_PROJECT_NAME:-rotor}-backend
+  pull_policy: never
+
+# What the images say they are; the Makefile sets both from scripts/build-stamp.sh.
+x-build-stamp: &build-stamp
+  VERSION: ${ROTOR_BUILD_VERSION:-}
+  COMMIT: ${ROTOR_BUILD_COMMIT:-}
+
 services:
   postgres:
     image: postgres:18-alpine
@@ -96,6 +110,47 @@ services:
       timeout: 5s
       retries: 30
       start_period: 20s
+      start_interval: 1s
+
+  # Migrations run as the database owner, which is what lets them set the runtime roles' default privileges.
+  migrate:
+    <<: *backend
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.backend
+      args: *build-stamp
+    command: ["/app/migrate", "up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ROTOR_DB_URL: postgres://rotor:${POSTGRES_PASSWORD:-rotor}@postgres:5432/rotor?sslmode=disable
+    restart: "no"
+
+  api:
+    <<: *backend
+    command: ["/app/api"]
+    depends_on:
+      # After the migrations rather than beside them: up --wait accepts a one-shot only when something waits for it.
+      migrate:
+        condition: service_completed_successfully
+      valkey:
+        condition: service_healthy
+      openbao:
+        condition: service_healthy
+    environment:
+      <<: *app-db-env
+      ROTOR_HTTP_ADDR: ":8080"
+      ROTOR_LOG_LEVEL: debug
+      ROTOR_APP_URL: http://localhost:${WEB_PORT:-8300}
+    ports:
+      - "127.0.0.1:${API_PORT:-8301}:8080"
+    healthcheck:
+      test: ["CMD", "/app/api", "-healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
       start_interval: 1s
 
 volumes:

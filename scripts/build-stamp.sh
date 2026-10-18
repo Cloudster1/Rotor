@@ -1,9 +1,6 @@
 #!/bin/sh
-# Prints what a build says it is, for the image build arguments and the linker.
-#   version  semver, as Armature's images carry it: 1.2.3 on the tag v1.2.3,
-#            1.2.3+4.gabc1234 four commits past it, and VERSION+dev with no tag
-#            in reach, as in CI's shallow clone or outside git
-#   commit   the short hash of HEAD, or nothing outside git
+# Prints what a build says it is: "version" (1.2.3 on tag v1.2.3, 1.2.3+4.gabc1234 past it, VERSION+dev
+# with no tag in reach) or "commit" (the short hash of HEAD, nothing outside git).
 set -eu
 
 root=$(cd "$(dirname "$0")/.." && pwd)

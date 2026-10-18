@@ -31,3 +31,10 @@ Adapted from Exciter at c3f81ae:
 - deploy/keycloak/realm.json and realm-check.mjs: the suite's realm, with
   Rotor's clients and group added
 - biome.json, .gitignore and .dockerignore
+
+Adapted from Exciter at c6c0219, its backend skeleton, and cad3b80, its audit log:
+- backend/internal/config, db, httpapi, openapi, observability, version and
+  audit, backend/cmd/api, migrate and openapi, backend/migrations and
+  deploy/Dockerfile.backend: renamed, cut to one database without replicas,
+  tenants, read-your-writes or telemetry, the organization dropped from people
+  and the audit log, and Rotor's own integration tests in backend/test
