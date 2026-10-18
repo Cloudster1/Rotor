@@ -69,3 +69,11 @@ and suite:
   of three products on Exciter's
 - api/tools/exciter/tools-list.json is Exciter's own tools/list, recorded from
   that commit
+
+Adapted from Exciter at 6706bd8, its requirement history and web tests:
+- backend/internal/workflows/diff.go: align, the longest common subsequence of
+  backend/internal/requirement/diff.go, now over lines of YAML with hunks of
+  context instead of blocks of a document
+- backend/migrations/00200_workflows.sql: the gap-free, immutable numbering of
+  requirement_revision, for workflow versions
+- web/src/test/layout.ts: the jsdom measurements CodeMirror and axe ask for

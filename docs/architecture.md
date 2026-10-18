@@ -109,6 +109,16 @@ token for it, one refresh per connection at a time, so the tool's refresh
 token rotation never ends a grant. The api reaches OpenBao with JWT auth as
 the realm client `rotor-control-plane`.
 
+## Workflows (#14, #15)
+
+A workflow is YAML checked by `internal/workflow/spec`; `internal/workflows`
+keeps it as `workflow` and immutable, gap-free `workflow_version` rows, shared
+by realm group through row-level security. Saving checks a spec against its
+tools as the saver sees them: `internal/catalog` mints the saver a token,
+reads the tool's MCP `tools/list` and caches it in Valkey per tool build and
+person (`internal/cache`), which is Valkey's first use; losing the cache costs
+a fetch. The web editor is CodeMirror 6, loaded only on the workflow pages.
+
 ## Runner (`runner/`, #4)
 
 Python 3.13 with uv, LangGraph, langchain-core and langchain-mcp-adapters,

@@ -9,6 +9,17 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- People write, version and share workflows in the browser (#15). The
+  Workflows page lists your workflows and those shared with you; the editor
+  completes and explains the YAML from the workflow schema and marks each
+  problem the server finds on its line as you type, including what only your
+  tools can tell, such as a binding that allows a writing tool but says it
+  only reads. Every save is a new version that never changes; a save based on
+  an older version is refused rather than overwriting a colleague. Versions
+  are compared line by line, YAML is imported and exported, and a tool picker
+  lists what your connection may call in each tool with its read-only and
+  destructive hints. Sharing with your realm groups or everyone lets others
+  read and run a workflow as themselves; it never shares your access.
 - Runs get sandboxes (#21): in development the api starts each run's runner
   as a container on the host's Docker daemon, read-only with a small `/tmp`,
   without capabilities, as a non-root user, within memory, CPU and process

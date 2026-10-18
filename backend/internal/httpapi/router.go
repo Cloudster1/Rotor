@@ -34,6 +34,9 @@ type Server struct {
 	// Tools and Connections are nil where OpenBao is not configured; their routes then answer 503.
 	Tools       ToolRegistry
 	Connections Connections
+	Catalogs    Catalogs
+	// Workflows is nil only in tests that exercise none.
+	Workflows Workflows
 	// Sessions and SignIn are nil only in tests that exercise neither.
 	Sessions Sessions
 	SignIn   SignIn
@@ -91,6 +94,18 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Get("/connections", s.handleListConnections)
 			r.Post("/tools/{toolID}/connection", s.handleConnect)
 			r.Delete("/tools/{toolID}/connection", s.handleDisconnect)
+			r.Get("/tools/{toolID}/catalog", s.handleToolCatalog)
+			r.Get("/workflows", s.handleListWorkflows)
+			r.Post("/workflows", s.handleCreateWorkflow)
+			r.Post("/workflows/validate", s.handleValidateWorkflow)
+			r.Get("/workflows/{workflowID}", s.handleGetWorkflow)
+			r.Put("/workflows/{workflowID}", s.handleSaveWorkflow)
+			r.Delete("/workflows/{workflowID}", s.handleArchiveWorkflow)
+			r.Get("/workflows/{workflowID}/versions", s.handleListWorkflowVersions)
+			r.Get("/workflows/{workflowID}/versions/{versionNumber}", s.handleGetWorkflowVersion)
+			r.Get("/workflows/{workflowID}/diff", s.handleDiffWorkflowVersions)
+			r.Put("/workflows/{workflowID}/sharing", s.handleShareWorkflow)
+			r.Get("/schemas/workflow.v1.json", s.handleWorkflowSchema)
 			mountPending(r, false, false)
 			r.Group(func(r chi.Router) {
 				r.Use(requireAdmin)

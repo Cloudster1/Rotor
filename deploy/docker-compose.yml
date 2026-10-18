@@ -179,6 +179,8 @@ services:
       ROTOR_SANDBOX_IMAGE: rotor-runner:dev
       ROTOR_SANDBOX_NETWORK: ${COMPOSE_PROJECT_NAME:-rotor}_sandbox
       ROTOR_SANDBOX_STACK: ${COMPOSE_PROJECT_NAME:-rotor}
+      # The tools' catalogs are cached here; losing them costs a fetch.
+      ROTOR_VALKEY_URL: redis://:${VALKEY_PASSWORD:-rotor_valkey}@valkey:6379/0
       # An administrator adds a tool by the address a browser opens; the api reaches the tool-stub, and the suite's
       # Exciter once make suite-up runs it, on a network of the stack's.
       ROTOR_TOOLS_BACKCHANNEL: >-

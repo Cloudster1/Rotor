@@ -36,3 +36,9 @@ export const ICON_STROKE = 1.5;
 
 /** Where a tool returns the browser after consent; an administrator registers it at tools that need a client by hand. */
 export const CONNECTION_CALLBACK_PATH = `${API_BASE}/connections/callback`;
+
+/** How long typing pauses before the workflow editor asks the server what is wrong. */
+export const VALIDATE_DELAY_MS = 400;
+
+/** The longest note a saved workflow version carries, as the server allows. */
+export const MAX_VERSION_COMMENT = 500;

@@ -137,6 +137,12 @@ sentences.
   - It is cached per tool, tool build (from the tool's `/meta`) and person for `CatalogTTL`.
   - It gives each tool's name, description, input schema and the `readOnlyHint` and `destructiveHint` it declares.
 - **Audit:** `workflow.created`, `workflow.changed` (version), `workflow.shared` (sharing, groups), `workflow.archived`.
+- **As built (#15):**
+  - A 422 lists each problem's message in the envelope's `fields`, by JSON pointer. The editor places problems by line and column through `POST /workflows/validate`.
+  - The owner's and each version author's names are kept on the rows, because a person sees only their own row of `app_user`.
+  - The catalog mints a token from the caller's whole consent and revokes it after the read.
+  - The cache key is the tool, its build (`version+commit` from its `/meta`) and the person.
+  - Archived workflows refuse saves with 409.
 
 ## #16 and #17 The runner
 

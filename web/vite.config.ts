@@ -46,5 +46,7 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     maxWorkers: testWorkers,
+    // Its modules import each other without file extensions, which Vite resolves and Node does not.
+    server: { deps: { inline: ["codemirror-json-schema"] } },
   },
 });
