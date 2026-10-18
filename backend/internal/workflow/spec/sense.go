@@ -6,7 +6,11 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
+
+	"github.com/cloudster1/rotor/backend/internal/config"
 )
 
 // templateRef finds what a {{ ... }} in an argument names; the schema checks a router's on.
@@ -68,6 +72,9 @@ func checkSense(s *Spec) []Problem {
 				}
 			}
 		case TypeAgent, TypeCode:
+			if n.Type == TypeCode {
+				out = append(out, codeLimits(n, base)...)
+			}
 			for j, name := range n.Tools {
 				if _, ok := s.Tools[name]; !ok {
 					add(fmt.Sprintf("%s/tools/%d", base, j), CodeUnknownBind, "%s is not one of the workflow's tools.", name)
@@ -84,6 +91,33 @@ func checkSense(s *Spec) []Problem {
 		}
 	}
 	return out
+}
+
+// codeLimits refuses a code node asking for more time or memory than the runner gives any node.
+func codeLimits(n Node, base string) []Problem {
+	var out []Problem
+	if d, err := time.ParseDuration(n.Timeout); err == nil && d > config.MaxCodeTimeout {
+		out = append(out, Problem{Path: base + "/timeout", Code: CodeCodeLimits,
+			Message: fmt.Sprintf("A code node may run for %s at most, not %s.", config.MaxCodeTimeout, n.Timeout)})
+	}
+	if size := memoryBytes(n.Memory); size > config.MaxCodeMemory {
+		out = append(out, Problem{Path: base + "/memory", Code: CodeCodeLimits,
+			Message: fmt.Sprintf("A code node may use 1Gi of memory at most, not %s.", n.Memory)})
+	}
+	return out
+}
+
+// memoryBytes reads a size such as 256Mi; the schema has checked its shape.
+func memoryBytes(size string) int64 {
+	units := map[string]int64{"Mi": 1 << 20, "Gi": 1 << 30}
+	if len(size) < 3 {
+		return 0
+	}
+	n, err := strconv.ParseInt(size[:len(size)-2], 10, 64)
+	if err != nil {
+		return 0
+	}
+	return n * units[size[len(size)-2:]]
 }
 
 // next lists the nodes that may follow a node: its edges, or a router's cases and default.

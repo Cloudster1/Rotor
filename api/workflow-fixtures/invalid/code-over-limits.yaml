@@ -1,0 +1,16 @@
+# expect: /nodes/0/timeout code_limits
+# expect: /nodes/0/memory code_limits
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: greedy}
+limits: {maxSteps: 5, timeout: 1h}
+entry: a
+nodes:
+  - id: a
+    type: code
+    timeout: 10m
+    memory: 2Gi
+    output: {schema: {type: object}}
+    source: |
+      def run(state, ctx):
+          return {}
