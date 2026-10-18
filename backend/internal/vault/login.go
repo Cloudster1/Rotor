@@ -3,6 +3,8 @@ package vault
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	coreoidc "github.com/coreos/go-oidc/v3/oidc"
@@ -34,13 +36,13 @@ func (c *Client) login(ctx context.Context) (*openbao.Secret, error) {
 func (c *Client) loginLocked(ctx context.Context) (*openbao.Secret, error) {
 	ctx, cancel := context.WithTimeout(ctx, config.VaultTimeout)
 	defer cancel()
-	jwt, err := c.serviceAccountToken(ctx)
+	method, jwt, err := c.loginToken(ctx)
 	if err != nil {
 		return nil, err
 	}
-	secret, err := c.api.Logical().WriteWithContext(ctx, "auth/jwt/login", map[string]any{"role": c.cfg.Role, "jwt": jwt})
+	secret, err := c.api.Logical().WriteWithContext(ctx, "auth/"+method+"/login", map[string]any{"role": c.cfg.Role, "jwt": jwt})
 	if err != nil {
-		return nil, fmt.Errorf("%w: OpenBao refused the realm's token for role %s: %w", ErrLogin, c.cfg.Role, err)
+		return nil, fmt.Errorf("%w: OpenBao refused the %s token for role %s: %w", ErrLogin, method, c.cfg.Role, err)
 	}
 	if secret == nil || secret.Auth == nil || secret.Auth.ClientToken == "" {
 		return nil, fmt.Errorf("%w: OpenBao answered the login without a token", ErrLogin)
@@ -49,6 +51,21 @@ func (c *Client) loginLocked(ctx context.Context) (*openbao.Secret, error) {
 	c.loggedIn = true
 	c.log.Info("signed in to OpenBao", "role", c.cfg.Role, "ttl", time.Duration(secret.Auth.LeaseDuration)*time.Second)
 	return secret, nil
+}
+
+// loginToken is the auth method to sign in with and its token: the pod's own ServiceAccount token in a cluster,
+// a realm client's token otherwise.
+func (c *Client) loginToken(ctx context.Context) (string, string, error) {
+	if c.cfg.Auth != config.OpenBaoAuthKubernetes {
+		token, err := c.serviceAccountToken(ctx)
+		return config.OpenBaoAuthJWT, token, err
+	}
+	// Read on every login: the kubelet rotates the projected token.
+	raw, err := os.ReadFile(c.cfg.TokenPath)
+	if err != nil {
+		return "", "", fmt.Errorf("%w: read the pod's ServiceAccount token at %s: %w", ErrLogin, c.cfg.TokenPath, err)
+	}
+	return config.OpenBaoAuthKubernetes, strings.TrimSpace(string(raw)), nil
 }
 
 // serviceAccountToken is a client-credentials token of the realm client OpenBao's JWT role is bound to.

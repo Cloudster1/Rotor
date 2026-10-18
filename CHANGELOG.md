@@ -9,6 +9,13 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Runs can execute on Kubernetes (#26). Each sandbox is its own pod under
+  gVisor, non-root, read-only, without capabilities or a ServiceAccount
+  token, in a namespace under the restricted Pod Security standard; the
+  worker may manage pods there and nothing else. In a cluster the control
+  plane signs in to OpenBao with its own ServiceAccount, and sandboxes dial
+  the api by a configurable name. A kind cluster tests it all, nightly and
+  on pull requests that touch it.
 - The first run is proven end to end against the real Exciter (#25). In the
   suite, alice runs `examples/draft-requirements.yaml` and the requirement
   appears in Exciter as hers, marked as written through Rotor; dave, who may

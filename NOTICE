@@ -82,3 +82,7 @@ Adapted from Exciter at 009762e, its outbox worker:
 - backend/internal/runs/worker.go: the lease of backend/internal/events/worker.go,
   claimed with FOR UPDATE SKIP LOCKED in a transaction of its own and let go
   after the work, now over runs instead of outbox events
+
+Adapted from Exciter at 51c9127, its chart install tooling:
+- scripts/kind/Dockerfile: the image with kind, kubectl and helm, as Exciter's
+- mk/kind.mk: the tools container on the host's network driving kind through the Docker socket, from mk/kind.mk

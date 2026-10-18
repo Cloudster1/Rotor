@@ -1,0 +1,52 @@
+# What the sandbox backend needs in a cluster, for the kind test (#26); the chart renders the same (#29).
+# Sandboxes run in a namespace of their own, under the restricted Pod Security standard, as a ServiceAccount that
+# carries no token. The worker may manage pods and their bootstrap Secrets there, and nothing anywhere else.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rotor-sandboxes
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rotor-sandbox
+  namespace: rotor-sandboxes
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rotor
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rotor-worker
+  namespace: rotor
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rotor-worker
+  namespace: rotor-sandboxes
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "secrets"]
+    verbs: ["create", "get", "list", "watch", "update", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rotor-worker
+  namespace: rotor-sandboxes
+subjects:
+  - kind: ServiceAccount
+    name: rotor-worker
+    namespace: rotor
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rotor-worker

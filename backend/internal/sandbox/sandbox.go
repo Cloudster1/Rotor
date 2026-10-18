@@ -1,10 +1,11 @@
-// Package sandbox starts and ends the containers runs execute in, behind one interface; docker is the
-// development backend, Kubernetes with gVisor follows in M4.
+// Package sandbox starts and ends the containers runs execute in, behind one interface: docker in development,
+// kube (a hardened pod under gVisor) everywhere else.
 package sandbox
 
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -34,10 +35,14 @@ type Limits struct {
 type Spec struct {
 	RunID uuid.UUID
 	Image string
-	// Env is what the runner needs to dial out: the control plane's address, its CA and a bootstrap token.
-	Env    map[string]string
-	Limits Limits
-	Labels map[string]string
+	// Env is what the runner needs to dial out, such as the control plane's address and its CA; SecretEnv is the
+	// part a backend keeps as a secret where it can, such as the bootstrap token.
+	Env       map[string]string
+	SecretEnv map[string]string
+	Limits    Limits
+	Labels    map[string]string
+	// Deadline is how long the sandbox may live at most, as a backstop to the worker; zero leaves it to the worker.
+	Deadline time.Duration
 	// Entrypoint and Command replace the image's own; tests use them, runs never do.
 	Entrypoint []string
 	Command    []string

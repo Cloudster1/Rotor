@@ -218,7 +218,7 @@ func TestASandboxThatNeverSaysHelloIsReplacedUntilTheRunFails(t *testing.T) {
 		t.Errorf("sandboxes outlived the failed run: %+v", left)
 	}
 	spec := fake.spawned[0]
-	if spec.Env["ROTOR_RUNNER_BOOTSTRAP"] == "" || spec.Env["ROTOR_CONTROL_PLANE_ADDR"] != "nowhere:1" || spec.Env["ROTOR_RUNNER_CA"] != "a CA" {
+	if spec.SecretEnv["ROTOR_RUNNER_BOOTSTRAP"] == "" || spec.Env["ROTOR_RUNNER_BOOTSTRAP"] != "" || spec.Env["ROTOR_CONTROL_PLANE_ADDR"] != "nowhere:1" || spec.Env["ROTOR_RUNNER_CA"] != "a CA" {
 		t.Errorf("a sandbox started with %v", spec.Env)
 	}
 }

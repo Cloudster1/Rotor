@@ -31,6 +31,8 @@ vulnerability, and an installation never uses them:
 - the development sandboxes' route to OpenBao, which they use only to unwrap
   the single-use wrapping tokens they are handed; they hold no credential
   there
+- `ROTOR_SANDBOX_ALLOW_RUNC`, which lets a test cluster run sandboxes
+  without gVisor; production refuses it
 - the development worker's access to the host's Docker socket, which it uses
   to start sandboxes and which hands it the machine; the api no longer holds
   it, and the Docker sandbox backend refuses to run outside development

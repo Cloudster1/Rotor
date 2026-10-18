@@ -183,9 +183,10 @@ func (w *Worker) startOne(ctx context.Context, c claimed) error {
 		return fmt.Errorf("read the runner CA: %w", err)
 	}
 	id, err := w.sandboxes.Spawn(ctx, sandbox.Spec{RunID: c.ID, Image: w.launch.Image, Limits: w.launch.Limits,
-		Labels: map[string]string{sandbox.LabelStack: w.launch.Stack},
-		Env: map[string]string{"ROTOR_CONTROL_PLANE_ADDR": w.launch.Dial, "ROTOR_RUNNER_BOOTSTRAP": token, "ROTOR_RUNNER_CA": ca,
-			"ROTOR_OPENBAO_ADDR": w.launch.OpenBao}})
+		Labels:    map[string]string{sandbox.LabelStack: w.launch.Stack},
+		Env:       map[string]string{"ROTOR_CONTROL_PLANE_ADDR": w.launch.Dial, "ROTOR_RUNNER_CA": ca, "ROTOR_OPENBAO_ADDR": w.launch.OpenBao},
+		SecretEnv: map[string]string{"ROTOR_RUNNER_BOOTSTRAP": token},
+		Deadline:  w.deadline(ctx, c.ID)})
 	if err != nil {
 		return err
 	}
@@ -195,6 +196,23 @@ func (w *Worker) startOne(ctx context.Context, c claimed) error {
 			WHERE id = $1 AND claimed_by = $2 AND status = 'starting'`, c.ID, w.id, string(id))
 		return err
 	})
+}
+
+// deadline is how long the run's sandbox may live: its pinned timeout and grace, or zero when the version names none.
+func (w *Worker) deadline(ctx context.Context, runID uuid.UUID) time.Duration {
+	var timeout *string
+	err := w.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
+		return tx.QueryRow(ctx, `SELECT v.spec->'limits'->>'timeout' FROM run r
+			JOIN workflow_version v ON v.workflow_id = r.workflow_id AND v.number = r.version WHERE r.id = $1`, runID).Scan(&timeout)
+	})
+	if err != nil || timeout == nil {
+		return 0
+	}
+	d, err := time.ParseDuration(*timeout)
+	if err != nil {
+		return 0
+	}
+	return d + config.SandboxDeadlineGrace
 }
 
 // teardown cleans up after each ended run once: its sandbox, its credentials, then whatever Teardown adds.

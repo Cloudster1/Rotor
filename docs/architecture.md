@@ -168,6 +168,18 @@ Each sandbox:
 The worker destroys its stack's sandboxes that no live run keeps, on every
 pass.
 
+In a cluster the Kubernetes backend (#26, `internal/sandbox/kube`) starts each
+sandbox as a pod in the sandbox namespace instead:
+- under the gVisor RuntimeClass, refused at start-up without one unless
+  `ROTOR_SANDBOX_ALLOW_RUNC` overrides it (never in production)
+- non-root, read-only, without capabilities or privilege escalation, with
+  the runtime's seccomp profile and a memory `/tmp`
+- with no ServiceAccount token, its bootstrap token in a Secret the pod owns
+- with `activeDeadlineSeconds` as a backstop to the worker
+
+The namespace enforces the restricted Pod Security standard, and the worker
+may manage pods and Secrets there and nothing else.
+
 ## Runs and the worker (#22)
 
 A person starts a run of a workflow they may see with

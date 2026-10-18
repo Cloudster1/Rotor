@@ -21,6 +21,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/runs"
 	"github.com/cloudster1/rotor/backend/internal/sandbox"
 	"github.com/cloudster1/rotor/backend/internal/sandbox/docker"
+	"github.com/cloudster1/rotor/backend/internal/sandbox/kube"
 	"github.com/cloudster1/rotor/backend/internal/tools"
 	"github.com/cloudster1/rotor/backend/internal/version"
 )
@@ -43,8 +44,9 @@ func run() error {
 	}
 	log := observability.NewLogger(cfg.LogLevel, cfg.IsProduction())
 	slog.SetDefault(log)
-	if cfg.Sandbox.Backend != config.SandboxDocker {
-		return errors.New("ROTOR_SANDBOX_BACKEND is not set, so the worker has nowhere to start sandboxes; set it to docker in development")
+	backend, err := sandboxes(cfg)
+	if err != nil {
+		return err
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -75,7 +77,6 @@ func run() error {
 	}
 	defer store.Close()
 
-	backend := docker.New(cfg.Sandbox.Socket, cfg.Sandbox.Network)
 	registry := tools.NewService(cluster, secrets, boot.ToolClient(cfg), cfg.ConnectionCallbackURL(), cfg.Env == config.EnvDevelopment)
 	people := connections.NewService(cluster, secrets, registry, boot.ToolClient(cfg), cfg.ConnectionCallbackURL(), log)
 	people.Runs = secrets
@@ -96,6 +97,18 @@ func run() error {
 	log.Info("worker starting", "env", cfg.Env, "version", build.Version, "commit", build.Commit, "stack", cfg.Sandbox.Stack)
 	worker.Run(ctx)
 	return nil
+}
+
+// sandboxes is the backend the settings name: pods in a cluster, containers on the Docker daemon in development.
+func sandboxes(cfg config.Config) (sandbox.Backend, error) {
+	switch cfg.Sandbox.Backend {
+	case config.SandboxKubernetes:
+		return kube.New(kube.Config{Namespace: cfg.Sandbox.Namespace, RuntimeClass: cfg.Sandbox.RuntimeClass,
+			ServiceAccount: cfg.Sandbox.ServiceAccount, Kubeconfig: cfg.Sandbox.Kubeconfig})
+	case config.SandboxDocker:
+		return docker.New(cfg.Sandbox.Socket, cfg.Sandbox.Network), nil
+	}
+	return nil, errors.New("ROTOR_SANDBOX_BACKEND is not set, so the worker has nowhere to start sandboxes; set it to kubernetes, or docker in development")
 }
 
 // aliveFileMode is the file the worker touches, readable by the health check alone.

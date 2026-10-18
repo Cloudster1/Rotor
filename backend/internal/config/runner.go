@@ -5,7 +5,8 @@ import "time"
 // The runner protocol (#18); docs/api-contract-m2.md describes it.
 const (
 	DefaultRunnerAddr = ":9443"
-	// RunnerHost is the name sandboxes dial and the server certificate names.
+	// RunnerHost is the name sandboxes dial and the server certificate names, unless ROTOR_RUNNER_HOST says another,
+	// such as the api's Service in a cluster.
 	RunnerHost = "api"
 	// BootstrapTTL is how long a sandbox's single-use bootstrap token lasts.
 	BootstrapTTL = 5 * time.Minute
@@ -27,12 +28,15 @@ const (
 // Runner is where the control plane serves the runner protocol, and where sandboxes dial it.
 type Runner struct {
 	Addr string
-	// Dial is the address a sandbox dials, on the network sandboxes join; the worker hands it to them.
+	// Host is the name the control plane's certificate carries; Dial is the address a sandbox dials, which must
+	// name Host. The worker hands Dial to the sandboxes.
+	Host string
 	Dial string
 }
 
 func loadRunner(l *loader) Runner {
-	return Runner{Addr: l.str("ROTOR_RUNNER_ADDR", DefaultRunnerAddr), Dial: l.str("ROTOR_RUNNER_DIAL", RunnerHost+DefaultRunnerAddr)}
+	host := l.str("ROTOR_RUNNER_HOST", RunnerHost)
+	return Runner{Addr: l.str("ROTOR_RUNNER_ADDR", DefaultRunnerAddr), Host: host, Dial: l.str("ROTOR_RUNNER_DIAL", host+DefaultRunnerAddr)}
 }
 
 // MaxCheckpointBytes bounds one checkpoint, its metadata included, before encryption (#19).

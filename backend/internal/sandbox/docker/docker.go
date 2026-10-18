@@ -58,8 +58,12 @@ type createRequest struct {
 // Spawn creates and starts a container that holds no capability, writes only to a small /tmp, and reaches only
 // the sandbox network.
 func (b *Backend) Spawn(ctx context.Context, spec sandbox.Spec) (sandbox.ID, error) {
-	env := make([]string, 0, len(spec.Env))
+	env := make([]string, 0, len(spec.Env)+len(spec.SecretEnv))
 	for k, v := range spec.Env {
+		env = append(env, k+"="+v)
+	}
+	// The daemon has no secrets of its own; a development sandbox gets them as the rest of its environment.
+	for k, v := range spec.SecretEnv {
 		env = append(env, k+"="+v)
 	}
 	labels := map[string]string{sandbox.LabelSandbox: "1", sandbox.LabelRun: spec.RunID.String()}

@@ -1,0 +1,74 @@
+# The Kubernetes tests (#26): sandboxes as hardened pods in a throwaway kind cluster. Nightly, by hand, on a pull
+# request labelled kube, and on one that changes what a cluster runs. A cluster adds minutes, so this is no required
+# check; the gate in ci.yml tests the Docker backend and the pod the Kubernetes backend builds.
+name: Kube
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: "37 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: kube-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-kube:
+    name: test-kube
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # A pull request runs this when labelled kube, or when it changes the sandbox backend, the worker, the cluster
+      # manifests or this tooling.
+      - name: Decide whether this change needs a cluster
+        id: needed
+        env:
+          LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'kube') }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != pull_request ] || [ "$LABELLED" = true ] || git diff --name-only "$BASE" HEAD \
+            | grep -qE '^(backend/internal/sandbox/|backend/cmd/worker/|backend/internal/runs/worker|backend/test/kube/|deploy/kube/|deploy/charts/|deploy/Dockerfile\.runner|scripts/kind/|mk/kind\.mk|\.github/workflows/kube\.yml)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Restore the Go module and build cache
+        if: steps.needed.outputs.run == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/go
+          key: go-integration-${{ hashFiles('backend/go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            go-integration-${{ hashFiles('backend/go.sum') }}-
+            go-integration-
+
+      - name: Start the kind cluster
+        if: steps.needed.outputs.run == 'true'
+        run: make kind-up
+
+      - name: Run the Kubernetes tests
+        if: steps.needed.outputs.run == 'true'
+        run: make test-kube
+
+      - name: Say what the cluster saw
+        if: failure() && steps.needed.outputs.run == 'true'
+        run: make kind-status || true
+
+      - name: Keep the reports
+        if: ${{ !cancelled() && steps.needed.outputs.run == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: kube-reports
+          path: reports/
+          retention-days: 7
+          if-no-files-found: ignore
