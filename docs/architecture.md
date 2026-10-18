@@ -72,6 +72,8 @@ browser --> web (nginx, React SPA) --> api (Go) -------+------> OpenBao
 | `web/` | React SPA | #5 |
 | `e2e/` | Playwright suite | #5 |
 | `api/openapi.json` | Generated from the route table | #3 |
+| `api/workflow.v1.schema.json` | The workflow spec's JSON Schema | #13, #14 |
+| `proto/` | The runner protocol; `make proto` generates `backend/internal/runnerpb` and `runner/src/rotor_runner/pb` | #13 |
 | `deploy/` | Compose stack, Dockerfiles, realm, OpenBao setup; later the Helm chart | #1, #29 |
 | `mk/`, `run-tests.sh`, `tests/` | Toolchains in containers, the gate and its own tests | #1 |
 

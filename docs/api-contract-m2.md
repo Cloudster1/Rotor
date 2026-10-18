@@ -1,0 +1,278 @@
+# API contract for M2 and M3: workflows and runs
+
+M2 makes workflows real and M3 runs them end to end:
+- a workflow is versioned YAML checked by a JSON Schema and by its own sense
+- people write, version and share workflows in the browser
+- the runner compiles a workflow into a LangGraph graph, with MCP tools, Python
+  code nodes and a language model from a provider an administrator set
+- the runner in its sandbox speaks to the control plane over one gRPC stream,
+  and the control plane keeps the run's checkpoints, so a run outlives its
+  sandbox
+- M3 starts runs, hands them tokens and streams their events to the browser
+
+This file is #13. The route table in `backend/internal/httpapi/operations_m2.go`
+is the source of truth for the HTTP operations, `proto/rotor/runner/v1/runner.proto`
+for the runner protocol and `api/workflow.v1.schema.json` for the spec; this file
+says what they mean. Operations carry `pending: true` and answer 501 until their
+issue is built.
+
+Conventions are M1's: paths under `/api/v1`; "signed in" and "admin" as there;
+a workflow or run the caller may not see is 404, never 403; refusals are
+sentences.
+
+## Migrations, packages and settings
+
+- Migration ranges:
+
+  | Range | Issue | Tables |
+  |---|---|---|
+  | 00200-00219 | #15 | `workflow`, `workflow_version` |
+  | 00220-00229 | #18 | `run` (base), `runner_credential`, `run_event` (base) |
+  | 00230-00239 | #19 | `run_checkpoint`, `run_checkpoint_write` |
+  | 00240-00249 | #20 | `provider` |
+  | 00300-00319 | #22 | the run state machine and claim columns on `run` |
+  | 00320-00329 | #23 | token leases |
+  | 00330-00349 | #24 | event fan-out and retention |
+
+  #14 and #21 need none.
+- Packages:
+  - Go: `internal/workflow/spec` (#14), `internal/workflows` (#15), `internal/sandbox` with `docker` (#21), `internal/runnerctl` and the generated `internal/runnerpb` (#18), `internal/runs` (#19, #22), `internal/providers` (#20), `internal/cache` on Valkey (#15).
+  - Python, in `runner/src/rotor_runner`: `spec.py` (#14), `compile.py` and `mcp.py` (#16), `codenode.py` and `codehost.py` (#17), `control.py` (#18), `checkpoint.py` (#19), and the generated `pb/`.
+- Settings, all `ROTOR_` variables:
+  - `ROTOR_SANDBOX_BACKEND` (`docker`, development only, #21), `ROTOR_SANDBOX_IMAGE`, `ROTOR_SANDBOX_NETWORK`
+  - `ROTOR_RUNNER_ADDR`: where the control plane serves the runner protocol, `:9443` by default (#18)
+  - `ROTOR_VALKEY_URL` (#15)
+- Limits, in `internal/config`:
+  - `MaxSpecBytes` = 256 KiB: one workflow's YAML.
+  - `CatalogTTL` = 1 hour: a tool's MCP tool list, per tool build and person.
+  - `BootstrapTTL` = 5 minutes, `SessionTTL` = the run's timeout plus 1 hour (#18).
+  - `HeartbeatInterval` = 10 seconds, `MissedHeartbeats` = 3 (#18).
+  - `MaxEventBytes` = 64 KiB, `MaxCheckpointBytes` = 4 MiB (#18, #19).
+  - Code nodes: 30 seconds and 256 MiB unless the node says otherwise, at most 5 minutes and 1 GiB; 64 KiB of output (#17).
+- **Decided:**
+  - gRPC with protobuf, generated with buf; the Docker sandbox backend comes in M2.
+  - Templates are paths into the state, never code, and a router switches on a value.
+  - Checkpoints are encrypted with OpenBao transit.
+
+  `docs/decisions.md`, 2026-10-18, has the reasons.
+
+## #14 The workflow spec
+
+`api/workflow.v1.schema.json` (JSON Schema 2020-12) is the shape, and
+`docs/workflows.md` explains it with examples.
+
+**Top level:**
+- `apiVersion: rotor.dev/v1`, `kind: Workflow`, `metadata.name` (lower case and dashes)
+- `inputs`: a JSON Schema for what the person gives at the start
+- `tools`: bindings by name; `model`; `limits`
+- `triggers`: empty until M6
+- `entry`, `nodes` and `edges`
+
+**Binding.** `{tool, scopes, allowTools, access, approval}`:
+- `tool` names a tool in Rotor by its product name, such as `exciter`.
+- `allowTools` lists the MCP tools a run may call through the binding; nothing else is offered.
+- `access: read` (the default) offers only tools whose `readOnlyHint` is true.
+- `approval: beforeWrite` requires an approval node on every path to a node that writes through the binding.
+
+**Nodes:**
+
+| Type | Fields | Becomes |
+|---|---|---|
+| `agent` | `prompt`, `tools` (binding names), `output.schema` | a tool-calling agent on the workflow's model |
+| `tool` | `tool` (binding), `call` (MCP tool), `arguments` | one MCP call; a string argument may hold `{{ inputs.x }}` or `{{ nodes.<id>.x }}` |
+| `code` | `source`, `output.schema`, `tools`, `timeout`, `memory` | `def run(state, ctx) -> dict` in a subprocess |
+| `approval` | `message` | an interrupt the run waits at |
+| `router` | `on` (a state path), `cases` (value to node), `default` | conditional edges |
+
+**State:**
+- The state is `{inputs, nodes: {<id>: <output>}}`, plus the agent's messages.
+- A node's output goes under its id.
+- A router's next nodes come from its cases, never from `edges`.
+- A node without an outgoing edge ends the run.
+
+**Validation**, by Go when saving and by the runner when starting:
+1. YAML that parses, at most `MaxSpecBytes`.
+2. The JSON Schema.
+3. The spec's own sense:
+   - node ids unique; edges and cases name known nodes
+   - every node reachable from `entry`
+   - routers have no `edges` of their own
+   - tool nodes and agents name declared bindings, and `call` is in the binding's `allowTools`
+4. When saving, against the tools as the saver sees them:
+   - the bound tool exists and offers the scopes
+   - an `access: read` binding allows only read-only tools
+   - `approval: beforeWrite` holds
+
+**Problems** carry a JSON pointer, line and column (from 1), a code and a sentence.
+
+**Golden fixtures** in `api/workflow-fixtures/` are validated by both Go and Python, which must agree.
+
+## #15 Workflows
+
+| Operation | Needs | Answers |
+|---|---|---|
+| `GET /workflows` | signed in | `{workflows}` the caller may see; `?archived=true` for archived ones |
+| `POST /workflows` | signed in | `{specYAML, comment?}`; 201 `{workflow, version}`; 422 `{problems}` in the envelope's fields |
+| `GET /workflows/{workflowID}` | may see | `{workflow, version}` |
+| `PUT /workflows/{workflowID}` | owner | `{specYAML, comment, baseVersion}`; 409 when `baseVersion` is not current |
+| `DELETE /workflows/{workflowID}` | owner or admin | 204; archives |
+| `GET /workflows/{workflowID}/versions[/{versionNumber}]` | may see | the versions, or one with its YAML |
+| `GET /workflows/{workflowID}/diff?from=&to=` | may see | hunks of lines with `equal`, `insert` and `delete` |
+| `PUT /workflows/{workflowID}/sharing` | owner | `{sharing: private\|groups\|everyone, groups}` |
+| `POST /workflows/validate` | signed in | `{valid, problems}` without saving |
+| `GET /schemas/workflow.v1.json` | signed in | the schema, for the editor |
+| `GET /tools/{toolID}/catalog` | signed in | `{tool, build, tools}`; 409 when the caller is not connected |
+
+- **Who may see a workflow:**
+  - its owner
+  - everyone when `sharing` is `everyone`
+  - a person in one of `sharedGroups` (their realm groups, as of their last sign-in) when it is `groups`
+  - administrators
+
+  Only the owner saves and shares; the database refuses anyone else.
+- **Versions** are numbered from 1 without gaps and never change. A run pins one.
+- **Sharing** shares the workflow, never the owner's tokens: a run acts as whoever starts it.
+- **The catalog:**
+  - It is the tool's `tools/list`, called with an access token minted for the caller.
+  - It is cached per tool, tool build (from the tool's `/meta`) and person for `CatalogTTL`.
+  - It gives each tool's name, description, input schema and the `readOnlyHint` and `destructiveHint` it declares.
+- **Audit:** `workflow.created`, `workflow.changed` (version), `workflow.shared` (sharing, groups), `workflow.archived`.
+
+## #16 and #17 The runner
+
+- **Compiling.** The spec becomes a LangGraph `StateGraph`:
+  - **agent:** `langchain.agents.create_agent` on `init_chat_model`.
+  - **tool:** one call through langchain-mcp-adapters over streamable HTTP, with `Authorization: Bearer` set per call from the run's token for that binding. Tokens never enter the state.
+  - **router:** `add_conditional_edges`.
+  - **approval:** `interrupt({message})`.
+- **Limits:**
+  - `maxSteps` is the recursion limit, `timeout` bounds the whole run, and `maxTokens` counts the model's usage.
+  - Exceeding one ends the run with reason `max_steps`, `timeout` or `max_tokens`.
+- **Code nodes:**
+  - `def run(state, ctx) -> dict` runs in a child process with an empty environment, the node's memory limit, a CPU limit and its timeout.
+  - It may use only what the runner image has installed.
+  - `ctx.call_tool(binding, name, arguments)` goes back through the runner, which enforces the binding.
+  - The result must be JSON matching `output.schema`.
+  - Its stdout and stderr become `log` events, capped.
+
+## #18 The runner protocol
+
+`RunnerControlService.Connect` is one bidirectional stream per run. The
+control plane serves it on `ROTOR_RUNNER_ADDR` over TLS, with a certificate from
+OpenBao's PKI. The sandbox is started with the control plane's address, the CA
+and a bootstrap token, and dials out.
+
+- **Hello:**
+  1. The first message is `Hello` with the bootstrap token: single use, expiring after `BootstrapTTL`, bound to one run.
+  2. The answer is `HelloAck` with the run id and a session token.
+  3. A dropped stream reopens with `Hello` carrying the session token, which the next `HelloAck` replaces.
+
+  A used, expired or unknown credential ends the stream with `UNAUTHENTICATED`.
+- **Delivery:**
+  - Each side numbers the messages that must arrive (`seq` from 1) and acknowledges what it has handled (`ack`).
+  - The control plane stores an event before acknowledging it. It ignores a sequence number it has, and ends the stream on a gap.
+  - After a reconnect each side resends what the other did not acknowledge.
+- **Heartbeats** every `HeartbeatInterval`. After `MissedHeartbeats` missed, the sandbox is lost: the run records `runner.lost`, and #22 decides what follows.
+- **Runner to control plane:**
+  - `Event` (a type below, a redacted JSON payload)
+  - `TokenRequest` (a fresh token for a binding)
+  - `Heartbeat`
+  - `Done` (`succeeded`, `failed` with a reason, `cancelled`, or `interrupted` when it waits, checkpointed)
+  - the checkpoint requests of #19
+- **Control plane to runner:**
+  - `StartRun` (the pinned spec, the inputs, the resolved bindings, the model, and `resume` with its answer for a run that has checkpoints)
+  - `Resume`, `Cancel`, `TokenGrant`, `SecretGrant`
+  - the checkpoint answers
+
+  In M2 a grant carries the token itself; M3 sends an OpenBao wrapping token instead (#23).
+
+## #19 Checkpoints
+
+- The runner's checkpointer stores and loads over the stream: `CheckpointGet`, `CheckpointList`, `CheckpointPut`, `CheckpointWrites`. Values are LangGraph's serialized `(type, bytes)`, loaded with strict msgpack.
+- **Storage:**
+  - The control plane keeps checkpoints in `run_checkpoint` and their pending writes in `run_checkpoint_write`, under the run the stream is bound to.
+  - The sandbox has no database access.
+  - Each value is encrypted with the OpenBao transit key `rotor-checkpoints`. A checkpoint above `MaxCheckpointBytes` is refused and the run fails, saying so.
+- **No tokens in checkpoints:** tokens and keys live in the runner's memory and are never in the state, so a checkpoint cannot hold one; a test proves it.
+
+## #20 Model providers
+
+| Operation | Needs | Answers |
+|---|---|---|
+| `GET /providers` | admin | `{providers}`, with `hasKey` and never the key |
+| `POST /providers` | admin | `{name, kind, baseURL?, apiVersion?, models, defaultModel?, enabled, apiKey?}` |
+| `PUT /providers/{providerID}` | admin | as POST; an empty `apiKey` keeps the one held |
+| `DELETE /providers/{providerID}` | admin | 204 |
+| `POST /providers/{providerID}/test` | admin | `{ok, message, models}` from the provider's model list |
+| `GET /models` | signed in | the models a workflow may name, and the default |
+
+- **Kinds:** `anthropic`, `openai`, `azure_openai`, `openai_compatible` (any server speaking OpenAI's chat API, such as Ollama). The runner builds each with `init_chat_model`.
+- **Keys:** they live in OpenBao at `rotor/providers/{id}/key` and reach the sandbox in a `SecretGrant`, never in a spec or an environment file.
+- **Choosing a model:** a workflow's `model` must be in the allowed list; without one it gets the default.
+- **Audit:** `provider.changed` (added, changed, removed), never the key.
+
+## #21 Sandboxes
+
+```go
+type Backend interface {
+	Spawn(ctx context.Context, spec Spec) (ID, error)
+	Destroy(ctx context.Context, id ID) error
+	Status(ctx context.Context, id ID) (Status, error)
+	List(ctx context.Context, labels map[string]string) ([]Sandbox, error)
+}
+
+type Spec struct {
+	RunID  uuid.UUID
+	Image  string
+	Env    map[string]string // the control plane's address, its CA and the bootstrap token
+	Limits Limits            // memory, CPUs, processes
+	Labels map[string]string
+}
+```
+
+- **The Docker backend:**
+  - It runs only in development, through the Docker socket.
+  - Its containers are read-only with a tmpfs `/tmp`, have no capabilities, run as a non-root user, and are labelled `rotor.dev/sandbox`, `rotor.dev/stack` and `rotor.dev/run`.
+  - They join one internal network, which reaches the api and the tools and nothing else.
+  - At start-up the api destroys sandboxes of its stack that no run owns.
+- **Kubernetes and gVisor** come in M4.
+
+## #22 to #24 Runs (M3)
+
+| Operation | Needs | Answers |
+|---|---|---|
+| `POST /workflows/{workflowID}/runs` | may see | `{inputs, version?}` with `Idempotency-Key`; 201 `{run}`, 200 for a repeated key, 409 naming the tools to connect, 422 inputs against the schema |
+| `GET /runs` | signed in | runs the caller started, runs of workflows they own; admins all; filtered by `workflow`, `status`, `mine` |
+| `GET /runs/{runID}` | may see | `{run}` |
+| `POST /runs/{runID}/cancel` | the runner's person, the workflow's owner or an admin | `{run}`; 409 when it has ended |
+| `GET /runs/{runID}/events` | may see | `text/event-stream` |
+
+- **States and their moves:**
+  - queued to starting or cancelled
+  - starting to running, failed or cancelled
+  - running to waiting, succeeded, failed or cancelled
+  - waiting to starting (resumed), cancelled or expired
+
+  A trigger refuses any other move. A worker claims queued runs with `FOR UPDATE SKIP LOCKED` and takes up runs again after a restart.
+- **Events:**
+  - Each event is a row of `run_event` with its sequence number as the SSE id. `Last-Event-ID` replays the rest. Valkey fans events out across api replicas.
+  - Payloads are capped at `MaxEventBytes` and redacted.
+
+  | Type | Payload |
+  |---|---|
+  | `node.started` | `{node, type}` |
+  | `node.finished` | `{node, ok, error?, outputSummary}` |
+  | `llm.output` | `{node, text}`, in chunks |
+  | `tool.called` | `{node, binding, tool, arguments, resultSummary, ok}` |
+  | `log` | `{node, stream, text}` |
+  | `interrupt` | `{node, message}` |
+  | `run.finished` | `{status, reason, output}` |
+  | `runner.lost` | `{since}` |
+
+- **Tokens (#23):** at `StartRun` and on `TokenRequest` the control plane mints per binding with `connections.Mint` and wraps the result with OpenBao response wrapping (single use, at most 2 minutes). The runner unwraps it. At the end every access token is revoked at its tool.
+
+## What is left for later
+
+- Approvals people answer in the browser (M5) and triggers (M6); the spec reserves `triggers`.
+- Egress control, gVisor and Kubernetes for sandboxes (M4).
+- Narrowing tokens at the tool once tools offer token exchange (Cloudster1/Exciter#235).

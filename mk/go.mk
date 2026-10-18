@@ -46,6 +46,11 @@ test-go: | $(GO_CACHE) ## Run the Go unit tests with the race detector
 build-go: | $(GO_CACHE) ## Build every backend binary into backend/bin, stamped with the version and commit
 	$(DOCKER_GO) go build -trimpath -ldflags '$(GO_LDFLAGS)' -o bin/ ./cmd/...
 
+.PHONY: go-add
+go-add: | $(GO_CACHE) ## Add or upgrade backend dependencies: make go-add MODS="module@version ..."
+	@[ -n "$(MODS)" ] || { echo "Name the modules, such as make go-add MODS=google.golang.org/grpc@v1.84.0"; exit 1; }
+	$(DOCKER_GO) sh -c 'go get $(MODS) && go mod tidy'
+
 .PHONY: tidy
 tidy: | $(GO_CACHE) ## Run go mod tidy
 	$(DOCKER_GO) go mod tidy
@@ -65,7 +70,7 @@ fmt-check: | $(GO_CACHE) ## Fail when a Go file is not gofmt-clean
 	@$(DOCKER_GO) sh -c 'out=$$(gofmt -l .); [ -z "$$out" ] || { echo "These files need formatting; run make fmt:"; echo "$$out"; exit 1; }'
 
 .PHONY: check-go
-check-go: fmt-check vet test-go openapi-check ## The backend gate: formatting, vet, race-checked tests, OpenAPI drift
+check-go: fmt-check vet test-go openapi-check $(if $(wildcard $(ROOT)/proto),proto-check proto-breaking) ## The backend gate: formatting, vet, race-checked tests, OpenAPI drift
 
 .PHONY: test-integration
 test-integration: | $(GO_CACHE) ## Run the integration suite against this checkout's running stack

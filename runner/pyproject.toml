@@ -10,6 +10,7 @@ dependencies = [
     "langchain-core==1.6.12",
     "langchain-mcp-adapters==0.3.2",
     "grpcio==1.84.0",
+    "protobuf==7.36.2",
 ]
 
 [dependency-groups]
@@ -18,6 +19,8 @@ dev = [
     "mypy==2.4.0",
     "pytest==9.1.1",
     "types-grpcio==1.84.0.20260928",
+    "grpcio-tools==1.84.0",
+    "mypy-protobuf==5.1.0",
 ]
 
 [build-system]
@@ -27,16 +30,23 @@ build-backend = "uv_build"
 [tool.ruff]
 line-length = 120
 target-version = "py313"
+# Generated from proto/ by make proto; a freshness check keeps it current.
+extend-exclude = ["src/rotor_runner/pb"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "N", "S", "SIM", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]
+"tests/**" = ["S101", "S105", "S106"]
 
 [tool.mypy]
 strict = true
 python_version = "3.13"
+exclude = ["src/rotor_runner/pb/.*_pb2(_grpc)?\\.py$"]
+
+[[tool.mypy.overrides]]
+module = ["rotor_runner.pb.*"]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

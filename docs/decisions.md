@@ -3,6 +3,32 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-18: Workflows and the runner for M2 (#13)
+
+- **gRPC with protobuf for the runner protocol, generated with buf.** One
+  bidirectional stream carries run control, tokens, events and checkpoints
+  between Go and Python with typed messages both sides generate from one
+  file; buf lints it and refuses incompatible changes against main. Go code
+  comes from buf with plugins built in the Go container, Python code from
+  grpcio-tools in the uv container, so no generation needs a network
+  service.
+- **The runner dials out.** A sandbox needs no listening port and no
+  inbound rule, and the control plane decides what it serves; a reconnect
+  replays what the other side did not acknowledge.
+- **The Docker sandbox backend comes in M2, not M3.** The runner protocol
+  and the checkpoints are only proven by killing a real sandbox and
+  resuming in a fresh one, so the tests start and destroy real containers.
+- **Templates are paths, never code.** A tool node's argument may name a
+  value of the state, `{{ nodes.draft.title }}`, and a router switches on a
+  value; there is no expression language to sandbox or to keep compatible.
+  Anything more is a code node, which runs in a subprocess with limits.
+- **Checkpoints are encrypted with OpenBao transit.** They hold what a run
+  read from the tools; the key never leaves OpenBao and a database dump
+  shows ciphertext.
+- **CodeMirror 6 for the workflow editor.** It is small, themable with the
+  suite's tokens and testable in jsdom, and codemirror-json-schema gives
+  completion and checks from the same schema the server uses.
+
 ## 2026-10-18: Tool connections for M1 (#7)
 
 - **One refresh per connection at a time.** The tools rotate refresh tokens

@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rotor.dev/schemas/workflow.v1.json",
+  "title": "Rotor workflow, version 1",
+  "description": "A workflow Rotor runs as the person who starts it. docs/workflows.md explains every field.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind", "metadata", "limits", "entry", "nodes"],
+  "properties": {
+    "apiVersion": { "const": "rotor.dev/v1" },
+    "kind": { "const": "Workflow" },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+          "description": "Lower case letters, digits and dashes, as a file name would be."
+        },
+        "description": { "type": "string", "maxLength": 2000 }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "description": "A JSON Schema for what the person gives when starting a run; checked before the run starts."
+    },
+    "tools": {
+      "type": "object",
+      "description": "The tools a run may use, each under a name the nodes refer to.",
+      "maxProperties": 20,
+      "propertyNames": { "$ref": "#/$defs/id" },
+      "additionalProperties": { "$ref": "#/$defs/binding" }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "provider": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxSteps", "timeout"],
+      "properties": {
+        "maxSteps": { "type": "integer", "minimum": 1, "maximum": 500 },
+        "timeout": { "$ref": "#/$defs/duration" },
+        "maxTokens": { "type": "integer", "minimum": 1, "maximum": 10000000 }
+      }
+    },
+    "triggers": {
+      "type": "array",
+      "description": "Reserved for M6; a version 1 workflow is started by hand.",
+      "maxItems": 0
+    },
+    "entry": { "$ref": "#/$defs/id" },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "maxItems": 400,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to"],
+        "properties": {
+          "from": { "$ref": "#/$defs/id" },
+          "to": { "$ref": "#/$defs/id" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,62}$",
+      "description": "Starts with a lower case letter, then letters, digits, dashes or underscores."
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*(s|m|h)$",
+      "description": "A whole number of seconds, minutes or hours, such as 30s, 10m or 2h."
+    },
+    "statePath": {
+      "type": "string",
+      "pattern": "^(inputs|nodes)(\\.[A-Za-z0-9_-]+)+$",
+      "description": "Where a value lives in the run's state: inputs.<field> or nodes.<node>.<field>."
+    },
+    "outputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema"],
+      "properties": {
+        "schema": { "type": "object", "description": "A JSON Schema the node's output must satisfy." }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool", "scopes", "allowTools"],
+      "properties": {
+        "tool": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "The tool's name in Rotor, such as exciter."
+        },
+        "scopes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 100 }
+        },
+        "allowTools": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "description": "The MCP tools a run may call through this binding; nothing else is offered."
+        },
+        "access": {
+          "enum": ["read", "write"],
+          "default": "read",
+          "description": "read offers only the tools that say they only read."
+        },
+        "approval": {
+          "enum": ["none", "beforeWrite"],
+          "default": "none",
+          "description": "beforeWrite requires an approval node on every path to a node that writes through this binding."
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "type": { "enum": ["agent", "tool", "code", "approval", "router"] }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "agent" } } }, "then": { "$ref": "#/$defs/agentNode" } },
+        { "if": { "properties": { "type": { "const": "tool" } } }, "then": { "$ref": "#/$defs/toolNode" } },
+        { "if": { "properties": { "type": { "const": "code" } } }, "then": { "$ref": "#/$defs/codeNode" } },
+        { "if": { "properties": { "type": { "const": "approval" } } }, "then": { "$ref": "#/$defs/approvalNode" } },
+        { "if": { "properties": { "type": { "const": "router" } } }, "then": { "$ref": "#/$defs/routerNode" } }
+      ]
+    },
+    "agentNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "prompt"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "agent" },
+        "prompt": { "type": "string", "minLength": 1, "maxLength": 20000 },
+        "tools": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "output": { "$ref": "#/$defs/outputSchema" }
+      }
+    },
+    "toolNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "tool", "call"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "tool" },
+        "tool": { "$ref": "#/$defs/id" },
+        "call": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "arguments": {
+          "type": "object",
+          "description": "The call's arguments; a string may hold {{ inputs.x }} or {{ nodes.n.x }} to put a value of the state in."
+        }
+      }
+    },
+    "codeNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "source", "output"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "code" },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000,
+          "description": "Python defining def run(state, ctx) -> dict."
+        },
+        "tools": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "output": { "$ref": "#/$defs/outputSchema" },
+        "timeout": { "$ref": "#/$defs/duration" },
+        "memory": { "type": "string", "pattern": "^[1-9][0-9]*(Mi|Gi)$" }
+      }
+    },
+    "approvalNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "message"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "approval" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    },
+    "routerNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "on", "cases"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "router" },
+        "on": { "$ref": "#/$defs/statePath" },
+        "cases": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/id" },
+          "description": "Which node follows for each value the state holds at on."
+        },
+        "default": { "$ref": "#/$defs/id" }
+      }
+    }
+  }
+}

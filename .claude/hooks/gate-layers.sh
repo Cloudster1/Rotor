@@ -14,6 +14,8 @@ while IFS= read -r path; do
     *.md | NOTICE | LICENSE | docs/* | CHANGELOG.md | assets/*) ;;
     backend/* | go.work | go.work.sum) need_go=1 need_integration=1 need_e2e=1 ;;
     api/*) need_go=1 need_web=1 need_integration=1 need_e2e=1 ;;
+    # The generated protocol code is checked against proto/ by check-go, which needs both toolchains.
+    proto/* | buf.yaml | buf.gen.yaml | runner/src/rotor_runner/pb/*) need_go=1 need_python=1 need_integration=1 ;;
     runner/* | deploy/Dockerfile.runner) need_python=1 ;;
     web/*) need_web=1 need_e2e=1 ;;
     e2e/*) need_e2e=1 ;;
