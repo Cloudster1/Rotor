@@ -75,6 +75,7 @@ type Config struct {
 	OpenBao OpenBao
 	Tools   Tools
 	Sandbox Sandbox
+	Runner  Runner
 	Valkey  Valkey
 }
 
@@ -149,6 +150,7 @@ func Load() (Config, error) {
 		OpenBao: loadOpenBao(l),
 		Tools:   loadTools(l),
 		Sandbox: loadSandbox(l),
+		Runner:  loadRunner(l),
 		Valkey:  loadValkey(l),
 	}
 	if c.OIDC.RedirectURL == "" {

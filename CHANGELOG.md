@@ -9,6 +9,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The control plane and a run's sandbox talk over one channel (#18). The
+  runner in the sandbox dials the api's runner port over TLS, with a
+  certificate from OpenBao's PKI, using a bootstrap token that works once
+  and expires within minutes; the api answers with the run's pinned workflow
+  and its tools, mints tokens as the run asks for them, and keeps every event
+  the runner reports. A dropped link or a restart loses nothing: both sides
+  number what they send and resend what the other did not acknowledge, and a
+  runner that stops answering is recorded as lost.
 - People write, version and share workflows in the browser (#15). The
   Workflows page lists your workflows and those shared with you; the editor
   completes and explains the YAML from the workflow schema and marks each
@@ -33,6 +41,17 @@ and the versioning [Semantic Versioning](https://semver.org/).
   writes. It calls tools only through `ctx.call_tool`, which the runner
   checks against the node's bindings; it must return JSON matching its
   output schema, and what it prints becomes capped log events.
+- People write, version and share workflows in the browser (#15). The
+  Workflows page lists your workflows and those shared with you; the editor
+  completes and explains the YAML from the workflow schema and marks each
+  problem the server finds on its line as you type, including what only your
+  tools can tell, such as a binding that allows a writing tool but says it
+  only reads. Every save is a new version that never changes; a save based on
+  an older version is refused rather than overwriting a colleague. Versions
+  are compared line by line, YAML is imported and exported, and a tool picker
+  lists what your connection may call in each tool with its read-only and
+  destructive hints. Sharing with your realm groups or everyone lets others
+  read and run a workflow as themselves; it never shares your access.
 - The runner turns a workflow into a LangGraph graph (#16): agents built on
   the workflow's model with the tools their bindings allow (only tools that
   say they only read, unless a binding may write), single MCP calls with

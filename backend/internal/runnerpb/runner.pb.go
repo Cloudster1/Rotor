@@ -1250,8 +1250,10 @@ type TokenGrant struct {
 	//
 	//	*TokenGrant_AccessToken
 	//	*TokenGrant_WrappingToken
-	Token         isTokenGrant_Token     `protobuf_oneof:"token"`
-	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	Token     isTokenGrant_Token     `protobuf_oneof:"token"`
+	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// error says why there is no token, such as a person who must connect the tool again.
+	Error         string `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1323,6 +1325,13 @@ func (x *TokenGrant) GetExpiresAt() *timestamppb.Timestamp {
 		return x.ExpiresAt
 	}
 	return nil
+}
+
+func (x *TokenGrant) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
 }
 
 type isTokenGrant_Token interface {
@@ -2224,14 +2233,15 @@ const file_rotor_runner_v1_runner_proto_rawDesc = "" +
 	"\n" +
 	"value_json\x18\x01 \x01(\tR\tvalueJson\" \n" +
 	"\x06Cancel\x12\x16\n" +
-	"\x06reason\x18\x01 \x01(\tR\x06reason\"\xb8\x01\n" +
+	"\x06reason\x18\x01 \x01(\tR\x06reason\"\xce\x01\n" +
 	"\n" +
 	"TokenGrant\x12\x18\n" +
 	"\abinding\x18\x01 \x01(\tR\abinding\x12#\n" +
 	"\faccess_token\x18\x02 \x01(\tH\x00R\vaccessToken\x12'\n" +
 	"\x0ewrapping_token\x18\x03 \x01(\tH\x00R\rwrappingToken\x129\n" +
 	"\n" +
-	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAtB\a\n" +
+	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x14\n" +
+	"\x05error\x18\x05 \x01(\tR\x05errorB\a\n" +
 	"\x05token\"|\n" +
 	"\vSecretGrant\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +

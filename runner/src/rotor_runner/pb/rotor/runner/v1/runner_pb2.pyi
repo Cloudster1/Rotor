@@ -504,10 +504,13 @@ class TokenGrant(_message.Message):
     ACCESS_TOKEN_FIELD_NUMBER: _builtins.int
     WRAPPING_TOKEN_FIELD_NUMBER: _builtins.int
     EXPIRES_AT_FIELD_NUMBER: _builtins.int
+    ERROR_FIELD_NUMBER: _builtins.int
     binding: _builtins.str
     access_token: _builtins.str
     wrapping_token: _builtins.str
     """wrapping_token is an OpenBao response-wrapping token the runner unwraps once (M3)."""
+    error: _builtins.str
+    """error says why there is no token, such as a person who must connect the tool again."""
     @_builtins.property
     def expires_at(self) -> _timestamp_pb2.Timestamp: ...
     def __init__(
@@ -517,10 +520,11 @@ class TokenGrant(_message.Message):
         access_token: _builtins.str = ...,
         wrapping_token: _builtins.str = ...,
         expires_at: _timestamp_pb2.Timestamp | None = ...,
+        error: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["access_token", b"access_token", "expires_at", b"expires_at", "token", b"token", "wrapping_token", b"wrapping_token"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["access_token", b"access_token", "binding", b"binding", "expires_at", b"expires_at", "token", b"token", "wrapping_token", b"wrapping_token"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["access_token", b"access_token", "binding", b"binding", "error", b"error", "expires_at", b"expires_at", "token", b"token", "wrapping_token", b"wrapping_token"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType_token: _TypeAlias = _typing.Literal["access_token", "wrapping_token"]  # noqa: Y015
     _WhichOneofArgType_token: _TypeAlias = _typing.Literal["token", b"token"]  # noqa: Y015

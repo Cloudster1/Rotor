@@ -25,3 +25,16 @@ CODE_LOG_BYTES = 64 << 10
 CODE_OPEN_FILES = 64
 # CODE_LINE_BYTES bounds one line of the child's protocol, a result or a tool call included.
 CODE_LINE_BYTES = 1 << 20
+
+# The runner protocol (#18), as the control plane's config names it.
+HEARTBEAT_INTERVAL_S = 10
+# KEEPALIVE_MS is how often the stream is pinged and how long a ping may go unanswered; the server allows it.
+KEEPALIVE_MS = 5000
+RECONNECT_MIN_S = 0.5
+RECONNECT_MAX_S = 10.0
+# A token is asked for again this long before it expires, and a grant waited for this long before asking again.
+TOKEN_REFRESH_BEFORE_S = 60
+TOKEN_WAIT_S = 30
+MAX_MESSAGE_BYTES = 8 << 20
+# EXIT_REFUSED is the exit code of a runner whose credential the control plane refused.
+EXIT_REFUSED = 2
