@@ -267,6 +267,15 @@ type Spec struct {
   - They join one internal network, which reaches the api and the tools and nothing else.
   - At start-up the api destroys sandboxes of its stack that no run owns.
 - **Kubernetes and gVisor** come in M4.
+- **As built (#26):**
+  - **Settings:**
+    - `ROTOR_SANDBOX_BACKEND=kubernetes` with `ROTOR_SANDBOX_NAMESPACE` (`rotor-sandboxes`), `ROTOR_SANDBOX_RUNTIME_CLASS` (`gvisor` when unset; set empty for none, which needs `ROTOR_SANDBOX_ALLOW_RUNC=true`, refused in production), `ROTOR_SANDBOX_SERVICE_ACCOUNT` (`rotor-sandbox`, token-less) and `ROTOR_SANDBOX_KUBECONFIG` for tests outside a cluster.
+    - `ROTOR_RUNNER_HOST` names the host the runner certificate carries and sandboxes dial.
+    - `ROTOR_OPENBAO_AUTH=kubernetes` signs the control plane in with its pod's ServiceAccount token.
+  - **`Spec` gains two fields:**
+    - `SecretEnv`, the bootstrap token, which the Kubernetes backend keeps in a Secret the pod owns.
+    - `Deadline`, the run's timeout plus `SandboxDeadlineGrace`, as the pod's `activeDeadlineSeconds`.
+  - **The worker's rights:** create, get, list, watch, update and delete on pods and secrets in the sandbox namespace (`deploy/kube/sandboxes.yaml`; the chart renders the same).
 
 ## #22 to #24 Runs (M3)
 

@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -18,9 +19,13 @@ func clean(t *testing.T) {
 		"ROTOR_OIDC_REDIRECT_URL", "ROTOR_SESSION_TTL", "ROTOR_SECURE_COOKIES", "ROTOR_OPENBAO_ADDR",
 		"ROTOR_OPENBAO_ROLE", "ROTOR_OPENBAO_MOUNT", "ROTOR_CONTROL_PLANE_CLIENT_ID", "ROTOR_CONTROL_PLANE_CLIENT_SECRET",
 		"ROTOR_TOOLS_BACKCHANNEL", "ROTOR_SANDBOX_BACKEND", "ROTOR_SANDBOX_NETWORK", "ROTOR_SANDBOX_STACK", "ROTOR_VALKEY_URL",
+		"ROTOR_SANDBOX_ALLOW_RUNC", "ROTOR_OPENBAO_AUTH", "ROTOR_RUNNER_HOST", "ROTOR_RUNNER_DIAL",
 	} {
 		t.Setenv(key, "")
 	}
+	// Unset rather than empty: an empty runtime class means none, an unset one gVisor.
+	t.Setenv("ROTOR_SANDBOX_RUNTIME_CLASS", "")
+	_ = os.Unsetenv("ROTOR_SANDBOX_RUNTIME_CLASS")
 	t.Setenv("ROTOR_DB_URL", "postgres://app@db/rotor")
 }
 
@@ -213,5 +218,51 @@ func TestTheDockerSandboxIsForDevelopmentAlone(t *testing.T) {
 	t.Setenv("ROTOR_SANDBOX_BACKEND", "kata")
 	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "kata") {
 		t.Fatalf("an unknown backend = %v", err)
+	}
+}
+
+func TestAKubernetesSandboxRunsUnderGVisorUnlessATestClusterSaysOtherwise(t *testing.T) {
+	clean(t)
+	t.Setenv("ROTOR_SANDBOX_BACKEND", SandboxKubernetes)
+	t.Setenv("ROTOR_SANDBOX_STACK", "rotor")
+	c, err := Load()
+	if err != nil || c.Sandbox.RuntimeClass != DefaultRuntimeClass || c.Sandbox.Namespace != DefaultSandboxNamespace {
+		t.Fatalf("kubernetes with defaults = %+v, %v", c.Sandbox, err)
+	}
+	t.Setenv("ROTOR_SANDBOX_RUNTIME_CLASS", "")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "without gVisor") {
+		t.Fatalf("no runtime class without the override = %v", err)
+	}
+	t.Setenv("ROTOR_SANDBOX_ALLOW_RUNC", "true")
+	if c, err := Load(); err != nil || c.Sandbox.RuntimeClass != "" {
+		t.Fatalf("runc with the override = %+v, %v", c.Sandbox, err)
+	}
+	t.Setenv("ROTOR_ENV", EnvProduction)
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "ROTOR_SANDBOX_ALLOW_RUNC is true in production") {
+		t.Fatalf("the override in production = %v", err)
+	}
+}
+
+func TestTheControlPlaneSignsInToOpenBaoWithItsPodsTokenInACluster(t *testing.T) {
+	clean(t)
+	t.Setenv("ROTOR_OPENBAO_ADDR", "http://openbao:8200")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "ROTOR_CONTROL_PLANE_CLIENT_ID") {
+		t.Fatalf("jwt without its client = %v", err)
+	}
+	t.Setenv("ROTOR_OPENBAO_AUTH", OpenBaoAuthKubernetes)
+	if c, err := Load(); err != nil || c.OpenBao.TokenPath != DefaultServiceAccountToken {
+		t.Fatalf("kubernetes auth = %+v, %v", c.OpenBao, err)
+	}
+	t.Setenv("ROTOR_OPENBAO_AUTH", "approle")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "approle") {
+		t.Fatalf("an unknown auth method = %v", err)
+	}
+}
+
+func TestTheRunnerHostNamesTheAddressSandboxesDial(t *testing.T) {
+	clean(t)
+	t.Setenv("ROTOR_RUNNER_HOST", "rotor-api.rotor.svc")
+	if c, err := Load(); err != nil || c.Runner.Host != "rotor-api.rotor.svc" || c.Runner.Dial != "rotor-api.rotor.svc"+DefaultRunnerAddr {
+		t.Fatalf("runner = %+v, %v", c.Runner, err)
 	}
 }

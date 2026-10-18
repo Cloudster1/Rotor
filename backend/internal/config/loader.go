@@ -23,6 +23,14 @@ func (l *loader) str(key, def string) string {
 	return def
 }
 
+// orEmpty reads a value that may be set empty on purpose: def only when the variable is unset.
+func (l *loader) orEmpty(key, def string) string {
+	if v, ok := os.LookupEnv(key); ok {
+		return strings.TrimSpace(v)
+	}
+	return def
+}
+
 // raw reads a value as given, untrimmed, for a secret whose spaces may be part of it.
 func (l *loader) raw(key string) string {
 	return os.Getenv(key)

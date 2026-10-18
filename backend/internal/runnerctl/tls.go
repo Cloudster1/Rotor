@@ -26,6 +26,7 @@ type Issuer interface {
 // certificates keeps the server certificate current, renewing it before it ends.
 type certificates struct {
 	issuer Issuer
+	host   string
 	log    *slog.Logger
 	mu     sync.RWMutex
 	cert   *tls.Certificate
@@ -42,7 +43,7 @@ func (c *certificates) get(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 }
 
 func (c *certificates) renew(ctx context.Context) time.Time {
-	issued, err := c.issuer.IssueCertificate(ctx, config.RunnerHost, config.RunnerCertTTL)
+	issued, err := c.issuer.IssueCertificate(ctx, c.host, config.RunnerCertTTL)
 	if err == nil {
 		var pair tls.Certificate
 		if pair, err = tls.X509KeyPair([]byte(issued.Certificate), []byte(issued.PrivateKey)); err == nil {
@@ -73,7 +74,11 @@ func (c *certificates) keep(ctx context.Context) {
 
 // Serve listens on addr with TLS from OpenBao's PKI until ctx ends; runners dial it from their sandboxes.
 func (s *Server) Serve(ctx context.Context, addr string, issuer Issuer) error {
-	certs := &certificates{issuer: issuer, log: s.Log}
+	host := s.Host
+	if host == "" {
+		host = config.RunnerHost
+	}
+	certs := &certificates{issuer: issuer, log: s.Log, host: host}
 	go certs.keep(ctx)
 	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", addr)
 	if err != nil {

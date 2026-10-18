@@ -32,6 +32,8 @@ type Server struct {
 	Reach func(string) string
 	// Models resolves a run's model and its key (#20); nil starts runs without one.
 	Models Models
+	// Host is the name the protocol's certificate carries, which sandboxes dial; config.RunnerHost when empty.
+	Host string
 	// Wrap wraps the provider key for the run's sandbox (#23); Models needs it.
 	Wrap Wrapper
 	// Signals wakes the stream of a run when another replica queued a control message for it; nil polls alone.

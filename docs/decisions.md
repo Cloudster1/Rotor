@@ -3,6 +3,31 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-18: Sandboxes on Kubernetes for M4 (#26)
+
+- **A sandbox holds no identity.** No ServiceAccount token is mounted in a
+  sandbox pod and no OpenBao role exists for it: since #23 a sandbox only
+  opens single-use wrapped tokens, which needs no login, so an identity
+  would guard paths it never uses and give a hostile code node something to
+  steal. This replaces the earlier plan of Kubernetes auth for sandboxes.
+- **The control plane signs in to OpenBao with Kubernetes auth in a
+  cluster.** The api and the worker present their own ServiceAccount
+  tokens, so a cluster needs no Keycloak service account for OpenBao; JWT
+  auth stays for the development stack.
+- **client-go for the Kubernetes backend.** Unlike the Docker backend, which
+  speaks a few calls of the Engine API by hand, pods, secrets, in-cluster
+  credentials and their rotation are what client-go is for.
+- **gVisor unless explicitly overridden.** Start-up refuses a Kubernetes
+  sandbox without a RuntimeClass unless `ROTOR_SANDBOX_ALLOW_RUNC` says so,
+  which production refuses; kind in CI runs runc behind it.
+- **The sandbox namespace enforces the restricted Pod Security standard.**
+  A pod that is not hardened is refused by the cluster as well as never
+  built by Rotor, and the worker may manage pods and their bootstrap Secrets
+  there and nothing else.
+- **The Kubernetes tests run apart.** A kind cluster adds minutes, so they
+  run nightly, on pull requests that change what a cluster runs and on
+  those labelled kube, without being a required check.
+
 ## 2026-10-18: Workflows and the runner for M2 (#13)
 
 - **gRPC with protobuf for the runner protocol, generated with buf.** One
@@ -125,8 +150,7 @@ tell whether the reason still holds.
   the same API, dynamic secrets, leases, response wrapping and transit
   encryption. The control plane signs in to it with a Keycloak
   service-account token (JWT auth), so there is no static OpenBao token to
-  rotate; a sandbox signs in with its Kubernetes service account
-  (Kubernetes auth) and reaches only its own run's paths.
+  rotate; a sandbox holds no OpenBao credential at all (see #26 above).
 - **Tokens reach a sandbox wrapped.** The control plane mints the run's
   tokens and hands them over as an OpenBao response-wrapping token that can
   be unwrapped once, within minutes. A wrapping token seen twice means
