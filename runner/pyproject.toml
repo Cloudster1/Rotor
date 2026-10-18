@@ -1,0 +1,43 @@
+[project]
+name = "rotor-runner"
+version = "0.1.0"
+description = "Runs a Rotor workflow as a LangGraph graph inside its sandbox."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = "==3.13.*"
+dependencies = [
+    "langgraph==1.2.16",
+    "langchain-core==1.6.12",
+    "langchain-mcp-adapters==0.3.2",
+    "grpcio==1.84.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff==0.17.1",
+    "mypy==2.4.0",
+    "pytest==9.1.1",
+    "types-grpcio==1.84.0.20260928",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.30,<0.10"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "S", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

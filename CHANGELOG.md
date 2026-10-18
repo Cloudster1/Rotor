@@ -9,6 +9,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The workflow runner has a home (#4): `runner/` is a Python 3.13 project
+  with LangGraph, langchain-core, langchain-mcp-adapters and grpcio pinned
+  by `uv.lock`, checked by ruff, mypy and pytest, and built into a
+  distroless, non-root image that proves itself with no network, no
+  capabilities and a read-only root.
 - The backend answers (#3): `make up` now migrates the database and starts
   the api, which serves `/healthz`, `/readyz`, `/api/v1/openapi.json` and
   `/api/v1/meta`. One route table drives the router and `api/openapi.json`;
