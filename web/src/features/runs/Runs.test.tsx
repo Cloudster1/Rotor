@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Run } from "@/api/runs";
@@ -6,6 +6,11 @@ import type { WorkflowResponse, WorkflowSummary } from "@/api/workflows";
 import { s } from "@/strings";
 import { axeViolations } from "@/test/axe";
 import { ME, renderAt } from "@/test/app";
+
+// A run's page loads on demand with React Flow; loading it once here keeps a busy machine from timing a page out.
+beforeAll(async () => {
+  await import("./RunRoute");
+});
 
 afterEach(() => {
   cleanup();

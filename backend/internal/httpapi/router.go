@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/cloudster1/rotor/backend/internal/config"
 )
@@ -74,7 +73,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 	r.Use(securityHeaders)
 	r.Use(cors(allowedOrigins))
 	r.Use(s.sameSite(allowedOrigins))
-	r.Use(middleware.Timeout(timeout))
+	r.Use(timeoutExceptStreams(timeout))
 	r.Use(s.authenticate)
 
 	// Liveness and readiness are deliberately outside the API and authentication.
@@ -115,6 +114,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Get("/runs", s.handleListRuns)
 			r.Get("/runs/{runID}", s.handleGetRun)
 			r.Post("/runs/{runID}/cancel", s.handleCancelRun)
+			r.Get("/runs/{runID}/events", s.handleRunEvents)
 			mountPending(r, false, false)
 			r.Group(func(r chi.Router) {
 				r.Use(requireAdmin)

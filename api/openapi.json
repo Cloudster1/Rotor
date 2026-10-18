@@ -1009,8 +1009,8 @@
     "/runs/{runID}/events": {
       "get": {
         "operationId": "runEvents",
-        "summary": "A run's events as server-sent events, from the start or after Last-Event-ID.",
-        "description": "Content type text/event-stream; each event's id is its sequence number and its data the JSON payload in docs/api-contract-m2.md.",
+        "summary": "A run's events as server-sent events, from the start or after Last-Event-ID, until the run ends.",
+        "description": "Content type text/event-stream. Each event's id is its sequence number, its event name its type and its data the JSON {seq, type, node, payload, at}, with the payloads of docs/api-contract-m2.md. ?after= stands in for Last-Event-ID.",
         "tags": [
           "runs"
         ],
@@ -1023,6 +1023,22 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "description": "Send only the events numbered after this one.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "description": "The id of the last event received; a reconnecting browser sends it.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1031,16 +1047,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2602,6 +2608,64 @@
           "error"
         ]
       },
+      "Graph": {
+        "type": "object",
+        "properties": {
+          "edges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GraphEdge"
+            }
+          },
+          "entry": {
+            "type": "string"
+          },
+          "nodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GraphNode"
+            }
+          }
+        },
+        "required": [
+          "entry",
+          "nodes",
+          "edges"
+        ]
+      },
+      "GraphEdge": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ]
+      },
+      "GraphNode": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type"
+        ]
+      },
       "Info": {
         "type": "object",
         "properties": {
@@ -3035,6 +3099,9 @@
               "null"
             ],
             "format": "date-time"
+          },
+          "graph": {
+            "$ref": "#/components/schemas/Graph"
           },
           "id": {
             "type": "string"

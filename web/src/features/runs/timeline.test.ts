@@ -1,0 +1,73 @@
+import { describe, expect, it } from "vitest";
+import type { RunEvent } from "@/api/runs";
+import { GRAPH_COLUMN_PX, GRAPH_ROW_PX } from "@/config";
+import { layered } from "./layout";
+import { entries, linksIn, nodeStates } from "./timeline";
+
+let seq = 0;
+const at = "2026-10-18T10:00:00Z";
+const event = (type: string, node: string, payload: Record<string, unknown> = {}): RunEvent => ({ seq: ++seq, type, node, payload, at });
+
+describe("a run's timeline", () => {
+  it("follows each node's state from its events", () => {
+    const events = [
+      event("node.started", "ask"),
+      event("node.finished", "ask", { ok: true }),
+      event("node.started", "shape"),
+      event("node.finished", "shape", { ok: false, error: "boom" }),
+      event("node.started", "confirm"),
+      event("interrupt", "confirm", { message: "Go?" }),
+    ];
+    expect(nodeStates(events)).toEqual({ ask: "done", shape: "failed", confirm: "waiting" });
+  });
+
+  it("joins a model's chunks and a node's log lines in a row, and keeps everything else apart", () => {
+    const lines = entries([
+      event("node.started", "draft", { type: "agent" }),
+      event("llm.output", "draft", { text: "Hel" }),
+      event("llm.output", "draft", { text: "lo" }),
+      event("tool.called", "draft", { binding: "t", tool: "whoami", arguments: { a: 1 }, resultSummary: "bob", ok: true }),
+      event("llm.output", "draft", { text: "again" }),
+      event("log", "draft", { stream: "stdout", text: "one\n" }),
+      event("log", "draft", { stream: "stdout", text: "two\n" }),
+      event("runner.lost", "", { replaced: true }),
+      event("run.finished", "", { status: "succeeded", reason: "" }),
+    ]);
+    expect(lines.map((l) => l.kind)).toEqual(["started", "llm", "tool", "llm", "log", "lost", "run"]);
+    expect(lines[1]).toMatchObject({ text: "Hello" });
+    expect(lines[2]).toMatchObject({ tool: "whoami", binding: "t", result: "bob", ok: true });
+    expect(lines[4]).toMatchObject({ text: "one\ntwo\n" });
+    expect(lines[5]).toMatchObject({ replaced: true });
+  });
+
+  it("finds the web addresses a tool's answer names, each once", () => {
+    expect(linksIn('{"url": "https://exciter.example/r/RTR-1", "again": "https://exciter.example/r/RTR-1", "x": "ftp://no"}')).toEqual([
+      "https://exciter.example/r/RTR-1",
+    ]);
+  });
+});
+
+describe("the graph's layout", () => {
+  it("puts each node one layer below the nearest node leading to it, side by side within a layer", () => {
+    const placed = layered({
+      entry: "a",
+      nodes: [
+        { id: "a", type: "tool" },
+        { id: "b", type: "router" },
+        { id: "c", type: "code" },
+        { id: "d", type: "code" },
+        { id: "lonely", type: "code" },
+      ],
+      edges: [
+        { from: "a", to: "b" },
+        { from: "b", to: "c", label: "yes" },
+        { from: "b", to: "d", label: "default" },
+        { from: "c", to: "d" },
+      ],
+    });
+    const at = Object.fromEntries(placed.map((p) => [p.id, p]));
+    expect([at.a?.layer, at.b?.layer, at.c?.layer, at.d?.layer, at.lonely?.layer]).toEqual([0, 1, 2, 2, 3]);
+    expect(at.c).toMatchObject({ x: 0, y: 2 * GRAPH_ROW_PX });
+    expect(at.d).toMatchObject({ x: GRAPH_COLUMN_PX, y: 2 * GRAPH_ROW_PX });
+  });
+});

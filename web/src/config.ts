@@ -48,3 +48,10 @@ export const RUN_POLL_MS = 2_000;
 
 /** The longest text an inputs field takes before the form asks for less; the server bounds the whole run's inputs. */
 export const MAX_INPUT_TEXT = 10_000;
+
+/** How far apart the run graph draws nodes side by side, and one layer below the next, in pixels. */
+export const GRAPH_COLUMN_PX = 200;
+export const GRAPH_ROW_PX = 100;
+
+/** How tall the run graph is drawn, in pixels; it fits the graph inside. */
+export const GRAPH_HEIGHT_PX = 360;

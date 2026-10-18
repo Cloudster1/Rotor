@@ -1,0 +1,86 @@
+import type { RunEvent } from "@/api/runs";
+
+/** Where a node is in a run, as its events say. */
+export type NodeState = "pending" | "running" | "done" | "failed" | "waiting";
+
+/** One line of a run's timeline: an event, or several in a row that read as one, such as a model's chunks. */
+export type Entry =
+  | { kind: "started"; key: string; node: string; at: string; type: string }
+  | { kind: "finished"; key: string; node: string; at: string; ok: boolean; error: string; summary: string }
+  | { kind: "tool"; key: string; node: string; at: string; binding: string; tool: string; args: string; result: string; ok: boolean }
+  | { kind: "log"; key: string; node: string; at: string; text: string }
+  | { kind: "llm"; key: string; node: string; at: string; text: string }
+  | { kind: "interrupt"; key: string; node: string; at: string; message: string }
+  | { kind: "run"; key: string; node: string; at: string; status: string; reason: string; message: string }
+  | { kind: "lost"; key: string; node: string; at: string; replaced: boolean };
+
+const text = (v: unknown): string => (typeof v === "string" ? v : v === undefined || v === null ? "" : JSON.stringify(v, null, 2));
+
+/** Each node's state from the events so far; a node with no event yet is pending. */
+export function nodeStates(events: RunEvent[]): Record<string, NodeState> {
+  const out: Record<string, NodeState> = {};
+  for (const e of events) {
+    if (!e.node) continue;
+    if (e.type === "node.started") out[e.node] = "running";
+    if (e.type === "node.finished") out[e.node] = e.payload.ok === false ? "failed" : "done";
+    if (e.type === "interrupt") out[e.node] = "waiting";
+  }
+  return out;
+}
+
+/** The timeline: one entry per event, with a model's chunks and a node's log lines in a row joined into one. */
+export function entries(events: RunEvent[]): Entry[] {
+  const out: Entry[] = [];
+  for (const e of events) {
+    const key = String(e.seq);
+    const base = { key, node: e.node, at: e.at };
+    const last = out[out.length - 1];
+    switch (e.type) {
+      case "node.started":
+        out.push({ ...base, kind: "started", type: text(e.payload.type) });
+        break;
+      case "node.finished":
+        out.push({ ...base, kind: "finished", ok: e.payload.ok !== false, error: text(e.payload.error), summary: text(e.payload.outputSummary) });
+        break;
+      case "tool.called":
+        out.push({
+          ...base,
+          kind: "tool",
+          binding: text(e.payload.binding),
+          tool: text(e.payload.tool),
+          args: text(e.payload.arguments),
+          result: text(e.payload.resultSummary),
+          ok: e.payload.ok !== false,
+        });
+        break;
+      case "log":
+      case "llm.output": {
+        const kind = e.type === "log" ? "log" : "llm";
+        const piece = text(e.payload.text);
+        if (last && last.kind === kind && last.node === e.node) {
+          last.text += piece;
+        } else {
+          out.push({ ...base, kind, text: piece });
+        }
+        break;
+      }
+      case "interrupt":
+        out.push({ ...base, kind: "interrupt", message: text(e.payload.message) });
+        break;
+      case "run.finished":
+        out.push({ ...base, kind: "run", status: text(e.payload.status), reason: text(e.payload.reason), message: text(e.payload.message) });
+        break;
+      case "runner.lost":
+        out.push({ ...base, kind: "lost", replaced: e.payload.replaced === true });
+        break;
+    }
+  }
+  return out;
+}
+
+const urls = /https?:\/\/[^\s"'<>\\)\]}]+/g;
+
+/** The web addresses a tool's answer names, such as the item it created, each once. */
+export function linksIn(answer: string): string[] {
+  return [...new Set(answer.match(urls) ?? [])];
+}

@@ -112,7 +112,7 @@ func run() error {
 		reach := oidc.ParseRewrites(cfg.Tools.Backchannel)
 		runners.Reach = func(address string) string { return oidc.Rewrite(reach, address) }
 		runners.Checkpoints = runs.NewCheckpoints(cluster, secrets)
-		runners.Signals, runners.Wrap = store, secrets
+		runners.Signals, runners.Wrap, runners.Events = store, secrets, store
 		models := providers.NewService(cluster, secrets, boot.ToolClient(cfg))
 		server.Providers, runners.Models = models, models
 		go func() {

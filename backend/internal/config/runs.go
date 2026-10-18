@@ -38,3 +38,15 @@ const (
 	// says "look again" and the next one says the same.
 	SignalBuffer = 16
 )
+
+// Following a run's events over server-sent events (#24).
+const (
+	// EventHeartbeat is how often a quiet stream sends a comment, so proxies and browsers keep it open.
+	EventHeartbeat = 15 * time.Second
+	// EventPoll is how often a stream reads new events without a signal, in case one was lost.
+	EventPoll = 2 * time.Second
+	// EventBatch bounds the events one read answers; a longer run is read in several.
+	EventBatch = 500
+	// EventRetryMillis is how long a browser waits before it reconnects a dropped stream.
+	EventRetryMillis = 2000
+)

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cloudster1/rotor/backend/internal/openapi"
+	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 )
 
 // workflowSharing says who besides the owner sees a workflow.
@@ -220,4 +221,6 @@ type runResponse struct {
 	FinishedAt *time.Time      `json:"finishedAt"`
 	// Ended says the run reached a state it never leaves, so it can no longer be cancelled.
 	Ended bool `json:"ended"`
+	// Graph is the pinned version's nodes and edges, for the run's page; one run alone carries it, not a list.
+	Graph *spec.Graph `json:"graph,omitempty"`
 }

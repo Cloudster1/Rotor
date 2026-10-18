@@ -3,10 +3,10 @@ import { meQueryKey } from "@/api/auth";
 import { LOGIN_PATH } from "@/config";
 import { loginRoute } from "./login";
 import type { QueryClient } from "@tanstack/react-query";
-import { approvalsRoute, connectionsRoute, indexRoute, runsRoute, settingsRoute } from "./places";
+import { approvalsRoute, connectionsRoute, indexRoute, settingsRoute } from "./places";
 import { newWorkflowRoute, workflowRoute, workflowsRoute } from "./workflows";
 import { RouteError, rootRoute } from "./root";
-import { runRoute } from "./runs";
+import { runRoute, runsRoute } from "./runs";
 import { shellRoute } from "./shell";
 
 // Pages that stand without the shell, such as sign-in, are children of rootRoute beside shellRoute.

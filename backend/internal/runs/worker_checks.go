@@ -119,11 +119,15 @@ func (w *Worker) replace(ctx context.Context, c claimed) error {
 			"The run's sandbox stopped answering several times, so the run was ended. Try again, or ask an administrator to look at the worker's log.")
 	}
 	payload, _ := json.Marshal(map[string]any{"replaced": true, "attempt": c.Attempts + 1})
-	return w.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
+	err := w.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		tag, err := tx.Exec(ctx, `UPDATE run SET status = 'starting' WHERE id = $1 AND claimed_by = $2 AND status = 'running'`, c.ID, w.id)
 		if err != nil || tag.RowsAffected() == 0 {
 			return err
 		}
 		return runnerctl.AppendEvent(ctx, tx, c.ID, runnerctl.EventRunnerLost, "", payload)
 	})
+	if err == nil {
+		w.announce(ctx, c.ID)
+	}
+	return err
 }

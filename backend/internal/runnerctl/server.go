@@ -36,6 +36,8 @@ type Server struct {
 	Wrap Wrapper
 	// Signals wakes the stream of a run when another replica queued a control message for it; nil polls alone.
 	Signals Signals
+	// Events tells those following a run that it has a new event (#24); nil leaves them to poll.
+	Events Publisher
 
 	store store
 	mu    sync.Mutex
@@ -214,6 +216,7 @@ func (s *Server) serve(ctx context.Context, stream runnerpb.RunnerControlService
 			if err := s.store.lost(context.WithoutCancel(ctx), r.ID); err != nil {
 				s.Log.Error("cannot record a lost runner", "run", r.ID, "error", err)
 			}
+			s.announce(context.WithoutCancel(ctx), r.ID)
 			return status.Error(codes.DeadlineExceeded, "the runner missed its heartbeats")
 		case <-signals:
 			if err := s.sendQueued(ctx, stream, r.ID, &sent); err != nil {
@@ -271,13 +274,24 @@ func (s *Server) handle(ctx context.Context, stream runnerpb.RunnerControlServic
 	if apply == nil || msg.Seq == 0 {
 		return nil
 	}
-	if _, err := s.store.received(ctx, r.ID, msg.Seq, apply); err != nil {
+	fresh, err := s.store.received(ctx, r.ID, msg.Seq, apply)
+	if err != nil {
 		if errors.Is(err, errGap) {
 			return status.Error(codes.FailedPrecondition, err.Error())
 		}
 		return s.fail(r.ID, "store a runner message", err)
 	}
+	if fresh {
+		s.announce(ctx, r.ID)
+	}
 	return stream.Send(&runnerpb.ConnectResponse{Ack: msg.Seq})
+}
+
+// announce tells whoever follows the run, on any replica, that it has a new event; it publishes once committed.
+func (s *Server) announce(ctx context.Context, runID uuid.UUID) {
+	if s.Events != nil {
+		s.Events.Publish(ctx, EventsChannel(runID), nil)
+	}
 }
 
 // finish records how the run ended in its sandbox, as a run.finished event and the run's status; a run the control

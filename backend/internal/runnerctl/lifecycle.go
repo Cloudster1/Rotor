@@ -39,6 +39,14 @@ func Ended(status string) bool {
 // ControlChannel is the pub/sub channel that tells the api holding a run's stream to send what it has not sent.
 func ControlChannel(runID uuid.UUID) string { return "runctl:" + runID.String() }
 
+// EventsChannel is the pub/sub channel that tells those following a run, on any api replica, to read its new events.
+func EventsChannel(runID uuid.UUID) string { return "runevents:" + runID.String() }
+
+// Publisher tells every api replica that something changed for a run; *cache.Cache is the real one.
+type Publisher interface {
+	Publish(ctx context.Context, channel string, message []byte)
+}
+
 // EventRunnerLost is the event of a runner that stopped answering, or whose sandbox was replaced.
 const EventRunnerLost = eventRunnerLost
 

@@ -25,6 +25,7 @@
     "@lezer/highlight": "1.2.5",
     "@tanstack/react-query": "^5.62.0",
     "@tanstack/react-router": "^1.87.0",
+    "@xyflow/react": "12.12.0",
     "codemirror-json-schema": "0.8.1",
     "openapi-fetch": "^0.17.0",
     "react": "^19.0.0",

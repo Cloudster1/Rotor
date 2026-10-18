@@ -42,6 +42,7 @@ func (s *Service) Cancel(ctx context.Context, id uuid.UUID) (Run, error) {
 	}
 	if s.signals != nil {
 		s.signals.Publish(context.WithoutCancel(ctx), runnerctl.ControlChannel(id), nil)
+		s.signals.Publish(context.WithoutCancel(ctx), runnerctl.EventsChannel(id), nil)
 	}
 	return s.Get(ctx, id)
 }

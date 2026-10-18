@@ -206,6 +206,23 @@ again. When the run ends the worker revokes each token at its tool and
 forgets it; ending a connection or switching a person off does the same at
 once.
 
+## Following a run (#24)
+
+Every event of a run is a row of `run_event`, numbered by the control plane.
+Whoever stores one publishes `runevents:<run>` on Valkey once it is committed.
+`GET /runs/{id}/events` streams them as server-sent events:
+1. It checks that the caller may see the run.
+2. It listens on the run's channel, then sends what is stored after `Last-Event-ID`.
+3. It sends each new row as a signal or its own poll finds it, until the run has ended.
+
+Any api replica can serve a stream, whichever replica the runner talks to.
+
+The web client's runs list filters by workflow, state and the runs you
+started. A run's page draws the pinned version's graph with React Flow, laid
+out in layers from the entry and coloured by the events. Beside the graph, a
+timeline gives the same events in words, with tool calls folded open on
+request and links to what they created.
+
 ## Development stack (`deploy/docker-compose.yml`, #1)
 
 Postgres 18, Valkey 8, Keycloak 26 importing the suite's realm, and OpenBao
