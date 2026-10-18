@@ -210,6 +210,9 @@ func (s *Service) Revoke(ctx context.Context, toolID uuid.UUID, token string) er
 
 - **Refusals:** `ErrNotConnected`; `ErrScopeNotConsented`, naming the scopes
   outside the consent; `ErrReconnect` when the tool ended the grant.
+- **What the consent covers:** the scopes the tool granted, and the reading
+  half of each: consent to `mcp` covers `mcp:read`, as Exciter reads its
+  scopes. A run asking for nothing gets the whole consent.
 - **One refresh at a time per connection**, under a Postgres advisory lock on
   the connection, held from reading the refresh token until the rotated one
   is written to OpenBao with check-and-set. Only then is the access token

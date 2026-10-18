@@ -8,6 +8,8 @@ const (
 	ToolTimeout = 10 * time.Second
 	// MaxToolDocumentBytes bounds what Rotor reads of one answer from a tool.
 	MaxToolDocumentBytes = 64 << 10
+	// MintAttempts bounds how often minting starts over when a reconnect replaced the refresh token meanwhile.
+	MintAttempts = 2
 	// StateBytes is how much randomness a connection's state carries; only its SHA-256 is stored.
 	StateBytes = 32
 	// ConnectionLoginTTL is how long a person may take at a tool's consent page before the attempt is forgotten.

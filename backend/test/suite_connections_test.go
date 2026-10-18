@@ -4,13 +4,18 @@ package test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
+	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
 )
 
@@ -80,6 +85,29 @@ func TestSuiteAPersonConnectsToTheRealExciter(t *testing.T) {
 	}
 	if landed := bob.landing(t, decided.RedirectTo); landed != "/connections?connected="+toolID {
 		t.Fatalf("the callback landed on %q", landed)
+	}
+
+	// A run's token, minted from the connection, acts as bob at Exciter's MCP endpoint (#12).
+	_, me := bob.me()
+	bobID, _ := me["user"].(map[string]any)["id"].(string)
+	plane := controlPlaneReaching(t, newHarness(t), nil, map[string]string{base: os.Getenv(envExciterInternal)})
+	token, err := plane.Mint(context.Background(), connections.MintRequest{UserID: uuid.MustParse(bobID), ToolID: uuid.MustParse(toolID), RunID: "suite"})
+	if err != nil {
+		t.Fatalf("minting from the real Exciter: %v", err)
+	}
+	call, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": "whoami", "arguments": map[string]any{}}})
+	mcp, _ := http.NewRequest(http.MethodPost, base+"/api/v1/mcp", bytes.NewReader(call))
+	mcp.Header.Set("Content-Type", "application/json")
+	mcp.Header.Set("Authorization", "Bearer "+token.Value)
+	reach := oidc.HTTPClient(map[string]string{base: os.Getenv(envExciterInternal)})
+	answered, err := reach.Do(mcp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer answered.Body.Close()
+	said, _ := io.ReadAll(answered.Body)
+	if answered.StatusCode != http.StatusOK || !strings.Contains(string(said), "bob") {
+		t.Errorf("whoami at Exciter with a minted token = %d %.300s, want bob", answered.StatusCode, said)
 	}
 	if status, _ := bob.api(http.MethodDelete, "/tools/"+toolID+"/connection", nil); status != http.StatusNoContent {
 		t.Errorf("disconnecting from the real Exciter = %d", status)
