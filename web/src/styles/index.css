@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+/* Inter, bundled from node_modules rather than fetched, so the page loads nothing from a third party. */
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+
+@import "./tokens.css";
+
+@layer base {
+  html {
+    /* 14px is the working size of the interface, as in the siblings; the type scale hangs off it. */
+    font-size: 14px;
+    color-scheme: light dark;
+  }
+
+  :root[data-theme="light"] {
+    color-scheme: light;
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "calt", "tnum", "cv11";
+  }
+
+  ::selection {
+    background-color: var(--color-selection);
+  }
+
+  /* A visible focus ring on keyboard navigation only, never on mouse clicks. */
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 1px;
+  }
+
+  select,
+  input,
+  textarea,
+  button {
+    font: inherit;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility shadow-1 {
+  box-shadow: var(--shadow-1);
+}
+
+@utility shadow-2 {
+  box-shadow: var(--shadow-2);
+}
+
+/* The soft light behind the content, brightest where the page starts. */
+@utility bg-backdrop {
+  background: radial-gradient(120% 80% at 20% 0%, var(--color-backdrop-from), var(--color-backdrop-to));
+}

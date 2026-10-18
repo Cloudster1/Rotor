@@ -1,0 +1,144 @@
+/* The suite's Clay identity, as Armature's web/src/styles/index.css holds them; colours are named for roles,
+   so the dark theme redefines the same names. Primary actions are ink; the accent marks what is current. */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Seven sizes, each with its line height, so density comes from one place. */
+  --text-2xs: 11px;
+  --text-2xs--line-height: 16px;
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 20px;
+  --text-base: 14px;
+  --text-base--line-height: 22px;
+  --text-lg: 16px;
+  --text-lg--line-height: 24px;
+  --text-xl: 20px;
+  --text-xl--line-height: 28px;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 32px;
+
+  --color-canvas: #f6f4f0;
+  --color-surface: #fdfcfa;
+  --color-surface-raised: #f1eee8;
+  --color-surface-sunken: #ece8e1;
+  --color-surface-overlay: #ffffff;
+  --color-border: #e4dfd6;
+  --color-border-strong: #c9c2b6;
+
+  --color-ink: #1f1b16;
+  --color-ink-muted: #625b51;
+  --color-ink-subtle: #6f685d;
+  --color-ink-disabled: #b5aea3;
+
+  --color-primary: #1f1b16;
+  --color-primary-hover: #37312a;
+  --color-on-primary: #fbfaf7;
+
+  --color-accent: #2f5fd0;
+  --color-accent-hover: #264dad;
+  --color-accent-subtle: #e6ecfa;
+  --color-on-accent: #ffffff;
+  --color-focus: #2f5fd0;
+  --color-selection: #dce5f8;
+
+  --color-danger: #b93a2e;
+  --color-danger-hover: #9c2f25;
+  --color-danger-subtle: #f9e7e4;
+  --color-on-danger: #ffffff;
+  --color-success: #277749;
+  --color-success-subtle: #e3f1e8;
+  --color-warning: #b7791f;
+  --color-warning-subtle: #fbf0da;
+
+  --shadow-1: 0 1px 2px rgb(31 27 22 / 0.06);
+  --shadow-2: 0 8px 24px rgb(31 27 22 / 0.12);
+
+  --color-backdrop-from: #faf8f4;
+  --color-backdrop-to: #ebe6de;
+
+  --radius-control: 6px;
+  --radius-overlay: 8px;
+
+  /* From here up the sidebar stands beside the content; below it, above. A media query rem is 16px. */
+  --breakpoint-shell: 48rem;
+}
+
+/* The dark theme, twice: the first follows the system when nothing was chosen, the second is the
+   explicit choice, which overrides the system in both directions. contrast.test.ts wants them equal. */
+@layer theme {
+  :root[data-theme="dark"],
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --color-canvas: #14171c;
+      --color-surface: #1a1e24;
+      --color-surface-raised: #222731;
+      --color-surface-sunken: #0f1216;
+      --color-surface-overlay: #262c36;
+      --color-border: #2b313b;
+      --color-border-strong: #3f4652;
+      --color-backdrop-from: #1b1f26;
+      --color-backdrop-to: #0f1216;
+      --color-ink: #ede8e0;
+      --color-ink-muted: #aba396;
+      --color-ink-subtle: #999185;
+      --color-ink-disabled: #5a544b;
+      --color-primary: #ede8e0;
+      --color-primary-hover: #dbd5cb;
+      --color-on-primary: #171512;
+      --color-accent: #7fa3f2;
+      --color-accent-hover: #9bb7f5;
+      --color-accent-subtle: #22304f;
+      --color-on-accent: #0f1a33;
+      --color-focus: #9bb7f5;
+      --color-selection: #2a3a5e;
+      --color-danger: #e4756a;
+      --color-danger-hover: #ec8f86;
+      --color-danger-subtle: #3e2220;
+      --color-on-danger: #2f100d;
+      --color-success: #6cc08f;
+      --color-success-subtle: #1e3527;
+      --color-warning: #e0a94a;
+      --color-warning-subtle: #3d2f16;
+      --shadow-1: 0 1px 2px rgb(0 0 0 / 0.5);
+      --shadow-2: 0 12px 32px rgb(0 0 0 / 0.65);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --color-canvas: #14171c;
+    --color-surface: #1a1e24;
+    --color-surface-raised: #222731;
+    --color-surface-sunken: #0f1216;
+    --color-surface-overlay: #262c36;
+    --color-border: #2b313b;
+    --color-border-strong: #3f4652;
+    --color-backdrop-from: #1b1f26;
+    --color-backdrop-to: #0f1216;
+    --color-ink: #ede8e0;
+    --color-ink-muted: #aba396;
+    --color-ink-subtle: #999185;
+    --color-ink-disabled: #5a544b;
+    --color-primary: #ede8e0;
+    --color-primary-hover: #dbd5cb;
+    --color-on-primary: #171512;
+    --color-accent: #7fa3f2;
+    --color-accent-hover: #9bb7f5;
+    --color-accent-subtle: #22304f;
+    --color-on-accent: #0f1a33;
+    --color-focus: #9bb7f5;
+    --color-selection: #2a3a5e;
+    --color-danger: #e4756a;
+    --color-danger-hover: #ec8f86;
+    --color-danger-subtle: #3e2220;
+    --color-on-danger: #2f100d;
+    --color-success: #6cc08f;
+    --color-success-subtle: #1e3527;
+    --color-warning: #e0a94a;
+    --color-warning-subtle: #3d2f16;
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.5);
+    --shadow-2: 0 12px 32px rgb(0 0 0 / 0.65);
+  }
+}

@@ -38,3 +38,12 @@ Adapted from Exciter at c6c0219, its backend skeleton, and cad3b80, its audit lo
   deploy/Dockerfile.backend: renamed, cut to one database without replicas,
   tenants, read-your-writes or telemetry, the organization dropped from people
   and the audit log, and Rotor's own integration tests in backend/test
+
+Adapted from Exciter at 1c6d4d1, its web skeleton, and c3f81ae:
+- web/: the build, lint and test setup, scripts/schema.mjs, the API client,
+  the query client, the shell's layout and skip link, the contrast test and
+  the test setup, cut to Rotor's five places without the i18n library,
+  rail, quick switcher or password sign-in; web/src/styles/tokens.css holds
+  Armature's Clay tokens
+- e2e/playwright.config.ts, merge.config.ts, fixtures/stack.ts and shell.ts,
+  mk/web.mk and mk/e2e.mk, deploy/Dockerfile.web and deploy/nginx.conf

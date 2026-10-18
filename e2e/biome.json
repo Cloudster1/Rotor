@@ -1,0 +1,7 @@
+{
+  "root": false,
+  "extends": "//",
+  "files": {
+    "includes": ["**", "!node_modules", "!test-results", "!playwright-report", "!.auth"]
+  }
+}
