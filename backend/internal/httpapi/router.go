@@ -31,8 +31,9 @@ type Server struct {
 	Log *slog.Logger
 	// Vault is nil where OpenBao is not configured, in development outside the stack.
 	Vault Secrets
-	// Tools is nil where OpenBao is not configured; its routes then answer 503.
-	Tools ToolRegistry
+	// Tools and Connections are nil where OpenBao is not configured; their routes then answer 503.
+	Tools       ToolRegistry
+	Connections Connections
 	// Sessions and SignIn are nil only in tests that exercise neither.
 	Sessions Sessions
 	SignIn   SignIn
@@ -79,6 +80,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 		r.Get("/auth/oidc/start", s.handleOIDCStart)
 		r.Get("/auth/oidc/callback", s.handleOIDCCallback)
 		r.Post("/auth/oidc/backchannel-logout", s.handleBackchannelLogout)
+		r.Get("/connections/callback", s.handleConnectionCallback)
 		mountPending(r, true, false)
 		r.Group(func(r chi.Router) {
 			r.Use(requireAuth)
@@ -86,6 +88,9 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Post("/auth/logout", s.handleLogout)
 			r.Get("/tools", s.handleListTools)
 			r.Get("/tools/{toolID}", s.handleGetTool)
+			r.Get("/connections", s.handleListConnections)
+			r.Post("/tools/{toolID}/connection", s.handleConnect)
+			r.Delete("/tools/{toolID}/connection", s.handleDisconnect)
 			mountPending(r, false, false)
 			r.Group(func(r chi.Router) {
 				r.Use(requireAdmin)

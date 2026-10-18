@@ -15,6 +15,7 @@ import (
 
 	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/config"
+	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/db"
 	"github.com/cloudster1/rotor/backend/internal/httpapi"
 	"github.com/cloudster1/rotor/backend/internal/observability"
@@ -84,7 +85,11 @@ func run() error {
 	}
 	if secrets != nil {
 		server.Vault = secrets
-		server.Tools = tools.NewService(cluster, secrets, toolClient(cfg), cfg.ConnectionCallbackURL(), cfg.Env == config.EnvDevelopment)
+		registry := tools.NewService(cluster, secrets, toolClient(cfg), cfg.ConnectionCallbackURL(), cfg.Env == config.EnvDevelopment)
+		people := connections.NewService(cluster, secrets, registry, toolClient(cfg), cfg.ConnectionCallbackURL(), log)
+		registry.Connections = people
+		sessions.OnSwitchOff = people.EndPersonConnections
+		server.Tools, server.Connections = registry, people
 	}
 	origins := cfg.CORSOrigins
 	if len(origins) == 0 && !cfg.IsProduction() {

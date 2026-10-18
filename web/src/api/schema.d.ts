@@ -116,7 +116,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Where a tool returns the browser after consent; keeps the connection and goes on to the Connections page. */
+        /**
+         * Where a tool returns the browser after consent; keeps the connection and goes on to the Connections page.
+         * @description Public so it can always redirect: an answer without the session that started it lands on the page as mismatch.
+         */
         get: operations["connectionCallback"];
         put?: never;
         post?: never;
@@ -619,15 +622,6 @@ export interface operations {
                     };
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
                 headers: {
@@ -661,15 +655,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
             };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
@@ -1047,15 +1032,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description Bad Gateway */
             502: {
                 headers: {
@@ -1096,15 +1072,6 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

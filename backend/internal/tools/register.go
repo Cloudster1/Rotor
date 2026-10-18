@@ -22,8 +22,8 @@ const clientName = "Rotor"
 // unusedScopes are scopes a tool offers that Rotor never asks for: Exciter's evidence reaches only CI uploads.
 var unusedScopes = []string{"evidence"}
 
-// requestedScopes is every scope the tool supports but those Rotor never uses, in the tool's order.
-func requestedScopes(supported []string) []string {
+// RequestedScopes is every scope the tool supports but those Rotor never uses, in the tool's order.
+func RequestedScopes(supported []string) []string {
 	out := []string{}
 	for _, scope := range supported {
 		if !slices.Contains(unusedScopes, scope) {
@@ -53,7 +53,7 @@ func (s *Service) register(ctx context.Context, d discovery, method string) (vau
 	body, err := json.Marshal(registration{
 		ClientName: clientName, RedirectURIs: []string{s.redirectURL}, TokenEndpointAuthMethod: method,
 		GrantTypes: []string{"authorization_code", "refresh_token"}, ResponseTypes: []string{"code"},
-		Scope: strings.Join(requestedScopes(d.ScopesSupported), " "), SoftwareID: "rotor", SoftwareVersion: version.Current().Version,
+		Scope: strings.Join(RequestedScopes(d.ScopesSupported), " "), SoftwareID: "rotor", SoftwareVersion: version.Current().Version,
 	})
 	if err != nil {
 		return vault.ToolClient{}, err

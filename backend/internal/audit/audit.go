@@ -23,11 +23,13 @@ const (
 	ActionSessionEndedByProvider = "session.ended_by_provider"
 	ActionToolAdded              = "tool.added"
 	ActionToolRemoved            = "tool.removed"
+	ActionConnectionGranted      = "connection.granted"
+	ActionConnectionEnded        = "connection.ended"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
 var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, ActionSwitchedOff, ActionSessionEndedByProvider,
-	ActionToolAdded, ActionToolRemoved}
+	ActionToolAdded, ActionToolRemoved, ActionConnectionGranted, ActionConnectionEnded}
 
 // Redacted stands in the record for a value that looked like a credential.
 const Redacted = "[redacted]"

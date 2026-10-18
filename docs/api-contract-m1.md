@@ -152,7 +152,7 @@ response or the database.
 |---|---|---|
 | `GET /connections` | signed in | `{connections}`: the caller's own |
 | `POST /tools/{toolID}/connection` | signed in | `{authorizeURL}`; 409 while the tool needs registering again, 502 the tool did not answer |
-| `GET /connections/callback` | the session cookie | 302 to `/connections?connected={toolID}` or `/connections?error={code}` |
+| `GET /connections/callback` | public; the session cookie decides | 302 to `/connections?connected={toolID}` or `/connections?error={code}` |
 | `DELETE /tools/{toolID}/connection` | signed in | 204; 404 when the caller has no connection to the tool |
 
 - **Connecting.** The web posts, then sends the browser to `authorizeURL`:

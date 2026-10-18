@@ -8,6 +8,10 @@ const (
 	ToolTimeout = 10 * time.Second
 	// MaxToolDocumentBytes bounds what Rotor reads of one answer from a tool.
 	MaxToolDocumentBytes = 64 << 10
+	// StateBytes is how much randomness a connection's state carries; only its SHA-256 is stored.
+	StateBytes = 32
+	// ConnectionLoginTTL is how long a person may take at a tool's consent page before the attempt is forgotten.
+	ConnectionLoginTTL = 10 * time.Minute
 	// ConnectionCallbackPath is where a tool returns the browser after consent, under the web client's origin.
 	ConnectionCallbackPath = "/api/v1/connections/callback"
 )

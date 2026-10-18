@@ -53,7 +53,13 @@ export function stubApi(answers: Record<string, Answer> = { "/api/v1/meta": META
 
 /** Starts the real router at a path, against a stand-in server, and waits for the page to draw; me null signs nobody in. */
 export async function renderAt(path: string, { me = ME as Me | null, answers = {} as Record<string, Answer> } = {}) {
-  const fetch = stubApi({ "/api/v1/meta": META, "/api/v1/auth/me": me, "/api/v1/tools": { tools: [] }, ...answers });
+  const fetch = stubApi({
+    "/api/v1/meta": META,
+    "/api/v1/auth/me": me,
+    "/api/v1/tools": { tools: [] },
+    "/api/v1/connections": { connections: [] },
+    ...answers,
+  });
   // The router is made right below; a 401 can only arrive once it exists.
   const queryClient = createQueryClient((client) => sendToLogin(router, client));
   const router = buildRouter(queryClient, createMemoryHistory({ initialEntries: [path] }));
