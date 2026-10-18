@@ -25,7 +25,7 @@ type Connections interface {
 
 var (
 	errNeedsRegistration = ErrConflict("This tool no longer knows Rotor. Ask an administrator of Rotor to register it again in the settings.")
-	errNotConnected      = ErrNotFound("connection")
+	errNotConnected      = ErrNotFound("You are not connected to this tool. Connect it on the Connections page.")
 )
 
 func connectionError(err error) error {

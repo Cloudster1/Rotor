@@ -5,4 +5,4 @@ metadata: {name: broken}
 limits: {maxSteps: 5, timeout: 1m}
 entry: start
 nodes:
-  - {id: a, type: approval, message: ok?}
+  - {id: a, type: approval, message: 'ok?'}

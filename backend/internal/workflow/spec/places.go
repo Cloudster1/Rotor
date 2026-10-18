@@ -1,38 +1,41 @@
 package spec
 
 import (
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 
-	"github.com/goccy/go-yaml/ast"
+	"go.yaml.in/yaml/v3"
 )
 
 // places finds where a JSON pointer's value is written in the YAML.
 type places struct {
-	root ast.Node
+	root *yaml.Node
 }
 
-func newPlaces(file *ast.File) *places {
-	p := &places{}
-	if len(file.Docs) > 0 {
-		p.root = file.Docs[0].Body
+func newPlaces(document *yaml.Node) *places {
+	root := document
+	if root != nil && root.Kind == yaml.DocumentNode && len(root.Content) > 0 {
+		root = root.Content[0]
 	}
-	return p
+	return &places{root: root}
 }
 
-// at is the line and column of the value at pointer, or of the nearest enclosing value that exists.
+// at is the line and column of the value at pointer, or of the nearest enclosing value that exists; a mapping's
+// key stands for its value, as an editor would underline it.
 func (p *places) at(pointer string) (int, int) {
-	node, line, column := p.root, 0, 0
-	if node != nil {
-		line, column = position(node)
+	node := p.root
+	if node == nil {
+		return 0, 0
 	}
+	line, column := node.Line, node.Column
 	for _, segment := range splitPointer(pointer) {
-		next, keyLine, keyColumn := child(node, segment)
+		next, at := child(resolve(node), segment)
 		if next == nil {
 			break
 		}
-		node = next
-		line, column = keyLine, keyColumn
+		node, line, column = next, at.Line, at.Column
 	}
 	return line, column
 }
@@ -56,55 +59,88 @@ func splitPointer(pointer string) []string {
 	return parts
 }
 
-// child descends one segment, answering where a mapping's key or a sequence's item is written.
-func child(node ast.Node, segment string) (ast.Node, int, int) {
-	switch n := unwrap(node).(type) {
-	case *ast.MappingNode:
-		for _, pair := range n.Values {
-			if next, line, column, ok := matchPair(pair, segment); ok {
-				return next, line, column
+// child descends one segment, answering the value and the node that marks where it is written.
+func child(node *yaml.Node, segment string) (*yaml.Node, *yaml.Node) {
+	switch node.Kind {
+	case yaml.MappingNode:
+		for i := 0; i+1 < len(node.Content); i += 2 {
+			if node.Content[i].Value == segment {
+				return node.Content[i+1], node.Content[i]
 			}
 		}
-	case *ast.MappingValueNode:
-		if next, line, column, ok := matchPair(n, segment); ok {
-			return next, line, column
-		}
-	case *ast.SequenceNode:
+	case yaml.SequenceNode:
 		i, err := strconv.Atoi(segment)
-		if err == nil && i >= 0 && i < len(n.Values) {
-			line, column := position(n.Values[i])
-			return n.Values[i], line, column
+		if err == nil && i >= 0 && i < len(node.Content) {
+			return node.Content[i], node.Content[i]
 		}
 	}
-	return nil, 0, 0
+	return nil, nil
 }
 
-func matchPair(pair *ast.MappingValueNode, segment string) (ast.Node, int, int, bool) {
-	if pair == nil || pair.Key == nil || strings.Trim(pair.Key.String(), `"'`) != segment {
-		return nil, 0, 0, false
+// resolve looks through an alias to the value it names.
+func resolve(node *yaml.Node) *yaml.Node {
+	for node != nil && node.Kind == yaml.AliasNode {
+		node = node.Alias
 	}
-	line, column := position(pair.Key)
-	return pair.Value, line, column, true
+	return node
 }
 
-// unwrap looks through tags and anchors to the value they mark.
-func unwrap(node ast.Node) ast.Node {
-	for {
-		switch n := node.(type) {
-		case *ast.TagNode:
-			node = n.Value
-		case *ast.AnchorNode:
-			node = n.Value
-		default:
-			return node
+// toJSON turns a YAML 1.2 node tree into the JSON it means, scalar by scalar from its resolved tag; a timestamp
+// stays text, as the schema expects strings.
+func toJSON(node *yaml.Node) (any, error) {
+	node = resolve(node)
+	switch node.Kind {
+	case yaml.DocumentNode:
+		if len(node.Content) == 0 {
+			return nil, nil
 		}
+		return toJSON(node.Content[0])
+	case yaml.MappingNode:
+		out := make(map[string]any, len(node.Content)/2)
+		for i := 0; i+1 < len(node.Content); i += 2 {
+			key := resolve(node.Content[i])
+			if key.Kind != yaml.ScalarNode {
+				return nil, fmt.Errorf("line %d: a key must be text", key.Line)
+			}
+			value, err := toJSON(node.Content[i+1])
+			if err != nil {
+				return nil, err
+			}
+			out[key.Value] = value
+		}
+		return out, nil
+	case yaml.SequenceNode:
+		out := make([]any, 0, len(node.Content))
+		for _, item := range node.Content {
+			value, err := toJSON(item)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, value)
+		}
+		return out, nil
+	case yaml.ScalarNode:
+		return scalar(node)
 	}
+	return nil, fmt.Errorf("line %d: a value Rotor cannot read", node.Line)
 }
 
-func position(node ast.Node) (int, int) {
-	if node == nil || node.GetToken() == nil || node.GetToken().Position == nil {
-		return 0, 0
+func scalar(node *yaml.Node) (any, error) {
+	switch node.ShortTag() {
+	case "!!null":
+		return nil, nil
+	case "!!bool":
+		var b bool
+		err := node.Decode(&b)
+		return b, err
+	case "!!int", "!!float":
+		var f json.Number
+		var n float64
+		if err := node.Decode(&n); err != nil {
+			return nil, fmt.Errorf("line %d: %q is not a number JSON can hold", node.Line, node.Value)
+		}
+		f = json.Number(strconv.FormatFloat(n, 'g', -1, 64))
+		return f, nil
 	}
-	at := node.GetToken().Position
-	return at.Line, at.Column
+	return node.Value, nil
 }

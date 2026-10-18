@@ -6,4 +6,4 @@ limits: {maxSteps: 5, timeout: 1m}
 triggers: [{cron: '0 * * * *'}]
 entry: a
 nodes:
-  - {id: a, type: approval, message: ok?}
+  - {id: a, type: approval, message: 'ok?'}

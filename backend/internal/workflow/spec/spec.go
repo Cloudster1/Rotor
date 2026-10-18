@@ -4,14 +4,13 @@ package spec
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/goccy/go-yaml"
-	"github.com/goccy/go-yaml/parser"
-	"github.com/goccy/go-yaml/token"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/cloudster1/rotor/backend/internal/config"
 )
@@ -150,15 +149,19 @@ func Parse(source []byte) (*Spec, []Problem) {
 	if len(source) > config.MaxSpecBytes {
 		return nil, []Problem{{Code: CodeTooLarge, Message: fmt.Sprintf("The workflow is %d bytes; keep it under %d.", len(source), config.MaxSpecBytes)}}
 	}
-	file, err := parser.ParseBytes(source, 0)
+	var root yaml.Node
+	if err := yaml.Unmarshal(source, &root); err != nil {
+		return nil, []Problem{yamlProblem(err)}
+	}
+	value, err := toJSON(&root)
 	if err != nil {
 		return nil, []Problem{yamlProblem(err)}
 	}
-	document, err := yaml.YAMLToJSON(source)
+	document, err := json.Marshal(value)
 	if err != nil {
 		return nil, []Problem{yamlProblem(err)}
 	}
-	places := newPlaces(file)
+	places := newPlaces(&root)
 	if problems := validateSchema(document, places); len(problems) > 0 {
 		return nil, problems
 	}
@@ -170,21 +173,16 @@ func Parse(source []byte) (*Spec, []Problem) {
 	return &s, places.place(checkSense(&s))
 }
 
-// located is goccy's error, which knows the token it stopped at.
-type located interface {
-	GetToken() *token.Token
-	GetMessage() string
-}
+// errorLine finds the line a YAML error names, as "yaml: line 3: ..." or "line 3: ...".
+var errorLine = regexp.MustCompile(`line (\d+)`)
 
-// yamlProblem places a parse error where the parser found it.
+// yamlProblem places a parse error on the line the parser names.
 func yamlProblem(err error) Problem {
-	p := Problem{Code: CodeYAML, Message: "The YAML cannot be read: " + firstLine(err.Error())}
-	var at located
-	if errors.As(err, &at) {
-		p.Message = "The YAML cannot be read: " + sentence(at.GetMessage())
-		if t := at.GetToken(); t != nil && t.Position != nil {
-			p.Line, p.Column = t.Position.Line, t.Position.Column
-		}
+	text := strings.TrimPrefix(err.Error(), "yaml: ")
+	p := Problem{Code: CodeYAML, Message: "The YAML cannot be read: " + firstLine(text)}
+	if m := errorLine.FindStringSubmatch(text); m != nil {
+		p.Line, _ = strconv.Atoi(m[1])
+		p.Column = 1
 	}
 	return p
 }

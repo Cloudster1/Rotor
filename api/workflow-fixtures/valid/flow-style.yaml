@@ -1,0 +1,12 @@
+# Flow style throughout, as YAML 1.2 reads it: a scope with a colon stays text, and on is a key, not a boolean.
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: flow-style, description: "Bindings and nodes written inline: {braces}, [brackets] and colons."}
+inputs: {type: object, properties: {kind: {type: string}}}
+tools: {exciter: {tool: exciter, scopes: [mcp:read], allowTools: [get_project, whoami]}}
+limits: {maxSteps: 5, timeout: 2m}
+entry: pick
+nodes:
+  - {id: pick, type: router, on: inputs.kind, cases: {project: read, yes: who}, default: who}
+  - {id: read, type: tool, tool: exciter, call: get_project, arguments: {key: "{{ inputs.kind }}"}}
+  - {id: who, type: tool, tool: exciter, call: whoami}

@@ -63,6 +63,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Rotor reads a workflow's YAML as YAML 1.2, as the runner does (#67): a
+  scope such as `mcp:read` inside an inline mapping is text, not a nested
+  mapping, and a golden example in flow style holds both sides to it. The
+  refusals for an unknown tool and a missing connection now say what to do.
 - The tool test double answers `whoami` in the shape Exciter's tool list
   declares, which MCP clients check, and a contract test keeps it so.
 - Workflows have a written form (#14): versioned YAML, `rotor.dev/v1`, with
