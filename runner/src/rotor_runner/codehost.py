@@ -4,6 +4,7 @@ JSON lines: the runner sends the code and state, the child sends tool calls, log
 from __future__ import annotations
 
 import json
+import resource
 import sys
 import traceback
 from typing import IO, Any
@@ -32,18 +33,22 @@ class Context:
 
 
 class _Log:
-    """Stands in for stdout and stderr, so a node's prints become log lines and never break the protocol."""
+    """Stands in for stdout and stderr: a node's prints become log lines, one per line, apart from the protocol."""
 
     def __init__(self, stream: str, protocol: IO[str]) -> None:
-        self._stream, self._protocol = stream, protocol
+        self._stream, self._protocol, self._pending = stream, protocol, ""
 
     def write(self, text: str) -> int:
-        if text:
-            _send(self._protocol, {"log": {"stream": self._stream, "text": text}})
+        self._pending += text
+        while "\n" in self._pending:
+            line, self._pending = self._pending.split("\n", 1)
+            _send(self._protocol, {"log": {"stream": self._stream, "text": line}})
         return len(text)
 
     def flush(self) -> None:
-        self._protocol.flush()
+        if self._pending:
+            _send(self._protocol, {"log": {"stream": self._stream, "text": self._pending}})
+            self._pending = ""
 
 
 def _send(protocol: IO[str], message: dict[str, Any]) -> None:
@@ -51,10 +56,20 @@ def _send(protocol: IO[str], message: dict[str, Any]) -> None:
     protocol.flush()
 
 
+def limit(memory: int, cpu_seconds: int, open_files: int) -> None:
+    """Lowers this process's limits for good, before the node's code runs; it cannot raise them again."""
+    resource.setrlimit(resource.RLIMIT_AS, (memory, memory))
+    resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds))
+    resource.setrlimit(resource.RLIMIT_NOFILE, (open_files, open_files))
+    resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
+
+
 def main() -> None:
+    memory, cpu_seconds, open_files = (int(arg) for arg in sys.argv[1:4])
+    limit(memory, cpu_seconds, open_files)
     protocol = sys.stdout
-    sys.stdout = _Log("stdout", protocol)
-    sys.stderr = _Log("stderr", protocol)
+    out, err = _Log("stdout", protocol), _Log("stderr", protocol)
+    sys.stdout, sys.stderr = out, err
     request = json.loads(sys.stdin.readline())
     try:
         namespace: dict[str, Any] = {"__name__": "rotor_code_node"}
@@ -64,6 +79,8 @@ def main() -> None:
         if not callable(run):
             raise TypeError("the code defines no run(state, ctx) function")
         result = run(request["state"], Context(protocol, sys.stdin))
+        out.flush()
+        err.flush()
         try:
             encoded = json.dumps({"result": result})
         except (TypeError, ValueError) as err:

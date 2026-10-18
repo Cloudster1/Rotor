@@ -10,6 +10,15 @@ bao write rotor/config cas_required=true max_versions=3 >/dev/null
 enabled secrets transit || bao secrets enable transit
 bao read transit/keys/rotor-checkpoints >/dev/null 2>&1 || bao write -f transit/keys/rotor-checkpoints >/dev/null
 
+# A development CA for the runner protocol's TLS: the api is issued a certificate for the host api, sandboxes trust
+# the CA. The chart brings an installation's own.
+enabled secrets pki || bao secrets enable pki >/dev/null
+bao secrets tune -max-lease-ttl=87600h pki >/dev/null
+bao read -field=certificate pki/cert/ca >/dev/null 2>&1 \
+  || bao write -field=certificate pki/root/generate/internal common_name="Rotor development CA" ttl=87600h >/dev/null
+bao write pki/roles/runnerctl allowed_domains=api allow_bare_domains=true allow_subdomains=false \
+  allow_localhost=false key_type=ec key_bits=256 max_ttl=72h >/dev/null
+
 for policy in /rotor/policies/*.hcl; do
   bao policy write "$(basename "$policy" .hcl)" "$policy" >/dev/null
 done

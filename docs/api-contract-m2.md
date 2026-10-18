@@ -192,6 +192,17 @@ and a bootstrap token, and dials out.
 
   In M2 a grant carries the token itself; M3 sends an OpenBao wrapping token instead (#23).
 
+**As built** (#18):
+- The service is `RunnerControlService` (buf's naming rules), its stream `Connect(ConnectRequest) returns ConnectResponse`.
+- **Numbering:**
+  - `run_event.seq` is numbered by the control plane in the order stored, so its own events (`runner.lost`) share the sequence.
+  - `run.runner_seq` keeps the runner's own numbering, for ignoring resends and refusing gaps.
+- **What carries a number:** events and `Done` from the runner, and `StartRun`, `Resume` and `Cancel` from the control plane, which `run_control` keeps until acknowledged.
+  - Grants and checkpoint answers carry none: a token is asked for again, never stored, and a checkpoint request is sent again after a reconnect.
+- `TokenGrant.error` says why there is no token, so a run is never left waiting.
+- `StartRun` gives each binding's MCP address as a sandbox reaches it (the `ROTOR_TOOLS_BACKCHANNEL` rewrite).
+- A runner whose credential is refused exits with status 2.
+
 ## #19 Checkpoints
 
 - The runner's checkpointer stores and loads over the stream: `CheckpointGet`, `CheckpointList`, `CheckpointPut`, `CheckpointWrites`. Values are LangGraph's serialized `(type, bytes)`, loaded with strict msgpack.

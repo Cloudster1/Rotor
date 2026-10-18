@@ -133,6 +133,18 @@ React 19, TanStack Router and Query, Tailwind with the suite's design tokens,
 a client typed from `api/openapi.json`, and an accessibility check on every
 page in the browser suite.
 
+## Runner protocol (#18)
+
+The api serves `RunnerControlService` on `:9443` with TLS from OpenBao's PKI,
+reachable from the sandbox network alone. A sandbox's runner dials it with a
+single-use bootstrap token. From then on:
+- The api answers with the run's pinned workflow, its bindings resolved to
+  the tools' MCP addresses, and tokens minted for the run's person as the
+  runner asks for them.
+- Every event is stored before it is acknowledged. Both sides resend what was
+  not acknowledged after a reconnect.
+- A runner silent for three heartbeats is recorded as lost.
+
 ## Sandboxes (#21)
 
 `internal/sandbox` starts and ends the containers runs execute in. In
