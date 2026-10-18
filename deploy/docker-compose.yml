@@ -174,10 +174,22 @@ services:
       ROTOR_OPENBAO_ADDR: http://openbao:8200
       ROTOR_CONTROL_PLANE_CLIENT_ID: rotor-control-plane
       ROTOR_CONTROL_PLANE_CLIENT_SECRET: rotor-control-plane-dev-secret
+      # Sandboxes are containers on the host's daemon, joined to the internal network alone (development only).
+      ROTOR_SANDBOX_BACKEND: docker
+      ROTOR_SANDBOX_IMAGE: rotor-runner:dev
+      ROTOR_SANDBOX_NETWORK: ${COMPOSE_PROJECT_NAME:-rotor}_sandbox
+      ROTOR_SANDBOX_STACK: ${COMPOSE_PROJECT_NAME:-rotor}
       # An administrator adds a tool by the address a browser opens; the api reaches the tool-stub, and the suite's
       # Exciter once make suite-up runs it, on a network of the stack's.
       ROTOR_TOOLS_BACKCHANNEL: >-
         http://localhost:${TOOLSTUB_PORT:-8306}=http://tool-stub:8080,http://localhost:${SUITE_EXCITER_WEB_PORT:-8307}=http://suite-exciter-web:80
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID:-0}"
+    networks:
+      - default
+      - sandbox
     ports:
       - "127.0.0.1:${API_PORT:-8301}:8080"
     healthcheck:
@@ -193,6 +205,10 @@ services:
   tool-stub:
     <<: *backend
     command: ["/app/tool-stub"]
+    # Sandboxes reach the tools on the internal network, as they reach the api.
+    networks:
+      - default
+      - sandbox
     ports:
       - "127.0.0.1:${TOOLSTUB_PORT:-8306}:8080"
     healthcheck:
@@ -221,6 +237,12 @@ services:
       retries: 5
       start_period: 30s
       start_interval: 1s
+
+networks:
+  default:
+  # No route out: a sandbox reaches the api and the tool double, and nothing beyond (M4 adds egress rules).
+  sandbox:
+    internal: true
 
 volumes:
   postgres-data:

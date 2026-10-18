@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Runs get sandboxes (#21): in development the api starts each run's runner
+  as a container on the host's Docker daemon, read-only with a small `/tmp`,
+  without capabilities, as a non-root user, within memory, CPU and process
+  limits, on an internal network that reaches the api and the tools and not
+  the internet. At start the api destroys sandboxes left from before.
+  `make up` builds the runner image.
 - The runner turns a workflow into a LangGraph graph (#16): agents built on
   the workflow's model with the tools their bindings allow (only tools that
   say they only read, unless a binding may write), single MCP calls with

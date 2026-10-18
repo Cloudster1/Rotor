@@ -17,7 +17,7 @@ func clean(t *testing.T) {
 		"ROTOR_DB_CONN_MAX_LIFETIME", "ROTOR_OIDC_ISSUER", "ROTOR_OIDC_CLIENT_ID", "ROTOR_OIDC_CLIENT_SECRET",
 		"ROTOR_OIDC_REDIRECT_URL", "ROTOR_SESSION_TTL", "ROTOR_SECURE_COOKIES", "ROTOR_OPENBAO_ADDR",
 		"ROTOR_OPENBAO_ROLE", "ROTOR_OPENBAO_MOUNT", "ROTOR_CONTROL_PLANE_CLIENT_ID", "ROTOR_CONTROL_PLANE_CLIENT_SECRET",
-		"ROTOR_TOOLS_BACKCHANNEL",
+		"ROTOR_TOOLS_BACKCHANNEL", "ROTOR_SANDBOX_BACKEND", "ROTOR_SANDBOX_NETWORK", "ROTOR_SANDBOX_STACK",
 	} {
 		t.Setenv(key, "")
 	}
@@ -190,5 +190,27 @@ func TestOpenBaoSettings(t *testing.T) {
 	t.Setenv("ROTOR_ENV", EnvStaging)
 	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "ROTOR_OPENBAO_ADDR") {
 		t.Fatalf("staging without OpenBao = %v", err)
+	}
+}
+
+func TestTheDockerSandboxIsForDevelopmentAlone(t *testing.T) {
+	clean(t)
+	t.Setenv("ROTOR_SANDBOX_BACKEND", SandboxDocker)
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "ROTOR_SANDBOX_NETWORK") {
+		t.Fatalf("docker without its network = %v", err)
+	}
+	t.Setenv("ROTOR_SANDBOX_NETWORK", "rotor_sandbox")
+	t.Setenv("ROTOR_SANDBOX_STACK", "rotor")
+	if c, err := Load(); err != nil || c.Sandbox.Image != DefaultSandboxImage {
+		t.Fatalf("docker in development = %+v, %v", c.Sandbox, err)
+	}
+	t.Setenv("ROTOR_ENV", EnvStaging)
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "development only") {
+		t.Fatalf("docker in staging = %v", err)
+	}
+	clean(t)
+	t.Setenv("ROTOR_SANDBOX_BACKEND", "kata")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "kata") {
+		t.Fatalf("an unknown backend = %v", err)
 	}
 }

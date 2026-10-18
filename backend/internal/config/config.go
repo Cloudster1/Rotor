@@ -74,6 +74,7 @@ type Config struct {
 	OIDC    OIDC
 	OpenBao OpenBao
 	Tools   Tools
+	Sandbox Sandbox
 }
 
 // Auth is how a signed-in browser is remembered.
@@ -146,6 +147,7 @@ func Load() (Config, error) {
 		},
 		OpenBao: loadOpenBao(l),
 		Tools:   loadTools(l),
+		Sandbox: loadSandbox(l),
 	}
 	if c.OIDC.RedirectURL == "" {
 		c.OIDC.RedirectURL = c.AppBaseURL + CallbackPath
@@ -180,6 +182,7 @@ func Load() (Config, error) {
 		l.problem("Set ROTOR_OIDC_ISSUER to the identity provider's issuer, such as https://id.example.com/realms/dynamo; it is the only way to sign in.")
 	}
 	checkOpenBao(l, c)
+	checkSandbox(l, c)
 	if c.DB.AdminURL == "" {
 		c.DB.AdminURL = c.DB.URL
 	}
