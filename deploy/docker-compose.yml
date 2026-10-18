@@ -1,0 +1,103 @@
+# The development stack. make up runs it with a project name and ports derived from the checkout's path
+# (mk/stack.mk); the defaults below only apply to a plain docker compose call.
+name: rotor
+
+x-db-env: &db-env
+  POSTGRES_USER: rotor
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rotor}
+  POSTGRES_DB: rotor
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      <<: *db-env
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-rotor_app}
+      ADMIN_DB_PASSWORD: ${ADMIN_DB_PASSWORD:-rotor_admin}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres-data:/var/lib/postgresql/18/docker
+      - ./postgres/init-roles.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-8303}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U rotor -d rotor"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+      start_interval: 1s
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    command: ["valkey-server", "--appendonly", "yes", "--requirepass", "${VALKEY_PASSWORD:-rotor_valkey}"]
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:-rotor_valkey}
+    volumes:
+      - valkey-data:/data
+    ports:
+      - "127.0.0.1:${VALKEY_PORT:-8304}:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a $$VALKEY_PASSWORD --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+      start_interval: 1s
+
+  # KC_HOSTNAME fixes the issuer to the browser-facing address, so tokens Keycloak sends over the stack's
+  # network (back-channel logout) carry the same iss as the ones a browser fetched.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.2
+    command: ["start-dev", "--import-realm", "--http-port=8080"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_PASSWORD:-admin}
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-8302}
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ./keycloak/realm.json:/opt/keycloak/data/import/realm.json:ro
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-8302}:8080"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'exec 3<>/dev/tcp/127.0.0.1/9000; printf ''GET /health/ready HTTP/1.0\r\nHost: localhost\r\n\r\n'' >&3; grep -q UP <&3'
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+      start_interval: 2s
+
+  # A dev server keeps everything in memory, so the entrypoint configures it again on every start.
+  openbao:
+    image: openbao/openbao:2.7.1
+    entrypoint: ["/bin/sh", "/rotor/entrypoint.sh"]
+    environment:
+      BAO_DEV_ROOT_TOKEN_ID: ${OPENBAO_ROOT_TOKEN:-rotor-dev-root}
+      BAO_ADDR: http://127.0.0.1:8200
+      BAO_TOKEN: ${OPENBAO_ROOT_TOKEN:-rotor-dev-root}
+      ROTOR_OIDC_ISSUER: http://localhost:${KEYCLOAK_PORT:-8302}/realms/dynamo
+      ROTOR_OIDC_JWKS_URL: http://keycloak:8080/realms/dynamo/protocol/openid-connect/certs
+    volumes:
+      - ./openbao:/rotor:ro
+    cap_add:
+      - IPC_LOCK
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${OPENBAO_PORT:-8305}:8200"
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/rotor-configured && bao status >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+      start_interval: 1s
+
+volumes:
+  postgres-data:
+  valkey-data:

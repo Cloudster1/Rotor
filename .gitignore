@@ -1,0 +1,41 @@
+# Toolchain caches of the containerised Go, Python and Node runs
+.cache/
+
+# Go
+/backend/bin/
+*.test
+coverage.out
+
+# Python
+/runner/.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Web
+node_modules/
+/web/dist/
+/web/coverage/
+
+# What the last gate run left: timings as JSON and its summary
+/reports/
+
+# Playwright
+/e2e/test-results/
+/e2e/playwright-report/
+/e2e/.auth/
+
+# Local environment
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+
+# agent worktrees
+.claude/worktrees/
+# Claude Code state that stays on the machine
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
