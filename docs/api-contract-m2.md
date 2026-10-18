@@ -235,6 +235,13 @@ and a bootstrap token, and dials out.
 - **Choosing a model:** a workflow's `model` must be in the allowed list; without one it gets the default.
 - **Audit:** `provider.changed` (added, changed, removed), never the key.
 
+**As built** (#20):
+- **Default model:** providers carry `isDefault`; one provider holds the installation's default model.
+- **Model resolution:** at a run's first Hello, `runnerctl` resolves the workflow's model and puts it in `StartRun.model`, with the base URL as a sandbox reaches it. A workflow whose model is not allowed starts without one, and its agents fail with `model_missing`.
+- **Key delivery:** the key comes in a `SecretGrant` after every Hello, since a grant is never stored to be resent. The runner waits for it before building `init_chat_model`.
+- **Egress in development:** development sandboxes reach no internet, so their agents reach the tool double's stub model and models on the stack's network, not Anthropic or OpenAI themselves, until M4's egress rules.
+- **Stub model:** the tool double serves `/t/{tenant}/llm/v1/models` and `/llm/v1/chat/completions` in OpenAI's shapes, streamed or not, answering from a script the tenant sets (`llmScript`) behind an optional key (`llmKey`).
+
 ## #21 Sandboxes
 
 ```go

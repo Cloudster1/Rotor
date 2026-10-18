@@ -32,3 +32,12 @@ path "transit/encrypt/rotor-checkpoints" {
 path "transit/decrypt/rotor-checkpoints" {
   capabilities = ["update"]
 }
+
+# The language model providers' keys (#20).
+path "rotor/data/providers/*" {
+  capabilities = ["create", "read", "update", "delete"]
+}
+
+path "rotor/metadata/providers/*" {
+  capabilities = ["read", "list", "delete"]
+}

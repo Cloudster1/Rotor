@@ -81,7 +81,8 @@ func TestEveryRouteIsAnExciterOperation(t *testing.T) {
 	}
 	_ = chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		path := documentPath(method, route)
-		if path == "" {
+		// The stub model stands in for a language model provider, not for Exciter; its contract is OpenAI's chat API.
+		if path == "" || strings.HasPrefix(path, llmPath+"/") {
 			return nil
 		}
 		if item, ok := doc.Paths[path]; !ok || item[strings.ToLower(method)] == nil {

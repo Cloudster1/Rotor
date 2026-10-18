@@ -9,6 +9,13 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Administrators choose the language models workflows may use (#20). In
+  Settings they add Anthropic, OpenAI, Azure OpenAI or any OpenAI-compatible
+  server (such as Ollama), list its models, pick the installation's default
+  and test the connection; keys go to OpenBao and nowhere else. A run's
+  agents get the workflow's model, or the default, and the key reaches the
+  run's sandbox over its channel, never in a file or the environment. The
+  tool double gains a scripted, OpenAI-compatible model for tests.
 - A run outlives its sandbox (#19). The runner keeps no checkpoint of its
   own: each goes to the control plane over the runner's channel, sealed
   with OpenBao's transit key before it reaches Postgres. A run waiting for

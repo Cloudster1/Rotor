@@ -152,3 +152,44 @@ func (c *Client) delete(ctx context.Context, path string) error {
 	}
 	return nil
 }
+
+// ProviderKey is a language model provider's key.
+type ProviderKey struct {
+	Key string `json:"key"`
+}
+
+func providerPath(providerID uuid.UUID) (string, error) {
+	if providerID == uuid.Nil {
+		return "", errors.New("vault: a provider key needs a provider")
+	}
+	return "providers/" + providerID.String() + "/key", nil
+}
+
+// ProviderKey reads a provider's key and its version.
+func (c *Client) ProviderKey(ctx context.Context, providerID uuid.UUID) (ProviderKey, int, error) {
+	var k ProviderKey
+	path, err := providerPath(providerID)
+	if err != nil {
+		return k, 0, err
+	}
+	version, err := c.get(ctx, path, &k)
+	return k, version, err
+}
+
+// PutProviderKey writes a provider's key over the version read.
+func (c *Client) PutProviderKey(ctx context.Context, providerID uuid.UUID, k ProviderKey, version int) (int, error) {
+	path, err := providerPath(providerID)
+	if err != nil {
+		return 0, err
+	}
+	return c.put(ctx, path, k, version)
+}
+
+// DeleteProviderKey forgets a provider's key.
+func (c *Client) DeleteProviderKey(ctx context.Context, providerID uuid.UUID) error {
+	path, err := providerPath(providerID)
+	if err != nil {
+		return err
+	}
+	return c.delete(ctx, path)
+}

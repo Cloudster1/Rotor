@@ -145,6 +145,14 @@ single-use bootstrap token. From then on:
   not acknowledged after a reconnect.
 - A runner silent for three heartbeats is recorded as lost.
 
+## Model providers (#20)
+
+Administrators keep the providers in the `provider` table and their keys in
+OpenBao at `rotor/providers/{id}/key`. When a run starts, the control plane
+resolves the workflow's model (or the installation's default) and puts it in
+`StartRun`, and sends the key in a `SecretGrant`. The runner builds the model
+with `init_chat_model`, and the key stays in its memory.
+
 ## Sandboxes (#21)
 
 `internal/sandbox` starts and ends the containers runs execute in. In

@@ -34,7 +34,9 @@ type Server struct {
 	// Tools and Connections are nil where OpenBao is not configured; their routes then answer 503.
 	Tools       ToolRegistry
 	Connections Connections
-	Catalogs    Catalogs
+	// Providers is nil where OpenBao is not configured.
+	Providers Providers
+	Catalogs  Catalogs
 	// Workflows is nil only in tests that exercise none.
 	Workflows Workflows
 	// Sessions and SignIn are nil only in tests that exercise neither.
@@ -92,6 +94,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Get("/tools", s.handleListTools)
 			r.Get("/tools/{toolID}", s.handleGetTool)
 			r.Get("/connections", s.handleListConnections)
+			r.Get("/models", s.handleListModels)
 			r.Post("/tools/{toolID}/connection", s.handleConnect)
 			r.Delete("/tools/{toolID}/connection", s.handleDisconnect)
 			r.Get("/tools/{toolID}/catalog", s.handleToolCatalog)
@@ -110,6 +113,11 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Group(func(r chi.Router) {
 				r.Use(requireAdmin)
 				r.Post("/tools", s.handleAddTool)
+				r.Get("/providers", s.handleListProviders)
+				r.Post("/providers", s.handleAddProvider)
+				r.Put("/providers/{providerID}", s.handleChangeProvider)
+				r.Delete("/providers/{providerID}", s.handleRemoveProvider)
+				r.Post("/providers/{providerID}/test", s.handleTestProvider)
 				r.Delete("/tools/{toolID}", s.handleRemoveTool)
 				mountPending(r, false, true)
 			})

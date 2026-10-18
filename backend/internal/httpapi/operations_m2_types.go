@@ -154,8 +154,10 @@ type providerResponse struct {
 	APIVersion   string       `json:"apiVersion"`
 	Models       []string     `json:"models"`
 	DefaultModel string       `json:"defaultModel"`
-	Enabled      bool         `json:"enabled"`
-	HasKey       bool         `json:"hasKey"`
+	// IsDefault says this provider holds the installation's default model.
+	IsDefault bool `json:"isDefault"`
+	Enabled   bool `json:"enabled"`
+	HasKey    bool `json:"hasKey"`
 }
 
 // providerRequest adds or changes a provider; apiKey goes straight to OpenBao.
@@ -166,6 +168,7 @@ type providerRequest struct {
 	APIVersion   string       `json:"apiVersion,omitempty"`
 	Models       []string     `json:"models"`
 	DefaultModel string       `json:"defaultModel,omitempty"`
+	IsDefault    bool         `json:"isDefault,omitempty"`
 	Enabled      bool         `json:"enabled"`
 	APIKey       string       `json:"apiKey,omitempty"`
 }

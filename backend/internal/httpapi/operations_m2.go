@@ -52,19 +52,19 @@ var m2Operations = []operation{
 			http.StatusBadGateway: errorEnvelope{}}},
 
 	// Language model providers (#20).
-	{method: "GET", path: "/providers", handler: "handleListProviders", tag: "providers", pending: true, admin: true,
+	{method: "GET", path: "/providers", handler: "handleListProviders", tag: "providers", admin: true,
 		summary: "The language model providers workflows may use; keys never leave OpenBao.", responses: ok(env{"providers": []providerResponse{}})},
-	{method: "POST", path: "/providers", handler: "handleAddProvider", tag: "providers", pending: true, admin: true,
+	{method: "POST", path: "/providers", handler: "handleAddProvider", tag: "providers", admin: true,
 		summary: "Add a provider; its key goes to OpenBao.", request: providerRequest{},
 		responses: map[int]any{http.StatusCreated: env{"provider": providerResponse{}}, http.StatusUnprocessableEntity: errorEnvelope{}}},
-	{method: "PUT", path: "/providers/{providerID}", handler: "handleChangeProvider", tag: "providers", pending: true, admin: true,
+	{method: "PUT", path: "/providers/{providerID}", handler: "handleChangeProvider", tag: "providers", admin: true,
 		summary: "Change a provider; an empty key keeps the one in OpenBao.", request: providerRequest{},
 		responses: map[int]any{http.StatusOK: env{"provider": providerResponse{}}, http.StatusNotFound: notFound, http.StatusUnprocessableEntity: errorEnvelope{}}},
-	{method: "DELETE", path: "/providers/{providerID}", handler: "handleRemoveProvider", tag: "providers", pending: true, admin: true,
+	{method: "DELETE", path: "/providers/{providerID}", handler: "handleRemoveProvider", tag: "providers", admin: true,
 		summary: "Remove a provider and its key.", responses: map[int]any{http.StatusNoContent: nil, http.StatusNotFound: notFound}},
-	{method: "POST", path: "/providers/{providerID}/test", handler: "handleTestProvider", tag: "providers", pending: true, admin: true,
+	{method: "POST", path: "/providers/{providerID}/test", handler: "handleTestProvider", tag: "providers", admin: true,
 		summary: "Ask the provider which models it offers, with the key Rotor holds.", responses: map[int]any{http.StatusOK: providerTestResponse{}, http.StatusNotFound: notFound}},
-	{method: "GET", path: "/models", handler: "handleListModels", tag: "providers", pending: true,
+	{method: "GET", path: "/models", handler: "handleListModels", tag: "providers",
 		summary: "The models a workflow may name, and the default.", responses: ok(env{"models": []modelResponse{}})},
 
 	// Runs (M3: #22 starts and carries them, #24 streams their events).

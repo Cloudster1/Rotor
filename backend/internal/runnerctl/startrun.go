@@ -11,6 +11,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/providers"
 	"github.com/cloudster1/rotor/backend/internal/runnerpb"
 	"github.com/cloudster1/rotor/backend/internal/tools"
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
@@ -26,6 +27,12 @@ type Minter interface {
 	Mint(ctx context.Context, req connections.MintRequest) (connections.Token, error)
 }
 
+// Models resolves a workflow's model and hands out its provider's key; *providers.Service is the real one.
+type Models interface {
+	Resolve(ctx context.Context, wanted *spec.Model) (providers.Resolution, error)
+	Key(ctx context.Context, id uuid.UUID) (string, error)
+}
+
 // run is what the protocol needs of a run: whom it acts for and what it runs.
 type run struct {
 	ID, UserID uuid.UUID
@@ -34,6 +41,8 @@ type run struct {
 	Inputs     []byte
 	Resume     []byte
 	spec       *spec.Spec
+	// model is the provider and model the run's agents use; nil for a workflow without agents.
+	model *providers.Resolution
 }
 
 // binding is a spec binding resolved to a tool, for minting its tokens.
@@ -89,9 +98,56 @@ func (s *Server) resolve(ctx context.Context, r *run) ([]*runnerpb.ToolBinding, 
 	return out, resolved, nil
 }
 
-// startRun is the run's StartRun: its pinned spec, inputs and bindings, and the answer it resumes with, if any.
-func startRun(r *run, bindings []*runnerpb.ToolBinding) *runnerpb.ConnectResponse {
-	start := &runnerpb.StartRun{RunId: r.ID.String(), SpecYaml: r.SpecYAML, InputsJson: string(r.Inputs), Tools: bindings}
+// usesModel says whether any node of the workflow calls a language model.
+func usesModel(s *spec.Spec) bool {
+	for _, n := range s.Nodes {
+		if n.Type == spec.TypeAgent {
+			return true
+		}
+	}
+	return false
+}
+
+// resolveModel finds the run's provider and model; a workflow whose model is not allowed starts without one, and its
+// agents fail saying so.
+func (s *Server) resolveModel(ctx context.Context, r *run) {
+	if s.Models == nil || !usesModel(r.spec) {
+		return
+	}
+	resolved, err := s.Models.Resolve(ctx, r.spec.Model)
+	if err != nil {
+		s.Log.Warn("a run starts without a model", "run", r.ID, "error", err)
+		return
+	}
+	r.model = &resolved
+}
+
+// modelConfig is the run's model as the runner builds it, at an address a sandbox reaches; the key comes apart.
+func (s *Server) modelConfig(r *run) *runnerpb.ModelConfig {
+	if r.model == nil {
+		return nil
+	}
+	base := r.model.Provider.BaseURL
+	if s.Reach != nil && base != "" {
+		base = s.Reach(base)
+	}
+	return &runnerpb.ModelConfig{ProviderId: r.model.Provider.ID.String(), Kind: r.model.Provider.Kind, Model: r.model.Model,
+		BaseUrl: base, ApiVersion: r.model.Provider.APIVersion}
+}
+
+// secret is the run's provider key, sent after every Hello since a grant is never stored to be resent.
+func (s *Server) secret(ctx context.Context, r *run) (*runnerpb.ConnectResponse, error) {
+	key, err := s.Models.Key(ctx, r.model.Provider.ID)
+	if err != nil {
+		return nil, fmt.Errorf("read the key of provider %s: %w", r.model.Provider.Name, err)
+	}
+	return &runnerpb.ConnectResponse{Message: &runnerpb.ConnectResponse_SecretGrant{SecretGrant: &runnerpb.SecretGrant{
+		ProviderId: r.model.Provider.ID.String(), Secret: &runnerpb.SecretGrant_ApiKey{ApiKey: key}}}}, nil
+}
+
+// startRun is the run's StartRun: its pinned spec, inputs, bindings and model, and the answer it resumes with, if any.
+func startRun(r *run, bindings []*runnerpb.ToolBinding, model *runnerpb.ModelConfig) *runnerpb.ConnectResponse {
+	start := &runnerpb.StartRun{RunId: r.ID.String(), SpecYaml: r.SpecYAML, InputsJson: string(r.Inputs), Tools: bindings, Model: model}
 	if len(r.Resume) > 0 {
 		start.Resume, start.ResumeJson = true, string(r.Resume)
 	}
