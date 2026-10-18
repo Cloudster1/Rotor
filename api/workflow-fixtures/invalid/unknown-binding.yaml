@@ -1,0 +1,10 @@
+# expect: /nodes/0/tool unknown_binding
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+tools:
+  t: {tool: exciter, scopes: [mcp], allowTools: [get_project]}
+limits: {maxSteps: 5, timeout: 1m}
+entry: a
+nodes:
+  - {id: a, type: tool, tool: exciter, call: get_project}

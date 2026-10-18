@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Workflows have a written form (#14): versioned YAML, `rotor.dev/v1`, with
+  inputs, tool bindings that say what a run may call, a model, limits, and
+  agent, tool, code, approval and router nodes. Rotor checks it against
+  `api/workflow.v1.schema.json` and its own sense, and names each problem by
+  line and column; the runner checks it the same way, and both are held to
+  the same examples. `docs/workflows.md` explains it with three examples.
 - The plan for workflows and runs is agreed (#13): `docs/api-contract-m2.md`
   settles the workflow and run operations, the run states, the live events,
   the sandbox interface and the runner protocol, which `proto/` defines and

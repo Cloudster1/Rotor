@@ -301,7 +301,7 @@ expect_layers "web only, quick"           "shell check-format check-web"        
 expect_layers "web only, full"            "shell check-format check-web test-e2e"                 full  web/src/App.tsx
 expect_layers "backend only, quick"       "shell check-format check-go"                           quick backend/internal/httpapi/router.go
 expect_layers "backend only, full"        "shell check-format check-go test-integration test-e2e" full  backend/internal/httpapi/router.go
-expect_layers "the API document"          "shell check-format check-go check-web"                 quick api/openapi.json
+expect_layers "the API document"          "shell check-format check-go check-python check-web"    quick api/openapi.json
 expect_layers "browser tests alone, full" "shell check-format test-e2e"                           full  e2e/tests/trace-links.spec.ts
 expect_layers "the chart"                 "shell check-format"                                    quick deploy/charts/rotor/values.yaml
 expect_layers "a path nobody listed"      "shell check-format check-go check-python check-web"    quick something/new.txt

@@ -11,6 +11,8 @@ dependencies = [
     "langchain-mcp-adapters==0.3.2",
     "grpcio==1.84.0",
     "protobuf==7.36.2",
+    "ruamel.yaml==0.19.1",
+    "jsonschema==4.26.0",
 ]
 
 [dependency-groups]
@@ -21,6 +23,7 @@ dev = [
     "types-grpcio==1.84.0.20260928",
     "grpcio-tools==1.84.0",
     "mypy-protobuf==5.1.0",
+    "types-jsonschema==4.26.0.20260518",
 ]
 
 [build-system]
