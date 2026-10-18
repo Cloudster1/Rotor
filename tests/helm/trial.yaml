@@ -14,6 +14,54 @@ metadata:
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/enforce-version: latest
 ---
+# Source: rotor/templates/sandbox-egress.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: r-rotor-sandboxes
+  namespace: default-sandboxes
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: r
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+spec:
+  podSelector:
+    matchLabels:
+      rotor.dev/sandbox: "1"
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: default
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: rotor
+              app.kubernetes.io/instance: r
+              app.kubernetes.io/component: api
+      ports:
+        - { protocol: TCP, port: 9443 }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openbao
+      ports:
+        - { protocol: TCP, port: 8200 }
+---
 # Source: rotor/templates/sandbox.yaml
 apiVersion: v1
 kind: ServiceAccount

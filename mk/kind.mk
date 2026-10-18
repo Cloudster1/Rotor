@@ -4,6 +4,9 @@
 KIND_TOOLS_IMAGE ?= rotor-kind-tools:local
 KIND_NODE_IMAGE ?= kindest/node:v1.34.0
 KIND_CLUSTER ?= rotor-$(STACK_HASH)
+# The cluster's network plugin, so the sandboxes' egress policies, hostname allows included, hold as in production.
+CILIUM_REPO ?= https://helm.cilium.io
+CILIUM_VERSION ?= 1.19.8
 KIND_KUBECONFIG := $(ROOT)/.cache/kind/kubeconfig
 
 # The tools container, on the host's network so the cluster's API server and the node are reachable.
@@ -20,8 +23,12 @@ kind-tools: ## Build the image with kind, kubectl and helm the Kubernetes tests 
 kind-up: kind-tools $(if $(wildcard $(ROOT)/runner/pyproject.toml),runner-image) ## Start this checkout's kind cluster, load the runner image and add the sandbox namespace and RBAC
 	@mkdir -p $(dir $(KIND_KUBECONFIG))
 	$(DOCKER_KIND) sh -c 'kind get clusters 2>/dev/null | grep -qx $(KIND_CLUSTER) \
-		|| kind create cluster --name $(KIND_CLUSTER) --image $(KIND_NODE_IMAGE) --config scripts/kind/cluster.yaml --wait 180s; \
+		|| kind create cluster --name $(KIND_CLUSTER) --image $(KIND_NODE_IMAGE) --config scripts/kind/cluster.yaml; \
 		kind export kubeconfig --name $(KIND_CLUSTER) \
+		&& helm repo add cilium $(CILIUM_REPO) --force-update >/dev/null \
+		&& helm upgrade --install cilium cilium/cilium --version $(CILIUM_VERSION) -n kube-system \
+			--set ipam.mode=kubernetes --set image.pullPolicy=IfNotPresent --set operator.replicas=1 --wait --timeout 10m \
+		&& kubectl wait --for=condition=Ready nodes --all --timeout=300s \
 		&& kind load docker-image $(RUNNER_IMAGE) --name $(KIND_CLUSTER) \
 		&& kubectl apply -f deploy/kube/sandboxes.yaml'
 

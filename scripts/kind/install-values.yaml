@@ -1,5 +1,5 @@
-# What the chart install test (#29) adds to values-trial.yaml: the dev OpenBao beside the release, configured by the
-# chart's own Job, and sandboxes under runc, which is all kind has. The images are set on the command line.
+# What the chart install test (#29, #27) adds to values-trial.yaml: the dev OpenBao beside the release, configured by
+# the chart's own Job, sandboxes under runc (all kind has), and egress through Cilium to one public host.
 openbao:
   addr: http://openbao.rotor-chart.svc:8200
   configure:
@@ -8,5 +8,11 @@ openbao:
 sandbox:
   runtimeClass: ""
   allowRunc: true
+  egress:
+    cilium: true
+    hosts: [example.com]
+    openbao:
+      namespace: rotor-chart
+      podLabels: { app: openbao }
 ingress:
   enabled: false

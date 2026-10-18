@@ -87,11 +87,13 @@ golden() { # name args...
     rm -f "${GOLDEN}/.diff"
 }
 
-TRIAL=(-f /chart/values-trial.yaml --set openbao.addr=http://openbao:8200)
+TRIAL=(-f /chart/values-trial.yaml --set openbao.addr=http://openbao:8200 --set sandbox.egress.openbao.namespace=openbao)
 PRODUCTION=(--set openbao.addr=https://openbao.example:8200 --set oidc.issuer=https://id.example/realms/dynamo
     --set oidc.clientSecret.name=rotor-oidc --set database.host=db.example --set valkey.host=valkey.example
     --set images.runner.digest=sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-    --set openbao.configure.enabled=true --set openbao.configure.tokenSecret.name=openbao-admin)
+    --set openbao.configure.enabled=true --set openbao.configure.tokenSecret.name=openbao-admin
+    --set sandbox.egress.openbao.cidr=10.20.0.0/24 --set sandbox.egress.cilium=true
+    --set 'sandbox.egress.hosts={exciter.example.com,api.anthropic.com}')
 
 echo "== chart-testing"
 if out=$(docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "${SRC}:/src:ro" -w /src "${CT_IMAGE}" \
@@ -122,12 +124,21 @@ check "the worker may touch pods and secrets alone" \
 check "no workload runs as root or writes its root filesystem" \
     "$(grep -c 'readOnlyRootFilesystem: true' <<<"${RENDERED}")" "$(grep -c '^ *image: ' <<<"${RENDERED}")"
 
+check "nothing reaches a sandbox and it reaches only what is allowed" \
+    "$(grep -A16 'kind: NetworkPolicy' <<<"${RENDERED}" | grep -c 'policyTypes: \[Ingress, Egress\]')" "1"
+check "a sandbox reaches the api's runner port" "$(grep -c 'port: 9443 }' <<<"${RENDERED}")" "1"
+check "a sandbox reaches OpenBao's port" "$(grep -c 'port: 8200 }' <<<"${RENDERED}")" "1"
+check "without Cilium no hostname is allowed" "$(grep -c 'kind: CiliumNetworkPolicy' <<<"${RENDERED}")" "0"
+
 echo "== production"
 render "production" "${PRODUCTION[@]}"
 check "the runner image is named by digest" "$(config_value "${RENDERED}" ROTOR_SANDBOX_IMAGE)" \
     "ghcr.io/cloudster1/rotor-runner@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 check "the control plane signs in to OpenBao as itself" "$(config_value "${RENDERED}" ROTOR_OPENBAO_AUTH)" "kubernetes"
 check "cookies are secure" "$(config_value "${RENDERED}" ROTOR_SECURE_COOKIES)" "true"
+check "the tools and the provider are allowed by name" "$(grep -c 'matchName: "\(exciter.example.com\|api.anthropic.com\)"' <<<"${RENDERED}")" "2"
+check "names are learned through Cilium's DNS proxy" "$(grep -c 'matchPattern: "\*"' <<<"${RENDERED}")" "1"
+check "OpenBao outside the cluster is allowed by range on its port" "$(grep -A3 'cidr: 10.20.0.0/24' <<<"${RENDERED}" | grep -c 'port: 8200 }')" "1"
 check "OpenBao is configured for the api's and the worker's accounts" \
     "$(env_value "${RENDERED}" ROTOR_CONTROL_PLANE_SERVICE_ACCOUNTS)" "${FULL}-api,${FULL}-worker"
 
@@ -139,6 +150,8 @@ refused "no OpenBao" "Set openbao.addr" -f /chart/values-trial.yaml
 refused "production without sign-in" "Set oidc.issuer" --set openbao.addr=https://openbao.example:8200 --set database.host=db
 refused "no database" "Set database.host" --set openbao.addr=https://openbao.example:8200 --set env=development
 refused "configuring OpenBao without a token" "openbao.configure is on" "${TRIAL[@]}" --set openbao.configure.enabled=true
+refused "hostnames without Cilium" "which only Cilium can allow" "${TRIAL[@]}" --set 'sandbox.egress.hosts={exciter.example.com}'
+refused "no word on where OpenBao is" "Say where OpenBao is" -f /chart/values-trial.yaml --set openbao.addr=http://openbao:8200
 
 echo "== the OpenBao script the chart carries"
 if diff -r "${SRC}/deploy/openbao/policies" "${CHART}/files/openbao/policies" >/dev/null &&

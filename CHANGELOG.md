@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A sandbox reaches only what it needs (#27). The chart denies sandbox
+  egress by default and allows cluster DNS, the api's runner port, OpenBao,
+  and the tools and the model provider by hostname through Cilium (or by
+  address range without it). Cloud metadata, the rest of the cluster and
+  every other host are refused, which the kind test, now running Cilium,
+  proves from a pod with the sandbox's label.
 - Rotor installs with one Helm chart (#29), adapted from Exciter's: the api,
   the worker and the web, the migrations, the sandbox namespace under the
   restricted Pod Security standard with the worker's narrow rights, a Job

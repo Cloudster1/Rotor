@@ -155,6 +155,27 @@ sandbox:
   allowRunc: false
   # The ServiceAccount every sandbox pod runs as; it carries no token.
   serviceAccount: rotor-sandbox
+  # Where a sandbox may connect (#27): nothing reaches it, and it reaches cluster DNS, the api's runner port, OpenBao
+  # and the tools and the model provider alone; cloud metadata and the rest of the cluster are refused.
+  egress:
+    enabled: true
+    # Hostname allows need Cilium, which matches a name against what the pod resolved; plain NetworkPolicy matches
+    # addresses only. Turn this on where Cilium is the cluster's network plugin.
+    cilium: false
+    # The tools' and the provider's hostnames, such as exciter.example.com or api.anthropic.com; needs cilium.
+    hosts: []
+    ports: [443]
+    # Without Cilium, the address ranges the tools and the provider are reached at instead.
+    cidrs: []
+    # Where OpenBao is: pods in a namespace of this cluster, or an address range outside it.
+    openbao:
+      namespace: ""
+      podLabels: {}
+      cidr: ""
+    # Cluster DNS, which a sandbox resolves the tools' names through.
+    dns:
+      namespace: kube-system
+      podLabels: { k8s-app: kube-dns }
 
 secrets:
   # Generates the database and Valkey passwords once, inside the cluster, before anything else starts.

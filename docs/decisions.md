@@ -3,6 +3,20 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-18: Sandbox egress for M4 (#27)
+
+- **Cilium for hostnames, NetworkPolicy beneath it.** The tools and the
+  model providers are hostnames whose addresses change; Cilium's FQDN
+  policies follow them from the lookups a sandbox makes, while a plain
+  default-deny NetworkPolicy allows DNS, the runner port and OpenBao on any
+  cluster. An egress proxy would have worked without Cilium but put another
+  component on every call a run makes.
+- **No hostname allow without Cilium.** The chart refuses hostnames on a
+  cluster without it rather than silently allowing nothing or everything,
+  and takes address ranges there instead.
+- **The kind test runs Cilium.** The policies are proven where they are
+  enforced, not only rendered.
+
 ## 2026-10-18: A waiting run keeps nothing alive (#28)
 
 - **The idle time is zero.** A run that starts waiting loses its sandbox at
