@@ -32,6 +32,7 @@ const (
 	CodeUnknownCall   = "unknown_call"
 	CodeWritesOnRead  = "writes_on_read_binding"
 	CodeNeedsApproval = "approval_missing"
+	CodeCodeLimits    = "code_limits"
 )
 
 // Node types.
