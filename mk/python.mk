@@ -7,7 +7,7 @@ UV_CACHE := $(ROOT)/.cache/uv
 RUNNER_IMAGE ?= rotor-runner:dev
 
 # The image's own Python, so nothing is downloaded at run time; copies, since the cache sits on another mount.
-DOCKER_UV = docker run --rm \
+uv_run = docker run --rm \
 	-u $(UID_GID) \
 	-v $(ROOT):/work \
 	-v $(UV_CACHE):/cache \
@@ -15,7 +15,9 @@ DOCKER_UV = docker run --rm \
 	-e UV_CACHE_DIR=/cache \
 	-e UV_PYTHON_DOWNLOADS=never \
 	-e UV_LINK_MODE=copy \
+	$(1) \
 	-w /work/runner $(UV_IMAGE)
+DOCKER_UV = $(call uv_run,)
 
 $(UV_CACHE):
 	@mkdir -p $@
@@ -37,6 +39,14 @@ runner-image: ## Build the runner's sandbox image
 runner-smoke: runner-image ## Run the image's self-check as a sandbox would
 	docker run --rm --read-only --network none --cap-drop ALL --security-opt no-new-privileges $(RUNNER_IMAGE) --self-check
 
+# The runner's tests that need the stack's tool double, run on the stack's network; test-integration calls this.
+.PHONY: test-runner
+test-runner: | $(UV_CACHE) ## Run the runner's tests against this checkout's running stack
+	@mkdir -p $(REPORTS)
+	$(call uv_run,--network $(STACK_NET) -e ROTOR_TEST_TOOLSTUB_INTERNAL_URL=http://tool-stub:8080 \
+		-e ROTOR_TEST_TOOLSTUB_CONTROL_URL=http://tool-stub:8081) \
+		sh -c 'uv sync --locked --quiet && uv run --no-sync pytest -m stack --junitxml=/work/reports/pytest-stack.xml'
+
 .PHONY: check-python
 check-python: | $(UV_CACHE) ## The runner gate: lint, format, types, tests, then a smoke run of the image
 	@mkdir -p $(REPORTS)
@@ -44,7 +54,7 @@ check-python: | $(UV_CACHE) ## The runner gate: lint, format, types, tests, then
 		&& uv run --no-sync ruff check . \
 		&& uv run --no-sync ruff format --check . \
 		&& uv run --no-sync mypy src tests \
-		&& uv run --no-sync pytest --junitxml=/work/reports/pytest.xml'
+		&& uv run --no-sync pytest -m "not stack" --junitxml=/work/reports/pytest.xml'
 	$(MAKE) --no-print-directory runner-smoke
 
 endif

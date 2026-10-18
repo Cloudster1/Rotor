@@ -3,6 +3,7 @@ package toolstub
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/google/uuid"
 	"io"
 	"net/http"
 	"slices"
@@ -185,9 +186,31 @@ func (s *Stub) callTool(c *call, who *caller, name string) (any, *rpcError) {
 	case name != WhoamiTool:
 		return refusal("The test double answers whoami alone; " + name + " is listed so clients see Exciter's tools."), nil
 	}
-	structured := map[string]any{"username": who.username, "readOnly": who.readOnly, "scopes": who.scopes, "tool": c.t.name}
+	structured := whoami(c.t, who)
 	text, _ := json.Marshal(structured)
 	return map[string]any{"content": []toolContent{{Type: "text", Text: string(text)}}, "structuredContent": structured}, nil
+}
+
+// whoami answers in the shape of Exciter's whoami output schema, which clients check the answer against; the
+// person's name is their username, and ids are derived from it so a test can expect them.
+func whoami(t *tenant, who *caller) map[string]any {
+	kind := "oauth"
+	if !t.oauth() {
+		kind = "personal"
+	}
+	scopes := who.scopes
+	if scopes == nil {
+		scopes = []string{}
+	}
+	return map[string]any{
+		"user": map[string]any{"id": uuid.NewSHA1(uuid.NameSpaceOID, []byte("user:"+who.username)).String(),
+			"email": who.username + "@suite.test", "name": who.username, "locale": ""},
+		"installation": map[string]any{"name": t.name, "oauthConnections": t.oauth()},
+		"role":         "member",
+		"token": map[string]any{"id": uuid.NewSHA1(uuid.NameSpaceOID, []byte("token:"+t.name+":"+who.username)).String(),
+			"kind": kind, "name": "Rotor", "scopes": scopes, "projects": []string{}, "allProjects": true, "expiresAt": nil},
+		"signsWith": "token",
+	}
 }
 
 func writeRPC(c *call, id json.RawMessage, result any, rpcErr *rpcError) {
