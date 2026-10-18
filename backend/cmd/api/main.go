@@ -20,6 +20,8 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/httpapi"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
+	"github.com/cloudster1/rotor/backend/internal/sandbox"
+	"github.com/cloudster1/rotor/backend/internal/sandbox/docker"
 	"github.com/cloudster1/rotor/backend/internal/tools"
 	"github.com/cloudster1/rotor/backend/internal/vault"
 	"github.com/cloudster1/rotor/backend/internal/version"
@@ -91,6 +93,7 @@ func run() error {
 		sessions.OnSwitchOff = people.EndPersonConnections
 		server.Tools, server.Connections = registry, people
 	}
+	sweepSandboxes(ctx, cfg, log)
 	origins := cfg.CORSOrigins
 	if len(origins) == 0 && !cfg.IsProduction() {
 		origins = devOrigins
@@ -153,6 +156,20 @@ func openSecrets(ctx context.Context, cfg config.Config, log *slog.Logger) (*vau
 	}
 	go client.Run(ctx)
 	return client, nil
+}
+
+// sweepSandboxes destroys this installation's sandboxes left from before a restart; M3 keeps those of live runs.
+func sweepSandboxes(ctx context.Context, cfg config.Config, log *slog.Logger) {
+	if cfg.Sandbox.Backend != config.SandboxDocker {
+		return
+	}
+	backend := docker.New(cfg.Sandbox.Socket, cfg.Sandbox.Network)
+	destroyed, err := sandbox.Sweep(ctx, backend, map[string]string{sandbox.LabelStack: cfg.Sandbox.Stack}, nil)
+	if err != nil {
+		log.Warn("cannot sweep the sandboxes left from before", "error", err)
+		return
+	}
+	log.Info("swept the sandboxes left from before", "destroyed", destroyed)
 }
 
 // toolClient reaches the tools an administrator adds, at the addresses Rotor can reach them.

@@ -28,6 +28,9 @@ vulnerability, and an installation never uses them:
 - the development OpenBao's root token `rotor-dev-root`, and its single
   unseal key and first root token, which it keeps in `rotor-init.json` on its
   own volume so it can unseal itself on every start
+- the development api's access to the host's Docker socket, which it uses to
+  start sandboxes and which hands it the machine; the Docker sandbox backend
+  refuses to run outside development
 - the database and Valkey passwords defaulted in `deploy/docker-compose.yml`
   and `mk/stack.mk`
 - the tool-stub's tokens, codes and client secrets (`stub_*`), which open

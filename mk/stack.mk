@@ -22,6 +22,8 @@ APP_DB_PASSWORD    ?= rotor_app
 ADMIN_DB_PASSWORD  ?= rotor_admin
 VALKEY_PASSWORD    ?= rotor_valkey
 OPENBAO_ROOT_TOKEN ?= rotor-dev-root
+# The api starts sandboxes through the host's Docker socket, so it joins the socket's group (development only).
+DOCKER_GID ?= $(shell stat -c %g /var/run/docker.sock 2>/dev/null || echo 0)
 
 KEYCLOAK_REALM := dynamo
 # Dynamo holds the suite's canonical realm; Armature, Stator and Exciter compare theirs with the same copy.
@@ -35,12 +37,16 @@ realm-check: ## Fail if deploy/keycloak/realm.json differs from Dynamo's canonic
 export COMPOSE_FILE := $(ROOT)/deploy/docker-compose.yml
 export COMPOSE_PROJECT_NAME := $(STACK_PROJECT)
 export WEB_PORT API_PORT KEYCLOAK_PORT POSTGRES_PORT VALKEY_PORT OPENBAO_PORT TOOLSTUB_PORT
-export POSTGRES_PASSWORD APP_DB_PASSWORD ADMIN_DB_PASSWORD VALKEY_PASSWORD OPENBAO_ROOT_TOKEN
+export POSTGRES_PASSWORD APP_DB_PASSWORD ADMIN_DB_PASSWORD VALKEY_PASSWORD OPENBAO_ROOT_TOKEN DOCKER_GID
 
 STACK_PG_URL = postgres://$(1):$(2)@$(3):5432/rotor?sslmode=disable
 
 # The Go toolchain container on the stack's network, with everything the integration suite reads.
 DOCKER_GO_STACK = $(call go_run,--network $(STACK_NET) \
+	-v /var/run/docker.sock:/var/run/docker.sock --group-add $(DOCKER_GID) \
+	-e ROTOR_TEST_SANDBOX_NETWORK=$(STACK_PROJECT)_sandbox \
+	-e ROTOR_TEST_SANDBOX_STACK=$(STACK_PROJECT) \
+	-e ROTOR_TEST_SANDBOX_IMAGE=rotor-runner:dev \
 	-e ROTOR_DB_URL='$(call STACK_PG_URL,rotor_app,$(APP_DB_PASSWORD),postgres)' \
 	-e ROTOR_DB_ADMIN_URL='$(call STACK_PG_URL,rotor_admin,$(ADMIN_DB_PASSWORD),postgres)' \
 	-e ROTOR_TEST_SUPERUSER_URL='$(call STACK_PG_URL,rotor,$(POSTGRES_PASSWORD),postgres)' \
@@ -90,7 +96,7 @@ stack-env:
 STACK_SAY = docker compose config --services | grep -qx $(1) && echo $(2) || true
 
 .PHONY: up
-up: stack-env ## Build and start the whole stack in the background, and say where it is
+up: stack-env $(if $(wildcard $(ROOT)/runner/pyproject.toml),runner-image) ## Build and start the whole stack in the background, and say where it is
 	docker compose up -d --build --wait
 	@$(call STACK_SAY,web,"Web        http://localhost:$(WEB_PORT)")
 	@$(call STACK_SAY,api,"API        http://localhost:$(API_PORT)/api/v1/meta")
@@ -119,7 +125,7 @@ ports: ## Print this checkout's compose project and ports
 	@echo "project $(STACK_PROJECT), ports $(STACK_PORT_BASE) to $(shell echo $$(($(STACK_PORT_BASE) + 19)))"
 
 .PHONY: stack-up
-stack-up: stack-env ## The gate's stack: build and start it, and wait until every service is healthy
+stack-up: stack-env $(if $(wildcard $(ROOT)/runner/pyproject.toml),runner-image) ## The gate's stack: build and start it, and wait until every service is healthy
 	docker compose up -d --build --wait --quiet-pull
 
 .PHONY: stack-down

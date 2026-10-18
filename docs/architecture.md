@@ -123,6 +123,20 @@ React 19, TanStack Router and Query, Tailwind with the suite's design tokens,
 a client typed from `api/openapi.json`, and an accessibility check on every
 page in the browser suite.
 
+## Sandboxes (#21)
+
+`internal/sandbox` starts and ends the containers runs execute in. In
+development the Docker backend drives the host's daemon through its socket.
+Each sandbox:
+- runs read-only with a small `/tmp`
+- has no capabilities and runs as a non-root user
+- has memory, CPU and process limits
+- is labelled with its stack and run
+- joins only the internal network `sandbox`, which reaches the api and the
+  tool double and nothing else
+
+At start the api destroys its stack's sandboxes that no run keeps.
+
 ## Development stack (`deploy/docker-compose.yml`, #1)
 
 Postgres 18, Valkey 8, Keycloak 26 importing the suite's realm, and OpenBao

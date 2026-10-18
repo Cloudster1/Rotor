@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Runs get sandboxes (#21): in development the api starts each run's runner
+  as a container on the host's Docker daemon, read-only with a small `/tmp`,
+  without capabilities, as a non-root user, within memory, CPU and process
+  limits, on an internal network that reaches the api and the tools and not
+  the internet. At start the api destroys sandboxes left from before.
+  `make up` builds the runner image.
 - Workflows can run a small Python step (#17): a code node's
   `run(state, ctx)` runs in its own process with none of the run's tokens or
   keys in its environment, its own memory and time limits (256 MiB and 30
