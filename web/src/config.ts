@@ -33,3 +33,6 @@ export const MARK_WIDTH_PX = 24;
 /** The icon grid and stroke: every glyph is drawn to these two numbers. */
 export const ICON_SIZE_PX = 16;
 export const ICON_STROKE = 1.5;
+
+/** Where a tool returns the browser after consent; an administrator registers it at tools that need a client by hand. */
+export const CONNECTION_CALLBACK_PATH = `${API_BASE}/connections/callback`;

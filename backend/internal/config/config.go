@@ -73,6 +73,7 @@ type Config struct {
 	Auth    Auth
 	OIDC    OIDC
 	OpenBao OpenBao
+	Tools   Tools
 }
 
 // Auth is how a signed-in browser is remembered.
@@ -144,6 +145,7 @@ func Load() (Config, error) {
 			Backchannel:  l.str("ROTOR_OIDC_BACKCHANNEL", ""),
 		},
 		OpenBao: loadOpenBao(l),
+		Tools:   loadTools(l),
 	}
 	if c.OIDC.RedirectURL == "" {
 		c.OIDC.RedirectURL = c.AppBaseURL + CallbackPath

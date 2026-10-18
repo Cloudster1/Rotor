@@ -38,3 +38,8 @@ export function keycloakURL(): string {
 export function buildVersion(): string | undefined {
   return process.env.ROTOR_BUILD_VERSION ?? env.ROTOR_BUILD_VERSION;
 }
+
+/** The tool double as the browser sees it; any /t/<name> under it is a tool of its own, made on first use. */
+export function toolStubURL(): string {
+  return setting("ROTOR_TOOLSTUB_URL");
+}

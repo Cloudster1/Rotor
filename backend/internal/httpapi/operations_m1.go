@@ -15,19 +15,19 @@ func init() {
 
 var m1Operations = []operation{
 	// The tools Rotor knows and is registered with as an OAuth client (#9).
-	{method: "GET", path: "/tools", handler: "handleListTools", tag: "tools", pending: true,
+	{method: "GET", path: "/tools", handler: "handleListTools", tag: "tools",
 		summary: "The tools Rotor can act in, with what each offers.", responses: ok(env{"tools": []toolResponse{}})},
-	{method: "POST", path: "/tools", handler: "handleAddTool", tag: "tools", pending: true, admin: true,
+	{method: "POST", path: "/tools", handler: "handleAddTool", tag: "tools", admin: true,
 		summary: "Add a tool by its address; Rotor registers itself there as an OAuth client.",
 		description: "Reads the tool's /api/v1/meta, which must offer mcp@1, then its protected resource and " +
 			"authorization server metadata (RFC 9728, RFC 8414), and registers by RFC 7591 unless a client is given. " +
 			"Adding an address Rotor already knows registers again, for a tool that forgot its client.",
 		request: addToolRequest{},
 		responses: map[int]any{http.StatusCreated: env{"tool": toolResponse{}}, http.StatusOK: env{"tool": toolResponse{}},
-			http.StatusUnprocessableEntity: errorEnvelope{}, http.StatusBadGateway: errorEnvelope{}}},
-	{method: "GET", path: "/tools/{toolID}", handler: "handleGetTool", tag: "tools", pending: true,
+			http.StatusUnprocessableEntity: errorEnvelope{}, http.StatusBadGateway: errorEnvelope{}, http.StatusServiceUnavailable: errorEnvelope{}}},
+	{method: "GET", path: "/tools/{toolID}", handler: "handleGetTool", tag: "tools",
 		summary: "One tool.", responses: map[int]any{http.StatusOK: env{"tool": toolResponse{}}, http.StatusNotFound: errorEnvelope{}}},
-	{method: "DELETE", path: "/tools/{toolID}", handler: "handleRemoveTool", tag: "tools", pending: true, admin: true,
+	{method: "DELETE", path: "/tools/{toolID}", handler: "handleRemoveTool", tag: "tools", admin: true,
 		summary:   "Remove a tool, ending every connection to it.",
 		responses: map[int]any{http.StatusNoContent: nil, http.StatusNotFound: errorEnvelope{}}},
 

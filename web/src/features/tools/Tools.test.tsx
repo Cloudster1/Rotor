@@ -1,0 +1,121 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import type { Tool } from "@/api/tools";
+import { s } from "@/strings";
+import { axeViolations } from "@/test/axe";
+import { ME, renderAt } from "@/test/app";
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+const EXCITER: Tool = {
+  id: "0190a5c4-0000-7000-8000-0000000000e1",
+  name: "exciter",
+  baseURL: "https://exciter.test",
+  resource: "https://exciter.test/api/v1/mcp",
+  issuer: "https://exciter.test",
+  capabilities: ["mcp@1", "webhooks@2"],
+  scopesSupported: ["mcp", "mcp:read"],
+  registration: "dynamic",
+  status: "ready",
+  addedAt: "2026-10-18T10:00:00Z",
+};
+
+const MEMBER = { ...ME, role: "member", groups: [] };
+
+describe("the tools", () => {
+  it("are listed for everyone, but only an administrator may add or remove one", async () => {
+    await renderAt("/settings", { me: MEMBER, answers: { "/api/v1/tools": { tools: [EXCITER] } } });
+    const row = await screen.findByText("Exciter");
+    expect(row).toBeInTheDocument();
+    expect(screen.getByText(s.tools.status.ready)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: s.tools.add.submit })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: s.tools.remove })).not.toBeInTheDocument();
+  });
+
+  it("are added by their address, and a refusal is shown as the server words it", async () => {
+    let tools: Tool[] = [];
+    const refusal = "Armature names no authorization server, so people cannot connect to it with OAuth. Switch on its OAuth connections.";
+    const { fetch } = await renderAt("/settings", {
+      answers: {
+        "/api/v1/tools": () => Response.json({ tools }),
+        "POST /api/v1/tools": async (request: Request) => {
+          const body = (await request.json()) as { baseURL: string };
+          if (body.baseURL.includes("armature")) {
+            return Response.json({ error: { code: "tool_refused", message: refusal } }, { status: 422 });
+          }
+          tools = [EXCITER];
+          return Response.json({ tool: EXCITER }, { status: 201 });
+        },
+      },
+    });
+    const address = await screen.findByLabelText(s.tools.add.baseURL);
+    await userEvent.type(address, "https://armature.test");
+    await userEvent.click(screen.getByRole("button", { name: s.tools.add.submit }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(refusal);
+
+    await userEvent.clear(address);
+    await userEvent.type(address, "https://exciter.test");
+    await userEvent.click(screen.getByRole("button", { name: s.tools.add.submit }));
+    expect(await screen.findByRole("status")).toHaveTextContent(s.tools.add.added("Exciter"));
+    expect(await screen.findByText(EXCITER.baseURL, { selector: "p" })).toBeInTheDocument();
+    const posts = fetch.mock.calls.filter(([request]) => request.method === "POST");
+    expect(posts).toHaveLength(2);
+  });
+
+  it("take a client registered by hand, with its secret", async () => {
+    let sent: unknown;
+    await renderAt("/settings", {
+      answers: {
+        "POST /api/v1/tools": async (request: Request) => {
+          sent = await request.json();
+          return Response.json({ tool: { ...EXCITER, registration: "manual" } }, { status: 201 });
+        },
+      },
+    });
+    await userEvent.type(await screen.findByLabelText(s.tools.add.baseURL), "https://exciter.test");
+    await userEvent.click(screen.getByLabelText(s.tools.add.manual));
+    expect(screen.getByText(/connections\/callback/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(s.tools.add.clientID), "rotor");
+    await userEvent.type(screen.getByLabelText(s.tools.add.clientSecret), "shh");
+    await userEvent.click(screen.getByRole("button", { name: s.tools.add.submit }));
+    await waitFor(() => expect(sent).toEqual({ baseURL: "https://exciter.test", clientID: "rotor", clientSecret: "shh" }));
+  });
+
+  it("are removed after a confirmation, and one that forgot Rotor is registered again", async () => {
+    let tools: Tool[] = [{ ...EXCITER, status: "needs_registration" }];
+    const { fetch } = await renderAt("/settings", {
+      answers: {
+        "/api/v1/tools": () => Response.json({ tools }),
+        "POST /api/v1/tools": () => {
+          tools = [EXCITER];
+          return Response.json({ tool: EXCITER });
+        },
+        [`DELETE /api/v1/tools/${EXCITER.id}`]: () => {
+          tools = [];
+          return new Response(null, { status: 204 });
+        },
+      },
+    });
+    await userEvent.click(await screen.findByRole("button", { name: s.tools.registerAgain }));
+    expect(await screen.findByText(s.tools.status.ready)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: s.tools.remove }));
+    const confirm = screen.getByRole("group", { name: s.tools.confirmRemove("Exciter") });
+    await userEvent.click(within(confirm).getByRole("button", { name: s.tools.confirm }));
+    expect(await screen.findByText(s.tools.noneAdmin)).toBeInTheDocument();
+    const calls = fetch.mock.calls.map(([request]) => `${request.method} ${new URL(request.url).pathname}`);
+    expect(calls).toContain(`DELETE /api/v1/tools/${EXCITER.id}`);
+  });
+
+  it("pass axe, with the form open", async () => {
+    await renderAt("/settings", { answers: { "/api/v1/tools": { tools: [EXCITER, { ...EXCITER, id: "x", name: "stator", status: "needs_registration" }] } } });
+    await screen.findByText("Exciter");
+    await userEvent.click(screen.getByLabelText(s.tools.add.manual));
+    await userEvent.click(screen.getAllByRole("button", { name: s.tools.remove })[0]!);
+    expect(await axeViolations()).toEqual([]);
+  });
+});

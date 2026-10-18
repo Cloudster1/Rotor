@@ -169,18 +169,24 @@ func TestAPendingOperationAnswersNotImplemented(t *testing.T) {
 
 // An admin row is refused to a member before it says it is not built, so the gate is in place before the code.
 func TestAPendingAdminOperationRefusesAMember(t *testing.T) {
+	saved := operations
+	t.Cleanup(func() { operations = saved })
+	operations = append(append([]operation{}, saved...), operation{
+		method: "POST", path: "/promises", handler: "handleMakePromise", tag: "projects", summary: "Make a promise.",
+		pending: true, admin: true, responses: ok(statusResponse{}),
+	})
 	s, sessions, _ := signedInServer(t)
 	sessions.people["bob"] = &auth.Principal{UserID: uuid.New(), Name: "Bob Builder", Role: auth.RoleMember}
 	for who, want := range map[string]int{"": http.StatusUnauthorized, "bob": http.StatusForbidden, "alice": http.StatusNotImplemented} {
-		req := httptestRequest(http.MethodPost, APIPrefix+"/tools", `{"baseURL":"https://exciter.test"}`)
+		req := httptestRequest(http.MethodPost, APIPrefix+"/promises", `{}`)
 		if who != "" {
 			req = withSession(req, who)
 		}
 		if resp, body := serve(t, s.Routes(nil), req); resp.StatusCode != want {
-			t.Errorf("POST /tools as %q = %d %v, want %d", who, resp.StatusCode, body, want)
+			t.Errorf("POST /promises as %q = %d %v, want %d", who, resp.StatusCode, body, want)
 		}
 	}
-	if Spec().Paths["/tools"]["post"].Responses["403"] == nil {
+	if Spec().Paths["/promises"]["post"].Responses["403"] == nil {
 		t.Error("the document does not say an admin operation refuses with 403")
 	}
 }

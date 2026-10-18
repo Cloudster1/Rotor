@@ -9,6 +9,13 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Administrators add the tools Rotor acts in (#9). Settings lists every
+  tool with what it offers; an administrator adds one by the address it is
+  opened at, and Rotor reads its MCP endpoint and authorization server and
+  registers itself there as an OAuth client, keeping the client secret in
+  OpenBao. A tool without OAuth is refused with a sentence saying what it
+  lacks; one that forgot Rotor is registered again with a click; removing a
+  tool forgets Rotor's client there.
 - Rotor can be tested against tools without mocking them (#8). `make up`
   starts a test double that behaves as Exciter does as an OAuth authorization
   server and MCP endpoint, as many independent tools as tests need, kept

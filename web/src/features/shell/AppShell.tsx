@@ -20,8 +20,12 @@ export function AppShell({ children, topBarTrailing }: { children: ReactNode; to
       <Sidebar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <TopBar trailing={topBarTrailing} />
-        {/* Focusable only from the skip link, and not ringed then: it is where reading starts, not a control. */}
-        <main id={MAIN_ID} tabIndex={-1} className="min-h-0 flex-1 overflow-auto bg-backdrop px-4 py-6 focus:outline-none shell:px-8">
+        {/* A tab stop of its own, so a keyboard scrolls a page with nothing else to focus; ringed only for the keyboard. */}
+        <main
+          id={MAIN_ID}
+          tabIndex={0}
+          className="min-h-0 flex-1 overflow-auto bg-backdrop px-4 py-6 focus:outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus shell:px-8"
+        >
           {children}
         </main>
       </div>
