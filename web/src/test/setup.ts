@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import "./layout";
 
 // Node's built-in localStorage is inert without --localstorage-file and shadows jsdom's, so tests get an
 // in-memory Storage; one that refuses storage can still spy on Storage.prototype.

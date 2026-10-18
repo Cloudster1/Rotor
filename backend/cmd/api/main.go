@@ -14,6 +14,8 @@ import (
 	"syscall"
 
 	"github.com/cloudster1/rotor/backend/internal/auth"
+	"github.com/cloudster1/rotor/backend/internal/cache"
+	"github.com/cloudster1/rotor/backend/internal/catalog"
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/db"
@@ -25,6 +27,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/tools"
 	"github.com/cloudster1/rotor/backend/internal/vault"
 	"github.com/cloudster1/rotor/backend/internal/version"
+	"github.com/cloudster1/rotor/backend/internal/workflows"
 )
 
 // devOrigins are where the web client's development server runs.
@@ -85,6 +88,12 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	store, err := cache.Open(cfg.Valkey.URL, log)
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+	var catalogs workflows.CatalogSource
 	if secrets != nil {
 		server.Vault = secrets
 		registry := tools.NewService(cluster, secrets, toolClient(cfg), cfg.ConnectionCallbackURL(), cfg.Env == config.EnvDevelopment)
@@ -92,8 +101,11 @@ func run() error {
 		registry.Connections = people
 		sessions.OnSwitchOff = people.EndPersonConnections
 		server.Tools, server.Connections = registry, people
+		reader := catalog.NewService(registry, people, toolClient(cfg), store, log)
+		server.Catalogs, catalogs = reader, reader
 	}
 	sweepSandboxes(ctx, cfg, log)
+	server.Workflows = workflows.NewService(cluster, catalogs)
 	origins := cfg.CORSOrigins
 	if len(origins) == 0 && !cfg.IsProduction() {
 		origins = devOrigins

@@ -31,7 +31,6 @@ function emptyPlace<P extends string>(path: P, title: string, icon: IconName, em
   });
 }
 
-export const workflowsRoute = emptyPlace("/workflows", s.places.workflows, "Workflow", s.workflows);
 export const runsRoute = emptyPlace("/runs", s.places.runs, "Run", s.runs);
 export const approvalsRoute = emptyPlace("/approvals", s.places.approvals, "Approval", s.approvals);
 export const connectionsRoute = createRoute({

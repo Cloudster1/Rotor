@@ -17,7 +17,7 @@ func clean(t *testing.T) {
 		"ROTOR_DB_CONN_MAX_LIFETIME", "ROTOR_OIDC_ISSUER", "ROTOR_OIDC_CLIENT_ID", "ROTOR_OIDC_CLIENT_SECRET",
 		"ROTOR_OIDC_REDIRECT_URL", "ROTOR_SESSION_TTL", "ROTOR_SECURE_COOKIES", "ROTOR_OPENBAO_ADDR",
 		"ROTOR_OPENBAO_ROLE", "ROTOR_OPENBAO_MOUNT", "ROTOR_CONTROL_PLANE_CLIENT_ID", "ROTOR_CONTROL_PLANE_CLIENT_SECRET",
-		"ROTOR_TOOLS_BACKCHANNEL", "ROTOR_SANDBOX_BACKEND", "ROTOR_SANDBOX_NETWORK", "ROTOR_SANDBOX_STACK",
+		"ROTOR_TOOLS_BACKCHANNEL", "ROTOR_SANDBOX_BACKEND", "ROTOR_SANDBOX_NETWORK", "ROTOR_SANDBOX_STACK", "ROTOR_VALKEY_URL",
 	} {
 		t.Setenv(key, "")
 	}
@@ -71,6 +71,7 @@ func TestSettingsAreRead(t *testing.T) {
 	t.Setenv("ROTOR_DB_MAX_CONNS", "7")
 	t.Setenv("ROTOR_REQUEST_TIMEOUT", "5s")
 	t.Setenv("ROTOR_OPENBAO_ADDR", "https://openbao.example.com:8200")
+	t.Setenv("ROTOR_VALKEY_URL", "redis://valkey:6379/0")
 	t.Setenv("ROTOR_CONTROL_PLANE_CLIENT_ID", "rotor-control-plane")
 	t.Setenv("ROTOR_CONTROL_PLANE_CLIENT_SECRET", "s")
 	c, err := Load()
@@ -93,9 +94,9 @@ func TestEveryProblemIsReportedAtOnceAsSentences(t *testing.T) {
 	if !errors.As(err, &cfgErr) {
 		t.Fatalf("want *Error, got %v", err)
 	}
-	// An environment that is not development also asks for secure cookies, an identity provider and OpenBao.
-	if len(cfgErr.Problems) != 7 {
-		t.Fatalf("want 7 problems, got %d: %q", len(cfgErr.Problems), cfgErr.Problems)
+	// An environment that is not development also asks for secure cookies, an identity provider, OpenBao and Valkey.
+	if len(cfgErr.Problems) != 8 {
+		t.Fatalf("want 8 problems, got %d: %q", len(cfgErr.Problems), cfgErr.Problems)
 	}
 	for _, p := range cfgErr.Problems {
 		if !strings.HasSuffix(p, ".") || !strings.Contains(p, "ROTOR_") {

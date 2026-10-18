@@ -75,6 +75,7 @@ type Config struct {
 	OpenBao OpenBao
 	Tools   Tools
 	Sandbox Sandbox
+	Valkey  Valkey
 }
 
 // Auth is how a signed-in browser is remembered.
@@ -148,6 +149,7 @@ func Load() (Config, error) {
 		OpenBao: loadOpenBao(l),
 		Tools:   loadTools(l),
 		Sandbox: loadSandbox(l),
+		Valkey:  loadValkey(l),
 	}
 	if c.OIDC.RedirectURL == "" {
 		c.OIDC.RedirectURL = c.AppBaseURL + CallbackPath
@@ -183,6 +185,7 @@ func Load() (Config, error) {
 	}
 	checkOpenBao(l, c)
 	checkSandbox(l, c)
+	checkValkey(l, c)
 	if c.DB.AdminURL == "" {
 		c.DB.AdminURL = c.DB.URL
 	}
