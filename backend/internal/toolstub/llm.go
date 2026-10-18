@@ -3,9 +3,11 @@ package toolstub
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/go-chi/chi/v5"
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/cloudster1/rotor/backend/internal/config"
 )
@@ -19,10 +21,12 @@ const (
 	StubModel = "stub-model"
 )
 
-// LLMTurn is one scripted answer: text, or calls of the tools the request offered.
+// LLMTurn is one scripted answer: text, or calls of the tools the request offered, after DelayMS when given.
 type LLMTurn struct {
 	Content   string        `json:"content,omitempty"`
 	ToolCalls []LLMToolCall `json:"toolCalls,omitempty"`
+	// DelayMS holds the answer back, as a slow model would, so a test can act while the run thinks.
+	DelayMS int `json:"delayMs,omitempty"`
 }
 
 // LLMToolCall is a tool the scripted model calls, with its arguments.
@@ -39,6 +43,26 @@ func (t *tenant) nextTurn() LLMTurn {
 	turn := t.opts.LLMScript[min(t.llmNext, len(t.opts.LLMScript)-1)]
 	t.llmNext++
 	return turn
+}
+
+// thinking holds a chat answer back by its turn's delay, without the stub's lock, so other tenants go on.
+func (s *Stub) thinking(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		delay := 0
+		s.mu.Lock()
+		if t, ok := s.tenants[chi.URLParam(r, "tenant")]; ok && len(t.opts.LLMScript) > 0 {
+			delay = t.opts.LLMScript[min(t.llmNext, len(t.opts.LLMScript)-1)].DelayMS
+		}
+		s.mu.Unlock()
+		if delay > 0 {
+			select {
+			case <-time.After(min(time.Duration(delay)*time.Millisecond, config.ToolStubMaxLLMDelay)):
+			case <-r.Context().Done():
+				return
+			}
+		}
+		next(w, r)
+	}
 }
 
 // llmAuthorized checks the provider key: the tenant's own when it has one, any key otherwise.

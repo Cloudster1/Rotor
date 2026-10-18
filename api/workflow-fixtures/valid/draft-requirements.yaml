@@ -5,9 +5,9 @@ metadata:
   description: Drafts requirements from a short brief and files them in Exciter, after a person approves.
 inputs:
   type: object
-  required: [project, brief]
+  required: [projectKey, brief]
   properties:
-    project: { type: string, description: The Exciter project key. }
+    projectKey: { type: string, description: The Exciter project key. }
     brief: { type: string, description: What the requirements should cover. }
 tools:
   exciter-read:
@@ -31,7 +31,7 @@ nodes:
   - id: draft
     type: agent
     prompt: |
-      Read the project {{ inputs.project }} in Exciter and draft up to five requirements for:
+      Read the project {{ inputs.projectKey }} in Exciter and draft up to five requirements for:
       {{ inputs.brief }}
       Avoid duplicating requirements the project already has.
     tools: [exciter-read]
@@ -50,9 +50,9 @@ nodes:
     tool: exciter-write
     call: create_requirement
     arguments:
-      project: "{{ inputs.project }}"
+      projectKey: "{{ inputs.projectKey }}"
       title: "{{ nodes.draft.title }}"
-      statement: "{{ nodes.draft.statement }}"
+      statementMarkdown: "{{ nodes.draft.statement }}"
 edges:
   - { from: draft, to: review }
   - { from: review, to: file }

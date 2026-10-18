@@ -45,6 +45,22 @@ func TestTheValidFixturesHaveNoProblems(t *testing.T) {
 	}
 }
 
+// examples is the workflows people start from; each must be one the control plane saves.
+var examples = filepath.Join("..", "..", "..", "..", "examples")
+
+func TestTheExamplesHaveNoProblems(t *testing.T) {
+	files, _ := filepath.Glob(filepath.Join(examples, "*.yaml"))
+	if len(files) == 0 {
+		t.Fatal("no examples found")
+	}
+	for _, file := range files {
+		source, _ := os.ReadFile(file)
+		if s, problems := Parse(source); s == nil || len(problems) > 0 {
+			t.Errorf("%s: %+v", filepath.Base(file), problems)
+		}
+	}
+}
+
 func TestEachInvalidFixtureNamesItsProblemWhereItIs(t *testing.T) {
 	files, _ := filepath.Glob(filepath.Join(fixtures, "invalid", "*.yaml"))
 	if len(files) == 0 {

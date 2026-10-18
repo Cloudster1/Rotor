@@ -337,6 +337,13 @@ type Spec struct {
     - Ending a connection, removing a tool or switching a person off also revokes the tokens their runs hold at that tool.
   - **Redaction:** the runner cuts every token and key it holds from its events. The control plane then redacts bearer values, known token prefixes and fields named like `token`, `secret`, `password`, `authorization` or `api_key` before storing an event.
 
+- **As built (#25):**
+  - **The proof:** `backend/test/suite_run_test.go` runs `examples/draft-requirements.yaml` against the real Exciter in the suite job, with the tool double's model; sandboxes reach no provider on the internet yet.
+  - **The suite's networks:** the worker joins the suite's network so it can revoke tokens at Exciter. Exciter's web joins the sandboxes' internal network as `suite-exciter-web`, the address the api rewrites Exciter's MCP endpoint to.
+  - **The tool double:**
+    - A scripted model turn may carry `delayMs` to hold its answer back.
+    - A tenant made on first use as `/t/<product>--<rest>` answers as `<product>`.
+
 ## What is left for later
 
 - Approvals people answer in the browser (M5) and triggers (M6); the spec reserves `triggers`.

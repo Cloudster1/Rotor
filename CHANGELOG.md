@@ -9,6 +9,13 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The first run is proven end to end against the real Exciter (#25). In the
+  suite, alice runs `examples/draft-requirements.yaml` and the requirement
+  appears in Exciter as hers, marked as written through Rotor; dave, who may
+  only read the project, runs the same workflow and Exciter refuses the
+  write, which his run reports. Afterwards both sandboxes are gone and
+  Exciter refuses the tokens the runs held. The example ships in
+  `examples/`, checked by both the control plane and the runner.
 - People follow a run live (#24). Its page draws the workflow's graph and
   lights it up node by node. Beside it, a timeline says what happened: steps
   started and finished, each tool call with its arguments and answer, what

@@ -1,0 +1,48 @@
+# Drafts one requirement about a topic and files it in an Exciter project, as the person who runs it: Exciter
+# decides whether they may, and marks the revision as written through Rotor.
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata:
+  name: draft-requirements
+  description: Drafts a requirement about a topic and files it in an Exciter project, as the person who runs it.
+inputs:
+  type: object
+  required: [projectKey, topic]
+  properties:
+    projectKey: { type: string, title: Project key, description: "The Exciter project the requirement goes to, such as RTR." }
+    topic: { type: string, title: Topic, description: What the requirement should be about. }
+tools:
+  exciter:
+    tool: exciter
+    scopes: [mcp]
+    access: write
+    allowTools: [create_requirement]
+limits:
+  maxSteps: 10
+  timeout: 10m
+  maxTokens: 50000
+entry: draft
+nodes:
+  - id: draft
+    type: agent
+    prompt: |
+      Draft one requirement about: {{ inputs.topic }}
+      Give it a short title, and a statement in Markdown that says what the system shall do.
+    output:
+      schema:
+        type: object
+        required: [title, statement]
+        properties:
+          title: { type: string }
+          statement: { type: string }
+  - id: file
+    type: tool
+    tool: exciter
+    call: create_requirement
+    arguments:
+      projectKey: "{{ inputs.projectKey }}"
+      title: "{{ nodes.draft.title }}"
+      statementMarkdown: "{{ nodes.draft.statement }}"
+      comment: Drafted by a Rotor workflow.
+edges:
+  - { from: draft, to: file }
