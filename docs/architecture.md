@@ -74,7 +74,7 @@ browser --> web (nginx, React SPA) --> api (Go) -------+------> OpenBao
 | `api/openapi.json` | Generated from the route table | #3 |
 | `api/workflow.v1.schema.json` | The workflow spec's JSON Schema | #13, #14 |
 | `proto/` | The runner protocol; `make proto` generates `backend/internal/runnerpb` and `runner/src/rotor_runner/pb` | #13 |
-| `deploy/` | Compose stack, Dockerfiles, realm, OpenBao setup; later the Helm chart | #1, #29 |
+| `deploy/` | Compose stack, Dockerfiles, realm, OpenBao setup, the Helm chart (`deploy/charts/rotor`) | #1, #29 |
 | `mk/`, `run-tests.sh`, `tests/` | Toolchains in containers, the gate and its own tests | #1 |
 
 ## Backend (`backend/`, #3)
@@ -235,6 +235,13 @@ started. A run's page draws the pinned version's graph with React Flow, laid
 out in layers from the entry and coloured by the events. Beside the graph, a
 timeline gives the same events in words, with tool calls folded open on
 request and links to what they created.
+
+## The chart (#29)
+
+`deploy/charts/rotor` installs the api, the worker and the web, runs the roles and migrate Jobs before every
+upgrade, creates the sandbox namespace with its token-less ServiceAccount and the worker's Role, and can configure
+OpenBao with Rotor's own init script. In a cluster the control plane signs in to OpenBao with Kubernetes auth and
+sandboxes dial the api's Service by its cluster name. `docs/deployment.md` says how to install it.
 
 ## Development stack (`deploy/docker-compose.yml`, #1)
 

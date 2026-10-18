@@ -1,0 +1,42 @@
+{{- if .Values.jobs.migrate.enabled }}
+{{/* One pod and no retries, so two migration runs never overlap; it connects as the owner, after the roles Job. */}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "rotor.fullname" . }}-migrate
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    {{- include "rotor.hookAnnotations" (dict "helm" "post-install,pre-upgrade" "argo" "Sync" "weight" "-4") | nindent 4 }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        {{- include "rotor.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "rotor.jobsAccount" . }}
+      {{- with .Values.images.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: migrate
+          image: {{ include "rotor.image" (dict "root" $ "name" "backend") }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          command: ["/app/migrate", "up"]
+          env:
+            {{- include "rotor.passwordEnv" (dict "root" . "name" "dbOwner" "var" "DB_OWNER_PASSWORD") | nindent 12 }}
+            - name: ROTOR_DB_URL
+              value: {{ include "rotor.dbURL" (dict "root" . "role" .Values.database.ownerRole "var" "DB_OWNER_PASSWORD") | quote }}
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 256Mi }
+{{- end }}

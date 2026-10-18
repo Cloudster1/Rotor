@@ -1,0 +1,53 @@
+{{/*
+Where every run's pod runs (#26): a namespace under the restricted Pod Security standard, so a pod that is not
+hardened is refused by the cluster too, and a ServiceAccount that carries no token. The worker may manage pods and
+their bootstrap Secrets there, and nothing anywhere else.
+*/}}
+{{- $ns := include "rotor.sandboxNamespace" . }}
+{{- if .Values.sandbox.createNamespace }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $ns }}
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+---
+{{- end }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.sandbox.serviceAccount }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "rotor.workerAccount" . }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "secrets"]
+    verbs: ["create", "get", "list", "watch", "update", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "rotor.workerAccount" . }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "rotor.workerAccount" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "rotor.workerAccount" . }}

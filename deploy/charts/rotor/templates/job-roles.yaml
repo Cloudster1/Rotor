@@ -1,0 +1,80 @@
+{{- if .Values.jobs.roles.enabled }}
+{{/*
+deploy/postgres/init-roles.sh runs from Postgres's initdb hook, which only fires on an empty data directory and which
+no managed database offers. This is the same work as a Job that runs against a database that already exists, before
+the migrations: each CREATE ROLE is guarded, since it runs again on every upgrade.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "rotor.fullname" . }}-roles
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: roles
+  annotations:
+    # post-install, not pre-install: pre-install hooks run before the release's own resources exist, a bundled
+    # database included.
+    {{- include "rotor.hookAnnotations" (dict "helm" "post-install,pre-upgrade" "argo" "Sync" "weight" "-5") | nindent 4 }}
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        {{- include "rotor.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: roles
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "rotor.jobsAccount" . }}
+      {{- with .Values.images.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: roles
+          image: {{ include "rotor.image" (dict "root" $ "name" "psql") }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          env:
+            {{- include "rotor.passwordEnv" (dict "root" . "name" "dbOwner" "var" "DB_OWNER_PASSWORD") | nindent 12 }}
+            {{- include "rotor.passwordEnv" (dict "root" . "name" "dbApp" "var" "APP_PASSWORD") | nindent 12 }}
+            {{- include "rotor.passwordEnv" (dict "root" . "name" "dbAdmin" "var" "ADMIN_PASSWORD") | nindent 12 }}
+            # A host that drops packets would otherwise hold a connect open until the Job's deadline.
+            - name: PGCONNECT_TIMEOUT
+              value: "5"
+            - name: PGURL
+              value: {{ include "rotor.dbURL" (dict "root" . "role" .Values.database.ownerRole "var" "DB_OWNER_PASSWORD") | quote }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              until psql "$PGURL" -Atc "SELECT 1" >/dev/null 2>&1; do
+                echo "waiting for the database to accept the owner role"
+                sleep 5
+              done
+              psql -v ON_ERROR_STOP=1 "$PGURL" <<'SQL'
+              -- A named tag, not $$: Kubernetes reads $$ in args as an escaped $.
+              DO $roles$
+              BEGIN
+                  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rotor_app') THEN
+                      CREATE ROLE rotor_app LOGIN NOSUPERUSER NOBYPASSRLS;
+                  END IF;
+                  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rotor_admin') THEN
+                      CREATE ROLE rotor_admin LOGIN NOSUPERUSER NOBYPASSRLS;
+                  END IF;
+              END;
+              $roles$;
+              SQL
+              # Outside the DO block: the passwords change between installs, and ALTER is the idempotent way to say so.
+              psql -v ON_ERROR_STOP=1 "$PGURL" \
+                -c "ALTER ROLE rotor_app WITH LOGIN PASSWORD '$APP_PASSWORD'" \
+                -c "ALTER ROLE rotor_admin WITH LOGIN PASSWORD '$ADMIN_PASSWORD'" \
+                -c "GRANT CONNECT ON DATABASE {{ .Values.database.name }} TO rotor_app, rotor_admin"
+          resources:
+            requests: { cpu: 20m, memory: 32Mi }
+            limits: { memory: 128Mi }
+{{- end }}

@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rotor.fullname" . }}-env
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+data:
+  {{- include "rotor.env" . | nindent 2 }}

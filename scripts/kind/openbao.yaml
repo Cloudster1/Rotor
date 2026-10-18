@@ -1,0 +1,63 @@
+# An OpenBao in dev mode for the chart install test (#29), never for a real installation: in memory, unsealed, with
+# the root token "root". It reviews the control plane's ServiceAccount tokens, so its own account may do that.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: openbao
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: rotor-chart-openbao-auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+  - kind: ServiceAccount
+    name: openbao
+    namespace: rotor-chart
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openbao-admin
+type: Opaque
+stringData:
+  token: root
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openbao
+spec:
+  ports:
+    - name: http
+      port: 8200
+  selector:
+    app: openbao
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openbao
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openbao
+  template:
+    metadata:
+      labels:
+        app: openbao
+    spec:
+      serviceAccountName: openbao
+      containers:
+        - name: openbao
+          image: openbao/openbao:2.7.1
+          args: ["server", "-dev", "-dev-root-token-id=root", "-dev-listen-address=0.0.0.0:8200"]
+          ports:
+            - containerPort: 8200
+          readinessProbe:
+            httpGet: { path: /v1/sys/health, port: 8200 }
+            periodSeconds: 2

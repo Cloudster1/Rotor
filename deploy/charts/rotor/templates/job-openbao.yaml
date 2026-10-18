@@ -1,0 +1,89 @@
+{{- if .Values.openbao.configure.enabled }}
+{{/*
+Runs Rotor's OpenBao init script (files/openbao, a copy of deploy/openbao that tests/test-helm.sh keeps equal) against
+the installation's OpenBao: the KV mount, the transit key, the runner PKI for the api's Service name, the policy and
+the Kubernetes auth role the api and the worker sign in with. Safe to run again on every upgrade.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rotor.fullname" . }}-openbao
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+  annotations:
+    {{- include "rotor.hookAnnotations" (dict "helm" "pre-install,pre-upgrade" "argo" "PreSync" "weight" "-21") | nindent 4 }}
+data:
+  init.sh: |
+    {{- .Files.Get "files/openbao/init.sh" | nindent 4 }}
+  {{- range $path, $_ := .Files.Glob "files/openbao/policies/*.hcl" }}
+  {{ base $path }}: |
+    {{- $.Files.Get $path | nindent 4 }}
+  {{- end }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "rotor.fullname" . }}-openbao
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: openbao
+  annotations:
+    {{- include "rotor.hookAnnotations" (dict "helm" "pre-install,pre-upgrade" "argo" "PreSync" "weight" "-20") | nindent 4 }}
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        {{- include "rotor.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: openbao
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      {{- with .Values.images.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: openbao
+          image: {{ include "rotor.image" (dict "root" $ "name" "openbao") }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          command: ["/bin/sh", "/rotor/init.sh"]
+          env:
+            - name: HOME
+              value: /tmp
+            - name: BAO_ADDR
+              value: {{ .Values.openbao.addr | quote }}
+            - name: BAO_TOKEN
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.openbao.configure.tokenSecret.name }}, key: {{ .Values.openbao.configure.tokenSecret.key }} }
+            - name: ROTOR_POLICY_DIR
+              value: /rotor
+            - name: ROTOR_RUNNER_HOST
+              value: {{ include "rotor.runnerHost" . | quote }}
+            - name: ROTOR_KUBERNETES_HOST
+              value: {{ .Values.openbao.configure.kubernetesHost | quote }}
+            - name: ROTOR_CONTROL_PLANE_SERVICE_ACCOUNTS
+              value: {{ printf "%s,%s" (include "rotor.apiAccount" .) (include "rotor.workerAccount" .) | quote }}
+            - name: ROTOR_CONTROL_PLANE_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 128Mi }
+          volumeMounts:
+            - name: script
+              mountPath: /rotor
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: script
+          configMap:
+            name: {{ include "rotor.fullname" . }}-openbao
+        - name: tmp
+          emptyDir: {}
+{{- end }}

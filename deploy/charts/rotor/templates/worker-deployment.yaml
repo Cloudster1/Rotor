@@ -1,0 +1,77 @@
+{{/*
+The worker starts each run's pod in the sandbox namespace, replaces lost ones and cleans up after runs; any number
+may run, each run leased to one at a time. It reaches no Docker daemon: the cluster is its sandbox backend.
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rotor.fullname" . }}-worker
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels:
+      {{- include "rotor.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "rotor.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+      annotations:
+        checksum/env: {{ include (print $.Template.BasePath "/configmap-env.yaml") . | sha256sum }}
+        {{- with .Values.worker.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "rotor.workerAccount" . }}
+      terminationGracePeriodSeconds: {{ .Values.worker.terminationGracePeriodSeconds }}
+      {{- with .Values.images.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: worker
+          image: {{ include "rotor.image" (dict "root" $ "name" "backend") }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          command: ["/app/worker"]
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "rotor.fullname" . }}-env
+          env:
+            {{- include "rotor.secretEnv" . | nindent 12 }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.worker.metricsPort }}
+          livenessProbe:
+            exec:
+              command: ["/app/worker", "-healthcheck"]
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          volumeMounts:
+            # The file the health check reads lives here, the root filesystem being read only.
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.worker.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

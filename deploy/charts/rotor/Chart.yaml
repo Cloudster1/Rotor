@@ -1,0 +1,10 @@
+apiVersion: v2
+name: rotor
+description: Rotor, the agentic backplane of the suite, with each run in a hardened sandbox pod.
+type: application
+# The chart's own version, and the release of Rotor it installs by default; the images' empty tags mean appVersion.
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/Cloudster1/Rotor
+sources:
+  - https://github.com/Cloudster1/Rotor

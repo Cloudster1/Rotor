@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+# Tests for deploy/charts/rotor (#29), adapted from Exciter's: lint, a trial and a production render, refusals, the
+# sandbox namespace's hardening and the golden renders in tests/helm (UPDATE=1 rewrites them), helm and ct in containers.
+set -u
+
+SRC="$(cd "$(dirname "$0")/.." && pwd)"
+CHART="${SRC}/deploy/charts/rotor"
+GOLDEN="${SRC}/tests/helm"
+HELM_IMAGE="${HELM_IMAGE:-alpine/helm:3.19.0}"
+CT_IMAGE="${CT_IMAGE:-quay.io/helmpack/chart-testing:v3.13.0}"
+RELEASE=r
+FULL="${RELEASE}-rotor"
+
+FAILED=0
+pass() { echo "   ok    $1"; }
+fail() { echo "   FAIL  $1"; FAILED=1; }
+check() { if [[ "$2" == "$3" ]]; then pass "$1"; else fail "$1: expected [$3], got [$2]"; fi; }
+
+helm() {
+    docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "${CHART}:/chart:ro" "${HELM_IMAGE}" "$@"
+}
+
+# A setting the chart puts in the shared ConfigMap, as KEY: "value".
+config_value() { # rendered name
+    sed -n "s/^ *$2: \"\(.*\)\"\$/\1/p" <<<"$1" | sort -u | paste -sd ' '
+}
+
+# The values the workloads are given for an environment variable, other than the migrate Job's owner URL.
+env_value() { # rendered name
+    grep -A1 -- "- name: $2\$" <<<"$1" | sed -n 's/^ *value: "\(.*\)"$/\1/p' | grep -vF 'DB_OWNER_PASSWORD' | sort -u | paste -sd ' '
+}
+
+render() { # description args...
+    local what="$1"
+    shift
+    if out=$(helm lint /chart --strict "$@" 2>&1); then
+        pass "${what}: helm lint"
+    else
+        fail "${what}: helm lint"
+        echo "${out}" | sed 's/^/      /'
+    fi
+    if RENDERED=$(helm template "${RELEASE}" /chart "$@" 2>&1); then
+        pass "${what}: helm template"
+        # Sandboxes never run on the Docker daemon outside development, and a chart is never development's stack.
+        check "${what}: no Docker socket" "$(grep -c 'docker.sock' <<<"${RENDERED}")" "0"
+    else
+        fail "${what}: helm template"
+        echo "${RENDERED}" | sed 's/^/      /'
+        RENDERED=""
+    fi
+}
+
+refused() { # description expected-message args...
+    local what="$1" message="$2"
+    shift 2
+    if out=$(helm template "${RELEASE}" /chart "$@" 2>&1); then
+        fail "${what}: rendered, but should have been refused"
+    elif grep -qF -- "${message}" <<<"${out}"; then
+        pass "${what}"
+    else
+        fail "${what}: refused without saying [${message}]"
+        echo "${out}" | sed 's/^/      /'
+    fi
+}
+
+golden() { # name args...
+    local name="$1" file="${GOLDEN}/$1.yaml"
+    shift
+    local out
+    if ! out=$(helm template "${RELEASE}" /chart "$@" 2>&1); then
+        fail "golden ${name}: helm template"
+        echo "${out}" | sed 's/^/      /'
+        return
+    fi
+    if [[ "${UPDATE:-}" == 1 ]]; then
+        mkdir -p "${GOLDEN}"
+        printf '%s\n' "${out}" >"${file}"
+        pass "golden ${name}: written"
+    elif [[ ! -f "${file}" ]]; then
+        fail "golden ${name}: ${file} is missing; run UPDATE=1 tests/test-helm.sh and review it"
+    elif diff -u "${file}" <(printf '%s\n' "${out}") >"${GOLDEN}/.diff" 2>&1; then
+        pass "golden ${name}: the render is unchanged"
+    else
+        fail "golden ${name}: the render differs; review it, then run UPDATE=1 tests/test-helm.sh"
+        head -40 "${GOLDEN}/.diff" | sed 's/^/      /'
+    fi
+    rm -f "${GOLDEN}/.diff"
+}
+
+TRIAL=(-f /chart/values-trial.yaml --set openbao.addr=http://openbao:8200)
+PRODUCTION=(--set openbao.addr=https://openbao.example:8200 --set oidc.issuer=https://id.example/realms/dynamo
+    --set oidc.clientSecret.name=rotor-oidc --set database.host=db.example --set valkey.host=valkey.example
+    --set images.runner.digest=sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    --set openbao.configure.enabled=true --set openbao.configure.tokenSecret.name=openbao-admin)
+
+echo "== chart-testing"
+if out=$(docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "${SRC}:/src:ro" -w /src "${CT_IMAGE}" \
+    ct lint --charts deploy/charts/rotor --validate-maintainers=false --check-version-increment=false \
+    --lint-conf tests/helm/lintconf.yaml 2>&1); then
+    pass "ct lint"
+else
+    fail "ct lint"
+    echo "${out}" | tail -30 | sed 's/^/      /'
+fi
+
+echo "== a trial"
+render "trial" "${TRIAL[@]}"
+check "the bundled database serves the app role" "$(env_value "${RENDERED}" ROTOR_DB_URL)" \
+    "postgres://rotor_app:\$(DB_APP_PASSWORD)@${FULL}-postgresql:5432/rotor?sslmode=disable"
+check "the bundled Valkey has a password" "$(env_value "${RENDERED}" ROTOR_VALKEY_URL)" \
+    "redis://:\$(VALKEY_PASSWORD)@${FULL}-valkey:6379/0"
+check "sandboxes dial the api's Service" "$(config_value "${RENDERED}" ROTOR_RUNNER_DIAL)" "${FULL}-api.default.svc:9443"
+check "the runner certificate names that Service" "$(config_value "${RENDERED}" ROTOR_RUNNER_HOST)" "${FULL}-api.default.svc"
+check "sandboxes run under gVisor" "$(config_value "${RENDERED}" ROTOR_SANDBOX_RUNTIME_CLASS)" "gvisor"
+check "the sandbox namespace" "$(config_value "${RENDERED}" ROTOR_SANDBOX_NAMESPACE)" "default-sandboxes"
+check "the sandbox namespace enforces the restricted standard" \
+    "$(grep -c 'pod-security.kubernetes.io/enforce: restricted' <<<"${RENDERED}")" "1"
+check "the sandboxes' ServiceAccount carries no token" \
+    "$(grep -A10 'name: rotor-sandbox$' <<<"${RENDERED}" | grep -c 'automountServiceAccountToken: false')" "1"
+check "the worker may touch pods and secrets alone" \
+    "$(grep -A3 'rules:' <<<"${RENDERED}" | grep -c 'resources: \["pods", "secrets"\]')" "1"
+check "no workload runs as root or writes its root filesystem" \
+    "$(grep -c 'readOnlyRootFilesystem: true' <<<"${RENDERED}")" "$(grep -c '^ *image: ' <<<"${RENDERED}")"
+
+echo "== production"
+render "production" "${PRODUCTION[@]}"
+check "the runner image is named by digest" "$(config_value "${RENDERED}" ROTOR_SANDBOX_IMAGE)" \
+    "ghcr.io/cloudster1/rotor-runner@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+check "the control plane signs in to OpenBao as itself" "$(config_value "${RENDERED}" ROTOR_OPENBAO_AUTH)" "kubernetes"
+check "cookies are secure" "$(config_value "${RENDERED}" ROTOR_SECURE_COOKIES)" "true"
+check "OpenBao is configured for the api's and the worker's accounts" \
+    "$(env_value "${RENDERED}" ROTOR_CONTROL_PLANE_SERVICE_ACCOUNTS)" "${FULL}-api,${FULL}-worker"
+
+echo "== refusals"
+refused "runc in production" "would run hostile code without gVisor" "${PRODUCTION[@]}" \
+    --set sandbox.runtimeClass= --set sandbox.allowRunc=true
+refused "no gVisor without the override" "sandboxes would run without gVisor" "${TRIAL[@]}" --set sandbox.runtimeClass=
+refused "no OpenBao" "Set openbao.addr" -f /chart/values-trial.yaml
+refused "production without sign-in" "Set oidc.issuer" --set openbao.addr=https://openbao.example:8200 --set database.host=db
+refused "no database" "Set database.host" --set openbao.addr=https://openbao.example:8200 --set env=development
+refused "configuring OpenBao without a token" "openbao.configure is on" "${TRIAL[@]}" --set openbao.configure.enabled=true
+
+echo "== the OpenBao script the chart carries"
+if diff -r "${SRC}/deploy/openbao/policies" "${CHART}/files/openbao/policies" >/dev/null &&
+    diff "${SRC}/deploy/openbao/init.sh" "${CHART}/files/openbao/init.sh" >/dev/null; then
+    pass "files/openbao is deploy/openbao's script and policies"
+else
+    fail "files/openbao differs from deploy/openbao; copy deploy/openbao/init.sh and policies/ into the chart again"
+fi
+
+echo "== golden renders"
+golden trial "${TRIAL[@]}"
+golden production "${PRODUCTION[@]}"
+
+if [[ "${FAILED}" == 0 ]]; then echo "PASS: chart tests"; else echo "FAIL: chart tests"; fi
+exit "${FAILED}"

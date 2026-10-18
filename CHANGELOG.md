@@ -9,6 +9,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Rotor installs with one Helm chart (#29), adapted from Exciter's: the api,
+  the worker and the web, the migrations, the sandbox namespace under the
+  restricted Pod Security standard with the worker's narrow rights, a Job
+  that configures OpenBao for the release, and Postgres and Valkey for a
+  trial. The chart is linted and rendered against golden files on every
+  change, and installed into a kind cluster, where a run executes in a
+  sandbox pod, nightly and on pull requests that touch it.
+  `docs/deployment.md` says how.
 - A run waiting for an answer keeps nothing alive (#28): besides its
   sandbox, the tokens it was handed are now revoked at the tools as soon as
   it starts waiting, and a resume starts with fresh ones. The worker serves

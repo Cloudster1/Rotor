@@ -1,0 +1,84 @@
+{{- if .Values.valkey.bundled }}
+{{/* A trial Valkey: one pod with a generated password, for the events fan-out and the catalog cache. */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rotor.fullname" . }}-valkey
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: valkey
+spec:
+  type: ClusterIP
+  ports:
+    - name: valkey
+      port: {{ .Values.valkey.port }}
+      targetPort: valkey
+  selector:
+    {{- include "rotor.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: valkey
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "rotor.fullname" . }}-valkey
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: valkey
+spec:
+  serviceName: {{ include "rotor.fullname" . }}-valkey
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "rotor.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: valkey
+  template:
+    metadata:
+      labels:
+        {{- include "rotor.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: valkey
+    spec:
+      automountServiceAccountToken: false
+      {{- with .Values.images.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.valkey.runAsUser }}
+        runAsGroup: {{ .Values.valkey.runAsGroup }}
+        fsGroup: {{ .Values.valkey.runAsGroup }}
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: valkey
+          image: {{ include "rotor.image" (dict "root" $ "name" "valkey") }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          env:
+            {{- include "rotor.passwordEnv" (dict "root" . "name" "valkey" "var" "VALKEY_PASSWORD") | nindent 12 }}
+          command: ["/bin/sh", "-c"]
+          args: ['exec valkey-server --appendonly yes --dir /data --requirepass "$VALKEY_PASSWORD"']
+          ports:
+            - name: valkey
+              containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", 'valkey-cli -a "$VALKEY_PASSWORD" --no-auth-warning ping | grep -q PONG']
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.valkey.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.valkey.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.valkey.storage }}
+{{- end }}
