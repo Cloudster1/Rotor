@@ -306,6 +306,7 @@ expect_layers "browser tests alone, full" "shell check-format test-e2e"         
 expect_layers "the chart"                 "shell check-format"                                    quick deploy/charts/rotor/values.yaml
 expect_layers "a path nobody listed"      "shell check-format check-go check-python check-web"    quick something/new.txt
 expect_layers "the runner"                "shell check-format check-python"                       quick runner/src/rotor_runner/graph.py deploy/Dockerfile.runner
+expect_layers "the runner protocol"       "shell check-format check-go check-python"              quick proto/rotor/runner/v1/runner.proto runner/src/rotor_runner/pb/x.py
 expect_layers "a mix"                     "shell check-format check-go check-web"                 quick docs/a.md web/src/a.ts backend/a.go
 expect_layers "no files known, full"      "shell check-format check-go check-python check-web test-integration test-e2e" full
 "$LAYERS" bogus < /dev/null > /dev/null 2>&1 && { echo "FAIL  an unknown mode was accepted"; fail=1; }

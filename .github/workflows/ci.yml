@@ -38,6 +38,8 @@ jobs:
           - name: check-go
             layers: check-go
             go-cache: unit
+            # The runner protocol's freshness check generates its Python code too.
+            uv-cache: runner
           - name: check-python
             layers: check-python
             uv-cache: runner

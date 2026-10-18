@@ -26,6 +26,7 @@ func specBuilder() *openapi.Builder {
 	b := openapi.NewBuilder()
 	b.Names[reflect.TypeOf(version.Info{})] = "BuildInfo"
 	registerM1Schemas(b)
+	registerM2Schemas(b)
 	return b
 }
 

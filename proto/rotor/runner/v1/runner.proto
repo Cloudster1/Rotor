@@ -1,0 +1,253 @@
+// The one channel between Rotor's control plane and the runner in a sandbox (docs/api-contract-m2.md).
+// The runner dials out; each side numbers what it sends and acknowledges what it received, so a reconnect
+// replays what was not acknowledged and loses nothing.
+syntax = "proto3";
+
+package rotor.runner.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/cloudster1/rotor/backend/internal/runnerpb;runnerpb";
+
+// RunnerControlService is served by the control plane; a runner holds one Connect stream for its run.
+service RunnerControlService {
+  // Connect opens the stream: the runner's first message is a Hello, the control plane's first a HelloAck.
+  rpc Connect(stream ConnectRequest) returns (stream ConnectResponse);
+}
+
+// ConnectRequest is what the runner sends.
+message ConnectRequest {
+  // seq numbers this message, from 1, when it must not be lost; 0 for heartbeats and acknowledgements alone.
+  uint64 seq = 1;
+  // ack is the highest seq of the control plane's this runner has handled, all before it included.
+  uint64 ack = 2;
+  oneof message {
+    Hello hello = 10;
+    Event event = 11;
+    TokenRequest token_request = 12;
+    Heartbeat heartbeat = 13;
+    Done done = 14;
+    CheckpointGetRequest checkpoint_get = 15;
+    CheckpointListRequest checkpoint_list = 16;
+    CheckpointPutRequest checkpoint_put = 17;
+    CheckpointWritesRequest checkpoint_writes = 18;
+  }
+}
+
+// ConnectResponse is what the control plane sends.
+message ConnectResponse {
+  // seq numbers this message, from 1, when it must not be lost.
+  uint64 seq = 1;
+  // ack is the highest seq of the runner's the control plane has stored, all before it included.
+  uint64 ack = 2;
+  oneof message {
+    HelloAck hello_ack = 10;
+    StartRun start_run = 11;
+    Resume resume = 12;
+    Cancel cancel = 13;
+    TokenGrant token_grant = 14;
+    SecretGrant secret_grant = 15;
+    CheckpointGetResponse checkpoint_get = 16;
+    CheckpointListResponse checkpoint_list = 17;
+    CheckpointPutResponse checkpoint_put = 18;
+    CheckpointWritesResponse checkpoint_writes = 19;
+  }
+}
+
+// Hello opens or reopens the stream for one run.
+message Hello {
+  oneof credential {
+    // bootstrap_token is the single-use credential the sandbox was started with; it expires within minutes.
+    string bootstrap_token = 1;
+    // session_token is the one the last HelloAck issued, for reconnecting to the same run.
+    string session_token = 2;
+  }
+  string runner_version = 3;
+}
+
+// HelloAck binds the stream to its run.
+message HelloAck {
+  string run_id = 1;
+  // session_token reopens the stream after a drop; each HelloAck issues a new one and ends the last.
+  string session_token = 2;
+  google.protobuf.Timestamp session_expires_at = 3;
+}
+
+// Event is something that happened in the run, stored before it is acknowledged; payload_json is redacted.
+message Event {
+  // type is one of the event types in docs/api-contract-m2.md, such as node.started.
+  string type = 1;
+  string node_id = 2;
+  string payload_json = 3;
+  google.protobuf.Timestamp at = 4;
+}
+
+// TokenRequest asks for a fresh access token for one tool binding, before the last one expires.
+message TokenRequest {
+  string binding = 1;
+}
+
+// Heartbeat says the runner is alive; missing three marks its sandbox lost.
+message Heartbeat {}
+
+// RunOutcome is how a run ended in this sandbox.
+enum RunOutcome {
+  RUN_OUTCOME_UNSPECIFIED = 0;
+  RUN_OUTCOME_SUCCEEDED = 1;
+  RUN_OUTCOME_FAILED = 2;
+  RUN_OUTCOME_CANCELLED = 3;
+  // RUN_OUTCOME_INTERRUPTED is a run waiting for an answer, checkpointed, that a later sandbox resumes.
+  RUN_OUTCOME_INTERRUPTED = 4;
+}
+
+// Done ends the run in this sandbox.
+message Done {
+  RunOutcome outcome = 1;
+  // reason names why a run failed, such as max_steps, timeout or max_tokens.
+  string reason = 2;
+  string output_json = 3;
+}
+
+// StartRun gives the runner its run; a run with checkpoints is resumed rather than started.
+message StartRun {
+  string run_id = 1;
+  string spec_yaml = 2;
+  string inputs_json = 3;
+  repeated ToolBinding tools = 4;
+  ModelConfig model = 5;
+  // resume continues from the last checkpoint, with resume_json the answer to the interrupt it stopped at.
+  bool resume = 6;
+  string resume_json = 7;
+}
+
+// ToolBinding is one of the spec's tool bindings, resolved to a tool Rotor knows.
+message ToolBinding {
+  string binding = 1;
+  string tool_id = 2;
+  string mcp_url = 3;
+  repeated string scopes = 4;
+  // access is read or write, as the spec declares it.
+  string access = 5;
+  repeated string allow_tools = 6;
+}
+
+// ModelConfig is the provider a run's agent nodes use; its key arrives in a SecretGrant.
+message ModelConfig {
+  string provider_id = 1;
+  // kind is anthropic, openai, azure_openai or openai_compatible.
+  string kind = 2;
+  string model = 3;
+  string base_url = 4;
+  string api_version = 5;
+}
+
+// Resume answers the interrupt a waiting run stopped at.
+message Resume {
+  string value_json = 1;
+}
+
+// Cancel ends the run; the runner stops at the next step and sends Done.
+message Cancel {
+  string reason = 1;
+}
+
+// TokenGrant is a run's access token for one tool binding; it lives in the runner's memory alone.
+message TokenGrant {
+  string binding = 1;
+  oneof token {
+    string access_token = 2;
+    // wrapping_token is an OpenBao response-wrapping token the runner unwraps once (M3).
+    string wrapping_token = 3;
+  }
+  google.protobuf.Timestamp expires_at = 4;
+}
+
+// SecretGrant is the model provider's key, kept in the runner's memory alone.
+message SecretGrant {
+  string provider_id = 1;
+  oneof secret {
+    string api_key = 2;
+    string wrapping_token = 3;
+  }
+}
+
+// TypedValue is a value as LangGraph's serializer writes it: a type tag and its bytes.
+message TypedValue {
+  string type = 1;
+  bytes data = 2;
+}
+
+// Checkpoint is one checkpoint of the run, without the run's identity, which the stream carries.
+message Checkpoint {
+  string checkpoint_ns = 1;
+  string checkpoint_id = 2;
+  string parent_checkpoint_id = 3;
+  TypedValue checkpoint = 4;
+  TypedValue metadata = 5;
+  repeated PendingWrite pending_writes = 6;
+}
+
+// PendingWrite is a write a task made after a checkpoint, kept so a resumed run does not repeat it.
+message PendingWrite {
+  string task_id = 1;
+  string channel = 2;
+  int32 idx = 3;
+  TypedValue value = 4;
+  string task_path = 5;
+}
+
+// CheckpointGetRequest asks for one checkpoint, or the latest in its namespace when checkpoint_id is empty.
+message CheckpointGetRequest {
+  string request_id = 1;
+  string checkpoint_ns = 2;
+  string checkpoint_id = 3;
+}
+
+// CheckpointGetResponse answers a CheckpointGetRequest; found is false when there is none.
+message CheckpointGetResponse {
+  string request_id = 1;
+  bool found = 2;
+  Checkpoint checkpoint = 3;
+  string error = 4;
+}
+
+// CheckpointListRequest lists checkpoints newest first.
+message CheckpointListRequest {
+  string request_id = 1;
+  string checkpoint_ns = 2;
+  string before_checkpoint_id = 3;
+  int32 limit = 4;
+}
+
+// CheckpointListResponse answers a CheckpointListRequest.
+message CheckpointListResponse {
+  string request_id = 1;
+  repeated Checkpoint checkpoints = 2;
+  string error = 3;
+}
+
+// CheckpointPutRequest stores a checkpoint.
+message CheckpointPutRequest {
+  string request_id = 1;
+  Checkpoint checkpoint = 2;
+}
+
+// CheckpointPutResponse answers a CheckpointPutRequest; error is set when it was refused, such as too large.
+message CheckpointPutResponse {
+  string request_id = 1;
+  string error = 2;
+}
+
+// CheckpointWritesRequest stores a task's pending writes against a checkpoint.
+message CheckpointWritesRequest {
+  string request_id = 1;
+  string checkpoint_ns = 2;
+  string checkpoint_id = 3;
+  repeated PendingWrite writes = 4;
+}
+
+// CheckpointWritesResponse answers a CheckpointWritesRequest.
+message CheckpointWritesResponse {
+  string request_id = 1;
+  string error = 2;
+}

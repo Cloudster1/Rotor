@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The plan for workflows and runs is agreed (#13): `docs/api-contract-m2.md`
+  settles the workflow and run operations, the run states, the live events,
+  the sandbox interface and the runner protocol, which `proto/` defines and
+  `make proto` generates for Go and Python; `api/workflow.v1.schema.json` is
+  the workflow spec's first schema. The new endpoints answer 501 until they
+  are built.
 - The control plane mints a run's access token from a person's connection
   (#12). Each run gets its own, never stored or shared, within what the
   person consented to; asking for more is refused, naming what is missing.
