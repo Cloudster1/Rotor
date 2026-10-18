@@ -9,6 +9,13 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The control plane mints a run's access token from a person's connection
+  (#12). Each run gets its own, never stored or shared, within what the
+  person consented to; asking for more is refused, naming what is missing.
+  Only one refresh runs per connection at a time and the rotated refresh
+  token is in OpenBao before the access token is used, so twenty runs at
+  once never end the grant. A grant the tool ended marks the connection
+  "connect again", and one run's token can be revoked alone.
 - People connect their accounts in the tools (#11). The Connections page
   lists every tool; connecting sends the browser to the tool's own consent
   page and back, with PKCE, a state bound to the session and the tool's MCP
