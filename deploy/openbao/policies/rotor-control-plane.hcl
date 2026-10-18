@@ -1,4 +1,4 @@
-# The api: people's connections, the tools' client secrets and its runner certificate; sandboxes get roles of their own.
+# The control plane (the api and the worker): connections, client secrets, run tokens and the runner certificate.
 path "rotor/data/connections/*" {
   capabilities = ["create", "read", "update", "delete"]
 }
@@ -40,4 +40,18 @@ path "rotor/data/providers/*" {
 
 path "rotor/metadata/providers/*" {
   capabilities = ["read", "list", "delete"]
+}
+
+# A run's access tokens, kept until they are revoked at their tools when the run ends (#23).
+path "rotor/data/runs/*" {
+  capabilities = ["create", "read", "update", "delete"]
+}
+
+path "rotor/metadata/runs/*" {
+  capabilities = ["read", "list", "delete"]
+}
+
+# Tokens and keys reach a sandbox wrapped: single use and short lived, unwrapped by the runner itself (#23).
+path "sys/wrapping/wrap" {
+  capabilities = ["update"]
 }

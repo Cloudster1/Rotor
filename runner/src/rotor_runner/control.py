@@ -34,6 +34,7 @@ from rotor_runner.models import build_model
 from rotor_runner.pb.rotor.runner.v1 import runner_pb2 as pb
 from rotor_runner.pb.rotor.runner.v1 import runner_pb2_grpc as pb_grpc
 from rotor_runner.spec import parse
+from rotor_runner.tokens import Redactor, UnwrapError, Unwrapper
 
 log = logging.getLogger("rotor_runner")
 
@@ -74,8 +75,16 @@ class Tokens:
                 continue
             if grant.error:
                 raise ToolFailedError(f"no token for {binding}: {grant.error}")
-            self._held[binding] = (grant.access_token, grant.expires_at.ToSeconds())
-            return grant.access_token
+            if grant.WhichOneof("token") != "wrapping_token":
+                raise ToolFailedError(f"the token for {binding} did not arrive wrapped, so the runner refuses it")
+            try:
+                opened = await self._channel.unwrapper.unwrap(grant.wrapping_token)
+            except UnwrapError as err:
+                raise ToolFailedError(f"no token for {binding}: {err}") from err
+            token = str(opened.get("access_token", ""))
+            self._channel.redactor.hold(token)
+            self._held[binding] = (token, grant.expires_at.ToSeconds())
+            return token
 
     def deliver(self, grant: pb.TokenGrant) -> None:
         future = self._waiting.pop(grant.binding, None)
@@ -86,8 +95,10 @@ class Tokens:
 class Channel:
     """One run's stream to the control plane, kept open across drops until the run's Done is acknowledged."""
 
-    def __init__(self, address: str, ca_pem: bytes, bootstrap: str) -> None:
+    def __init__(self, address: str, ca_pem: bytes, bootstrap: str, openbao: str) -> None:
         self.address, self._ca, self._bootstrap = address, ca_pem, bootstrap
+        self.unwrapper, self.redactor = Unwrapper(openbao), Redactor()
+        self._opening: set[asyncio.Task[None]] = set()
         self._session: str | None = None
         self._next_seq, self._handled_control = 1, 0
         self._outbox: list[pb.ConnectRequest] = []
@@ -112,7 +123,7 @@ class Channel:
         self.send(message)
 
     async def emit(self, kind: str, node: str, payload: dict[str, Any]) -> None:
-        event = pb.Event(type=kind, node_id=node, payload_json=json.dumps(payload, default=str))
+        event = pb.Event(type=kind, node_id=node, payload_json=self.redactor.scrub(json.dumps(payload, default=str)))
         event.at.GetCurrentTime()
         self.send_numbered(pb.ConnectRequest(event=event))
 
@@ -209,9 +220,9 @@ class Channel:
         elif kind == "token_grant":
             self.tokens.deliver(response.token_grant)
         elif kind == "secret_grant":
-            awaited = self._key(response.secret_grant.provider_id)
-            if not awaited.done():
-                awaited.set_result(response.secret_grant.api_key)
+            opening = asyncio.create_task(self._open_secret(response.secret_grant))
+            self._opening.add(opening)
+            opening.add_done_callback(self._opening.discard)
         elif kind.startswith("checkpoint_"):
             reply = getattr(response, kind)
             future = self.replies.pop(reply.request_id, None)
@@ -219,6 +230,19 @@ class Channel:
                 future.set_result(response)
         if response.seq:
             self.send(pb.ConnectRequest())
+
+    async def _open_secret(self, grant: pb.SecretGrant) -> None:
+        awaited = self._key(grant.provider_id)
+        if awaited.done() or grant.WhichOneof("secret") != "wrapping_token":
+            return
+        try:
+            key = str((await self.unwrapper.unwrap(grant.wrapping_token)).get("api_key", ""))
+        except UnwrapError as err:
+            log.error("the provider key could not be unwrapped: %s", err)
+            return
+        self.redactor.hold(key)
+        if not awaited.done():
+            awaited.set_result(key)
 
     def _key(self, provider_id: str) -> asyncio.Future[str]:
         if provider_id not in self._keys:

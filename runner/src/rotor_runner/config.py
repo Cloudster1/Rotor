@@ -38,3 +38,9 @@ TOKEN_WAIT_S = 30
 MAX_MESSAGE_BYTES = 8 << 20
 # EXIT_REFUSED is the exit code of a runner whose credential the control plane refused.
 EXIT_REFUSED = 2
+
+# Wrapped tokens and keys (#23): how long the runner waits for OpenBao, what stands in for a secret it cuts from
+# its events, and the shortest text it takes for a secret, so a stray short value never blanks ordinary text.
+UNWRAP_TIMEOUT_S = 10
+REDACTED = "[redacted]"
+MIN_SECRET_CHARS = 8

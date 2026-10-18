@@ -14,11 +14,13 @@ import (
 
 	"github.com/cloudster1/rotor/backend/internal/boot"
 	"github.com/cloudster1/rotor/backend/internal/config"
+	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/db"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/runs"
 	"github.com/cloudster1/rotor/backend/internal/sandbox"
 	"github.com/cloudster1/rotor/backend/internal/sandbox/docker"
+	"github.com/cloudster1/rotor/backend/internal/tools"
 	"github.com/cloudster1/rotor/backend/internal/version"
 )
 
@@ -66,10 +68,15 @@ func run() error {
 	}
 
 	backend := docker.New(cfg.Sandbox.Socket, cfg.Sandbox.Network)
+	registry := tools.NewService(cluster, secrets, boot.ToolClient(cfg), cfg.ConnectionCallbackURL(), cfg.Env == config.EnvDevelopment)
+	people := connections.NewService(cluster, secrets, registry, boot.ToolClient(cfg), cfg.ConnectionCallbackURL(), log)
+	people.Runs = secrets
 	worker := runs.NewWorker(cluster, backend, runs.Launch{
-		Image: cfg.Sandbox.Image, Dial: cfg.Runner.Dial, Stack: cfg.Sandbox.Stack, CA: secrets.RunnerCA,
+		Image: cfg.Sandbox.Image, Dial: cfg.Runner.Dial, Stack: cfg.Sandbox.Stack, CA: secrets.RunnerCA, OpenBao: cfg.OpenBao.Addr,
 		Limits: sandbox.Limits{MemoryBytes: config.DefaultSandboxMemory, MilliCPUs: config.DefaultSandboxMilliCPUs, PIDs: config.DefaultSandboxPIDs},
 	}, log)
+	// A run's tokens end with it, revoked at their tools.
+	worker.Teardown = people.RevokeRun
 	worker.Passed = func() {
 		now := time.Now()
 		if err := os.Chtimes(config.WorkerAliveFile, now, now); errors.Is(err, os.ErrNotExist) {

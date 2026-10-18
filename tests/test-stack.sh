@@ -52,7 +52,7 @@ if config="$(docker compose -f "$COMPOSE" config --format json 2>&1)"; then
   [[ "$(jq -r '.networks.sandbox.internal // false' <<< "$config")" == true ]] \
     && pass "the sandbox network has no route out" || fail "the sandbox network reaches beyond the stack"
   joined="$(jq -r '[.services | to_entries[] | select(.value.networks // {} | has("sandbox")) | .key] | sort | join(" ")' <<< "$config")"
-  [[ "$joined" == "api tool-stub" ]] && pass "only the api and the tool double share the sandbox network" \
+  [[ "$joined" == "api openbao tool-stub" ]] && pass "only the api, OpenBao and the tool double share the sandbox network" \
     || fail "the sandbox network is shared with: $joined"
   socket="$(jq -r '[.services | to_entries[] | select([(.value.volumes // [])[] | .source] | index("/var/run/docker.sock")) | .key] | join(" ")' <<< "$config")"
   [[ "$socket" == worker ]] && pass "the worker alone holds the Docker socket" || fail "the Docker socket is mounted into: $socket"

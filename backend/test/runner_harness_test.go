@@ -5,6 +5,7 @@ package test
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
 	"time"
 
@@ -73,7 +74,7 @@ func spawnRunner(t *testing.T, b *docker.Backend, image string, runID uuid.UUID,
 	id, err := b.Spawn(context.Background(), sandbox.Spec{RunID: runID, Image: image,
 		Labels: map[string]string{sandbox.LabelStack: "test-runner"},
 		Env: map[string]string{"ROTOR_CONTROL_PLANE_ADDR": config.RunnerHost + config.DefaultRunnerAddr,
-			"ROTOR_RUNNER_BOOTSTRAP": bootstrap, "ROTOR_RUNNER_CA": runnerCA(t)},
+			"ROTOR_RUNNER_BOOTSTRAP": bootstrap, "ROTOR_RUNNER_CA": runnerCA(t), "ROTOR_OPENBAO_ADDR": os.Getenv(envOpenBao)},
 		Limits: sandbox.Limits{MemoryBytes: config.DefaultSandboxMemory, MilliCPUs: config.DefaultSandboxMilliCPUs, PIDs: config.DefaultSandboxPIDs}})
 	if err != nil {
 		t.Fatal(err)

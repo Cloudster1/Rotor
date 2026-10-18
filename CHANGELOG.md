@@ -9,6 +9,13 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A run's tokens reach only its sandbox and end with it (#23). Each token and
+  the provider key arrive wrapped in a single-use OpenBao token that only the
+  sandbox opens, within two minutes; the runner keeps them in memory and cuts
+  them from everything it reports, and the control plane redacts events
+  again. When the run ends, every token it was handed is revoked at its tool;
+  ending a connection or switching a person off revokes them at once, and a
+  switched-off person's run gets no new token.
 - People start a run of a workflow and it runs as them (#22). Run on a
   workflow opens a dialog that asks for its inputs, says which tools the run
   acts in and offers connecting those you have not, coming back to the

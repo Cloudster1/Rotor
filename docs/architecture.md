@@ -194,6 +194,18 @@ ends the run at once and queues a `Cancel`; Valkey tells the api replica
 holding the run's stream to send it, and that stream also looks on every
 heartbeat in case the signal was lost.
 
+## A run's tokens (#23)
+
+A run's sandbox never sees a token in clear on the wire. When its runner asks
+for a binding's token, the control plane mints one as the run's person, keeps
+it in OpenBao at `rotor/runs/{run}/tokens/{id}` and sends an OpenBao wrapping
+token that opens once within two minutes; the runner unwraps it at OpenBao
+itself. The provider key travels the same way. Tokens live in the runner's
+memory alone and are cut from its events, which the control plane redacts
+again. When the run ends the worker revokes each token at its tool and
+forgets it; ending a connection or switching a person off does the same at
+once.
+
 ## Development stack (`deploy/docker-compose.yml`, #1)
 
 Postgres 18, Valkey 8, Keycloak 26 importing the suite's realm, and OpenBao

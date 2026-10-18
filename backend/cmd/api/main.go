@@ -100,6 +100,7 @@ func run() error {
 		server.Vault = secrets
 		registry := tools.NewService(cluster, secrets, boot.ToolClient(cfg), cfg.ConnectionCallbackURL(), cfg.Env == config.EnvDevelopment)
 		people := connections.NewService(cluster, secrets, registry, boot.ToolClient(cfg), cfg.ConnectionCallbackURL(), log)
+		people.Runs = secrets
 		registry.Connections = people
 		sessions.OnSwitchOff = people.EndPersonConnections
 		server.Tools, server.Connections = registry, people
@@ -111,7 +112,7 @@ func run() error {
 		reach := oidc.ParseRewrites(cfg.Tools.Backchannel)
 		runners.Reach = func(address string) string { return oidc.Rewrite(reach, address) }
 		runners.Checkpoints = runs.NewCheckpoints(cluster, secrets)
-		runners.Signals = store
+		runners.Signals, runners.Wrap = store, secrets
 		models := providers.NewService(cluster, secrets, boot.ToolClient(cfg))
 		server.Providers, runners.Models = models, models
 		go func() {

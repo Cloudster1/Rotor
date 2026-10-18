@@ -28,6 +28,9 @@ vulnerability, and an installation never uses them:
 - the development OpenBao's root token `rotor-dev-root`, and its single
   unseal key and first root token, which it keeps in `rotor-init.json` on its
   own volume so it can unseal itself on every start
+- the development sandboxes' route to OpenBao, which they use only to unwrap
+  the single-use wrapping tokens they are handed; they hold no credential
+  there
 - the development worker's access to the host's Docker socket, which it uses
   to start sandboxes and which hands it the machine; the api no longer holds
   it, and the Docker sandbox backend refuses to run outside development

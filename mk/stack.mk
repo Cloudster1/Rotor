@@ -46,7 +46,7 @@ DOCKER_GO_STACK = $(call go_run,--network $(STACK_NET) \
 	-v /var/run/docker.sock:/var/run/docker.sock --group-add $(DOCKER_GID) \
 	-e ROTOR_TEST_SANDBOX_NETWORK=$(STACK_PROJECT)_sandbox \
 	-e ROTOR_TEST_SANDBOX_STACK=$(STACK_PROJECT) \
-	-e ROTOR_TEST_SANDBOX_IMAGE=rotor-runner:dev \
+	-e ROTOR_TEST_SANDBOX_IMAGE=rotor-runner:$(STACK_PROJECT) \
 	-e ROTOR_DB_URL='$(call STACK_PG_URL,rotor_app,$(APP_DB_PASSWORD),postgres)' \
 	-e ROTOR_DB_ADMIN_URL='$(call STACK_PG_URL,rotor_admin,$(ADMIN_DB_PASSWORD),postgres)' \
 	-e ROTOR_TEST_SUPERUSER_URL='$(call STACK_PG_URL,rotor,$(POSTGRES_PASSWORD),postgres)' \
