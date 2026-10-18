@@ -4,7 +4,8 @@ ifneq ($(wildcard $(ROOT)/runner/pyproject.toml),)
 
 UV_IMAGE ?= ghcr.io/astral-sh/uv:0.9.30-python3.13-bookworm-slim@sha256:531f855bda2c73cd6ef67d56b733b357cea384185b3022bd09f05e002cd144ca
 UV_CACHE := $(ROOT)/.cache/uv
-RUNNER_IMAGE ?= rotor-runner:dev
+# Tagged by stack, so worktrees sharing one Docker daemon never run each other's runner.
+RUNNER_IMAGE ?= rotor-runner:$(STACK_PROJECT)
 
 # The image's own Python, so nothing is downloaded at run time; copies, since the cache sits on another mount.
 uv_run = docker run --rm \
@@ -44,7 +45,8 @@ runner-smoke: runner-image ## Run the image's self-check as a sandbox would
 test-runner: | $(UV_CACHE) ## Run the runner's tests against this checkout's running stack
 	@mkdir -p $(REPORTS)
 	$(call uv_run,--network $(STACK_NET) -e ROTOR_TEST_TOOLSTUB_INTERNAL_URL=http://tool-stub:8080 \
-		-e ROTOR_TEST_TOOLSTUB_CONTROL_URL=http://tool-stub:8081) \
+		-e ROTOR_TEST_TOOLSTUB_CONTROL_URL=http://tool-stub:8081 \
+		-e ROTOR_TEST_OPENBAO_URL=http://openbao:8200 -e ROTOR_TEST_OPENBAO_ROOT_TOKEN='$(OPENBAO_ROOT_TOKEN)') \
 		sh -c 'uv sync --locked --quiet && uv run --no-sync pytest -m stack --junitxml=/work/reports/pytest-stack.xml'
 
 .PHONY: check-python

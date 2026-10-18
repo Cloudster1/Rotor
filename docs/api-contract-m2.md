@@ -31,7 +31,7 @@ sentences.
   | 00230-00239 | #19 | `run_checkpoint`, `run_checkpoint_write` |
   | 00240-00249 | #20 | `provider` |
   | 00300-00319 | #22 | the run state machine, the worker's lease and teardown columns on `run`, run visibility, `connection_login.next_path` |
-  | 00320-00329 | #23 | token leases |
+  | 00320-00329 | #23 | `run_token`: which tokens a run holds, never the tokens |
   | 00330-00349 | #24 | event fan-out and retention |
 
   #14 and #21 need none.
@@ -314,6 +314,18 @@ type Spec struct {
   - **The worker** is `cmd/worker`, its own compose service; it alone holds the Docker socket. A cancel reaches the runner through `run_control`, with Valkey pub/sub on `runctl:<run>` waking the api that holds the stream.
   - **Returning after connecting:** `POST /tools/{toolID}/connection?next=<path>` returns the browser to that path of Rotor's once connected, with `connected=<toolID>`.
 - **Tokens (#23):** at `StartRun` and on `TokenRequest` the control plane mints per binding with `connections.Mint` and wraps the result with OpenBao response wrapping (single use, at most 2 minutes). The runner unwraps it. At the end every access token is revoked at its tool.
+
+- **As built (#23):**
+  - **Grants:** `TokenGrant` and `SecretGrant` carry only `wrapping_token`; `access_token` and `api_key` are deprecated and never sent.
+    - A token's wrapping holds `access_token` and `expires_at`, a key's holds `api_key`.
+    - Both are wrapped for `WrapTTL` (2 minutes) and open once.
+  - **Unwrapping:** the runner unwraps at `ROTOR_OPENBAO_ADDR`, which the worker hands every sandbox. OpenBao joins the internal `sandbox` network for that; a sandbox holds no OpenBao credential but each wrapping token.
+  - **Delivery** (`connections.Deliver`) refuses a run that is not `starting` or `running`, and a person whose account was switched off. The runner's `TokenRequest` then gets the reason in `TokenGrant.error`, and the run fails with `tool_error`, saying so.
+  - **Keeping tokens until revoked:** each delivered token is kept in OpenBao at `rotor/runs/{run}/tokens/{id}` until revoked. `run_token` records only which tool and when it expires.
+  - **Revoking:**
+    - The worker's teardown revokes every token of an ended run at its tool (RFC 7009), forgets it and records `token.revoked`. A tool that does not answer is tried again on the next pass, until the token would have expired anyway.
+    - Ending a connection, removing a tool or switching a person off also revokes the tokens their runs hold at that tool.
+  - **Redaction:** the runner cuts every token and key it holds from its events. The control plane then redacts bearer values, known token prefixes and fields named like `token`, `secret`, `password`, `authorization` or `api_key` before storing an event.
 
 ## What is left for later
 

@@ -38,7 +38,7 @@ x-control-plane-env: &control-plane-env
   ROTOR_CONTROL_PLANE_CLIENT_SECRET: rotor-control-plane-dev-secret
   # Sandboxes are containers on the host's daemon, joined to the internal network alone (development only).
   ROTOR_SANDBOX_BACKEND: docker
-  ROTOR_SANDBOX_IMAGE: rotor-runner:dev
+  ROTOR_SANDBOX_IMAGE: rotor-runner:${COMPOSE_PROJECT_NAME:-rotor}
   ROTOR_SANDBOX_NETWORK: ${COMPOSE_PROJECT_NAME:-rotor}_sandbox
   ROTOR_SANDBOX_STACK: ${COMPOSE_PROJECT_NAME:-rotor}
   # The tools' catalogs are cached here; losing them costs a fetch.
@@ -129,6 +129,10 @@ services:
     depends_on:
       keycloak:
         condition: service_healthy
+    # Sandboxes reach it to unwrap what they are handed, each wrapping token once; they hold no credential here (#23).
+    networks:
+      - default
+      - sandbox
     ports:
       - "127.0.0.1:${OPENBAO_PORT:-8305}:8200"
     healthcheck:
@@ -264,7 +268,7 @@ services:
 
 networks:
   default:
-  # No route out: a sandbox reaches the api and the tool double, and nothing beyond (M4 adds egress rules).
+  # No route out: a sandbox reaches the api, OpenBao's unwrap and the tool double, nothing beyond (M4 adds egress rules).
   sandbox:
     internal: true
 

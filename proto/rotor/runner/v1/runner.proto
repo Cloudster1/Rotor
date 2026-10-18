@@ -155,8 +155,10 @@ message Cancel {
 message TokenGrant {
   string binding = 1;
   oneof token {
-    string access_token = 2;
-    // wrapping_token is an OpenBao response-wrapping token the runner unwraps once (M3).
+    // access_token carried the token in clear until #23; kept so the field is never reused.
+    string access_token = 2 [deprecated = true];
+    // wrapping_token is a single-use OpenBao response-wrapping token holding access_token and expires_at, which
+    // the runner unwraps at OpenBao within minutes.
     string wrapping_token = 3;
   }
   google.protobuf.Timestamp expires_at = 4;
@@ -168,7 +170,9 @@ message TokenGrant {
 message SecretGrant {
   string provider_id = 1;
   oneof secret {
-    string api_key = 2;
+    // api_key carried the key in clear until #23; kept so the field is never reused.
+    string api_key = 2 [deprecated = true];
+    // wrapping_token is a single-use OpenBao response-wrapping token holding api_key.
     string wrapping_token = 3;
   }
 }

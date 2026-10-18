@@ -26,6 +26,7 @@ const (
 	ActionConnectionGranted      = "connection.granted"
 	ActionConnectionEnded        = "connection.ended"
 	ActionTokenMinted            = "token.minted"
+	ActionTokenRevoked           = "token.revoked"
 	ActionWorkflowCreated        = "workflow.created"
 	ActionWorkflowChanged        = "workflow.changed"
 	ActionWorkflowShared         = "workflow.shared"
@@ -37,7 +38,7 @@ const (
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
 var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, ActionSwitchedOff, ActionSessionEndedByProvider,
-	ActionToolAdded, ActionToolRemoved, ActionConnectionGranted, ActionConnectionEnded, ActionTokenMinted, ActionProviderChanged,
+	ActionToolAdded, ActionToolRemoved, ActionConnectionGranted, ActionConnectionEnded, ActionTokenMinted, ActionTokenRevoked, ActionProviderChanged,
 	ActionWorkflowCreated, ActionWorkflowChanged, ActionWorkflowShared, ActionWorkflowArchived, ActionRunStarted, ActionRunCancelled}
 
 // Redacted stands in the record for a value that looked like a credential.

@@ -1302,6 +1302,7 @@ func (x *TokenGrant) GetToken() isTokenGrant_Token {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in rotor/runner/v1/runner.proto.
 func (x *TokenGrant) GetAccessToken() string {
 	if x != nil {
 		if x, ok := x.Token.(*TokenGrant_AccessToken); ok {
@@ -1339,11 +1340,15 @@ type isTokenGrant_Token interface {
 }
 
 type TokenGrant_AccessToken struct {
+	// access_token carried the token in clear until #23; kept so the field is never reused.
+	//
+	// Deprecated: Marked as deprecated in rotor/runner/v1/runner.proto.
 	AccessToken string `protobuf:"bytes,2,opt,name=access_token,json=accessToken,proto3,oneof"`
 }
 
 type TokenGrant_WrappingToken struct {
-	// wrapping_token is an OpenBao response-wrapping token the runner unwraps once (M3).
+	// wrapping_token is a single-use OpenBao response-wrapping token holding access_token and expires_at, which
+	// the runner unwraps at OpenBao within minutes.
 	WrappingToken string `protobuf:"bytes,3,opt,name=wrapping_token,json=wrappingToken,proto3,oneof"`
 }
 
@@ -1408,6 +1413,7 @@ func (x *SecretGrant) GetSecret() isSecretGrant_Secret {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in rotor/runner/v1/runner.proto.
 func (x *SecretGrant) GetApiKey() string {
 	if x != nil {
 		if x, ok := x.Secret.(*SecretGrant_ApiKey); ok {
@@ -1431,10 +1437,14 @@ type isSecretGrant_Secret interface {
 }
 
 type SecretGrant_ApiKey struct {
+	// api_key carried the key in clear until #23; kept so the field is never reused.
+	//
+	// Deprecated: Marked as deprecated in rotor/runner/v1/runner.proto.
 	ApiKey string `protobuf:"bytes,2,opt,name=api_key,json=apiKey,proto3,oneof"`
 }
 
 type SecretGrant_WrappingToken struct {
+	// wrapping_token is a single-use OpenBao response-wrapping token holding api_key.
 	WrappingToken string `protobuf:"bytes,3,opt,name=wrapping_token,json=wrappingToken,proto3,oneof"`
 }
 
@@ -2233,20 +2243,20 @@ const file_rotor_runner_v1_runner_proto_rawDesc = "" +
 	"\n" +
 	"value_json\x18\x01 \x01(\tR\tvalueJson\" \n" +
 	"\x06Cancel\x12\x16\n" +
-	"\x06reason\x18\x01 \x01(\tR\x06reason\"\xce\x01\n" +
+	"\x06reason\x18\x01 \x01(\tR\x06reason\"\xd2\x01\n" +
 	"\n" +
 	"TokenGrant\x12\x18\n" +
-	"\abinding\x18\x01 \x01(\tR\abinding\x12#\n" +
-	"\faccess_token\x18\x02 \x01(\tH\x00R\vaccessToken\x12'\n" +
+	"\abinding\x18\x01 \x01(\tR\abinding\x12'\n" +
+	"\faccess_token\x18\x02 \x01(\tB\x02\x18\x01H\x00R\vaccessToken\x12'\n" +
 	"\x0ewrapping_token\x18\x03 \x01(\tH\x00R\rwrappingToken\x129\n" +
 	"\n" +
 	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x14\n" +
 	"\x05error\x18\x05 \x01(\tR\x05errorB\a\n" +
-	"\x05token\"|\n" +
+	"\x05token\"\x80\x01\n" +
 	"\vSecretGrant\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
-	"providerId\x12\x19\n" +
-	"\aapi_key\x18\x02 \x01(\tH\x00R\x06apiKey\x12'\n" +
+	"providerId\x12\x1d\n" +
+	"\aapi_key\x18\x02 \x01(\tB\x02\x18\x01H\x00R\x06apiKey\x12'\n" +
 	"\x0ewrapping_token\x18\x03 \x01(\tH\x00R\rwrappingTokenB\b\n" +
 	"\x06secret\"4\n" +
 	"\n" +

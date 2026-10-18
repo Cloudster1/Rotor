@@ -34,6 +34,7 @@ func (s *Service) Disconnect(ctx context.Context, toolID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
+	s.revokeRunsOf(ctx, p.UserID, tool.ID)
 	revoked := s.revokeAndForget(ctx, p.UserID, tool)
 	// Deleted as the person, so the database refuses to end anyone else's connection.
 	return s.db.Write(ctx, func(ctx context.Context, tx db.DBTX) error {
@@ -42,6 +43,14 @@ func (s *Service) Disconnect(ctx context.Context, toolID uuid.UUID) error {
 		}
 		return audit.Write(ctx, tx, ended(p.UserID, p.UserID, tool, EndedBySelf, revoked))
 	})
+}
+
+// revokeRunsOf revokes the tokens the person's runs hold at the tool; one the tool does not confirm is tried again
+// when the run ends, and lapses on its own before long.
+func (s *Service) revokeRunsOf(ctx context.Context, userID, toolID uuid.UUID) {
+	if err := s.RevokeFor(ctx, userID, toolID); err != nil {
+		s.log.Warn("a run's token was not revoked yet", "tool", toolID, "error", err)
+	}
 }
 
 // revokeAndForget revokes the refresh token at the tool, which ends the grant there, and deletes it from OpenBao.
@@ -84,6 +93,7 @@ func (s *Service) EndToolConnections(ctx context.Context, tool tools.Tool) (int,
 		actor = p.UserID
 	}
 	for _, userID := range people {
+		s.revokeRunsOf(ctx, userID, tool.ID)
 		revoked := s.revokeAndForget(ctx, userID, tool)
 		if err := s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 			return audit.Write(ctx, tx, ended(actor, userID, tool, EndedByToolRemoved, revoked))
@@ -108,6 +118,7 @@ func (s *Service) EndPersonConnections(ctx context.Context, userID uuid.UUID) er
 		if err != nil {
 			return err
 		}
+		s.revokeRunsOf(ctx, userID, tool.ID)
 		revoked := s.revokeAndForget(ctx, userID, tool)
 		if err := s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 			if _, err := tx.Exec(ctx, `DELETE FROM connection WHERE user_id = $1 AND tool_id = $2`, userID, toolID); err != nil {

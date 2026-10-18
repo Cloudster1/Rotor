@@ -32,6 +32,8 @@ const (
 	MaxRunInputBytes = 256 << 10
 	// RunListLimit bounds the runs one list answers.
 	RunListLimit = 200
+	// WrapTTL is how long a wrapped token or key waits for its sandbox to unwrap it, once.
+	WrapTTL = 2 * time.Minute
 	// SignalBuffer is how many pub/sub signals a subscriber may fall behind by; more are dropped, since a signal only
 	// says "look again" and the next one says the same.
 	SignalBuffer = 16

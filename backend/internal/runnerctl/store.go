@@ -38,8 +38,9 @@ type store struct {
 	db *db.Cluster
 }
 
-// appendEvent stores the control plane's next event for the run, numbering it after the last.
+// appendEvent stores the next event for the run, numbering it after the last, with every credential cut out.
 func appendEvent(ctx context.Context, tx db.DBTX, runID uuid.UUID, kind, node string, payload []byte) error {
+	payload = redact(payload)
 	if len(payload) > config.MaxEventBytes {
 		payload, _ = json.Marshal(map[string]any{"truncated": true, "bytes": len(payload)})
 	}

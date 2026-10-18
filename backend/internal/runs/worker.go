@@ -34,6 +34,8 @@ type Launch struct {
 	Limits sandbox.Limits
 	// CA answers the PEM of the CA that signs the runner protocol's certificate.
 	CA func(ctx context.Context) (string, error)
+	// OpenBao is where the runner unwraps the tokens and keys it is handed (#23); it holds no credential there.
+	OpenBao string
 }
 
 // Teardown is what else ends with a run, such as revoking its tokens (#23); an error tries again on the next tick.
@@ -173,7 +175,8 @@ func (w *Worker) startOne(ctx context.Context, c claimed) error {
 	}
 	id, err := w.sandboxes.Spawn(ctx, sandbox.Spec{RunID: c.ID, Image: w.launch.Image, Limits: w.launch.Limits,
 		Labels: map[string]string{sandbox.LabelStack: w.launch.Stack},
-		Env:    map[string]string{"ROTOR_CONTROL_PLANE_ADDR": w.launch.Dial, "ROTOR_RUNNER_BOOTSTRAP": token, "ROTOR_RUNNER_CA": ca}})
+		Env: map[string]string{"ROTOR_CONTROL_PLANE_ADDR": w.launch.Dial, "ROTOR_RUNNER_BOOTSTRAP": token, "ROTOR_RUNNER_CA": ca,
+			"ROTOR_OPENBAO_ADDR": w.launch.OpenBao}})
 	if err != nil {
 		return err
 	}

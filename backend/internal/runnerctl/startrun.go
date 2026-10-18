@@ -22,9 +22,14 @@ type ToolFinder interface {
 	ByName(ctx context.Context, name string) (tools.Tool, error)
 }
 
-// Minter mints a run's access token; *connections.Service is the real one.
+// Minter mints a run's access token and hands it over wrapped; *connections.Service is the real one.
 type Minter interface {
-	Mint(ctx context.Context, req connections.MintRequest) (connections.Token, error)
+	Deliver(ctx context.Context, req connections.MintRequest) (connections.Delivery, error)
+}
+
+// Wrapper wraps a secret for a sandbox to unwrap once; *vault.Client is the real one.
+type Wrapper interface {
+	Wrap(ctx context.Context, data map[string]any, ttl time.Duration) (string, error)
 }
 
 // Models resolves a workflow's model and hands out its provider's key; *providers.Service is the real one.
@@ -135,14 +140,18 @@ func (s *Server) modelConfig(r *run) *runnerpb.ModelConfig {
 		BaseUrl: base, ApiVersion: r.model.Provider.APIVersion}
 }
 
-// secret is the run's provider key, sent after every Hello since a grant is never stored to be resent.
+// secret is the run's provider key, wrapped, sent after every Hello since a grant is never stored to be resent.
 func (s *Server) secret(ctx context.Context, r *run) (*runnerpb.ConnectResponse, error) {
 	key, err := s.Models.Key(ctx, r.model.Provider.ID)
 	if err != nil {
 		return nil, fmt.Errorf("read the key of provider %s: %w", r.model.Provider.Name, err)
 	}
+	wrapped, err := s.Wrap.Wrap(ctx, map[string]any{"api_key": key}, config.WrapTTL)
+	if err != nil {
+		return nil, fmt.Errorf("wrap the key of provider %s: %w", r.model.Provider.Name, err)
+	}
 	return &runnerpb.ConnectResponse{Message: &runnerpb.ConnectResponse_SecretGrant{SecretGrant: &runnerpb.SecretGrant{
-		ProviderId: r.model.Provider.ID.String(), Secret: &runnerpb.SecretGrant_ApiKey{ApiKey: key}}}}, nil
+		ProviderId: r.model.Provider.ID.String(), Secret: &runnerpb.SecretGrant_WrappingToken{WrappingToken: wrapped}}}}, nil
 }
 
 // startRun is the run's StartRun: its pinned spec, inputs, bindings and model, and the answer it resumes with, if any.
@@ -154,17 +163,17 @@ func startRun(r *run, bindings []*runnerpb.ToolBinding, model *runnerpb.ModelCon
 	return &runnerpb.ConnectResponse{Message: &runnerpb.ConnectResponse_StartRun{StartRun: start}}
 }
 
-// grant mints a token for one binding as the run's person; a refusal is said in the grant, never left unanswered.
+// grant mints a token for one binding as the run's person and hands it over wrapped; a refusal is said in the grant, never left unanswered.
 func (s *Server) grant(ctx context.Context, r *run, bindings map[string]binding, name string) *runnerpb.ConnectResponse {
 	g := &runnerpb.TokenGrant{Binding: name}
 	b, ok := bindings[name]
 	if !ok {
 		g.Error = name + " is not one of the run's bindings"
-	} else if token, err := s.Mint.Mint(ctx, connections.MintRequest{UserID: r.UserID, ToolID: b.toolID, Scopes: b.scopes, RunID: r.ID.String()}); err != nil {
+	} else if delivered, err := s.Mint.Deliver(ctx, connections.MintRequest{UserID: r.UserID, ToolID: b.toolID, Scopes: b.scopes, RunID: r.ID.String()}); err != nil {
 		g.Error = err.Error()
 	} else {
-		g.Token = &runnerpb.TokenGrant_AccessToken{AccessToken: token.Value}
-		g.ExpiresAt = timestamppb.New(token.ExpiresAt)
+		g.Token = &runnerpb.TokenGrant_WrappingToken{WrappingToken: delivered.WrappingToken}
+		g.ExpiresAt = timestamppb.New(delivered.ExpiresAt)
 	}
 	return &runnerpb.ConnectResponse{Message: &runnerpb.ConnectResponse_TokenGrant{TokenGrant: g}}
 }

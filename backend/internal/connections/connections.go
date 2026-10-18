@@ -78,6 +78,8 @@ type Service struct {
 	// redirectURL is the callback Rotor registered at every tool.
 	redirectURL string
 	log         *slog.Logger
+	// Runs keeps the tokens handed to runs until they are revoked; nil delivers none (#23).
+	Runs RunSecrets
 }
 
 // NewService returns the connections; client reaches the tools as the registry does.

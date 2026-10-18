@@ -21,6 +21,11 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import TypeAlias as _TypeAlias, Never as _Never
 
+if sys.version_info >= (3, 13):
+    from warnings import deprecated as _deprecated
+else:
+    from typing_extensions import deprecated as _deprecated
+
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class _RunOutcome:
@@ -506,9 +511,20 @@ class TokenGrant(_message.Message):
     EXPIRES_AT_FIELD_NUMBER: _builtins.int
     ERROR_FIELD_NUMBER: _builtins.int
     binding: _builtins.str
-    access_token: _builtins.str
+    @_builtins.property
+    @_deprecated("""This field has been marked as deprecated using proto field options.""")
+    def access_token(self) -> _builtins.str:
+        """access_token carried the token in clear until #23; kept so the field is never reused."""
+
+    @access_token.setter
+    @_deprecated("""This field has been marked as deprecated using proto field options.""")
+    def access_token(self, value: _builtins.str) -> None:
+        """access_token carried the token in clear until #23; kept so the field is never reused."""
+
     wrapping_token: _builtins.str
-    """wrapping_token is an OpenBao response-wrapping token the runner unwraps once (M3)."""
+    """wrapping_token is a single-use OpenBao response-wrapping token holding access_token and expires_at, which
+    the runner unwraps at OpenBao within minutes.
+    """
     error: _builtins.str
     """error says why there is no token, such as a person who must connect the tool again."""
     @_builtins.property
@@ -542,8 +558,18 @@ class SecretGrant(_message.Message):
     API_KEY_FIELD_NUMBER: _builtins.int
     WRAPPING_TOKEN_FIELD_NUMBER: _builtins.int
     provider_id: _builtins.str
-    api_key: _builtins.str
+    @_builtins.property
+    @_deprecated("""This field has been marked as deprecated using proto field options.""")
+    def api_key(self) -> _builtins.str:
+        """api_key carried the key in clear until #23; kept so the field is never reused."""
+
+    @api_key.setter
+    @_deprecated("""This field has been marked as deprecated using proto field options.""")
+    def api_key(self, value: _builtins.str) -> None:
+        """api_key carried the key in clear until #23; kept so the field is never reused."""
+
     wrapping_token: _builtins.str
+    """wrapping_token is a single-use OpenBao response-wrapping token holding api_key."""
     def __init__(
         self,
         *,

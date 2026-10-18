@@ -11,6 +11,7 @@ from rotor_runner.graph import SELF_CHECK_ANSWER, self_check
 EXIT_USAGE = 2
 # What the sandbox is started with, read once and removed, so nothing the runner starts can find them.
 ENV_ADDRESS, ENV_BOOTSTRAP, ENV_CA = "ROTOR_CONTROL_PLANE_ADDR", "ROTOR_RUNNER_BOOTSTRAP", "ROTOR_RUNNER_CA"
+ENV_OPENBAO = "ROTOR_OPENBAO_ADDR"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -21,18 +22,20 @@ def main(argv: list[str] | None = None) -> int:
         answer = self_check()
         print(f"rotor-runner self-check: {answer}")
         return 0 if answer == SELF_CHECK_ANSWER else 1
-    address, bootstrap, ca = (os.environ.pop(key, "") for key in (ENV_ADDRESS, ENV_BOOTSTRAP, ENV_CA))
-    if not (address and bootstrap and ca):
+    address, bootstrap, ca, openbao = (
+        os.environ.pop(key, "") for key in (ENV_ADDRESS, ENV_BOOTSTRAP, ENV_CA, ENV_OPENBAO)
+    )
+    if not (address and bootstrap and ca and openbao):
         parser.print_usage(sys.stderr)
         print(
-            f"Set {ENV_ADDRESS}, {ENV_BOOTSTRAP} and {ENV_CA}, as the control plane does for a sandbox.",
+            f"Set {ENV_ADDRESS}, {ENV_BOOTSTRAP}, {ENV_CA} and {ENV_OPENBAO}, as the control plane does for a sandbox.",
             file=sys.stderr,
         )
         return EXIT_USAGE
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     from rotor_runner.control import Channel
 
-    return asyncio.run(Channel(address, ca.encode(), bootstrap).run())
+    return asyncio.run(Channel(address, ca.encode(), bootstrap, openbao).run())
 
 
 if __name__ == "__main__":
