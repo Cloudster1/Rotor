@@ -41,6 +41,8 @@ type operation struct {
 	description string
 	// pending routes are agreed but not built yet: they answer 501.
 	pending bool
+	// admin routes are for administrators of Rotor alone; anyone else is refused with 403.
+	admin bool
 }
 
 // operations is the table, by area, then by path.

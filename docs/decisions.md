@@ -3,6 +3,39 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-18: Tool connections for M1 (#7)
+
+- **One refresh per connection at a time.** The tools rotate refresh tokens
+  at every use and end the whole grant when a replaced one comes back
+  (Exciter does today; Armature and Stator are asked to). Two runs
+  refreshing one connection at once would sign the person out of the tool.
+  So Rotor takes a Postgres advisory lock on the connection, refreshes,
+  writes the rotated token to OpenBao with check-and-set, and only then
+  hands out the access token. A lock in Postgres rather than Valkey, because
+  the database is already the one thing every api replica agrees on.
+- **A refresh never asks for a narrower scope.** At Exciter that narrows the
+  grant for good. A run that needs less gets the consented scope and the
+  runner enforces the narrower one, until the tools offer token exchange
+  (Cloudster1/Exciter#235).
+- **Every run gets its own access token.** Minting refreshes each time, so
+  revoking one run's token ends no other run, at the cost of a refresh per
+  run, which the tools allow.
+- **Rotor is a confidential client registered by RFC 7591.** An
+  administrator adds a tool by its address and copies no secret; the client
+  secret goes straight to OpenBao. A tool that forgets the client (Exciter
+  sweeps unused ones) is registered again on demand.
+- **The callback checks `iss`.** Every connection shares one redirect URI,
+  so a response is matched to the tool it was started for by its state and
+  its issuer (RFC 9207), against mix-up attacks.
+- **Exciter is the only tool that can be connected in M1.** Armature and
+  Stator have MCP servers but no authorization server yet. The gate tests
+  against a test double that behaves as Exciter does, and the real Exciter
+  runs, from a pinned commit, in a suite job outside the required checks,
+  because building it adds minutes to every pull request.
+- **Dev OpenBao keeps its data.** It runs as a server with file storage,
+  initialized and unsealed on start, so a restart keeps people's
+  connections as production would.
+
 ## 2026-10-18: Sign-in for M0 (#6)
 
 - **Sessions live in Postgres, not Valkey.** A session is a row holding the

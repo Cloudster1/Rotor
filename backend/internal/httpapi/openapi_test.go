@@ -12,6 +12,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+
+	"github.com/cloudster1/rotor/backend/internal/auth"
 )
 
 // routed lists every method and path the router serves, in the form the
@@ -162,5 +164,23 @@ func TestAPendingOperationAnswersNotImplemented(t *testing.T) {
 	op := Spec().Paths["/projects/{projectKey}/promises/{promiseID}"]["post"]
 	if op == nil || op.Responses["501"] == nil {
 		t.Fatal("the document does not say the pending operation answers 501")
+	}
+}
+
+// An admin row is refused to a member before it says it is not built, so the gate is in place before the code.
+func TestAPendingAdminOperationRefusesAMember(t *testing.T) {
+	s, sessions, _ := signedInServer(t)
+	sessions.people["bob"] = &auth.Principal{UserID: uuid.New(), Name: "Bob Builder", Role: auth.RoleMember}
+	for who, want := range map[string]int{"": http.StatusUnauthorized, "bob": http.StatusForbidden, "alice": http.StatusNotImplemented} {
+		req := httptestRequest(http.MethodPost, APIPrefix+"/tools", `{"baseURL":"https://exciter.test"}`)
+		if who != "" {
+			req = withSession(req, who)
+		}
+		if resp, body := serve(t, s.Routes(nil), req); resp.StatusCode != want {
+			t.Errorf("POST /tools as %q = %d %v, want %d", who, resp.StatusCode, body, want)
+		}
+	}
+	if Spec().Paths["/tools"]["post"].Responses["403"] == nil {
+		t.Error("the document does not say an admin operation refuses with 403")
 	}
 }

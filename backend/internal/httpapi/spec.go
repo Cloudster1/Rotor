@@ -25,6 +25,7 @@ func isErrorEnvelope(body any) bool {
 func specBuilder() *openapi.Builder {
 	b := openapi.NewBuilder()
 	b.Names[reflect.TypeOf(version.Info{})] = "BuildInfo"
+	registerM1Schemas(b)
 	return b
 }
 
@@ -112,6 +113,10 @@ func (op operation) describe(b *openapi.Builder, errorSchema *openapi.Schema) *o
 	}
 	o.Responses["default"] = &openapi.Response{Description: "An error, in the one shape every endpoint uses.",
 		Content: map[string]openapi.MediaType{"application/json": {Schema: errorSchema}}}
+	if op.admin {
+		o.Responses["403"] = &openapi.Response{Description: "Forbidden: for administrators of Rotor alone.",
+			Content: map[string]openapi.MediaType{"application/json": {Schema: errorSchema}}}
+	}
 	if op.public {
 		o.Security = []map[string][]string{}
 	}
@@ -176,6 +181,8 @@ func ok(body any) map[int]any { return map[int]any{http.StatusOK: body} }
 type Route struct {
 	Method, Path, ID string
 	Public           bool
+	// Admin operations refuse anyone but an administrator.
+	Admin bool
 	// Pending operations answer 501 until they are built.
 	Pending bool
 }
@@ -184,7 +191,7 @@ type Route struct {
 func Catalog() []Route {
 	out := make([]Route, 0, len(operations))
 	for _, op := range operations {
-		out = append(out, Route{Method: op.method, Path: op.path, ID: op.operationID(), Public: op.public, Pending: op.pending})
+		out = append(out, Route{Method: op.method, Path: op.path, ID: op.operationID(), Public: op.public, Admin: op.admin, Pending: op.pending})
 	}
 	return out
 }

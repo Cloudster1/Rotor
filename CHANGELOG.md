@@ -9,6 +9,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The plan for tool connections is agreed (#7): `docs/api-contract-m1.md`
+  settles how tools are added, how people connect their accounts, where the
+  secrets live and how a run gets its token. The new endpoints are in the
+  API document and answer 501 until they are built; those for administrators
+  alone already refuse everyone else.
 - People sign in with their suite account (#6). Rotor sends the browser to
   the realm `dynamo` and keeps the session as an HttpOnly cookie whose
   SHA-256 alone is stored; `rotor-administrators` makes an administrator,

@@ -67,6 +67,20 @@ func requireAuth(next http.Handler) http.Handler {
 	})
 }
 
+// errAdminOnly refuses a member what only an administrator may do.
+var errAdminOnly = ErrForbidden("Only an administrator of Rotor may do this. Ask one to do it, or to make you one in the realm.")
+
+// requireAdmin refuses anyone but an administrator; it sits behind requireAuth.
+func requireAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !auth.PrincipalFrom(r.Context()).IsAdmin() {
+			respondError(w, r, errAdminOnly)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (s *Server) setSessionCookie(w http.ResponseWriter, token string, ttl time.Duration) {
 	http.SetCookie(w, &http.Cookie{
 		Name: s.CookieName, Value: token, Path: "/", MaxAge: int(ttl.Seconds()),
