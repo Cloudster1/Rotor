@@ -175,7 +175,7 @@ func (s *Stub) Public() http.Handler {
 		r.Get("/oauth/consent", s.withOAuth(s.handleConsentPage))
 		r.Post("/oauth/consent", s.withOAuth(s.handleConsent))
 		r.Get(llmPath+"/models", s.withTenant(s.handleLLMModels))
-		r.Post(llmPath+"/chat/completions", s.withTenant(s.handleLLMChat))
+		r.Post(llmPath+"/chat/completions", s.thinking(s.withTenant(s.handleLLMChat)))
 	})
 	r.Get("/.well-known/oauth-authorization-server"+TenantPrefix+"/{tenant}", s.withOAuth(s.handleServerMetadata))
 	r.Get("/.well-known/oauth-protected-resource"+TenantPrefix+"/{tenant}"+mcpPath, s.withOAuth(s.handleProtectedResource))

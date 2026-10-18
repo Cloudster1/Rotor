@@ -25,6 +25,8 @@ const (
 	// ToolStubAddr serves the tools; ToolStubControlAddr the control API, which the stack never publishes.
 	ToolStubAddr        = ":8080"
 	ToolStubControlAddr = ":8081"
+	// ToolStubMaxLLMDelay bounds how long a scripted model answer may be held back.
+	ToolStubMaxLLMDelay = time.Minute
 	// ToolStubPromptTokens and ToolStubCompletionTokens are the usage every stub model answer reports.
 	ToolStubPromptTokens     = 10
 	ToolStubCompletionTokens = 5

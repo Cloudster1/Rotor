@@ -18,8 +18,9 @@ SUITE_EXCITER = COMPOSE_PROJECT_NAME=$(SUITE_EXCITER_PROJECT) \
 	ARMATURE_STUB_PORT=$(call stack_port,14) STATOR_STUB_PORT=$(call stack_port,15) docker compose
 
 # Rotor's services the suite reaches, each joining the suite's network as rotor-<service>, and Exciter's, as
-# suite-exciter-<service>; by hand, so no service is known there by a name another stack uses too.
-SUITE_ROTOR_SERVICES := api keycloak postgres openbao tool-stub
+# suite-exciter-<service>; by hand, so no service is known there by a name another stack uses too. The worker is
+# among them because it revokes a run's tokens at Exciter when the run ends.
+SUITE_ROTOR_SERVICES := api worker keycloak postgres openbao tool-stub
 SUITE_EXCITER_SERVICES := api web
 
 # suite_join connects services $(3) of compose $(1) to the suite's network as $(2)<service>, once each.
@@ -29,6 +30,15 @@ define suite_join
 		docker inspect -f '{{range $$n, $$_ := .NetworkSettings.Networks}}{{$$n}} {{end}}' $$id | grep -qw $(SUITE_NET) \
 			|| docker network connect --alias $(2)$$s $(SUITE_NET) $$id; \
 	done
+endef
+
+# A run's sandbox calls Exciter at the address the api rewrites it to, so Exciter's web joins the sandboxes'
+# internal network under that name too (#25); nothing else of the suite does.
+SUITE_SANDBOX_NET := $(STACK_PROJECT)_sandbox
+define suite_sandbox_join
+	@id=$$($(SUITE_EXCITER) ps -q web 2>/dev/null); [ -z "$$id" ] \
+		|| docker inspect -f '{{range $$n, $$_ := .NetworkSettings.Networks}}{{$$n}} {{end}}' $$id | grep -qw $(SUITE_SANDBOX_NET) \
+		|| docker network connect --alias suite-exciter-web $(SUITE_SANDBOX_NET) $$id
 endef
 
 export SUITE_EXCITER_WEB_PORT
@@ -47,6 +57,7 @@ suite-up: ## Start the real Exciter beside this checkout's running stack, signin
 	$(call suite_join,docker compose,rotor-,$(SUITE_ROTOR_SERVICES))
 	$(SUITE_EXCITER) up -d --build --wait --quiet-pull
 	$(call suite_join,$(SUITE_EXCITER),suite-exciter-,$(SUITE_EXCITER_SERVICES))
+	$(call suite_sandbox_join)
 	@echo "Exciter    http://localhost:$(SUITE_EXCITER_WEB_PORT) ($(EXCITER_REF); sign in as alice or bob through Rotor's Keycloak)"
 
 .PHONY: suite-down
@@ -54,6 +65,7 @@ suite-down: ## Stop the suite's Exciter, keeping its data
 	@for s in $(SUITE_ROTOR_SERVICES); do \
 		id=$$(docker compose ps -q $$s 2>/dev/null); [ -z "$$id" ] || docker network disconnect $(SUITE_NET) $$id 2>/dev/null || true; \
 	done
+	@id=$$($(SUITE_EXCITER) ps -q web 2>/dev/null); [ -z "$$id" ] || docker network disconnect $(SUITE_SANDBOX_NET) $$id 2>/dev/null || true
 	$(SUITE_EXCITER) down
 
 .PHONY: suite-logs
@@ -65,8 +77,14 @@ suite-clean: suite-down ## Stop the suite's Exciter and forget its data
 	$(SUITE_EXCITER) down -v --remove-orphans
 	@docker network rm $(SUITE_NET) >/dev/null 2>&1 || true
 
-# The Go toolchain on the suite's network, which reaches Rotor under rotor-* and Exciter under suite-exciter-*.
+# The Go toolchain on the suite's network, which reaches Rotor under rotor-* and Exciter under suite-exciter-*,
+# with the Docker socket to watch and stop the stack's sandboxes and worker, as the integration suite has.
 DOCKER_GO_SUITE = $(call go_run,--network $(SUITE_NET) \
+	-v /var/run/docker.sock:/var/run/docker.sock --group-add $(DOCKER_GID) \
+	-e ROTOR_TEST_SANDBOX_NETWORK=$(STACK_PROJECT)_sandbox \
+	-e ROTOR_TEST_SANDBOX_STACK=$(STACK_PROJECT) \
+	-e ROTOR_TEST_SANDBOX_IMAGE=rotor-runner:$(STACK_PROJECT) \
+	-e ROTOR_TEST_OPENBAO_ROOT_TOKEN='$(OPENBAO_ROOT_TOKEN)' \
 	-e ROTOR_DB_URL='$(call STACK_PG_URL,rotor_app,$(APP_DB_PASSWORD),rotor-postgres)' \
 	-e ROTOR_DB_ADMIN_URL='$(call STACK_PG_URL,rotor_admin,$(ADMIN_DB_PASSWORD),rotor-postgres)' \
 	-e ROTOR_TEST_SUPERUSER_URL='$(call STACK_PG_URL,rotor,$(POSTGRES_PASSWORD),rotor-postgres)' \

@@ -18,6 +18,12 @@ services:
   render:
     profiles: ["off"]
 
+  # dave is let in too, so the end-to-end run (#25) shows Exciter refusing a viewer's write; the seed ensures
+  # members on every start, so a running suite takes him in at its next make suite-up.
+  seed:
+    environment:
+      EXCITER_BOOTSTRAP_MEMBERS: alice@suite.test=admin,bob@suite.test=member,dave@suite.test=member
+
   api:
     environment:
       EXCITER_OIDC_BACKCHANNEL: http://localhost:${KEYCLOAK_PORT}=http://rotor-keycloak:8080

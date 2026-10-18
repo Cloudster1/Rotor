@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 const callback = "http://localhost:5173/api/v1/connections/callback"
@@ -303,6 +304,9 @@ func scopesOf(me map[string]any) []string {
 }
 
 // The stub model answers from its tenant's script behind its key, in OpenAI's shapes, streamed or not.
+// scriptDelay is how long the scripted model holds its first answer back in the test below.
+const scriptDelay = 50 * time.Millisecond
+
 func TestTheStubModelAnswersFromItsScript(t *testing.T) {
 	stub := newTestStub(t)
 	public, control := httptest.NewServer(stub.Public()), httptest.NewServer(stub.Control())
@@ -326,7 +330,7 @@ func TestTheStubModelAnswersFromItsScript(t *testing.T) {
 		raw, _ := io.ReadAll(resp.Body)
 		return resp.StatusCode, string(raw)
 	}
-	script := []map[string]any{{"toolCalls": []map[string]any{{"name": "whoami"}}}, {"content": "You are bob."}}
+	script := []map[string]any{{"toolCalls": []map[string]any{{"name": "whoami"}}, "delayMs": scriptDelay.Milliseconds()}, {"content": "You are bob."}}
 	if status, raw := send(control.URL, "POST", "/control/tenants", "", map[string]any{"name": "model", "llmKey": "k", "llmScript": script}); status != http.StatusCreated {
 		t.Fatalf("make the tenant = %d %s", status, raw)
 	}
@@ -336,9 +340,13 @@ func TestTheStubModelAnswersFromItsScript(t *testing.T) {
 	if status, raw := send(public.URL, "GET", "/t/model"+llmPath+"/models", "k", nil); status != http.StatusOK || !strings.Contains(raw, StubModel) {
 		t.Errorf("models = %d %s", status, raw)
 	}
+	asked := time.Now()
 	status, raw := send(public.URL, "POST", "/t/model"+llmPath+"/chat/completions", "k", map[string]any{"model": StubModel, "messages": []any{}})
 	if status != http.StatusOK || !strings.Contains(raw, `"finish_reason":"tool_calls"`) || !strings.Contains(raw, `"name":"whoami"`) {
 		t.Errorf("the first turn = %d %s", status, raw)
+	}
+	if took := time.Since(asked); took < scriptDelay {
+		t.Errorf("the first turn came after %s, before its delay of %s", took, scriptDelay)
 	}
 	status, raw = send(public.URL, "POST", "/t/model"+llmPath+"/chat/completions", "k",
 		map[string]any{"model": StubModel, "messages": []any{}, "stream": true, "stream_options": map[string]any{"include_usage": true}})

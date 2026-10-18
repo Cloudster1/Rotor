@@ -8,6 +8,7 @@ from rotor_runner.spec import SCHEMA, SpecError, check, parse
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "api" / "workflow-fixtures"
+EXAMPLES = ROOT / "examples"
 
 
 def expectations(source: str) -> list[tuple[str, str]]:
@@ -23,6 +24,11 @@ def expectations(source: str) -> list[tuple[str, str]]:
 def test_a_valid_fixture_has_no_problems(fixture: Path) -> None:
     assert check(fixture.read_text()) == []
     assert parse(fixture.read_text()).entry
+
+
+@pytest.mark.parametrize("example", sorted(EXAMPLES.glob("*.yaml")), ids=lambda p: p.name)
+def test_an_example_has_no_problems(example: Path) -> None:
+    assert check(example.read_text()) == []
 
 
 @pytest.mark.parametrize("fixture", sorted((FIXTURES / "invalid").glob("*.yaml")), ids=lambda p: p.name)

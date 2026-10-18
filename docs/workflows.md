@@ -95,6 +95,13 @@ Each problem names where it is, by line and column, and what to do about it.
 
 ## Examples
 
+[`examples/`](../examples) holds workflows to start from; the Go and Python checks validate each, and
+[`draft-requirements.yaml`](../examples/draft-requirements.yaml) is the one the suite runs against the real
+Exciter (#25): an agent drafts a title and a statement, and a tool node files them with `create_requirement` as the
+person who runs it.
+
+The examples below are the golden fixtures, which show more of the spec.
+
 ### Draft requirements, file them after approval
 
 [`draft-requirements.yaml`](../api/workflow-fixtures/valid/draft-requirements.yaml):
