@@ -1,0 +1,58 @@
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata:
+  name: draft-requirements
+  description: Drafts requirements from a short brief and files them in Exciter, after a person approves.
+inputs:
+  type: object
+  required: [project, brief]
+  properties:
+    project: { type: string, description: The Exciter project key. }
+    brief: { type: string, description: What the requirements should cover. }
+tools:
+  exciter-read:
+    tool: exciter
+    scopes: [mcp:read]
+    allowTools: [search_requirements, get_project]
+  exciter-write:
+    tool: exciter
+    scopes: [mcp]
+    access: write
+    approval: beforeWrite
+    allowTools: [create_requirement]
+model:
+  name: claude-sonnet-5-5
+limits:
+  maxSteps: 40
+  timeout: 15m
+  maxTokens: 200000
+entry: draft
+nodes:
+  - id: draft
+    type: agent
+    prompt: |
+      Read the project {{ inputs.project }} in Exciter and draft up to five requirements for:
+      {{ inputs.brief }}
+      Avoid duplicating requirements the project already has.
+    tools: [exciter-read]
+    output:
+      schema:
+        type: object
+        required: [title, statement]
+        properties:
+          title: { type: string }
+          statement: { type: string }
+  - id: review
+    type: approval
+    message: File the drafted requirement in Exciter?
+  - id: file
+    type: tool
+    tool: exciter-write
+    call: create_requirement
+    arguments:
+      project: "{{ inputs.project }}"
+      title: "{{ nodes.draft.title }}"
+      statement: "{{ nodes.draft.statement }}"
+edges:
+  - { from: draft, to: review }
+  - { from: review, to: file }

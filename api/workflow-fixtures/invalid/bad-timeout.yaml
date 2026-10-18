@@ -1,0 +1,8 @@
+# expect: /limits/timeout schema
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+limits: {maxSteps: 5, timeout: soon}
+entry: a
+nodes:
+  - {id: a, type: approval, message: ok?}

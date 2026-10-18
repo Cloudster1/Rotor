@@ -1,0 +1,44 @@
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata:
+  name: count-by-status
+  description: Lists a project's requirements and counts them by status, with no language model at all.
+inputs:
+  type: object
+  required: [project]
+  properties:
+    project: { type: string }
+tools:
+  exciter:
+    tool: exciter
+    scopes: [mcp:read]
+    allowTools: [list_requirements]
+limits:
+  maxSteps: 5
+  timeout: 2m
+entry: list
+nodes:
+  - id: list
+    type: tool
+    tool: exciter
+    call: list_requirements
+    arguments:
+      project: "{{ inputs.project }}"
+  - id: count
+    type: code
+    timeout: 10s
+    memory: 128Mi
+    source: |
+      def run(state, ctx):
+          counts = {}
+          for item in state["nodes"]["list"].get("items", []):
+              counts[item["status"]] = counts.get(item["status"], 0) + 1
+          return {"counts": counts}
+    output:
+      schema:
+        type: object
+        required: [counts]
+        properties:
+          counts: { type: object, additionalProperties: { type: integer } }
+edges:
+  - { from: list, to: count }

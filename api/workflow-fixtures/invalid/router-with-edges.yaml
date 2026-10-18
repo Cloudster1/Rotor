@@ -1,0 +1,11 @@
+# expect: /edges/0/from router_edges
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+limits: {maxSteps: 5, timeout: 1m}
+entry: r
+nodes:
+  - {id: r, type: router, on: inputs.kind, cases: {x: a}}
+  - {id: a, type: approval, message: ok?}
+edges:
+  - {from: r, to: a}

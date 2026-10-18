@@ -1,0 +1,9 @@
+# expect: /nodes/0/cases/y unknown_node
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+limits: {maxSteps: 5, timeout: 1m}
+entry: r
+nodes:
+  - {id: r, type: router, on: inputs.kind, cases: {x: a, y: b}}
+  - {id: a, type: approval, message: ok?}

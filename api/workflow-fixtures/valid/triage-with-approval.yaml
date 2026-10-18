@@ -1,0 +1,69 @@
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata:
+  name: triage
+  description: Reads one requirement, decides whether it needs a review, and asks before requesting one.
+inputs:
+  type: object
+  required: [requirement]
+  properties:
+    requirement: { type: string }
+tools:
+  exciter-read:
+    tool: exciter
+    scopes: [mcp:read]
+    allowTools: [get_requirement, check_requirement_text]
+  exciter-write:
+    tool: exciter
+    scopes: [mcp]
+    access: write
+    approval: beforeWrite
+    allowTools: [request_review]
+model:
+  name: claude-sonnet-5-5
+limits:
+  maxSteps: 20
+  timeout: 10m
+entry: assess
+nodes:
+  - id: assess
+    type: agent
+    prompt: Read requirement {{ inputs.requirement }} and answer verdict review or fine, with a reason.
+    tools: [exciter-read]
+    output:
+      schema:
+        type: object
+        required: [verdict, reason]
+        properties:
+          verdict: { enum: [review, fine] }
+          reason: { type: string }
+  - id: decide
+    type: router
+    on: nodes.assess.verdict
+    cases:
+      review: confirm
+      fine: done
+  - id: confirm
+    type: approval
+    message: Request a review of this requirement?
+  - id: request
+    type: tool
+    tool: exciter-write
+    call: request_review
+    arguments:
+      requirement: "{{ inputs.requirement }}"
+      note: "{{ nodes.assess.reason }}"
+  - id: done
+    type: code
+    source: |
+      def run(state, ctx):
+          return {"summary": "No review needed: " + state["nodes"]["assess"]["reason"]}
+    output:
+      schema:
+        type: object
+        required: [summary]
+        properties:
+          summary: { type: string }
+edges:
+  - { from: assess, to: decide }
+  - { from: confirm, to: request }

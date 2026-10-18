@@ -1,0 +1,8 @@
+# expect: /nodes/0 schema
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+limits: {maxSteps: 5, timeout: 1m}
+entry: a
+nodes:
+  - {id: a, type: approval, message: ok?, colour: red}

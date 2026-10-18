@@ -1,0 +1,14 @@
+# expect: /nodes/0/arguments/title unknown_node
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+tools:
+  t: {tool: exciter, scopes: [mcp], allowTools: [get_project]}
+limits: {maxSteps: 5, timeout: 1m}
+entry: a
+nodes:
+  - id: a
+    type: tool
+    tool: t
+    call: get_project
+    arguments: {title: '{{ nodes.draft.title }}'}

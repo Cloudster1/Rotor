@@ -1,0 +1,6 @@
+# expect: - yaml
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+limits: {maxSteps: 5, timeout: 1m
+entry: [a
