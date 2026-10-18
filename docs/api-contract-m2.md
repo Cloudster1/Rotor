@@ -212,6 +212,13 @@ and a bootstrap token, and dials out.
   - Each value is encrypted with the OpenBao transit key `rotor-checkpoints`. A checkpoint above `MaxCheckpointBytes` is refused and the run fails, saying so.
 - **No tokens in checkpoints:** tokens and keys live in the runner's memory and are never in the state, so a checkpoint cannot hold one; a test proves it.
 
+**As built** (#19):
+- `run_checkpoint` keeps `checkpoint_type` and `metadata_type` in clear (LangGraph's tags) beside the sealed values. `run_checkpoint_write` does the same for each write.
+- Putting a checkpoint again changes nothing. Ordinary writes are kept once, special ones (negative `idx`) replace the last.
+- `runnerctl.Resume(run, answer)` stores the answer and moves a waiting run to `starting`. The next sandbox's Hello then gets a fresh `StartRun` with `resume`. #22 calls it from the API.
+- A sandbox numbers its messages on from the `ack` of its `HelloAck`, so a resumed run's numbering continues.
+- The runner's checkpointer loads with the serializer's safe types alone (`allowed_msgpack_modules=None`).
+
 ## #20 Model providers
 
 | Operation | Needs | Answers |

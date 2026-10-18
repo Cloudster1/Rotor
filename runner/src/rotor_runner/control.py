@@ -14,9 +14,9 @@ from typing import Any
 
 import grpc
 from langgraph.checkpoint.base import BaseCheckpointSaver
-from langgraph.checkpoint.memory import InMemorySaver
 
 from rotor_runner import __version__
+from rotor_runner.checkpoint import CheckpointRefusedError, RemoteSaver
 from rotor_runner.codenode import CodeNodeRunner
 from rotor_runner.compile import Outcome, RunContext, run_workflow
 from rotor_runner.config import (
@@ -94,7 +94,7 @@ class Channel:
         self._finished = asyncio.Event()
         self.tokens = Tokens(self)
         self.replies: dict[str, asyncio.Future[pb.ConnectResponse]] = {}
-        self.checkpointer: BaseCheckpointSaver[Any] = InMemorySaver()
+        self.checkpointer: BaseCheckpointSaver[Any] = RemoteSaver(self)
 
     def send(self, message: pb.ConnectRequest) -> None:
         """Sends now if connected; a numbered message also waits in the outbox until acknowledged."""
@@ -161,6 +161,8 @@ class Channel:
                 async for response in call:
                     if response.HasField("hello_ack"):
                         self._session = response.hello_ack.session_token
+                        # A sandbox started for a resumed run numbers on from where the run's last sandbox stopped.
+                        self._next_seq = max(self._next_seq, response.ack + 1)
                         self._acknowledged(response.ack)
                         self._queue = queue
                         for pending in self._outbox:
@@ -221,6 +223,8 @@ class Channel:
             outcome = await self._run_workflow(start)
         except asyncio.CancelledError:
             outcome = Outcome("cancelled", "cancelled")
+        except CheckpointRefusedError as err:
+            outcome = Outcome("failed", "checkpoint_refused", {"message": str(err)})
         except Exception as err:
             log.exception("the run broke")
             outcome = Outcome("failed", "runner_error", {"message": str(err)})

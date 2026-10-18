@@ -32,3 +32,6 @@ type Runner struct {
 func loadRunner(l *loader) Runner {
 	return Runner{Addr: l.str("ROTOR_RUNNER_ADDR", DefaultRunnerAddr)}
 }
+
+// MaxCheckpointBytes bounds one checkpoint, its metadata included, before encryption (#19).
+const MaxCheckpointBytes = 4 << 20
