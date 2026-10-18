@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The backend answers (#3): `make up` now migrates the database and starts
+  the api, which serves `/healthz`, `/readyz`, `/api/v1/openapi.json` and
+  `/api/v1/meta`. One route table drives the router and `api/openapi.json`;
+  sign-in's routes are agreed and answer 501 until #6. The audit log is
+  append-only and readable by administrators alone, which the database
+  itself enforces.
 - The architecture and the decisions behind it are written down (#2):
   a Go control plane and a Python LangGraph runner, Rotor as an OAuth
   client of each tool with refresh tokens kept in OpenBao, one sandbox per
