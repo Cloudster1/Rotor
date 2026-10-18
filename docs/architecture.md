@@ -241,7 +241,9 @@ request and links to what they created.
 `deploy/charts/rotor` installs the api, the worker and the web, runs the roles and migrate Jobs before every
 upgrade, creates the sandbox namespace with its token-less ServiceAccount and the worker's Role, and can configure
 OpenBao with Rotor's own init script. In a cluster the control plane signs in to OpenBao with Kubernetes auth and
-sandboxes dial the api's Service by its cluster name. `docs/deployment.md` says how to install it.
+sandboxes dial the api's Service by its cluster name. Sandbox egress is denied by default (#27): a NetworkPolicy
+allows DNS, the runner port and OpenBao, and Cilium allows the tools and the provider by hostname.
+`docs/deployment.md` says how to install it.
 
 ## Development stack (`deploy/docker-compose.yml`, #1)
 

@@ -76,6 +76,28 @@ if [ -n "$(kubectl get pods -n "${SANDBOXES}" -l "rotor.dev/run=${run}" -o name)
 fi
 echo "its sandbox pod is gone"
 
+say "what a sandbox may reach"
+kubectl apply -n "${SANDBOXES}" -f scripts/kind/egress-probe.yaml >/dev/null
+kubectl wait -n "${SANDBOXES}" --for=condition=Ready pod/egress-probe --timeout=120s >/dev/null
+# curl exits 6 when a name does not resolve, 7 when nothing answers and 28 when it times out, which a dropped packet
+# makes; any other answer, an HTTP or TLS error included, means the probe reached the other side.
+reaches() {
+    local code=0
+    kubectl exec -n "${SANDBOXES}" egress-probe -- curl -sk -o /dev/null --connect-timeout 5 --max-time 10 "$1" || code=$?
+    [ "${code}" != 6 ] && [ "${code}" != 7 ] && [ "${code}" != 28 ]
+}
+allowed() { if reaches "$1"; then echo "   ok    reaches $2"; else echo "   FAIL  cannot reach $2" >&2; exit 1; fi; }
+refused() { if reaches "$1"; then echo "   FAIL  reaches $2" >&2; exit 1; else echo "   ok    refused $2"; fi; }
+allowed "https://${RELEASE}-api.${NS}.svc:9443" "the api's runner port"
+allowed "http://openbao.${NS}.svc:8200/v1/sys/health" "OpenBao"
+allowed "https://example.com" "an allowed host by name"
+refused "https://example.net" "a host nobody allowed"
+refused "http://169.254.169.254/latest/meta-data/" "cloud metadata"
+refused "http://${RELEASE}-api.${NS}.svc:8080/readyz" "the api's HTTP port"
+refused "http://${RELEASE}-web.${NS}.svc:8080/" "the web"
+refused "https://kubernetes.default.svc" "the Kubernetes API"
+kubectl delete pod -n "${SANDBOXES}" egress-probe --wait=false >/dev/null
+
 say "upgrading in place"
 helm upgrade "${RELEASE}" deploy/charts/rotor -n "${NS}" --reuse-values --wait --timeout 10m
 echo "the upgrade came up"

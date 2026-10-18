@@ -1,0 +1,116 @@
+{{- if .Values.sandbox.egress.enabled }}
+{{/*
+Where a sandbox may connect (#27). Nothing reaches a sandbox; it reaches cluster DNS, the api's runner port and
+OpenBao by selector or range, and the tools and the provider by hostname under Cilium or by range without it. Every
+other destination, cloud metadata and the rest of the cluster included, is refused. Allows from both policies add up.
+*/}}
+{{- $e := .Values.sandbox.egress }}
+{{- if and $e.hosts (not $e.cilium) }}
+{{- fail "sandbox.egress.hosts names hostnames, which only Cilium can allow. Set sandbox.egress.cilium where Cilium is the cluster's network plugin, or give the tools' and the provider's address ranges in sandbox.egress.cidrs." }}
+{{- end }}
+{{- if not (or $e.openbao.namespace $e.openbao.cidr) }}
+{{- fail "Say where OpenBao is, so sandboxes may unwrap their tokens there: sandbox.egress.openbao.namespace (with podLabels) for one in this cluster, or sandbox.egress.openbao.cidr." }}
+{{- end }}
+{{- $ns := include "rotor.sandboxNamespace" . }}
+{{- $bao := urlParse .Values.openbao.addr }}
+{{- $baoPort := default (ternary "443" "80" (eq $bao.scheme "https")) (regexFind "[0-9]+$" $bao.host) }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "rotor.fullname" . }}-sandboxes
+  namespace: {{ $ns }}
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      rotor.dev/sandbox: "1"
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $e.dns.namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml $e.dns.podLabels | nindent 14 }}
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+          podSelector:
+            matchLabels:
+              {{- include "rotor.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: api
+      ports:
+        - { protocol: TCP, port: {{ .Values.api.runnerPort }} }
+    - to:
+        {{- if $e.openbao.cidr }}
+        - ipBlock:
+            cidr: {{ $e.openbao.cidr }}
+        {{- else }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $e.openbao.namespace }}
+          {{- with $e.openbao.podLabels }}
+          podSelector:
+            matchLabels:
+              {{- toYaml . | nindent 14 }}
+          {{- end }}
+        {{- end }}
+      ports:
+        - { protocol: TCP, port: {{ $baoPort }} }
+    {{- with $e.cidrs }}
+    - to:
+        {{- range . }}
+        - ipBlock:
+            cidr: {{ . }}
+            except: ["169.254.169.254/32"]
+        {{- end }}
+      ports:
+        {{- range $e.ports }}
+        - { protocol: TCP, port: {{ . }} }
+        {{- end }}
+    {{- end }}
+{{- if and $e.cilium $e.hosts }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "rotor.fullname" . }}-sandbox-hosts
+  namespace: {{ $ns }}
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+spec:
+  endpointSelector:
+    matchLabels:
+      rotor.dev/sandbox: "1"
+  egress:
+    # Cilium learns which addresses a name stands for from the lookups it proxies, so DNS goes through its proxy.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ $e.dns.namespace }}
+            {{- range $k, $v := $e.dns.podLabels }}
+            k8s:{{ $k }}: {{ $v }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - { port: "53", protocol: ANY }
+          rules:
+            dns:
+              - matchPattern: "*"
+    - toFQDNs:
+        {{- range $e.hosts }}
+        - matchName: {{ . | quote }}
+        {{- end }}
+      toPorts:
+        - ports:
+            {{- range $e.ports }}
+            - { port: {{ . | quote }}, protocol: TCP }
+            {{- end }}
+{{- end }}
+{{- end }}

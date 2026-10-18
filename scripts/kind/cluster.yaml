@@ -1,6 +1,9 @@
 # The throwaway cluster the Kubernetes tests run in: one node, which runs runc, so the tests set
-# ROTOR_SANDBOX_ALLOW_RUNC; production names a gVisor RuntimeClass instead (docs/deployment.md).
+# ROTOR_SANDBOX_ALLOW_RUNC. Its network plugin is Cilium (make kind-up installs it), so the sandboxes' egress
+# policies, hostname allows included, are enforced as in production (#27).
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  disableDefaultCNI: true
 nodes:
   - role: control-plane

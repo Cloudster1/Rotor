@@ -1,0 +1,24 @@
+# A pod that looks like a sandbox to the egress policies (#27), for the chart install test to try destinations from:
+# the sandbox label, and the hardening the restricted Pod Security standard asks of the sandbox namespace.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: egress-probe
+  labels:
+    rotor.dev/sandbox: "1"
+spec:
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 100
+    runAsGroup: 101
+    seccompProfile: { type: RuntimeDefault }
+  containers:
+    - name: probe
+      image: curlimages/curl:8.11.1
+      command: ["sleep", "3600"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities: { drop: ["ALL"] }

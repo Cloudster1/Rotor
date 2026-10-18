@@ -58,6 +58,24 @@ by default), which the chart creates under the restricted Pod Security standard.
 - **Dialling back.** Sandboxes dial the api's Service (`<fullname>-api.<namespace>.svc`, port
   `api.runnerPort`) over TLS; the certificate comes from OpenBao's PKI for that name.
 
+### What a sandbox may reach
+
+A prompt-injected run must not send what it read anywhere else, so sandbox egress is denied by default
+(`sandbox.egress`). Nothing reaches a sandbox; a sandbox reaches:
+- cluster DNS (`sandbox.egress.dns`)
+- the api's runner port
+- OpenBao, by namespace and labels for one in the cluster (`sandbox.egress.openbao.namespace`, `podLabels`) or by
+  range for one outside it (`sandbox.egress.openbao.cidr`)
+- the tools and the model provider:
+  - with Cilium as the cluster's network plugin, by hostname: `sandbox.egress.cilium: true` and
+    `sandbox.egress.hosts`, such as the Exciter, Armature and Stator addresses and `api.anthropic.com`. Cilium learns
+    which addresses a name stands for from the lookups it proxies.
+  - without Cilium, plain NetworkPolicy matches addresses only, so give their ranges in `sandbox.egress.cidrs`; the
+    chart refuses hostnames without Cilium.
+
+Everything else is refused, cloud metadata (`169.254.169.254`), the api's HTTP port, the rest of the cluster and
+the Kubernetes API included. The install test proves each of these from a pod with the sandbox's label.
+
 ### Secrets
 
 The secrets Job generates the database and Valkey passwords once, inside the cluster, before anything else starts,
@@ -72,5 +90,6 @@ create its Secret before installing.
   namespace's hardening, and compares the renders with `tests/helm/*.yaml`. After a deliberate change, run
   `UPDATE=1 tests/test-helm.sh` and review the diff.
 - `make kind-up && make test-chart-install` installs the chart into a throwaway kind cluster beside a dev OpenBao,
-  carries a run to its end in a sandbox pod, checks the pod is gone and upgrades in place. `KEEP=1` keeps the
+  carries a run to its end in a sandbox pod, checks the pod is gone, tries what a sandbox may and may not reach and
+  upgrades in place; the cluster runs Cilium, so the egress policies hold as in production. `KEEP=1` keeps the
   release for a look. The `kube` workflow runs it nightly and on pull requests that change what a cluster runs.
