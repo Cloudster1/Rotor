@@ -19,6 +19,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/httpapi"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
+	"github.com/cloudster1/rotor/backend/internal/vault"
 	"github.com/cloudster1/rotor/backend/internal/version"
 )
 
@@ -76,6 +77,13 @@ func run() error {
 		CheckOrigin:    cfg.IsProduction(),
 		RequestTimeout: cfg.RequestTimeout,
 	}
+	secrets, err := openSecrets(ctx, cfg, log)
+	if err != nil {
+		return err
+	}
+	if secrets != nil {
+		server.Vault = secrets
+	}
 	origins := cfg.CORSOrigins
 	if len(origins) == 0 && !cfg.IsProduction() {
 		origins = devOrigins
@@ -121,6 +129,23 @@ func run() error {
 	}
 	log.Info("api stopped cleanly")
 	return nil
+}
+
+// openSecrets builds the OpenBao client and keeps it signed in until ctx ends; nil without OpenBao configured.
+func openSecrets(ctx context.Context, cfg config.Config, log *slog.Logger) (*vault.Client, error) {
+	if !cfg.SecretsConfigured() {
+		log.Warn("ROTOR_OPENBAO_ADDR is not set, so nobody can connect a tool; set it to OpenBao's address")
+		return nil, nil
+	}
+	client, err := vault.New(vault.Config{
+		OpenBao: cfg.OpenBao, Issuer: cfg.OIDC.Issuer, Log: log,
+		HTTP: oidc.HTTPClient(oidc.ParseRewrites(cfg.OIDC.Backchannel)),
+	})
+	if err != nil {
+		return nil, err
+	}
+	go client.Run(ctx)
+	return client, nil
 }
 
 // healthcheck probes the local readiness endpoint and fails unless it is ready.

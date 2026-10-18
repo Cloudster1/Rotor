@@ -15,7 +15,8 @@ func clean(t *testing.T) {
 		"ROTOR_ENV", "ROTOR_HTTP_ADDR", "ROTOR_LOG_LEVEL", "ROTOR_APP_URL", "ROTOR_CORS_ORIGINS",
 		"ROTOR_REQUEST_TIMEOUT", "ROTOR_DB_ADMIN_URL", "ROTOR_DB_MAX_CONNS", "ROTOR_DB_MIN_CONNS",
 		"ROTOR_DB_CONN_MAX_LIFETIME", "ROTOR_OIDC_ISSUER", "ROTOR_OIDC_CLIENT_ID", "ROTOR_OIDC_CLIENT_SECRET",
-		"ROTOR_OIDC_REDIRECT_URL", "ROTOR_SESSION_TTL", "ROTOR_SECURE_COOKIES",
+		"ROTOR_OIDC_REDIRECT_URL", "ROTOR_SESSION_TTL", "ROTOR_SECURE_COOKIES", "ROTOR_OPENBAO_ADDR",
+		"ROTOR_OPENBAO_ROLE", "ROTOR_OPENBAO_MOUNT", "ROTOR_CONTROL_PLANE_CLIENT_ID", "ROTOR_CONTROL_PLANE_CLIENT_SECRET",
 	} {
 		t.Setenv(key, "")
 	}
@@ -68,6 +69,9 @@ func TestSettingsAreRead(t *testing.T) {
 	t.Setenv("ROTOR_DB_ADMIN_URL", "postgres://admin@db/rotor")
 	t.Setenv("ROTOR_DB_MAX_CONNS", "7")
 	t.Setenv("ROTOR_REQUEST_TIMEOUT", "5s")
+	t.Setenv("ROTOR_OPENBAO_ADDR", "https://openbao.example.com:8200")
+	t.Setenv("ROTOR_CONTROL_PLANE_CLIENT_ID", "rotor-control-plane")
+	t.Setenv("ROTOR_CONTROL_PLANE_CLIENT_SECRET", "s")
 	c, err := Load()
 	if err != nil {
 		t.Fatal(err)
@@ -88,9 +92,9 @@ func TestEveryProblemIsReportedAtOnceAsSentences(t *testing.T) {
 	if !errors.As(err, &cfgErr) {
 		t.Fatalf("want *Error, got %v", err)
 	}
-	// An environment that is not development also asks for secure cookies and an identity provider.
-	if len(cfgErr.Problems) != 6 {
-		t.Fatalf("want 6 problems, got %d: %q", len(cfgErr.Problems), cfgErr.Problems)
+	// An environment that is not development also asks for secure cookies, an identity provider and OpenBao.
+	if len(cfgErr.Problems) != 7 {
+		t.Fatalf("want 7 problems, got %d: %q", len(cfgErr.Problems), cfgErr.Problems)
 	}
 	for _, p := range cfgErr.Problems {
 		if !strings.HasSuffix(p, ".") || !strings.Contains(p, "ROTOR_") {
@@ -153,5 +157,37 @@ func TestOutsideDevelopmentSignInAndSecureCookiesAreRequired(t *testing.T) {
 	t.Setenv("ROTOR_SECURE_COOKIES", "maybe")
 	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "true or false") {
 		t.Fatalf("a cookie flag that is no boolean = %v", err)
+	}
+}
+
+func TestOpenBaoSettings(t *testing.T) {
+	clean(t)
+	c, err := Load()
+	if err != nil || c.SecretsConfigured() || c.OpenBao.Role != DefaultOpenBaoRole || c.OpenBao.Mount != DefaultOpenBaoMount {
+		t.Fatalf("development without OpenBao = %+v, %v", c.OpenBao, err)
+	}
+
+	t.Setenv("ROTOR_OPENBAO_ADDR", "http://openbao:8200")
+	_, err = Load()
+	for _, want := range []string{"ROTOR_CONTROL_PLANE_CLIENT_ID", "ROTOR_OIDC_ISSUER"} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("OpenBao without its sign-in = %v, want it to name %s", err, want)
+		}
+	}
+
+	t.Setenv("ROTOR_OIDC_ISSUER", "http://id.test/realms/dynamo")
+	t.Setenv("ROTOR_OIDC_CLIENT_ID", "rotor")
+	t.Setenv("ROTOR_OIDC_CLIENT_SECRET", "s")
+	t.Setenv("ROTOR_CONTROL_PLANE_CLIENT_ID", "rotor-control-plane")
+	t.Setenv("ROTOR_CONTROL_PLANE_CLIENT_SECRET", " secret ")
+	c, err = Load()
+	if err != nil || !c.SecretsConfigured() || c.OpenBao.ClientSecret != " secret " {
+		t.Fatalf("a full OpenBao = %+v, %v", c.OpenBao, err)
+	}
+
+	clean(t)
+	t.Setenv("ROTOR_ENV", EnvStaging)
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "ROTOR_OPENBAO_ADDR") {
+		t.Fatalf("staging without OpenBao = %v", err)
 	}
 }

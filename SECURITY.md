@@ -25,7 +25,8 @@ vulnerability, and an installation never uses them:
 
 - the Keycloak realm in `deploy/keycloak/realm.json`, its people's passwords
   `<name> password` and its client secrets `<client>-dev-secret`
-- the OpenBao dev server's root token `rotor-dev-root`, and the dev server
-  itself, which keeps everything in memory
+- the development OpenBao's root token `rotor-dev-root`, and its single
+  unseal key and first root token, which it keeps in `rotor-init.json` on its
+  own volume so it can unseal itself on every start
 - the database and Valkey passwords defaulted in `deploy/docker-compose.yml`
   and `mk/stack.mk`

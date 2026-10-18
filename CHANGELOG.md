@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Rotor keeps its secrets in OpenBao (#10). The api signs in to OpenBao as
+  the realm's service account `rotor-control-plane`, renews its token and
+  signs in again when it ends; it may touch people's connections and the
+  tools' clients and nothing else, and every write names the version it
+  read. `/readyz` reports unavailable while OpenBao is sealed or
+  unreachable. The development OpenBao now keeps its data across restarts.
 - The plan for tool connections is agreed (#7): `docs/api-contract-m1.md`
   settles how tools are added, how people connect their accounts, where the
   secrets live and how a run gets its token. The new endpoints are in the

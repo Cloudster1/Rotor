@@ -18,6 +18,9 @@ type fakeDB struct{ err error }
 
 func (f fakeDB) Ping(context.Context) error { return f.err }
 
+// Ready makes fakeDB stand in for OpenBao too, which readiness asks the same question.
+func (f fakeDB) Ready(context.Context) error { return f.err }
+
 func newServer(t *testing.T) *Server {
 	t.Helper()
 	return &Server{
@@ -85,6 +88,12 @@ func TestProbes(t *testing.T) {
 	}
 	if strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "html") {
 		t.Error("a probe answered HTML")
+	}
+
+	s.DB, s.Vault = fakeDB{}, fakeDB{err: errors.New("OpenBao is sealed")}
+	resp, body = serve(t, s.Routes(nil), httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	if resp.StatusCode != http.StatusServiceUnavailable || body["status"] != "unavailable" {
+		t.Fatalf("/readyz with OpenBao sealed = %d %v", resp.StatusCode, body)
 	}
 }
 
