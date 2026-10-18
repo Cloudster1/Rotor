@@ -166,6 +166,16 @@ func (s *Service) mintOnce(ctx context.Context, req MintRequest, tool tools.Tool
 // readSuffix marks the reading half of a scope: consenting to mcp consents to mcp:read, as at Exciter.
 const readSuffix = ":read"
 
+// Covers says whether the consent includes every scope asked for, as minting will check it.
+func Covers(consented []string, asked []string) bool {
+	for _, scope := range asked {
+		if !covers(consented, scope) {
+			return false
+		}
+	}
+	return true
+}
+
 // covers says whether the consent includes scope, itself or as the reading half of a broader scope.
 func covers(consented []string, scope string) bool {
 	return slices.Contains(consented, scope) || (strings.HasSuffix(scope, readSuffix) && slices.Contains(consented, strings.TrimSuffix(scope, readSuffix)))

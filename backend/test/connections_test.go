@@ -55,8 +55,18 @@ func (b *browser) reachStub(t *testing.T) {
 // browser back: Rotor's callback, not yet followed.
 func (b *browser) consent(t *testing.T, toolID, username, decision string) string {
 	t.Helper()
+	return b.consentFrom(t, toolID, username, decision, "")
+}
+
+// consentFrom is consent started from a page of Rotor's the browser returns to, next.
+func (b *browser) consentFrom(t *testing.T, toolID, username, decision, next string) string {
+	t.Helper()
 	b.reachStub(t)
-	status, answer := b.api(http.MethodPost, "/tools/"+toolID+"/connection", nil)
+	path := "/tools/" + toolID + "/connection"
+	if next != "" {
+		path += "?next=" + url.QueryEscape(next)
+	}
+	status, answer := b.api(http.MethodPost, path, nil)
 	authorize, _ := answer["authorizeURL"].(string)
 	if status != http.StatusOK || authorize == "" {
 		t.Fatalf("starting the connection = %d %v", status, answer)

@@ -24,13 +24,15 @@ const (
 	RunnerCertRenewBefore = 24 * time.Hour
 )
 
-// Runner is where the control plane serves the runner protocol.
+// Runner is where the control plane serves the runner protocol, and where sandboxes dial it.
 type Runner struct {
 	Addr string
+	// Dial is the address a sandbox dials, on the network sandboxes join; the worker hands it to them.
+	Dial string
 }
 
 func loadRunner(l *loader) Runner {
-	return Runner{Addr: l.str("ROTOR_RUNNER_ADDR", DefaultRunnerAddr)}
+	return Runner{Addr: l.str("ROTOR_RUNNER_ADDR", DefaultRunnerAddr), Dial: l.str("ROTOR_RUNNER_DIAL", RunnerHost+DefaultRunnerAddr)}
 }
 
 // MaxCheckpointBytes bounds one checkpoint, its metadata included, before encryption (#19).

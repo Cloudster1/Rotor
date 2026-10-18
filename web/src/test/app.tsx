@@ -60,6 +60,7 @@ export async function renderAt(path: string, { me = ME as Me | null, answers = {
     "/api/v1/connections": { connections: [] },
     "/api/v1/providers": { providers: [] },
     "/api/v1/workflows": { workflows: [] },
+    "/api/v1/runs": { runs: [] },
     "/api/v1/schemas/workflow.v1.json": { $id: "https://rotor.dev/schemas/workflow.v1.json", type: "object" },
     "POST /api/v1/workflows/validate": { valid: true, problems: [] },
     ...answers,

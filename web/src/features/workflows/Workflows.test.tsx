@@ -38,6 +38,8 @@ const RESPONSE: WorkflowResponse = {
     createdAt: "2026-10-18T10:00:00Z",
     createdBy: { id: ME.user.id, name: ME.user.name },
     specYAML: "apiVersion: rotor.dev/v1\nkind: Workflow\n",
+    inputs: null,
+    bindings: [],
   },
 };
 

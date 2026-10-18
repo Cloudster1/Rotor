@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -18,8 +19,8 @@ const connectionsPath = "/connections"
 // Connections is people's connections to the tools; *connections.Service is the real one.
 type Connections interface {
 	List(ctx context.Context) ([]connections.Connection, error)
-	Start(ctx context.Context, toolID uuid.UUID) (string, error)
-	Finish(ctx context.Context, cb connections.Callback) (uuid.UUID, error)
+	Start(ctx context.Context, toolID uuid.UUID, next string) (string, error)
+	Finish(ctx context.Context, cb connections.Callback) (uuid.UUID, string, error)
 	Disconnect(ctx context.Context, toolID uuid.UUID) error
 }
 
@@ -70,7 +71,11 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 		respondError(w, r, errToolsUnavailable)
 		return
 	}
-	authorize, err := s.Connections.Start(r.Context(), id)
+	next := r.URL.Query().Get("next")
+	if next != "" {
+		next = safeNext(next)
+	}
+	authorize, err := s.Connections.Start(r.Context(), id, next)
 	if err != nil {
 		respondError(w, r, connectionError(err))
 		return
@@ -78,14 +83,15 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, r, http.StatusOK, connectResponse{AuthorizeURL: authorize})
 }
 
-// handleConnectionCallback always lands the browser on the Connections page, saying what came of it.
+// handleConnectionCallback lands the browser on the page the connection was started from, or the Connections page,
+// saying what came of it; a failure always lands on the Connections page, which explains it.
 func (s *Server) handleConnectionCallback(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	if s.Connections == nil {
 		redirect(w, connectionsPath+"?error="+connections.CodeUnavailable)
 		return
 	}
-	toolID, err := s.Connections.Finish(r.Context(), connections.Callback{State: q.Get("state"), Code: q.Get("code"),
+	toolID, next, err := s.Connections.Finish(r.Context(), connections.Callback{State: q.Get("state"), Code: q.Get("code"),
 		Issuer: q.Get("iss"), Error: q.Get("error"), ErrorDescription: q.Get("error_description")})
 	if err != nil {
 		code := connections.CodeUnavailable
@@ -101,7 +107,15 @@ func (s *Server) handleConnectionCallback(w http.ResponseWriter, r *http.Request
 		redirect(w, target)
 		return
 	}
-	redirect(w, connectionsPath+"?connected="+toolID.String())
+	target := connectionsPath
+	if next != "" && next != "/" {
+		target = next
+	}
+	separator := "?"
+	if strings.Contains(target, "?") {
+		separator = "&"
+	}
+	redirect(w, target+separator+"connected="+toolID.String())
 }
 
 func (s *Server) handleDisconnect(w http.ResponseWriter, r *http.Request) {

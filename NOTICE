@@ -77,3 +77,8 @@ Adapted from Exciter at 6706bd8, its requirement history and web tests:
 - backend/migrations/00200_workflows.sql: the gap-free, immutable numbering of
   requirement_revision, for workflow versions
 - web/src/test/layout.ts: the jsdom measurements CodeMirror and axe ask for
+
+Adapted from Exciter at 009762e, its outbox worker:
+- backend/internal/runs/worker.go: the lease of backend/internal/events/worker.go,
+  claimed with FOR UPDATE SKIP LOCKED in a transaction of its own and let go
+  after the work, now over runs instead of outbox events

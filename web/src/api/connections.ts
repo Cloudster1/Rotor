@@ -16,8 +16,8 @@ export const connectionsQuery = queryOptions({
 });
 
 /** Starts connecting to a tool; the answer is the tool's consent page, where the browser goes next. */
-export async function startConnection(toolID: string): Promise<string> {
-  const { data } = await api.POST("/tools/{toolID}/connection", { params: { path: { toolID } } });
+export async function startConnection(toolID: string, next?: string): Promise<string> {
+  const { data } = await api.POST("/tools/{toolID}/connection", { params: { path: { toolID }, query: next ? { next } : undefined } });
   return data?.authorizeURL ?? "";
 }
 

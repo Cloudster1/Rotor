@@ -41,3 +41,22 @@ func (c *Client) IssueCertificate(ctx context.Context, host string, ttl time.Dur
 	return Certificate{Certificate: text("certificate"), PrivateKey: text("private_key"), IssuingCA: text("issuing_ca"),
 		NotAfter: time.Unix(seconds, 0)}, nil
 }
+
+// pkiCA is where OpenBao's PKI publishes the CA sandboxes trust for the runner protocol.
+const pkiCA = "pki/cert/ca"
+
+// RunnerCA is the PEM of the CA that signs the runner protocol's server certificate, for the sandboxes to trust.
+func (c *Client) RunnerCA(ctx context.Context) (string, error) {
+	if err := c.ensure(ctx); err != nil {
+		return "", err
+	}
+	secret, err := c.api.Logical().ReadWithContext(ctx, pkiCA)
+	if err != nil {
+		return "", fmt.Errorf("vault: read the runner CA: %w", err)
+	}
+	if secret == nil || secret.Data == nil {
+		return "", fmt.Errorf("vault: OpenBao has no runner CA at %s", pkiCA)
+	}
+	ca, _ := secret.Data["certificate"].(string)
+	return ca, nil
+}

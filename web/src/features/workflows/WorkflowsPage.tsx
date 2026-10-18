@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { archiveWorkflow, type WorkflowSummary, workflowsQuery, workflowsQueryKey } from "@/api/workflows";
+import { RunDialog } from "@/features/runs/RunDialog";
 import { EmptyState, PageHeader } from "@/features/shell/EmptyState";
 import { Icon } from "@/features/shell/icons";
 import { s } from "@/strings";
@@ -52,6 +53,7 @@ export function WorkflowsPage() {
 function WorkflowRow({ workflow }: { workflow: WorkflowSummary }) {
   const client = useQueryClient();
   const [confirming, setConfirming] = useState(false);
+  const [running, setRunning] = useState(false);
   const archive = useMutation({
     mutationFn: () => archiveWorkflow(workflow.id),
     onSuccess: () => client.invalidateQueries({ queryKey: workflowsQueryKey }),
@@ -70,9 +72,12 @@ function WorkflowRow({ workflow }: { workflow: WorkflowSummary }) {
       <p className="mt-1 text-xs text-ink-muted">
         {s.workflows.owner}: {workflow.owner.name} . {s.workflows.version(workflow.currentVersion)}
       </p>
-      {workflow.canEdit && !workflow.archived && (
+      {!workflow.archived && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {!confirming ? (
+          <button type="button" className={secondary} onClick={() => setRunning(true)} aria-label={s.runs.runNamed(workflow.name)} data-action="run-workflow">
+            {s.runs.run}
+          </button>
+          {!workflow.canEdit ? null : !confirming ? (
             <button type="button" className={secondary} onClick={() => setConfirming(true)} data-action="archive-workflow">
               {s.workflows.archive}
             </button>
@@ -100,6 +105,7 @@ function WorkflowRow({ workflow }: { workflow: WorkflowSummary }) {
           {archive.error.message}
         </p>
       )}
+      {running && <RunDialog workflowID={workflow.id} name={workflow.name} onClose={() => setRunning(false)} />}
     </li>
   );
 }

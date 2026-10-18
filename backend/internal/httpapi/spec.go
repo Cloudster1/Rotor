@@ -88,6 +88,9 @@ func (op operation) describe(b *openapi.Builder, errorSchema *openapi.Schema) *o
 		}
 		o.Parameters = append(o.Parameters, openapi.Parameter{Name: q.name, In: "query", Description: q.description, Schema: schema})
 	}
+	for _, h := range op.headers {
+		o.Parameters = append(o.Parameters, openapi.Parameter{Name: h.name, In: "header", Description: h.description, Schema: &openapi.Schema{Type: "string"}})
+	}
 	if op.request != nil {
 		o.RequestBody = &openapi.RequestBody{Required: true, Content: map[string]openapi.MediaType{
 			"application/json": {Schema: b.SchemaOf(op.request)},

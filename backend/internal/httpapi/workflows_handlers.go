@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -86,6 +87,27 @@ func toVersionSummary(v workflows.Version) versionSummary {
 		CreatedBy: personRef{ID: v.CreatedByID.String(), Name: v.CreatedByName}}
 }
 
+// toVersionResponse is a version with what a run of it asks for; a version that no longer parses asks for nothing.
+func toVersionResponse(v workflows.Version) versionResponse {
+	out := versionResponse{versionSummary: toVersionSummary(v), SpecYAML: v.SpecYAML, Inputs: json.RawMessage("null"), Bindings: []bindingRef{}}
+	parsed, _ := spec.Parse([]byte(v.SpecYAML))
+	if parsed == nil {
+		return out
+	}
+	if len(parsed.Inputs) > 0 {
+		out.Inputs = parsed.Inputs
+	}
+	for name, b := range parsed.Tools {
+		access := b.Access
+		if access == "" {
+			access = spec.AccessRead
+		}
+		out.Bindings = append(out.Bindings, bindingRef{Name: name, Tool: b.Tool, Scopes: append([]string{}, b.Scopes...), Access: access})
+	}
+	sort.Slice(out.Bindings, func(i, j int) bool { return out.Bindings[i].Name < out.Bindings[j].Name })
+	return out
+}
+
 func (s *Server) workflowsReady(w http.ResponseWriter, r *http.Request) bool {
 	if s.Workflows == nil {
 		respondError(w, r, errWorkflowsUnavailable)
@@ -118,7 +140,7 @@ func (s *Server) respondWorkflow(w http.ResponseWriter, r *http.Request, id uuid
 		return
 	}
 	respondJSON(w, r, status, workflowResponse{Workflow: toWorkflowSummary(r.Context(), wf),
-		Version: versionResponse{versionSummary: toVersionSummary(v), SpecYAML: v.SpecYAML}})
+		Version: toVersionResponse(v)})
 }
 
 func (s *Server) handleCreateWorkflow(w http.ResponseWriter, r *http.Request) {
@@ -226,7 +248,7 @@ func (s *Server) handleGetWorkflowVersion(w http.ResponseWriter, r *http.Request
 		respondError(w, r, workflowError(err))
 		return
 	}
-	respondJSON(w, r, http.StatusOK, versionResponse{versionSummary: toVersionSummary(v), SpecYAML: v.SpecYAML})
+	respondJSON(w, r, http.StatusOK, toVersionResponse(v))
 }
 
 func (s *Server) handleDiffWorkflowVersions(w http.ResponseWriter, r *http.Request) {

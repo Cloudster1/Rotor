@@ -117,7 +117,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Where a tool returns the browser after consent; keeps the connection and goes on to the Connections page.
+         * Where a tool returns the browser after consent; keeps the connection and goes on to the page the connection was started from.
          * @description Public so it can always redirect: an answer without the session that started it lands on the page as mismatch.
          */
         get: operations["connectionCallback"];
@@ -517,7 +517,7 @@ export interface paths {
         put?: never;
         /**
          * Start a run of a workflow as yourself.
-         * @description An Idempotency-Key header makes a retried request answer the run it started. A binding to a tool you are not connected to is refused with 409 naming the tools to connect.
+         * @description An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have).
          */
         post: operations["startRun"];
         delete?: never;
@@ -593,6 +593,12 @@ export interface components {
             baseURL: string;
             clientID?: string;
             clientSecret?: string;
+        };
+        BindingRef: {
+            access: string;
+            name: string;
+            scopes: string[];
+            tool: string;
         };
         BuildInfo: {
             builtAt?: string;
@@ -781,10 +787,17 @@ export interface components {
         RunResponse: {
             /** Format: date-time */
             createdAt: string;
+            ended: boolean;
             /** Format: date-time */
             finishedAt: string | null;
             id: string;
+            /** @description A JSON value. */
+            inputs: unknown;
+            /** @description A JSON value. */
+            output: unknown;
             reason: string;
+            /** Format: date-time */
+            startedAt: string | null;
             startedBy: components["schemas"]["PersonRef"];
             /** @enum {string} */
             status: "queued" | "starting" | "running" | "waiting" | "succeeded" | "failed" | "cancelled" | "expired";
@@ -868,11 +881,14 @@ export interface components {
             valid: boolean;
         };
         VersionResponse: {
+            bindings: components["schemas"]["BindingRef"][];
             comment: string;
             /** Format: date-time */
             createdAt: string;
             createdBy: components["schemas"]["PersonRef"];
             hash: string;
+            /** @description A JSON value. */
+            inputs: unknown;
             number: number;
             specYAML: string;
         };
@@ -1569,15 +1585,6 @@ export interface operations {
                     };
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
                 headers: {
@@ -1611,15 +1618,6 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1669,15 +1667,6 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2036,7 +2025,10 @@ export interface operations {
     };
     connect: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description A path of Rotor's the browser returns to once connected, such as the workflow a run was started from; the Connections page otherwise. */
+                next?: string;
+            };
             header?: never;
             path: {
                 toolID: string;
@@ -2427,7 +2419,10 @@ export interface operations {
     startRun: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Any text of at most 200 characters, new for each run; a retry sends the same. */
+                "Idempotency-Key"?: string;
+            };
             path: {
                 workflowID: string;
             };
@@ -2477,15 +2472,6 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -39,6 +39,8 @@ type Server struct {
 	Catalogs  Catalogs
 	// Workflows is nil only in tests that exercise none.
 	Workflows Workflows
+	// Runs is nil where OpenBao is not configured; its routes then answer 503.
+	Runs Runs
 	// Sessions and SignIn are nil only in tests that exercise neither.
 	Sessions Sessions
 	SignIn   SignIn
@@ -109,6 +111,10 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Get("/workflows/{workflowID}/diff", s.handleDiffWorkflowVersions)
 			r.Put("/workflows/{workflowID}/sharing", s.handleShareWorkflow)
 			r.Get("/schemas/workflow.v1.json", s.handleWorkflowSchema)
+			r.Post("/workflows/{workflowID}/runs", s.handleStartRun)
+			r.Get("/runs", s.handleListRuns)
+			r.Get("/runs/{runID}", s.handleGetRun)
+			r.Post("/runs/{runID}/cancel", s.handleCancelRun)
 			mountPending(r, false, false)
 			r.Group(func(r chi.Router) {
 				r.Use(requireAdmin)

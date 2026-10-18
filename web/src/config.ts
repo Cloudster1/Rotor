@@ -42,3 +42,9 @@ export const VALIDATE_DELAY_MS = 400;
 
 /** The longest note a saved workflow version carries, as the server allows. */
 export const MAX_VERSION_COMMENT = 500;
+
+/** How often a run's page asks for the run again until it ends; #24 streams its events instead. */
+export const RUN_POLL_MS = 2_000;
+
+/** The longest text an inputs field takes before the form asks for less; the server bounds the whole run's inputs. */
+export const MAX_INPUT_TEXT = 10_000;
