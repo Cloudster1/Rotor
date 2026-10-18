@@ -96,6 +96,17 @@ sent as the HttpOnly cookie `rotor_session`. Keycloak's back-channel logout
 reaches `POST /api/v1/auth/oidc/backchannel-logout` and ends the matching
 sessions. `rotor-administrators` maps to Rotor's administrator role.
 
+## Tool connections (M1, `docs/api-contract-m1.md`)
+
+An administrator adds a tool by its address; Rotor discovers its MCP
+endpoint and authorization server (RFC 9728, RFC 8414) and registers as its
+OAuth client (RFC 7591). A person connects on the tool's consent page; the
+refresh token goes to OpenBao, at `rotor/connections/{user}/{tool}`, and
+never to Postgres. When a run starts, the control plane mints a fresh access
+token for it, one refresh per connection at a time, so the tool's refresh
+token rotation never ends a grant. The api reaches OpenBao with JWT auth as
+the realm client `rotor-control-plane`.
+
 ## Runner (`runner/`, #4)
 
 Python 3.13 with uv, LangGraph, langchain-core and langchain-mcp-adapters,

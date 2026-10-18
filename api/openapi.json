@@ -16,7 +16,13 @@
       "name": "auth"
     },
     {
+      "name": "connections"
+    },
+    {
       "name": "health"
+    },
+    {
+      "name": "tools"
     }
   ],
   "paths": {
@@ -201,6 +207,130 @@
         }
       }
     },
+    "/connections": {
+      "get": {
+        "operationId": "listConnections",
+        "summary": "Your connections, one per tool you connected.",
+        "tags": [
+          "connections"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "connections": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ConnectionResponse"
+                      }
+                    }
+                  },
+                  "required": [
+                    "connections"
+                  ]
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/connections/callback": {
+      "get": {
+        "operationId": "connectionCallback",
+        "summary": "Where a tool returns the browser after consent; keeps the connection and goes on to the Connections page.",
+        "tags": [
+          "connections"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iss",
+            "in": "query",
+            "description": "The authorization server that answers (RFC 9207).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error_description",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Found"
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/healthz": {
       "get": {
         "operationId": "liveness",
@@ -334,6 +464,433 @@
           }
         }
       }
+    },
+    "/tools": {
+      "get": {
+        "operationId": "listTools",
+        "summary": "The tools Rotor can act in, with what each offers.",
+        "tags": [
+          "tools"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tools": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ToolResponse"
+                      }
+                    }
+                  },
+                  "required": [
+                    "tools"
+                  ]
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "addTool",
+        "summary": "Add a tool by its address; Rotor registers itself there as an OAuth client.",
+        "description": "Reads the tool's /api/v1/meta, which must offer mcp@1, then its protected resource and authorization server metadata (RFC 9728, RFC 8414), and registers by RFC 7591 unless a client is given. Adding an address Rotor already knows registers again, for a tool that forgot its client.",
+        "tags": [
+          "tools"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddToolRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tool": {
+                      "$ref": "#/components/schemas/ToolResponse"
+                    }
+                  },
+                  "required": [
+                    "tool"
+                  ]
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tool": {
+                      "$ref": "#/components/schemas/ToolResponse"
+                    }
+                  },
+                  "required": [
+                    "tool"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/{toolID}": {
+      "delete": {
+        "operationId": "removeTool",
+        "summary": "Remove a tool, ending every connection to it.",
+        "tags": [
+          "tools"
+        ],
+        "parameters": [
+          {
+            "name": "toolID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getTool",
+        "summary": "One tool.",
+        "tags": [
+          "tools"
+        ],
+        "parameters": [
+          {
+            "name": "toolID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tool": {
+                      "$ref": "#/components/schemas/ToolResponse"
+                    }
+                  },
+                  "required": [
+                    "tool"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/{toolID}/connection": {
+      "delete": {
+        "operationId": "disconnect",
+        "summary": "End your connection to a tool, revoking it there.",
+        "tags": [
+          "connections"
+        ],
+        "parameters": [
+          {
+            "name": "toolID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "connect",
+        "summary": "Start connecting your account in a tool; the browser goes to the address answered.",
+        "description": "Authorization code with PKCE S256, a state bound to this session and the tool's MCP endpoint as resource (RFC 8707).",
+        "tags": [
+          "connections"
+        ],
+        "parameters": [
+          {
+            "name": "toolID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -360,6 +917,23 @@
         "required": [
           "code",
           "message"
+        ]
+      },
+      "AddToolRequest": {
+        "type": "object",
+        "properties": {
+          "baseURL": {
+            "type": "string"
+          },
+          "clientID": {
+            "type": "string"
+          },
+          "clientSecret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "baseURL"
         ]
       },
       "BuildInfo": {
@@ -404,6 +978,75 @@
         },
         "required": [
           "schemas"
+        ]
+      },
+      "ConnectResponse": {
+        "type": "object",
+        "properties": {
+          "authorizeURL": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorizeURL"
+        ]
+      },
+      "ConnectionResponse": {
+        "type": "object",
+        "properties": {
+          "connectedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastUsedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "connected",
+              "reconnect"
+            ]
+          },
+          "tool": {
+            "$ref": "#/components/schemas/ConnectionTool"
+          }
+        },
+        "required": [
+          "tool",
+          "scopes",
+          "status",
+          "connectedAt",
+          "lastUsedAt"
+        ]
+      },
+      "ConnectionTool": {
+        "type": "object",
+        "properties": {
+          "baseURL": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "baseURL"
         ]
       },
       "Document": {
@@ -845,6 +1488,68 @@
         },
         "required": [
           "name"
+        ]
+      },
+      "ToolResponse": {
+        "type": "object",
+        "properties": {
+          "addedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "baseURL": {
+            "type": "string"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "issuer": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "registration": {
+            "type": "string",
+            "enum": [
+              "dynamic",
+              "manual"
+            ]
+          },
+          "resource": {
+            "type": "string"
+          },
+          "scopesSupported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "needs_registration"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "baseURL",
+          "resource",
+          "issuer",
+          "capabilities",
+          "scopesSupported",
+          "registration",
+          "status",
+          "addedAt"
         ]
       }
     }
