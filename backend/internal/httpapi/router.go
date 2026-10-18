@@ -70,12 +70,16 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 		r.Get("/auth/oidc/start", s.handleOIDCStart)
 		r.Get("/auth/oidc/callback", s.handleOIDCCallback)
 		r.Post("/auth/oidc/backchannel-logout", s.handleBackchannelLogout)
-		mountPending(r, true)
+		mountPending(r, true, false)
 		r.Group(func(r chi.Router) {
 			r.Use(requireAuth)
 			r.Get("/auth/me", s.handleMe)
 			r.Post("/auth/logout", s.handleLogout)
-			mountPending(r, false)
+			mountPending(r, false, false)
+			r.Group(func(r chi.Router) {
+				r.Use(requireAdmin)
+				mountPending(r, false, true)
+			})
 		})
 	})
 
@@ -93,10 +97,10 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 }
 
 // mountPending routes each pending operation to a 501 so clients can be written against it; the ones
-// that are not public sit behind the sign-in.
-func mountPending(r chi.Router, public bool) {
+// that are not public sit behind the sign-in, and the admin ones behind the role too.
+func mountPending(r chi.Router, public, admin bool) {
 	for _, op := range operations {
-		if op.pending && op.public == public && !op.root {
+		if op.pending && op.public == public && op.admin == admin && !op.root {
 			r.Method(op.method, op.path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				respondError(w, r, errNotImplemented)
 			}))
