@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -84,20 +85,65 @@ func (s *store) lastReceived(ctx context.Context, runID uuid.UUID) (uint64, erro
 	return last, err
 }
 
-// enqueue numbers a control message and keeps it until the runner acknowledges it.
-func (s *store) enqueue(ctx context.Context, runID uuid.UUID, msg *runnerpb.ConnectResponse) (*runnerpb.ConnectResponse, error) {
+// enqueueTx numbers a control message and keeps it until the runner acknowledges it.
+func enqueueTx(ctx context.Context, tx db.DBTX, runID uuid.UUID, msg *runnerpb.ConnectResponse) (*runnerpb.ConnectResponse, error) {
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(max(seq), 0) + 1 FROM run_control WHERE run_id = $1`, runID).Scan(&msg.Seq); err != nil {
+		return nil, err
+	}
+	encoded, err := proto.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO run_control (run_id, seq, message) VALUES ($1, $2, $3)`, runID, msg.Seq, encoded)
+	return msg, err
+}
+
+// supersede starts a fresh sandbox's conversation: what an earlier sandbox did not acknowledge is dropped, since the
+// new StartRun carries all of it, and the run starts running with a deadline of its own timeout.
+func (s *store) supersede(ctx context.Context, runID uuid.UUID, start *runnerpb.ConnectResponse, deadline time.Time) (*runnerpb.ConnectResponse, error) {
 	err := s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		if err := tx.QueryRow(ctx, `SELECT COALESCE(max(seq), 0) + 1 FROM run_control WHERE run_id = $1`, runID).Scan(&msg.Seq); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE run_control SET acked_at = now() WHERE run_id = $1 AND acked_at IS NULL`, runID); err != nil {
 			return err
 		}
-		encoded, err := proto.Marshal(msg)
-		if err != nil {
+		if _, err := enqueueTx(ctx, tx, runID, start); err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `INSERT INTO run_control (run_id, seq, message) VALUES ($1, $2, $3)`, runID, msg.Seq, encoded)
+		_, err := tx.Exec(ctx, `UPDATE run SET status = 'running', reason = '', runner_lost_at = NULL, deadline_at = $2 WHERE id = $1`, runID, deadline)
 		return err
 	})
-	return msg, err
+	return start, err
+}
+
+// unsent is what the runner has not acknowledged, numbered after the last message this stream sent.
+func (s *store) unsent(ctx context.Context, runID uuid.UUID, after uint64) ([]*runnerpb.ConnectResponse, error) {
+	pending, _, err := s.unacknowledged(ctx, runID)
+	if err != nil {
+		return nil, err
+	}
+	var out []*runnerpb.ConnectResponse
+	for _, msg := range pending {
+		if msg.Seq > after {
+			out = append(out, msg)
+		}
+	}
+	return out, nil
+}
+
+// seen records that the run's runner is back, so the worker does not replace its sandbox.
+func (s *store) seen(ctx context.Context, runID uuid.UUID) error {
+	return s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
+		_, err := tx.Exec(ctx, `UPDATE run SET runner_lost_at = NULL WHERE id = $1 AND runner_lost_at IS NOT NULL`, runID)
+		return err
+	})
+}
+
+// dropped records that a running run's stream ended without the run ending; the worker replaces its sandbox if the
+// runner does not come back within config.LostGrace.
+func (s *store) dropped(ctx context.Context, runID uuid.UUID) error {
+	return s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
+		_, err := tx.Exec(ctx, `UPDATE run SET runner_lost_at = now() WHERE id = $1 AND status = 'running' AND runner_lost_at IS NULL`, runID)
+		return err
+	})
 }
 
 // unacknowledged is every control message the runner has not acknowledged, oldest first, and whether any was ever sent.
@@ -139,7 +185,7 @@ func (s *store) acknowledge(ctx context.Context, runID uuid.UUID, seq uint64) er
 	})
 }
 
-// setStatus moves a run along, from the states the runner protocol knows.
+// setStatus moves a run along; the run_status_move trigger refuses a move the contract does not allow.
 func setStatus(ctx context.Context, tx db.DBTX, runID uuid.UUID, status, reason string, output []byte) error {
 	_, err := tx.Exec(ctx, `UPDATE run SET status = $2, reason = $3, output = COALESCE($4::jsonb, output) WHERE id = $1`,
 		runID, status, reason, nullJSON(output))
@@ -153,10 +199,14 @@ func nullJSON(b []byte) any {
 	return string(b)
 }
 
-// lost records that a run's runner stopped answering, for #22 to act on.
+// lost records that a run's runner stopped answering; the worker replaces its sandbox after config.LostGrace.
 func (s *store) lost(ctx context.Context, runID uuid.UUID) error {
 	return s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		payload, _ := json.Marshal(map[string]any{"missedHeartbeats": config.MissedHeartbeats})
-		return appendEvent(ctx, tx, runID, eventRunnerLost, "", payload)
+		if err := appendEvent(ctx, tx, runID, eventRunnerLost, "", payload); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `UPDATE run SET runner_lost_at = COALESCE(runner_lost_at, now()) WHERE id = $1 AND status = 'running'`, runID)
+		return err
 	})
 }

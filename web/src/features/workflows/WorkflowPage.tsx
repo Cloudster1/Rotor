@@ -12,6 +12,7 @@ import {
   workflowsQueryKey,
 } from "@/api/workflows";
 import { MAX_VERSION_COMMENT, VALIDATE_DELAY_MS } from "@/config";
+import { RunDialog } from "@/features/runs/RunDialog";
 import { PageHeader } from "@/features/shell/EmptyState";
 import { s } from "@/strings";
 import { SharePanel } from "./SharePanel";
@@ -52,6 +53,7 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
   const [problems, setProblems] = useState<Problem[]>([]);
   const [checking, setChecking] = useState(false);
   const [comment, setComment] = useState("");
+  const [running, setRunning] = useState(false);
   const summary = existing?.workflow;
   const readOnly = summary ? !summary.canEdit || summary.archived : false;
 
@@ -100,6 +102,14 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={summary?.name ?? s.workflows.editor.newTitle} />
+      {summary && !summary.archived && (
+        <div>
+          <button type="button" className={primary} onClick={() => setRunning(true)} data-action="run-workflow">
+            {s.runs.runNamed(summary.name)}
+          </button>
+          {running && <RunDialog workflowID={summary.id} name={summary.name} onClose={() => setRunning(false)} />}
+        </div>
+      )}
       {summary && readOnly && (
         <p className="max-w-3xl rounded-control border border-border bg-surface-raised px-3 py-2 text-sm text-ink" data-read-only>
           {summary.archived ? s.workflows.editor.archived : s.workflows.editor.readOnly}

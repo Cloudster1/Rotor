@@ -18,6 +18,9 @@ from rotor_runner.spec import parse
 
 pytestmark = pytest.mark.anyio
 
+# How long the first sandbox runs before the test takes it as lost.
+LOST_AFTER_S = 0.5
+
 
 class FakeTools:
     """Tools that answer from a table, refusing what a binding does not allow, as McpGateway does."""
@@ -147,6 +150,36 @@ async def test_an_approval_waits_and_the_answer_resumes_or_cancels_the_run() -> 
     await events_of(yaml, {"title": "Login"}, tools, checkpointer=saver)
     outcome, _ = await events_of(yaml, {}, tools, checkpointer=saver, resuming=True, resume={"approved": False})
     assert (outcome.status, outcome.reason) == ("cancelled", "rejected")
+
+
+class HangingTools(FakeTools):
+    """Tools whose call for one node never answers, as when the sandbox dies during it."""
+
+    def __init__(self, answers: dict[str, Any], hang_at: str) -> None:
+        super().__init__(answers)
+        self.hang_at = hang_at
+
+    async def call(self, binding: str, name: str, arguments: dict[str, Any], node: str) -> Any:
+        if node == self.hang_at:
+            await asyncio.Event().wait()
+        return await super().call(binding, name, arguments, node)
+
+
+async def test_a_sandbox_that_replaces_a_lost_one_carries_on_from_the_last_checkpoint() -> None:
+    nodes = "  - {id: a, type: tool, tool: t, call: get_project}\n  - {id: b, type: tool, tool: t, call: whoami}"
+    yaml, saver = workflow(nodes, "  - {from: a, to: b}"), InMemorySaver()
+    answers = {"get_project": {"key": "RTR"}, "whoami": {"username": "bob"}}
+    lost = HangingTools(answers, hang_at="b")
+    with pytest.raises(TimeoutError):
+        await asyncio.wait_for(events_of(yaml, {"project": "RTR"}, lost, checkpointer=saver), LOST_AFTER_S)
+    assert [c[1] for c in lost.calls] == ["get_project"]
+
+    tools = FakeTools(answers)
+    outcome, seen = await events_of(yaml, {"project": "RTR"}, tools, checkpointer=saver)
+    assert outcome.status == "succeeded"
+    assert outcome.output == {"a": {"key": "RTR"}, "b": {"username": "bob"}}
+    assert [c[1] for c in tools.calls] == ["whoami"]
+    assert ("node.started", "a") not in [(k, n) for k, n, _ in seen]
 
 
 async def test_an_agent_calls_its_tools_and_answers_in_its_schema() -> None:

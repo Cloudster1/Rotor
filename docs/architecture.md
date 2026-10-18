@@ -67,7 +67,7 @@ browser --> web (nginx, React SPA) --> api (Go) -------+------> OpenBao
 
 | Path | What | Issue |
 |---|---|---|
-| `backend/` | Go control plane: `cmd/api`, `cmd/migrate`, `cmd/openapi`, later `cmd/worker` | #3 |
+| `backend/` | Go control plane: `cmd/api`, `cmd/worker`, `cmd/migrate`, `cmd/openapi`, `cmd/tool-stub` | #3 |
 | `runner/` | Python runner executed in the sandbox | #4 |
 | `web/` | React SPA | #5 |
 | `e2e/` | Playwright suite | #5 |
@@ -165,7 +165,34 @@ Each sandbox:
 - joins only the internal network `sandbox`, which reaches the api and the
   tool double and nothing else
 
-At start the api destroys its stack's sandboxes that no run keeps.
+The worker destroys its stack's sandboxes that no live run keeps, on every
+pass.
+
+## Runs and the worker (#22)
+
+A person starts a run of a workflow they may see with
+`POST /workflows/{id}/runs`: the inputs are checked against the workflow's
+inputs schema, each binding needs the person's connection with the scopes it
+asks for, and an `Idempotency-Key` makes a retry answer the run it started.
+The run is inserted as `queued`, through `rotor_app`, whose policy allows
+nothing else.
+
+`cmd/worker` carries runs from there. Any number of workers may run; each
+leases the runs it acts on with `FOR UPDATE SKIP LOCKED`, so a worker that
+dies delays a run by at most its lease. Every pass:
+1. **Reconcile:** lists the stack's sandboxes once, destroys those no live run
+   owns, and marks a live run whose sandbox exited or vanished as lost.
+2. **Expire:** replaces a sandbox that never said Hello and one whose runner
+   stopped answering (a replacement resumes from the last checkpoint, up to
+   three sandboxes per run), ends a run past its deadline, destroys the
+   sandbox of a run that waits, and expires a run that waited a week.
+3. **Start:** gives each queued run a sandbox with a fresh bootstrap token.
+4. **Teardown:** cleans up once after each run that ended.
+
+A trigger on `run` refuses any move the contract does not list. Cancelling
+ends the run at once and queues a `Cancel`; Valkey tells the api replica
+holding the run's stream to send it, and that stream also looks on every
+heartbeat in case the signal was lost.
 
 ## Development stack (`deploy/docker-compose.yml`, #1)
 

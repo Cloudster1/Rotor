@@ -54,8 +54,9 @@ func randomState() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-// Start begins connecting the signed-in person to a tool and returns where the browser goes to consent.
-func (s *Service) Start(ctx context.Context, toolID uuid.UUID) (string, error) {
+// Start begins connecting the signed-in person to a tool and returns where the browser goes to consent; next is the
+// page of Rotor's the browser returns to once connected, empty for the Connections page.
+func (s *Service) Start(ctx context.Context, toolID uuid.UUID, next string) (string, error) {
 	p := auth.PrincipalFrom(ctx)
 	if p == nil {
 		return "", ErrNoSession
@@ -80,8 +81,8 @@ func (s *Service) Start(ctx context.Context, toolID uuid.UUID) (string, error) {
 		if _, err := tx.Exec(ctx, `DELETE FROM connection_login WHERE expires_at < now()`); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `INSERT INTO connection_login (state_hash, session_id, user_id, tool_id, code_verifier, expires_at)
-			VALUES ($1, $2, $3, $4, $5, $6)`, auth.Hash(state), p.SessionID, p.UserID, toolID, verifier, time.Now().Add(config.ConnectionLoginTTL))
+		_, err := tx.Exec(ctx, `INSERT INTO connection_login (state_hash, session_id, user_id, tool_id, code_verifier, expires_at, next_path)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)`, auth.Hash(state), p.SessionID, p.UserID, toolID, verifier, time.Now().Add(config.ConnectionLoginTTL), next)
 		return err
 	})
 	if err != nil {
@@ -92,25 +93,31 @@ func (s *Service) Start(ctx context.Context, toolID uuid.UUID) (string, error) {
 }
 
 // Finish completes a connection from the tool's answer: the refresh token goes to OpenBao, the access token is
-// dropped. It returns the tool, so the page can say which one is connected.
-func (s *Service) Finish(ctx context.Context, cb Callback) (uuid.UUID, error) {
-	p := auth.PrincipalFrom(ctx)
+// dropped. It returns the tool, so the page can say which one is connected, and the page Start was given.
+func (s *Service) Finish(ctx context.Context, cb Callback) (uuid.UUID, string, error) {
 	if cb.State == "" {
-		return uuid.Nil, failed(CodeExpired, errors.New("the tool sent no state"))
+		return uuid.Nil, "", failed(CodeExpired, errors.New("the tool sent no state"))
 	}
 	// The state is used up whatever happens next, so an answer can never be replayed.
 	var sessionID, userID, toolID uuid.UUID
-	var verifier string
+	var verifier, next string
 	err := s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		return tx.QueryRow(ctx, `DELETE FROM connection_login WHERE state_hash = $1 AND expires_at > now()
-			RETURNING session_id, user_id, tool_id, code_verifier`, auth.Hash(cb.State)).Scan(&sessionID, &userID, &toolID, &verifier)
+			RETURNING session_id, user_id, tool_id, code_verifier, next_path`, auth.Hash(cb.State)).Scan(&sessionID, &userID, &toolID, &verifier, &next)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return uuid.Nil, failed(CodeExpired, errors.New("unknown, used or expired state"))
+		return uuid.Nil, "", failed(CodeExpired, errors.New("unknown, used or expired state"))
 	}
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, "", err
 	}
+	toolID, err = s.finish(ctx, cb, sessionID, userID, toolID, verifier)
+	return toolID, next, err
+}
+
+// finish exchanges the code of a state Finish used up, once the answer is shown to belong to the session.
+func (s *Service) finish(ctx context.Context, cb Callback, sessionID, userID, toolID uuid.UUID, verifier string) (uuid.UUID, error) {
+	p := auth.PrincipalFrom(ctx)
 	if p == nil || p.SessionID != sessionID {
 		return toolID, failed(CodeMismatch, errors.New("the state was started by another session"))
 	}

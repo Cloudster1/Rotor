@@ -78,10 +78,21 @@ type versionSummary struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-// versionResponse is a version with its YAML.
+// versionResponse is a version with its YAML, its inputs schema and its tool bindings, for the run dialog.
 type versionResponse struct {
 	versionSummary
 	SpecYAML string `json:"specYAML"`
+	// Inputs is the JSON Schema of what a run starts with; null when the workflow takes none.
+	Inputs   json.RawMessage `json:"inputs"`
+	Bindings []bindingRef    `json:"bindings"`
+}
+
+// bindingRef is a tool a version's runs use, under its binding's name.
+type bindingRef struct {
+	Name   string   `json:"name"`
+	Tool   string   `json:"tool"`
+	Scopes []string `json:"scopes"`
+	Access string   `json:"access"`
 }
 
 // diffResponse is what changed between two versions, as hunks of lines.
@@ -193,15 +204,20 @@ type startRunRequest struct {
 	Version int             `json:"version,omitempty"`
 }
 
-// runResponse is a run as its viewers see it.
+// runResponse is a run as its viewers see it; output is what its nodes answered, once it succeeded.
 type runResponse struct {
-	ID         string     `json:"id"`
-	Workflow   personRef  `json:"workflow"`
-	Version    int        `json:"version"`
-	Status     runStatus  `json:"status"`
-	StartedBy  personRef  `json:"startedBy"`
-	Reason     string     `json:"reason"`
-	CreatedAt  time.Time  `json:"createdAt"`
-	UpdatedAt  time.Time  `json:"updatedAt"`
-	FinishedAt *time.Time `json:"finishedAt"`
+	ID         string          `json:"id"`
+	Workflow   personRef       `json:"workflow"`
+	Version    int             `json:"version"`
+	Status     runStatus       `json:"status"`
+	StartedBy  personRef       `json:"startedBy"`
+	Reason     string          `json:"reason"`
+	Inputs     json.RawMessage `json:"inputs"`
+	Output     json.RawMessage `json:"output"`
+	CreatedAt  time.Time       `json:"createdAt"`
+	UpdatedAt  time.Time       `json:"updatedAt"`
+	StartedAt  *time.Time      `json:"startedAt"`
+	FinishedAt *time.Time      `json:"finishedAt"`
+	// Ended says the run reached a state it never leaves, so it can no longer be cancelled.
+	Ended bool `json:"ended"`
 }

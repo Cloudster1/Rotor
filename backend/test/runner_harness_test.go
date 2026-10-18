@@ -27,7 +27,11 @@ type runEvent struct {
 	Payload map[string]any
 }
 
-// newRun makes a workflow of one version and a run of it for person, behind the policies' back, as #22 will.
+// manualLease keeps the stack's worker away from a run a test drives itself, by holding the run's lease.
+const manualLease = "test"
+
+// newRun makes a workflow of one version and a run of it for person, behind the policies' back, already starting
+// and leased to the test, so the test starts its sandbox and the stack's worker leaves it alone.
 func (h *harness) newRun(t *testing.T, person uuid.UUID, yaml string, inputs map[string]any) uuid.UUID {
 	t.Helper()
 	ctx := context.Background()
@@ -40,8 +44,9 @@ func (h *harness) newRun(t *testing.T, person uuid.UUID, yaml string, inputs map
 		t.Fatal(err)
 	}
 	encoded, _ := json.Marshal(inputs)
-	if err := h.super.QueryRow(ctx, `INSERT INTO run (workflow_id, version, user_id, inputs) VALUES ($1, 1, $2, $3) RETURNING id`,
-		workflowID, person, encoded).Scan(&runID); err != nil {
+	if err := h.super.QueryRow(ctx, `INSERT INTO run (workflow_id, version, user_id, inputs, status, claimed_by, claimed_until)
+		VALUES ($1, 1, $2, $3, 'starting', $4, now() + interval '1 day') RETURNING id`,
+		workflowID, person, encoded, manualLease).Scan(&runID); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {

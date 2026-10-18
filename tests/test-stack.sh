@@ -48,14 +48,14 @@ if config="$(docker compose -f "$COMPOSE" config --format json 2>&1)"; then
     && pass "the api keeps its secrets in the stack's OpenBao" || fail "the api does not name the stack's OpenBao"
   jq -e '.services.openbao.volumes[] | select(.target == "/openbao/file" and .type == "volume")' <<< "$config" > /dev/null \
     && pass "OpenBao keeps its data on a volume" || fail "OpenBao keeps its data nowhere that survives a restart"
-  # Sandboxes join one network with no route out; the api alone holds the Docker socket, and only in development.
+  # Sandboxes join one network with no route out; the worker alone holds the Docker socket, and only in development.
   [[ "$(jq -r '.networks.sandbox.internal // false' <<< "$config")" == true ]] \
     && pass "the sandbox network has no route out" || fail "the sandbox network reaches beyond the stack"
   joined="$(jq -r '[.services | to_entries[] | select(.value.networks // {} | has("sandbox")) | .key] | sort | join(" ")' <<< "$config")"
   [[ "$joined" == "api tool-stub" ]] && pass "only the api and the tool double share the sandbox network" \
     || fail "the sandbox network is shared with: $joined"
   socket="$(jq -r '[.services | to_entries[] | select([(.value.volumes // [])[] | .source] | index("/var/run/docker.sock")) | .key] | join(" ")' <<< "$config")"
-  [[ "$socket" == api ]] && pass "the api alone holds the Docker socket" || fail "the Docker socket is mounted into: $socket"
+  [[ "$socket" == worker ]] && pass "the worker alone holds the Docker socket" || fail "the Docker socket is mounted into: $socket"
   [[ "$(jq -r '[.services[] | .ports // [] | .[] | select(.target == 9443)] | length' <<< "$config")" == 0 ]] \
     && pass "nothing publishes a sandbox port" || fail "a sandbox port is published"
   [[ "$(jq -r '.services["openbao-sealed"].environment.ROTOR_OPENBAO_STAY_SEALED // ""' <<< "$config")" == 1 ]] \

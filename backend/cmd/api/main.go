@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/cloudster1/rotor/backend/internal/auth"
+	"github.com/cloudster1/rotor/backend/internal/boot"
 	"github.com/cloudster1/rotor/backend/internal/cache"
 	"github.com/cloudster1/rotor/backend/internal/catalog"
 	"github.com/cloudster1/rotor/backend/internal/config"
@@ -25,10 +26,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/providers"
 	"github.com/cloudster1/rotor/backend/internal/runnerctl"
 	"github.com/cloudster1/rotor/backend/internal/runs"
-	"github.com/cloudster1/rotor/backend/internal/sandbox"
-	"github.com/cloudster1/rotor/backend/internal/sandbox/docker"
 	"github.com/cloudster1/rotor/backend/internal/tools"
-	"github.com/cloudster1/rotor/backend/internal/vault"
 	"github.com/cloudster1/rotor/backend/internal/version"
 	"github.com/cloudster1/rotor/backend/internal/workflows"
 )
@@ -87,7 +85,7 @@ func run() error {
 		CheckOrigin:    cfg.IsProduction(),
 		RequestTimeout: cfg.RequestTimeout,
 	}
-	secrets, err := openSecrets(ctx, cfg, log)
+	secrets, err := boot.Secrets(ctx, cfg, log)
 	if err != nil {
 		return err
 	}
@@ -96,21 +94,25 @@ func run() error {
 		return err
 	}
 	defer store.Close()
-	var catalogs workflows.CatalogSource
+	// Without OpenBao there are no tools, so workflows are checked without them and nobody starts a run.
+	workflowService := workflows.NewService(cluster, nil)
 	if secrets != nil {
 		server.Vault = secrets
-		registry := tools.NewService(cluster, secrets, toolClient(cfg), cfg.ConnectionCallbackURL(), cfg.Env == config.EnvDevelopment)
-		people := connections.NewService(cluster, secrets, registry, toolClient(cfg), cfg.ConnectionCallbackURL(), log)
+		registry := tools.NewService(cluster, secrets, boot.ToolClient(cfg), cfg.ConnectionCallbackURL(), cfg.Env == config.EnvDevelopment)
+		people := connections.NewService(cluster, secrets, registry, boot.ToolClient(cfg), cfg.ConnectionCallbackURL(), log)
 		registry.Connections = people
 		sessions.OnSwitchOff = people.EndPersonConnections
 		server.Tools, server.Connections = registry, people
-		reader := catalog.NewService(registry, people, toolClient(cfg), store, log)
-		server.Catalogs, catalogs = reader, reader
+		reader := catalog.NewService(registry, people, boot.ToolClient(cfg), store, log)
+		server.Catalogs = reader
+		workflowService = workflows.NewService(cluster, reader)
+		server.Runs = runs.NewService(cluster, workflowService, registry, people, store)
 		runners := runnerctl.NewServer(cluster, registry, people, log)
 		reach := oidc.ParseRewrites(cfg.Tools.Backchannel)
 		runners.Reach = func(address string) string { return oidc.Rewrite(reach, address) }
 		runners.Checkpoints = runs.NewCheckpoints(cluster, secrets)
-		models := providers.NewService(cluster, secrets, toolClient(cfg))
+		runners.Signals = store
+		models := providers.NewService(cluster, secrets, boot.ToolClient(cfg))
 		server.Providers, runners.Models = models, models
 		go func() {
 			if err := runners.Serve(ctx, cfg.Runner.Addr, secrets); err != nil {
@@ -118,9 +120,7 @@ func run() error {
 			}
 		}()
 	}
-	server.Workflows = workflows.NewService(cluster, catalogs)
-	sweepSandboxes(ctx, cfg, log)
-	server.Workflows = workflows.NewService(cluster, catalogs)
+	server.Workflows = workflowService
 	origins := cfg.CORSOrigins
 	if len(origins) == 0 && !cfg.IsProduction() {
 		origins = devOrigins
@@ -166,42 +166,6 @@ func run() error {
 	}
 	log.Info("api stopped cleanly")
 	return nil
-}
-
-// openSecrets builds the OpenBao client and keeps it signed in until ctx ends; nil without OpenBao configured.
-func openSecrets(ctx context.Context, cfg config.Config, log *slog.Logger) (*vault.Client, error) {
-	if !cfg.SecretsConfigured() {
-		log.Warn("ROTOR_OPENBAO_ADDR is not set, so nobody can connect a tool; set it to OpenBao's address")
-		return nil, nil
-	}
-	client, err := vault.New(vault.Config{
-		OpenBao: cfg.OpenBao, Issuer: cfg.OIDC.Issuer, Log: log,
-		HTTP: oidc.HTTPClient(oidc.ParseRewrites(cfg.OIDC.Backchannel)),
-	})
-	if err != nil {
-		return nil, err
-	}
-	go client.Run(ctx)
-	return client, nil
-}
-
-// sweepSandboxes destroys this installation's sandboxes left from before a restart; M3 keeps those of live runs.
-func sweepSandboxes(ctx context.Context, cfg config.Config, log *slog.Logger) {
-	if cfg.Sandbox.Backend != config.SandboxDocker {
-		return
-	}
-	backend := docker.New(cfg.Sandbox.Socket, cfg.Sandbox.Network)
-	destroyed, err := sandbox.Sweep(ctx, backend, map[string]string{sandbox.LabelStack: cfg.Sandbox.Stack}, nil)
-	if err != nil {
-		log.Warn("cannot sweep the sandboxes left from before", "error", err)
-		return
-	}
-	log.Info("swept the sandboxes left from before", "destroyed", destroyed)
-}
-
-// toolClient reaches the tools an administrator adds, at the addresses Rotor can reach them.
-func toolClient(cfg config.Config) *http.Client {
-	return &http.Client{Timeout: config.ToolTimeout, Transport: oidc.HTTPClient(oidc.ParseRewrites(cfg.Tools.Backchannel)).Transport}
 }
 
 // healthcheck probes the local readiness endpoint and fails unless it is ready.

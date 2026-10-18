@@ -22,7 +22,7 @@ APP_DB_PASSWORD    ?= rotor_app
 ADMIN_DB_PASSWORD  ?= rotor_admin
 VALKEY_PASSWORD    ?= rotor_valkey
 OPENBAO_ROOT_TOKEN ?= rotor-dev-root
-# The api starts sandboxes through the host's Docker socket, so it joins the socket's group (development only).
+# The worker starts sandboxes through the host's Docker socket, so it joins the socket's group (development only).
 DOCKER_GID ?= $(shell stat -c %g /var/run/docker.sock 2>/dev/null || echo 0)
 
 KEYCLOAK_REALM := dynamo
@@ -102,6 +102,7 @@ up: stack-env $(if $(wildcard $(ROOT)/runner/pyproject.toml),runner-image) ## Bu
 	@$(call STACK_SAY,api,"API        http://localhost:$(API_PORT)/api/v1/meta")
 	@echo "Keycloak   http://localhost:$(KEYCLOAK_PORT) (admin / admin; realm $(KEYCLOAK_REALM); people alice, bob, carol, dave with password '<name> password')"
 	@echo "OpenBao    http://localhost:$(OPENBAO_PORT) (root token $(OPENBAO_ROOT_TOKEN))"
+	@$(call STACK_SAY,worker,"Worker     starts each run's sandbox (docker compose logs worker)")
 	@$(call STACK_SAY,tool-stub,"Tool stub  http://localhost:$(TOOLSTUB_PORT)/t/<any name> (a tool that behaves as Exciter does; make suite-up for the real one)")
 	@echo "Postgres   127.0.0.1:$(POSTGRES_PORT)"
 	@echo "Valkey     127.0.0.1:$(VALKEY_PORT)"

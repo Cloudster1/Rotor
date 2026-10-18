@@ -134,6 +134,10 @@ func newTenant(name string, opts Options) *tenant {
 // errTooManyTenants refuses a new tenant once MaxTenants exist.
 var errTooManyTenants = fmt.Errorf("the stub holds %d tenants already; forget some through the control API", MaxTenants)
 
+// productSeparator splits a tenant made on first use into the product it answers as and the rest of its name, so a
+// browser test that reaches no control API still gets a tool of a name nobody else uses: /t/e2eab12--x is e2eab12.
+const productSeparator = "--"
+
 // tenantOf finds a tenant by name, making it with Exciter's behaviour on first use; callers hold the lock.
 func (s *Stub) tenantOf(name string) (*tenant, error) {
 	if t, ok := s.tenants[name]; ok {
@@ -145,7 +149,11 @@ func (s *Stub) tenantOf(name string) (*tenant, error) {
 	if len(s.tenants) >= MaxTenants {
 		return nil, errTooManyTenants
 	}
-	t := newTenant(name, Options{})
+	opts := Options{}
+	if product, _, named := strings.Cut(name, productSeparator); named && product != "" {
+		opts.Product = product
+	}
+	t := newTenant(name, opts)
 	s.tenants[name] = t
 	return t, nil
 }

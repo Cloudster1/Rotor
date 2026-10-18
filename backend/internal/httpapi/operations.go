@@ -29,6 +29,8 @@ type operation struct {
 	summary string
 	tag     string
 	query   []param
+	// headers are request headers the operation reads, such as Idempotency-Key.
+	headers []param
 	// request is the JSON body type the handler decodes; form is a urlencoded form's.
 	request any
 	form    any

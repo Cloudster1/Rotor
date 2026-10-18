@@ -239,7 +239,12 @@ async def run_workflow(
     config: RunnableConfig = {"configurable": {"thread_id": thread_id}, "recursion_limit": int(limits["maxSteps"])}
     if limits.get("maxTokens"):
         config["callbacks"] = [TokenBudget(int(limits["maxTokens"]))]
-    start: Any = Command(resume=resume) if resuming else {"inputs": inputs, "nodes": {}}
+    start: Any = {"inputs": inputs, "nodes": {}}
+    if resuming:
+        start = Command(resume=resume)
+    elif checkpointer is not None and (await graph.aget_state(config)).next:
+        # A sandbox that replaced a lost one carries on from the run's last checkpoint.
+        start = None
     buffers: dict[str, str] = {}
 
     async def flush(node: str) -> None:

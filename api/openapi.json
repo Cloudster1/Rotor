@@ -261,7 +261,7 @@
     "/connections/callback": {
       "get": {
         "operationId": "connectionCallback",
-        "summary": "Where a tool returns the browser after consent; keeps the connection and goes on to the Connections page.",
+        "summary": "Where a tool returns the browser after consent; keeps the connection and goes on to the page the connection was started from.",
         "description": "Public so it can always redirect: an answer without the session that started it lands on the page as mismatch.",
         "tags": [
           "connections"
@@ -879,16 +879,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
           "default": {
             "description": "An error, in the one shape every endpoint uses.",
             "content": {
@@ -933,16 +923,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1005,16 +985,6 @@
           },
           "409": {
             "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1519,6 +1489,14 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "next",
+            "in": "query",
+            "description": "A path of Rotor's the browser returns to once connected, such as the workflow a run was started from; the Connections page otherwise.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1965,7 +1943,7 @@
       "post": {
         "operationId": "startRun",
         "summary": "Start a run of a workflow as yourself.",
-        "description": "An Idempotency-Key header makes a retried request answer the run it started. A binding to a tool you are not connected to is refused with 409 naming the tools to connect.",
+        "description": "An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have).",
         "tags": [
           "runs"
         ],
@@ -1977,6 +1955,14 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Any text of at most 200 characters, new for each run; a retry sends the same.",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -2033,16 +2019,6 @@
           },
           "422": {
             "description": "Unprocessable Entity",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2301,6 +2277,32 @@
         },
         "required": [
           "baseURL"
+        ]
+      },
+      "BindingRef": {
+        "type": "object",
+        "properties": {
+          "access": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tool": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "tool",
+          "scopes",
+          "access"
         ]
       },
       "BuildInfo": {
@@ -3024,6 +3026,9 @@
             "type": "string",
             "format": "date-time"
           },
+          "ended": {
+            "type": "boolean"
+          },
           "finishedAt": {
             "type": [
               "string",
@@ -3034,8 +3039,21 @@
           "id": {
             "type": "string"
           },
+          "inputs": {
+            "description": "A JSON value."
+          },
+          "output": {
+            "description": "A JSON value."
+          },
           "reason": {
             "type": "string"
+          },
+          "startedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           },
           "startedBy": {
             "$ref": "#/components/schemas/PersonRef"
@@ -3071,9 +3089,13 @@
           "status",
           "startedBy",
           "reason",
+          "inputs",
+          "output",
           "createdAt",
           "updatedAt",
-          "finishedAt"
+          "startedAt",
+          "finishedAt",
+          "ended"
         ]
       },
       "SaveWorkflowRequest": {
@@ -3362,6 +3384,12 @@
       "VersionResponse": {
         "type": "object",
         "properties": {
+          "bindings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BindingRef"
+            }
+          },
           "comment": {
             "type": "string"
           },
@@ -3374,6 +3402,9 @@
           },
           "hash": {
             "type": "string"
+          },
+          "inputs": {
+            "description": "A JSON value."
           },
           "number": {
             "type": "integer"
@@ -3388,7 +3419,9 @@
           "hash",
           "createdBy",
           "createdAt",
-          "specYAML"
+          "specYAML",
+          "inputs",
+          "bindings"
         ]
       },
       "VersionSummary": {

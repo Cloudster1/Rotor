@@ -1,0 +1,98 @@
+// Command worker carries runs from queued to their end: it starts each run's sandbox, replaces a lost one, ends runs
+// past their time and cleans up after them. Any number may run; each run is leased to one at a time.
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/cloudster1/rotor/backend/internal/boot"
+	"github.com/cloudster1/rotor/backend/internal/config"
+	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/observability"
+	"github.com/cloudster1/rotor/backend/internal/runs"
+	"github.com/cloudster1/rotor/backend/internal/sandbox"
+	"github.com/cloudster1/rotor/backend/internal/sandbox/docker"
+	"github.com/cloudster1/rotor/backend/internal/version"
+)
+
+func main() {
+	if err := run(); err != nil {
+		slog.Error("worker exited", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	// The container health check runs the binary itself, so the image needs no shell tools.
+	if len(os.Args) > 1 && os.Args[1] == "-healthcheck" {
+		return healthcheck()
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	log := observability.NewLogger(cfg.LogLevel, cfg.IsProduction())
+	slog.SetDefault(log)
+	if cfg.Sandbox.Backend != config.SandboxDocker {
+		return errors.New("ROTOR_SANDBOX_BACKEND is not set, so the worker has nowhere to start sandboxes; set it to docker in development")
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	cluster, err := db.Open(ctx, cfg.DB, log)
+	if err != nil {
+		return err
+	}
+	defer cluster.Close()
+	if cfg.Env != config.EnvDevelopment {
+		if err := cluster.RefuseSuperuser(ctx); err != nil {
+			return err
+		}
+	}
+	secrets, err := boot.Secrets(ctx, cfg, log)
+	if err != nil {
+		return err
+	}
+	if secrets == nil {
+		return errors.New("ROTOR_OPENBAO_ADDR is not set, so the worker cannot hand sandboxes the runner CA; set it to OpenBao's address")
+	}
+
+	backend := docker.New(cfg.Sandbox.Socket, cfg.Sandbox.Network)
+	worker := runs.NewWorker(cluster, backend, runs.Launch{
+		Image: cfg.Sandbox.Image, Dial: cfg.Runner.Dial, Stack: cfg.Sandbox.Stack, CA: secrets.RunnerCA,
+		Limits: sandbox.Limits{MemoryBytes: config.DefaultSandboxMemory, MilliCPUs: config.DefaultSandboxMilliCPUs, PIDs: config.DefaultSandboxPIDs},
+	}, log)
+	worker.Passed = func() {
+		now := time.Now()
+		if err := os.Chtimes(config.WorkerAliveFile, now, now); errors.Is(err, os.ErrNotExist) {
+			_ = os.WriteFile(config.WorkerAliveFile, nil, aliveFileMode)
+		}
+	}
+	build := version.Current()
+	log.Info("worker starting", "env", cfg.Env, "version", build.Version, "commit", build.Commit, "stack", cfg.Sandbox.Stack)
+	worker.Run(ctx)
+	return nil
+}
+
+// aliveFileMode is the file the worker touches, readable by the health check alone.
+const aliveFileMode = 0o600
+
+// healthcheck fails unless the worker finished a pass within config.WorkerAliveWithin.
+func healthcheck() error {
+	info, err := os.Stat(config.WorkerAliveFile)
+	if err != nil {
+		return errors.New("the worker has not finished a pass yet")
+	}
+	if age := time.Since(info.ModTime()); age > config.WorkerAliveWithin {
+		return fmt.Errorf("the worker's last pass was %s ago", age.Round(time.Second))
+	}
+	return nil
+}

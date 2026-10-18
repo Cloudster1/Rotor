@@ -21,6 +21,33 @@ x-build-stamp: &build-stamp
   VERSION: ${ROTOR_BUILD_VERSION:-}
   COMMIT: ${ROTOR_BUILD_COMMIT:-}
 
+# What the api and the worker both run with: the database, the realm, OpenBao, the sandboxes and the tools.
+x-control-plane-env: &control-plane-env
+  <<: *app-db-env
+  ROTOR_LOG_LEVEL: debug
+  ROTOR_APP_URL: http://localhost:${WEB_PORT:-8300}
+  # The browser reaches Keycloak on the published port, the api at keycloak:8080; the callback defaults to
+  # ROTOR_APP_URL, under which the web client's nginx serves the api.
+  ROTOR_OIDC_ISSUER: http://localhost:${KEYCLOAK_PORT:-8302}/realms/dynamo
+  ROTOR_OIDC_CLIENT_ID: rotor
+  ROTOR_OIDC_CLIENT_SECRET: rotor-dev-secret
+  ROTOR_OIDC_BACKCHANNEL: http://localhost:${KEYCLOAK_PORT:-8302}=http://keycloak:8080
+  # The api signs in to OpenBao as the realm's service account rotor-control-plane.
+  ROTOR_OPENBAO_ADDR: http://openbao:8200
+  ROTOR_CONTROL_PLANE_CLIENT_ID: rotor-control-plane
+  ROTOR_CONTROL_PLANE_CLIENT_SECRET: rotor-control-plane-dev-secret
+  # Sandboxes are containers on the host's daemon, joined to the internal network alone (development only).
+  ROTOR_SANDBOX_BACKEND: docker
+  ROTOR_SANDBOX_IMAGE: rotor-runner:dev
+  ROTOR_SANDBOX_NETWORK: ${COMPOSE_PROJECT_NAME:-rotor}_sandbox
+  ROTOR_SANDBOX_STACK: ${COMPOSE_PROJECT_NAME:-rotor}
+  # The tools' catalogs are cached here; losing them costs a fetch.
+  ROTOR_VALKEY_URL: redis://:${VALKEY_PASSWORD:-rotor_valkey}@valkey:6379/0
+  # An administrator adds a tool by the address a browser opens; the api reaches the tool-stub, and the suite's
+  # Exciter once make suite-up runs it, on a network of the stack's.
+  ROTOR_TOOLS_BACKCHANNEL: >-
+    http://localhost:${TOOLSTUB_PORT:-8306}=http://tool-stub:8080,http://localhost:${SUITE_EXCITER_WEB_PORT:-8307}=http://suite-exciter-web:80
+
 services:
   postgres:
     image: postgres:18-alpine
@@ -160,35 +187,8 @@ services:
       openbao:
         condition: service_healthy
     environment:
-      <<: *app-db-env
+      <<: *control-plane-env
       ROTOR_HTTP_ADDR: ":8080"
-      ROTOR_LOG_LEVEL: debug
-      ROTOR_APP_URL: http://localhost:${WEB_PORT:-8300}
-      # The browser reaches Keycloak on the published port, the api at keycloak:8080; the callback defaults to
-      # ROTOR_APP_URL, under which the web client's nginx serves the api.
-      ROTOR_OIDC_ISSUER: http://localhost:${KEYCLOAK_PORT:-8302}/realms/dynamo
-      ROTOR_OIDC_CLIENT_ID: rotor
-      ROTOR_OIDC_CLIENT_SECRET: rotor-dev-secret
-      ROTOR_OIDC_BACKCHANNEL: http://localhost:${KEYCLOAK_PORT:-8302}=http://keycloak:8080
-      # The api signs in to OpenBao as the realm's service account rotor-control-plane.
-      ROTOR_OPENBAO_ADDR: http://openbao:8200
-      ROTOR_CONTROL_PLANE_CLIENT_ID: rotor-control-plane
-      ROTOR_CONTROL_PLANE_CLIENT_SECRET: rotor-control-plane-dev-secret
-      # Sandboxes are containers on the host's daemon, joined to the internal network alone (development only).
-      ROTOR_SANDBOX_BACKEND: docker
-      ROTOR_SANDBOX_IMAGE: rotor-runner:dev
-      ROTOR_SANDBOX_NETWORK: ${COMPOSE_PROJECT_NAME:-rotor}_sandbox
-      ROTOR_SANDBOX_STACK: ${COMPOSE_PROJECT_NAME:-rotor}
-      # The tools' catalogs are cached here; losing them costs a fetch.
-      ROTOR_VALKEY_URL: redis://:${VALKEY_PASSWORD:-rotor_valkey}@valkey:6379/0
-      # An administrator adds a tool by the address a browser opens; the api reaches the tool-stub, and the suite's
-      # Exciter once make suite-up runs it, on a network of the stack's.
-      ROTOR_TOOLS_BACKCHANNEL: >-
-        http://localhost:${TOOLSTUB_PORT:-8306}=http://tool-stub:8080,http://localhost:${SUITE_EXCITER_WEB_PORT:-8307}=http://suite-exciter-web:80
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    group_add:
-      - "${DOCKER_GID:-0}"
     networks:
       - default
       - sandbox
@@ -199,6 +199,28 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+      start_period: 30s
+      start_interval: 1s
+
+  # Carries runs from queued to their end (#22): it starts each run's sandbox on the host's daemon, which only it
+  # may reach (development only), replaces lost ones and cleans up after runs that ended.
+  worker:
+    <<: *backend
+    command: ["/app/worker"]
+    depends_on:
+      api:
+        condition: service_healthy
+    environment: *control-plane-env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID:-0}"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/app/worker", "-healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
       start_period: 30s
       start_interval: 1s
 

@@ -1,5 +1,5 @@
-// Package runs keeps what the control plane holds for a run beyond its row: its checkpoints (#19), and from M3 its
-// lifecycle. A checkpoint is reachable only through the stream of the run it belongs to.
+// Package runs carries a run from the person who starts it to its end: starting and cancelling it, the worker that
+// gives it a sandbox, and its checkpoints, reachable only through the stream of the run they belong to.
 package runs
 
 import (

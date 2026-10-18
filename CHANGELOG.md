@@ -9,6 +9,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- People start a run of a workflow and it runs as them (#22). Run on a
+  workflow opens a dialog that asks for its inputs, says which tools the run
+  acts in and offers connecting those you have not, coming back to the
+  workflow. A new worker starts each run's sandbox, replaces one that dies
+  so the run carries on from its last checkpoint, ends runs past their time
+  and cleans up after them; it alone holds the Docker socket now. Runs can
+  be cancelled by whoever started them, the workflow's owner or an
+  administrator, and a retried start never starts a run twice.
 - Administrators choose the language models workflows may use (#20). In
   Settings they add Anthropic, OpenAI, Azure OpenAI or any OpenAI-compatible
   server (such as Ollama), list its models, pick the installation's default

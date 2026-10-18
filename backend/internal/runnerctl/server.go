@@ -32,6 +32,8 @@ type Server struct {
 	Reach func(string) string
 	// Models resolves a run's model and its key (#20); nil starts runs without one.
 	Models Models
+	// Signals wakes the stream of a run when another replica queued a control message for it; nil polls alone.
+	Signals Signals
 
 	store store
 	mu    sync.Mutex
@@ -40,6 +42,11 @@ type Server struct {
 
 // liveStream is the stream a run is served on, so a newer one can end it.
 type liveStream struct{ cancel context.CancelFunc }
+
+// Signals is pub/sub across api replicas; *cache.Cache is the real one.
+type Signals interface {
+	Subscribe(ctx context.Context, channel string) <-chan []byte
+}
 
 // Checkpoints keeps a run's checkpoints for its runner (#19).
 type Checkpoints interface {
@@ -71,8 +78,8 @@ func (s *Server) release(runID uuid.UUID, live *liveStream) {
 	}
 }
 
-// Connect serves one runner: Hello, then StartRun and whatever was not acknowledged, then its messages until it
-// ends the stream, another stream of the run replaces it, or it misses its heartbeats.
+// Connect serves one runner: Hello, then StartRun for a sandbox just started or whatever a reconnecting one has not
+// acknowledged, then its messages until it ends the stream, another stream of the run replaces it, or it goes quiet.
 func (s *Server) Connect(stream runnerpb.RunnerControlService_ConnectServer) error {
 	ctx, cancel := context.WithCancel(stream.Context())
 	defer cancel()
@@ -91,6 +98,10 @@ func (s *Server) Connect(stream runnerpb.RunnerControlService_ConnectServer) err
 	r, err := s.loadRun(ctx, runID)
 	if err != nil {
 		return s.fail(runID, "load the run", err)
+	}
+	// A sandbox of a run that ended or waits is left over; refusing it ends its runner for good.
+	if r.Status != StatusStarting && r.Status != StatusRunning {
+		return status.Error(codes.Unauthenticated, "the run is "+r.Status+", so this sandbox has nothing to do")
 	}
 	live := s.claim(runID, cancel)
 	defer s.release(runID, live)
@@ -111,25 +122,26 @@ func (s *Server) Connect(stream runnerpb.RunnerControlService_ConnectServer) err
 	if err != nil {
 		return s.fail(runID, "resolve the bindings", err)
 	}
-	pending, sent, err := s.store.unacknowledged(ctx, runID)
-	if err != nil {
-		return s.fail(runID, "read what the runner has not acknowledged", err)
-	}
 	s.resolveModel(ctx, r)
-	if !sent || r.Status == "starting" {
-		msg, err := s.store.enqueue(ctx, runID, startRun(r, bindings, s.modelConfig(r)))
+	var pending []*runnerpb.ConnectResponse
+	if r.Status == StatusStarting {
+		deadline := time.Now().Add(r.spec.Limits.TimeoutDuration() + config.RunDeadlineGrace)
+		start, err := s.store.supersede(ctx, runID, startRun(r, bindings, s.modelConfig(r)), deadline)
 		if err != nil {
-			return s.fail(runID, "queue StartRun", err)
-		}
-		pending = append(pending, msg)
-		if err := s.DB.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-			return setStatus(ctx, tx, runID, "running", "", nil)
-		}); err != nil {
 			return s.fail(runID, "start the run", err)
 		}
+		pending = append(pending, start)
+	} else {
+		if err := s.store.seen(ctx, runID); err != nil {
+			return s.fail(runID, "record the runner's return", err)
+		}
+		if pending, err = s.store.unsent(ctx, runID, 0); err != nil {
+			return s.fail(runID, "read what the runner has not acknowledged", err)
+		}
 	}
+	var sent uint64
 	for _, msg := range pending {
-		msg.Ack = last
+		msg.Ack, sent = last, max(sent, msg.Seq)
 		if err := stream.Send(msg); err != nil {
 			return err
 		}
@@ -143,7 +155,13 @@ func (s *Server) Connect(stream runnerpb.RunnerControlService_ConnectServer) err
 			return err
 		}
 	}
-	return s.serve(ctx, stream, r, resolved)
+	err = s.serve(ctx, stream, r, resolved, sent)
+	if status.Code(err) != codes.Aborted {
+		if markErr := s.store.dropped(context.WithoutCancel(ctx), runID); markErr != nil {
+			s.Log.Error("cannot record a dropped stream", "run", runID, "error", markErr)
+		}
+	}
+	return err
 }
 
 func (s *Server) redeemHello(ctx context.Context, hello *runnerpb.Hello) (uuid.UUID, error) {
@@ -156,8 +174,9 @@ func (s *Server) redeemHello(ctx context.Context, hello *runnerpb.Hello) (uuid.U
 	return uuid.Nil, errBadCredential
 }
 
-// serve handles the runner's messages; a runner silent for its heartbeats' window is lost and the stream ends.
-func (s *Server) serve(ctx context.Context, stream runnerpb.RunnerControlService_ConnectServer, r *run, bindings map[string]binding) error {
+// serve handles the runner's messages and sends the control messages queued for it, such as a Cancel from another
+// api replica; a runner silent for its heartbeats' window is lost and the stream ends.
+func (s *Server) serve(ctx context.Context, stream runnerpb.RunnerControlService_ConnectServer, r *run, bindings map[string]binding, sent uint64) error {
 	messages, failures := make(chan *runnerpb.ConnectRequest), make(chan error, 1)
 	go func() {
 		for {
@@ -173,6 +192,13 @@ func (s *Server) serve(ctx context.Context, stream runnerpb.RunnerControlService
 			}
 		}
 	}()
+	var signals <-chan []byte
+	if s.Signals != nil {
+		signals = s.Signals.Subscribe(ctx, ControlChannel(r.ID))
+	}
+	// A signal can be lost, so the queue is also read on every heartbeat's beat.
+	poll := time.NewTicker(config.HeartbeatInterval)
+	defer poll.Stop()
 	window := config.HeartbeatInterval * config.MissedHeartbeats
 	watchdog := time.NewTimer(window)
 	defer watchdog.Stop()
@@ -187,6 +213,14 @@ func (s *Server) serve(ctx context.Context, stream runnerpb.RunnerControlService
 				s.Log.Error("cannot record a lost runner", "run", r.ID, "error", err)
 			}
 			return status.Error(codes.DeadlineExceeded, "the runner missed its heartbeats")
+		case <-signals:
+			if err := s.sendQueued(ctx, stream, r.ID, &sent); err != nil {
+				return err
+			}
+		case <-poll.C:
+			if err := s.sendQueued(ctx, stream, r.ID, &sent); err != nil {
+				return err
+			}
 		case msg := <-messages:
 			watchdog.Reset(window)
 			if err := s.handle(ctx, stream, r, bindings, msg); err != nil {
@@ -194,6 +228,21 @@ func (s *Server) serve(ctx context.Context, stream runnerpb.RunnerControlService
 			}
 		}
 	}
+}
+
+// sendQueued sends the control messages queued after the last this stream sent.
+func (s *Server) sendQueued(ctx context.Context, stream runnerpb.RunnerControlService_ConnectServer, runID uuid.UUID, sent *uint64) error {
+	queued, err := s.store.unsent(ctx, runID, *sent)
+	if err != nil {
+		return s.fail(runID, "read the queued control messages", err)
+	}
+	for _, msg := range queued {
+		if err := stream.Send(msg); err != nil {
+			return err
+		}
+		*sent = max(*sent, msg.Seq)
+	}
+	return nil
 }
 
 func (s *Server) handle(ctx context.Context, stream runnerpb.RunnerControlService_ConnectServer, r *run, bindings map[string]binding, msg *runnerpb.ConnectRequest) error {
@@ -229,18 +278,18 @@ func (s *Server) handle(ctx context.Context, stream runnerpb.RunnerControlServic
 	return stream.Send(&runnerpb.ConnectResponse{Ack: msg.Seq})
 }
 
-// finish records how the run ended in its sandbox, as a run.finished event and the run's status.
+// finish records how the run ended in its sandbox, as a run.finished event and the run's status; a run the control
+// plane already ended, such as a cancelled one, stays as it is.
 func finish(ctx context.Context, tx db.DBTX, runID uuid.UUID, done *runnerpb.Done) error {
-	state, ok := outcomes[done.Outcome]
-	if !ok {
-		state = "failed"
-	}
-	output := []byte(done.OutputJson)
-	payload, _ := json.Marshal(map[string]any{"status": state, "reason": done.Reason, "output": json.RawMessage(validJSON(output))})
-	if err := appendEvent(ctx, tx, runID, eventRunFinished, "", payload); err != nil {
+	current, err := lockStatus(ctx, tx, runID)
+	if err != nil || current != StatusRunning {
 		return err
 	}
-	return setStatus(ctx, tx, runID, state, done.Reason, output)
+	state, ok := outcomes[done.Outcome]
+	if !ok {
+		state = StatusFailed
+	}
+	return endLocked(ctx, tx, runID, state, done.Reason, nil, []byte(done.OutputJson))
 }
 
 func validJSON(b []byte) []byte {

@@ -28,7 +28,7 @@ ARG COMMIT=""
 RUN PKG=github.com/cloudster1/rotor/backend/internal/version && \
     V="${VERSION:-$(tr -d '[:space:]' < /VERSION)+dev}" && \
     LDFLAGS="-s -w -X $PKG.Version=$V -X $PKG.Commit=$COMMIT -X $PKG.BuiltAt=$(date -u +%Y-%m-%dT%H:%M:%SZ)" && \
-    go build -trimpath -ldflags="$LDFLAGS" -o /out/ ./cmd/api ./cmd/tool-stub && \
+    go build -trimpath -ldflags="$LDFLAGS" -o /out/ ./cmd/api ./cmd/tool-stub ./cmd/worker && \
     go build -trimpath -ldflags="$LDFLAGS" -tags "$GOOSE_TAGS" -o /out/migrate ./cmd/migrate
 
 # Alpine rather than scratch: the health check runs the binary, and an operator wants a shell to look around.

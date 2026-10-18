@@ -66,11 +66,12 @@ func redeem(ctx context.Context, cluster *db.Cluster, token, kind string) (uuid.
 	return runID, err
 }
 
-// Resume hands a waiting run the answer to its interrupt: the next sandbox started for it gets a StartRun that
-// resumes from the last checkpoint. #22 calls it from the run's API; until then tests do.
+// Resume hands a waiting run the answer to its interrupt: the worker starts a sandbox for it, whose StartRun
+// resumes from the last checkpoint. Approvals in the browser (M5) call it; until then tests do.
 func Resume(ctx context.Context, cluster *db.Cluster, runID uuid.UUID, answer []byte) error {
 	return cluster.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		tag, err := tx.Exec(ctx, `UPDATE run SET resume = $2, status = 'starting' WHERE id = $1 AND status = 'waiting'`, runID, answer)
+		tag, err := tx.Exec(ctx, `UPDATE run SET resume = $2, status = 'starting', attempts = 0, sandbox_id = NULL
+			WHERE id = $1 AND status = 'waiting'`, runID, answer)
 		if err != nil {
 			return err
 		}

@@ -235,6 +235,10 @@ func TestTheControlAPIShapesTenants(t *testing.T) {
 		t.Errorf("a personal token acts for %v", me)
 	}
 
+	if meta, _ := c.expect("GET", "/t/armature--first-use/api/v1/meta", request{}, http.StatusOK); meta["product"] != "armature" {
+		t.Errorf("a tenant named armature--first-use answers as %v", meta["product"])
+	}
+
 	c.controlled("POST", "/control/tenants", map[string]any{"name": "lenient", "reuseDetection": false}, http.StatusCreated)
 	bob := c.connect("lenient", "bob", "")
 	_, rotated := c.refresh("lenient", bob, "", http.StatusOK)

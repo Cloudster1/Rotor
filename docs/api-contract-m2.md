@@ -30,7 +30,7 @@ sentences.
   | 00220-00229 | #18 | `run` (base), `runner_credential`, `run_event` (base) |
   | 00230-00239 | #19 | `run_checkpoint`, `run_checkpoint_write` |
   | 00240-00249 | #20 | `provider` |
-  | 00300-00319 | #22 | the run state machine and claim columns on `run` |
+  | 00300-00319 | #22 | the run state machine, the worker's lease and teardown columns on `run`, run visibility, `connection_login.next_path` |
   | 00320-00329 | #23 | token leases |
   | 00330-00349 | #24 | event fan-out and retention |
 
@@ -300,6 +300,19 @@ type Spec struct {
   | `run.finished` | `{status, reason, output}` |
   | `runner.lost` | `{since}` |
 
+- **As built (#22):**
+  - **The extra move:** besides the moves above, a running run whose sandbox was lost goes back to `starting`, and a fresh sandbox resumes it from the last checkpoint. After `MaxRunAttempts` (3) sandboxes it fails with `runner_lost`.
+  - **Worker reasons:** `sandbox_start` (no sandbox said Hello within `StartTimeout`), `runner_lost`, `timeout` (past the run's own timeout plus `RunDeadlineGrace`), `waited_too_long` (expired after `WaitingTTL`, 7 days). A `run.finished` event says each with a `message`.
+  - **Who sees a run:** whoever started it, the workflow's owner and administrators, by the database's policy. The same people may cancel.
+  - **Refusals:**
+    - A missing connection answers 409 `connections_needed`. Its `fields` map each tool's name to its id, empty for a tool the installation does not have.
+    - Inputs the schema refuses answer 422 `inputs_invalid`, with `fields` keyed `inputs/<pointer>`.
+    - A key reused for another workflow answers 422.
+  - **Replies:**
+    - `runResponse` carries `inputs`, `output`, `startedAt` and `ended`.
+    - `versionResponse` carries the version's `inputs` schema and its `bindings`, for the run dialog.
+  - **The worker** is `cmd/worker`, its own compose service; it alone holds the Docker socket. A cancel reaches the runner through `run_control`, with Valkey pub/sub on `runctl:<run>` waking the api that holds the stream.
+  - **Returning after connecting:** `POST /tools/{toolID}/connection?next=<path>` returns the browser to that path of Rotor's once connected, with `connected=<toolID>`.
 - **Tokens (#23):** at `StartRun` and on `TokenRequest` the control plane mints per binding with `connections.Mint` and wraps the result with OpenBao response wrapping (single use, at most 2 minutes). The runner unwraps it. At the end every access token is revoked at its tool.
 
 ## What is left for later
