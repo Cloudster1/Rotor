@@ -113,7 +113,7 @@ func (s *Server) Connect(stream runnerpb.RunnerControlService_ConnectServer) err
 	if err != nil {
 		return s.fail(runID, "read what the runner has not acknowledged", err)
 	}
-	if !sent {
+	if !sent || r.Status == "starting" {
 		msg, err := s.store.enqueue(ctx, runID, startRun(r, bindings))
 		if err != nil {
 			return s.fail(runID, "queue StartRun", err)

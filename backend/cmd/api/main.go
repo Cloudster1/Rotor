@@ -23,6 +23,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
 	"github.com/cloudster1/rotor/backend/internal/runnerctl"
+	"github.com/cloudster1/rotor/backend/internal/runs"
 	"github.com/cloudster1/rotor/backend/internal/sandbox"
 	"github.com/cloudster1/rotor/backend/internal/sandbox/docker"
 	"github.com/cloudster1/rotor/backend/internal/tools"
@@ -107,6 +108,7 @@ func run() error {
 		runners := runnerctl.NewServer(cluster, registry, people, log)
 		reach := oidc.ParseRewrites(cfg.Tools.Backchannel)
 		runners.Reach = func(address string) string { return oidc.Rewrite(reach, address) }
+		runners.Checkpoints = runs.NewCheckpoints(cluster, secrets)
 		go func() {
 			if err := runners.Serve(ctx, cfg.Runner.Addr, secrets); err != nil {
 				log.Error("the runner protocol stopped", "error", err)

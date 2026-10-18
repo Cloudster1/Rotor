@@ -152,8 +152,8 @@ func TestTheControlPlaneIsRefusedOutsideConnectionsAndTools(t *testing.T) {
 			_, err := raw.Logical().WriteWithContext(ctx, "rotor/data/checkpoints/x", map[string]any{"options": map[string]any{"cas": 0}, "data": map[string]any{"a": "b"}})
 			return err
 		},
-		"the transit key": func() error {
-			_, err := raw.Logical().WriteWithContext(ctx, "transit/encrypt/rotor-checkpoints", map[string]any{"plaintext": "eA=="})
+		"the transit key's settings": func() error {
+			_, err := raw.Logical().WriteWithContext(ctx, "transit/keys/rotor-checkpoints/config", map[string]any{"deletion_allowed": true})
 			return err
 		},
 		"the policies": func() error {

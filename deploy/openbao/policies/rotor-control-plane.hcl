@@ -23,3 +23,12 @@ path "pki/issue/runnerctl" {
 path "pki/cert/ca" {
   capabilities = ["read"]
 }
+
+# Checkpoints are encrypted and decrypted with this one key, which never leaves OpenBao (#19).
+path "transit/encrypt/rotor-checkpoints" {
+  capabilities = ["update"]
+}
+
+path "transit/decrypt/rotor-checkpoints" {
+  capabilities = ["update"]
+}

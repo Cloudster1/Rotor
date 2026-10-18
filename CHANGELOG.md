@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A run outlives its sandbox (#19). The runner keeps no checkpoint of its
+  own: each goes to the control plane over the runner's channel, sealed
+  with OpenBao's transit key before it reaches Postgres. A run waiting for
+  an answer can lose its sandbox and pick up in a fresh one from the last
+  checkpoint, without repeating what it already did. Checkpoints never hold
+  a token, and one larger than 4 MiB fails the run, saying so.
 - The control plane and a run's sandbox talk over one channel (#18). The
   runner in the sandbox dials the api's runner port over TLS, with a
   certificate from OpenBao's PKI, using a bootstrap token that works once
