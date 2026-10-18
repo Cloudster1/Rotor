@@ -91,6 +91,11 @@ func (op operation) describe(b *openapi.Builder, errorSchema *openapi.Schema) *o
 			"application/json": {Schema: b.SchemaOf(op.request)},
 		}}
 	}
+	if op.form != nil {
+		o.RequestBody = &openapi.RequestBody{Required: true, Content: map[string]openapi.MediaType{
+			"application/x-www-form-urlencoded": {Schema: b.SchemaOf(op.form)},
+		}}
+	}
 	for status, body := range op.responses {
 		r := &openapi.Response{Description: http.StatusText(status)}
 		switch {

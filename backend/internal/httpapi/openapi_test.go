@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -144,8 +145,14 @@ func TestAPendingOperationAnswersNotImplemented(t *testing.T) {
 	t.Cleanup(func() { operations = saved })
 	operations = append(append([]operation{}, saved...), operation{
 		method: "POST", path: "/projects/{projectKey}/promises/{promiseID}", handler: "handlePromise",
-		tag: "projects", summary: "A promise.", pending: true, responses: ok(statusResponse{}),
+		tag: "projects", summary: "A promise.", pending: true, public: true, responses: ok(statusResponse{}),
+	}, operation{
+		method: "GET", path: "/promises", handler: "handlePromises",
+		tag: "projects", summary: "Promises.", pending: true, responses: ok(statusResponse{}),
 	})
+	if resp, body := serve(t, newServer(t).Routes(nil), httptest.NewRequest(http.MethodGet, APIPrefix+"/promises", nil)); resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("a pending route behind the sign-in answered %d %v to nobody, want 401 first", resp.StatusCode, body)
+	}
 
 	path := APIPrefix + pathParamPattern.ReplaceAllString("/projects/{projectKey}/promises/{promiseID}", uuid.NewString())
 	resp, body := serve(t, newServer(t).Routes(nil), httptestRequest(http.MethodPost, path, `{}`))

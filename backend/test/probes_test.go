@@ -64,14 +64,3 @@ func TestMetaAnswersAsTheDocumentSays(t *testing.T) {
 	}
 }
 
-func TestAPendingOperationAnswersNotImplementedLive(t *testing.T) {
-	status, body := get(t, httpapi.APIPrefix+"/auth/oidc/start")
-	for _, route := range httpapi.Catalog() {
-		if route.Path == "/auth/oidc/start" && !route.Pending {
-			t.Skip("sign-in is built, so it no longer answers 501")
-		}
-	}
-	if status != http.StatusNotImplemented {
-		t.Errorf("a pending operation = %d %s", status, body)
-	}
-}

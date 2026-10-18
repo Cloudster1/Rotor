@@ -14,9 +14,17 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/db"
 )
 
+// Actions recorded so far; each feature adds its own as it lands, named domain.verb.
+const (
+	ActionSignedIn               = "user.signed_in"
+	ActionSignedOut              = "user.signed_out"
+	ActionRoleChanged            = "user.role_changed"
+	ActionSwitchedOff            = "user.switched_off"
+	ActionSessionEndedByProvider = "session.ended_by_provider"
+)
+
 // Actions is every action the log may hold, for a filter to offer and a client to name.
-// Each feature adds its own as it lands, named domain.verb.
-var Actions = []string{}
+var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, ActionSwitchedOff, ActionSessionEndedByProvider}
 
 // Redacted stands in the record for a value that looked like a credential.
 const Redacted = "[redacted]"

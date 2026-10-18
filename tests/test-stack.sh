@@ -36,6 +36,8 @@ if config="$(docker compose -f "$COMPOSE" config --format json 2>&1)"; then
   done < <(jq -r '.services | to_entries[] | select(.value.environment.ROTOR_OIDC_ISSUER != null)
     | [.key, .value.environment.ROTOR_OIDC_ISSUER, (.value.environment.ROTOR_OIDC_CLIENT_ID // ""),
        (.value.environment.ROTOR_OIDC_CLIENT_SECRET // "")] | @tsv' <<< "$config")
+  [[ "$(jq -r '.services.api.environment.ROTOR_OIDC_CLIENT_ID // ""' <<< "$config")" == rotor ]] \
+    && pass "the api signs people in as the realm's client rotor" || fail "the api does not sign in as client rotor"
 else
   fail "compose refuses the file: $config"
 fi
