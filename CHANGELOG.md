@@ -9,6 +9,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Rotor has a face (#5): `make up` now serves the web client, a shell with
+  Workflows, Runs, Approvals, Connections and Settings, each saying what will
+  live there, in the suite's light and dark colours. Settings names the build
+  the server runs. A browser suite checks every page with axe in both schemes.
 - The workflow runner has a home (#4): `runner/` is a Python 3.13 project
   with LangGraph, langchain-core, langchain-mcp-adapters and grpcio pinned
   by `uv.lock`, checked by ruff, mypy and pytest, and built into a

@@ -9,6 +9,8 @@ export ROTOR_BUILD_COMMIT := $(shell $(ROOT)/scripts/build-stamp.sh commit)
 UID_GID := $(shell id -u):$(shell id -g)
 REPORTS := $(ROOT)/reports
 NODE_IMAGE ?= node:26-alpine
+# A terminal for the Node containers only when there is one, so the gate runs the same in CI.
+DOCKER_NODE_TTY := $(shell [ -t 0 ] && echo -t)
 
 include $(wildcard $(ROOT)/mk/*.mk)
 
