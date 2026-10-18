@@ -9,6 +9,13 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- People connect their accounts in the tools (#11). The Connections page
+  lists every tool; connecting sends the browser to the tool's own consent
+  page and back, with PKCE, a state bound to the session and the tool's MCP
+  endpoint named as the resource. The refresh token goes to OpenBao and the
+  access token is dropped. The page shows what was allowed, when it was
+  connected and last used, and disconnecting revokes the grant at the tool.
+  Removing a tool or switching a person off ends their connections too.
 - Administrators add the tools Rotor acts in (#9). Settings lists every
   tool with what it offers; an administrator adds one by the address it is
   opened at, and Rotor reads its MCP endpoint and authorization server and
