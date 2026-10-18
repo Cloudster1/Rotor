@@ -13,7 +13,8 @@ from jsonschema import Draft202012Validator
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
 
-MAX_SPEC_BYTES = 256 << 10
+from rotor_runner.config import MAX_SPEC_BYTES
+
 TEMPLATE_REF = re.compile(r"\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}")
 
 SCHEMA: dict[str, Any] = json.loads(resources.files("rotor_runner").joinpath("workflow.v1.schema.json").read_text())

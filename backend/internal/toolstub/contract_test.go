@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/cloudster1/rotor/backend/internal/openapi"
 )
@@ -282,5 +283,42 @@ func validates(t *testing.T, tool, component string, raw []byte) {
 	doc := loadDocument(t, tool)
 	if err := doc.ValidateJSON(&openapi.Schema{Ref: "#/components/schemas/" + component}, raw); err != nil {
 		t.Errorf("the stub's answer is not %s's %s: %v\n%s", tool, component, err, raw)
+	}
+}
+
+// MCP clients check a tool's structured answer against the output schema it lists, so whoami answers in the shape of
+// Exciter's own: a stub that did not would fail every client that checks, as the runner's does.
+func TestWhoamiAnswersInTheShapeExciterLists(t *testing.T) {
+	raw, _ := os.ReadFile(snapshotFile)
+	var listed struct {
+		Tools []map[string]any `json:"tools"`
+	}
+	if err := json.Unmarshal(raw, &listed); err != nil {
+		t.Fatal(err)
+	}
+	var schema any
+	for _, tool := range listed.Tools {
+		if tool["name"] == WhoamiTool {
+			schema = tool["outputSchema"]
+		}
+	}
+	if schema == nil {
+		t.Fatalf("the snapshot's %s lists no output schema", WhoamiTool)
+	}
+	compiler := jsonschema.NewCompiler()
+	if err := compiler.AddResource("whoami.json", schema); err != nil {
+		t.Fatal(err)
+	}
+	compiled, err := compiler.Compile("whoami.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := newContract(t)
+	c.controlled("POST", "/control/tenants", map[string]any{"name": "plain", "oauth": false}, http.StatusCreated)
+	answer := c.whoami("plain", PATPrefix+"erin")
+	encoded, _ := json.Marshal(answer)
+	instance, _ := jsonschema.UnmarshalJSON(bytes.NewReader(encoded))
+	if err := compiled.Validate(instance); err != nil {
+		t.Errorf("whoami answered %s, which Exciter's output schema refuses: %v", encoded, err)
 	}
 }

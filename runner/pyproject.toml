@@ -13,6 +13,11 @@ dependencies = [
     "protobuf==7.36.2",
     "ruamel.yaml==0.19.1",
     "jsonschema==4.26.0",
+    "langchain==1.4.3",
+    "langchain-anthropic==1.7.5",
+    "langchain-openai==1.6.7",
+    "httpx==0.28.1",
+    "pydantic==2.14.1",
 ]
 
 [dependency-groups]
@@ -54,3 +59,4 @@ ignore_errors = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+markers = ["stack: needs the compose stack's test double; run by make test-runner"]

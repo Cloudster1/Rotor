@@ -49,6 +49,8 @@ jobs:
           - name: test-integration
             layers: test-integration
             go-cache: integration
+            # The runner's tests against the stack run in this layer too.
+            uv-cache: runner
           - name: test-e2e 1/1
             layers: test-e2e
             shard: 1/1

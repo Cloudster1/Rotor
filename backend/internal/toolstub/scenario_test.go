@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -169,7 +170,7 @@ func TestEveryAnswerFitsExcitersDocument(t *testing.T) {
 	if tools := c.mcp("acme", bob.access, "tools/list", nil)["tools"].([]any); len(tools) != len(newTestStub(t).tools) {
 		t.Errorf("tools/list answered %d tools", len(tools))
 	}
-	if me := c.whoami("acme", bob.access); me["username"] != "bob" || me["readOnly"] != false {
+	if me := c.whoami("acme", bob.access); nameOf(me) != "bob" || !slices.Contains(scopesOf(me), ScopeMCP) {
 		t.Errorf("whoami answered %v", me)
 	}
 	_, resp = c.expect("POST", "/t/acme"+mcpPath, request{json: map[string]any{"jsonrpc": "2.0", "id": 1, "method": "ping"}}, http.StatusUnauthorized)
@@ -191,7 +192,7 @@ func TestEveryAnswerFitsExcitersDocument(t *testing.T) {
 	carol := c.connect("acme", "carol", "")
 	_, carol = c.refresh("acme", carol, ScopeMCPRead, http.StatusOK)
 	_, carol = c.refresh("acme", carol, "", http.StatusOK)
-	if carol.scope != ScopeMCPRead || c.whoami("acme", carol.access)["readOnly"] != true {
+	if carol.scope != ScopeMCPRead || !slices.Equal(scopesOf(c.whoami("acme", carol.access)), []string{ScopeMCPRead}) {
 		t.Errorf("a narrowed grant refreshed to %q", carol.scope)
 	}
 	c.refresh("acme", carol, ScopeMCP, http.StatusBadRequest)
@@ -227,7 +228,7 @@ func TestTheControlAPIShapesTenants(t *testing.T) {
 	if meta, _ := c.expect("GET", "/t/plain/api/v1/meta", request{}, http.StatusOK); meta["product"] != "stator" || len(meta["capabilities"].([]any)) != 0 {
 		t.Errorf("a tenant told otherwise answers %v", meta)
 	}
-	if me := c.whoami("plain", PATPrefix+"dave"); me["username"] != "dave" {
+	if me := c.whoami("plain", PATPrefix+"dave"); nameOf(me) != "dave" {
 		t.Errorf("a personal token acts for %v", me)
 	}
 
@@ -276,4 +277,20 @@ func TestTheIssuerIsThePublicAddress(t *testing.T) {
 	if server["issuer"] != "https://rotor.example/t/acme" || server["authorization_endpoint"] != "https://rotor.example/t/acme/api/v1/oauth/authorize" {
 		t.Errorf("behind a proxy the metadata reads %v", server)
 	}
+}
+
+// nameOf and scopesOf read whoami's answer, which has the shape of Exciter's.
+func nameOf(me map[string]any) string {
+	user, _ := me["user"].(map[string]any)
+	name, _ := user["name"].(string)
+	return name
+}
+
+func scopesOf(me map[string]any) []string {
+	token, _ := me["token"].(map[string]any)
+	var out []string
+	for _, s := range token["scopes"].([]any) {
+		out = append(out, s.(string))
+	}
+	return out
 }

@@ -9,6 +9,19 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The runner turns a workflow into a LangGraph graph (#16): agents built on
+  the workflow's model with the tools their bindings allow (only tools that
+  say they only read, unless a binding may write), single MCP calls with
+  arguments filled from the run's state, routers, and approvals that wait.
+  Every MCP call carries the run's token for its binding, which never enters
+  the run's state. A run that passes its step, time or token limit ends and
+  says which; the runner reports each node starting and finishing, the
+  model's text and each tool call as events.
+
+### Fixed
+
+- The tool test double answers `whoami` in the shape Exciter's tool list
+  declares, which MCP clients check, and a contract test keeps it so.
 - Workflows have a written form (#14): versioned YAML, `rotor.dev/v1`, with
   inputs, tool bindings that say what a run may call, a model, limits, and
   agent, tool, code, approval and router nodes. Rotor checks it against

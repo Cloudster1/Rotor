@@ -77,12 +77,14 @@ func whoami(t *testing.T, stub *toolStub, token string) (int, string) {
 	var answer struct {
 		Result struct {
 			StructuredContent struct {
-				Username string `json:"username"`
+				User struct {
+					Name string `json:"name"`
+				} `json:"user"`
 			} `json:"structuredContent"`
 		} `json:"result"`
 	}
 	_ = json.Unmarshal(raw, &answer)
-	return resp.StatusCode, answer.Result.StructuredContent.Username
+	return resp.StatusCode, answer.Result.StructuredContent.User.Name
 }
 
 func TestTwentyRunsMintAtOnceWithoutEndingTheGrant(t *testing.T) {

@@ -78,6 +78,7 @@ test-integration: | $(GO_CACHE) ## Run the integration suite against this checko
 		|| { echo "The stack for this checkout is not running. Start it with make up or make stack-up, then run this again."; exit 1; }
 	$(ROOT)/tests/test-openbao-persist.sh
 	$(ROOT)/scripts/go-test.sh $(REPORTS)/integration.json $(DOCKER_GO_STACK) go test -race -json -tags integration -count=1 $(TESTFLAGS) ./test/...
+	$(if $(wildcard $(ROOT)/runner/pyproject.toml),$(MAKE) --no-print-directory test-runner)
 
 .PHONY: shell
 shell: | $(GO_CACHE) ## Interactive shell in the Go toolchain container, on the stack's network
