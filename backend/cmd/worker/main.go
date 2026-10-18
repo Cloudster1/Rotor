@@ -17,6 +17,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/metrics"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/runs"
 	"github.com/cloudster1/rotor/backend/internal/sandbox"
@@ -84,9 +85,12 @@ func run() error {
 		Image: cfg.Sandbox.Image, Dial: cfg.Runner.Dial, Stack: cfg.Sandbox.Stack, CA: secrets.RunnerCA, OpenBao: cfg.OpenBao.Addr,
 		Limits: sandbox.Limits{MemoryBytes: config.DefaultSandboxMemory, MilliCPUs: config.DefaultSandboxMilliCPUs, PIDs: config.DefaultSandboxPIDs},
 	}, log)
-	// A run's tokens end with it, revoked at their tools.
-	worker.Teardown = people.RevokeRun
+	// A run's tokens end with it, revoked at their tools, and when it starts waiting (#28).
+	worker.Teardown, worker.Waiting = people.RevokeRun, people.RevokeRun
 	worker.Events = store
+	counted := &metrics.Registry{}
+	worker.Metrics = runs.NewWorkerMetrics(counted, cluster)
+	go metrics.Serve(ctx, cfg.Worker.MetricsAddr, counted, log)
 	worker.Passed = func() {
 		now := time.Now()
 		if err := os.Chtimes(config.WorkerAliveFile, now, now); errors.Is(err, os.ErrNotExist) {

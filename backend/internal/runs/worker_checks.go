@@ -59,20 +59,39 @@ func (w *Worker) reconcile(ctx context.Context) error {
 		return fmt.Errorf("reconcile: read the runs: %w", err)
 	}
 	var errs []error
+	kept := 0
 	for _, s := range found {
 		id, _ := uuid.Parse(s.Labels[sandbox.LabelRun])
 		r, ok := runs[id]
 		live := ok && (r.status == runnerctl.StatusStarting || r.status == runnerctl.StatusRunning)
 		// A sandbox being started is not named by its run until the starting worker lets go.
 		if live && (r.sandboxID == string(s.ID) || r.leased) {
+			if s.Status.State != sandbox.StateExited {
+				kept++
+			}
 			continue
 		}
-		if err := w.sandboxes.Destroy(ctx, s.ID); err != nil && !errors.Is(err, sandbox.ErrNotFound) {
+		switch err := w.sandboxes.Destroy(ctx, s.ID); {
+		case err == nil:
+			w.Metrics.reap(reapReason(ok, r.status))
+		case !errors.Is(err, sandbox.ErrNotFound):
 			errs = append(errs, err)
 		}
 	}
+	w.Metrics.sawLive(kept)
 	errs = append(errs, w.markGone(ctx, present))
 	return errors.Join(errs...)
+}
+
+// reapReason says why reconcile destroyed a sandbox: its run ended or waits, or no live run owns it any more.
+func reapReason(known bool, status string) string {
+	switch {
+	case known && runnerctl.Ended(status):
+		return ReapEnded
+	case known && status == runnerctl.StatusWaiting:
+		return ReapWaiting
+	}
+	return ReapOrphan
 }
 
 // markGone makes every live run whose sandbox is not among those present due for replacement now.
@@ -89,18 +108,25 @@ func (w *Worker) markGone(ctx context.Context, present []string) error {
 }
 
 // expire acts on the runs whose time ran out: a sandbox that never said Hello, a runner that stopped answering, a
-// run past its deadline, the sandbox of a run that now waits, and a run that waited too long.
+// run past its deadline, the sandbox and tokens of a run that now waits, and a run that waited too long.
 func (w *Worker) expire(ctx context.Context) error {
 	return errors.Join(
 		w.each(ctx, "unstarted", `r.status = 'starting' AND r.sandbox_id IS NOT NULL
-			AND r.sandbox_started_at <= now() - make_interval(secs => $3)`, w.dropSandbox, config.StartTimeout.Seconds()),
+			AND r.sandbox_started_at <= now() - make_interval(secs => $3)`, func(ctx context.Context, c claimed) error {
+			return w.dropSandbox(ctx, c, ReapUnstarted)
+		}, config.StartTimeout.Seconds()),
 		w.each(ctx, "lost", `r.status = 'running' AND r.runner_lost_at <= now() - make_interval(secs => $3)`,
 			w.replace, config.LostGrace.Seconds()),
 		w.each(ctx, "deadline", `r.status = 'running' AND r.deadline_at < now()`, func(ctx context.Context, c claimed) error {
+			if err := w.dropSandbox(ctx, c, ReapDeadline); err != nil {
+				return err
+			}
 			return w.end(ctx, c.ID, runnerctl.StatusFailed, ReasonTimeout,
 				"The run took longer than its timeout and was ended. Raise limits.timeout if it needs longer.")
 		}),
-		w.each(ctx, "waiting", `r.status = 'waiting' AND r.sandbox_id IS NOT NULL`, w.dropSandbox),
+		// A waiting run keeps nothing alive: no sandbox and no token; a revocation that failed is tried again.
+		w.each(ctx, "waiting", `r.status = 'waiting' AND (r.sandbox_id IS NOT NULL
+			OR EXISTS (SELECT 1 FROM run_token t WHERE t.run_id = r.id AND t.revoked_at IS NULL))`, w.idle),
 		w.each(ctx, "expired", `r.status = 'waiting' AND NOT EXISTS (SELECT 1 FROM run_event e
 				WHERE e.run_id = r.id AND e.at > now() - make_interval(secs => $3))`, func(ctx context.Context, c claimed) error {
 			return w.end(ctx, c.ID, runnerctl.StatusExpired, ReasonWaitedTooLong, "Nobody answered the run in time, so it expired.")
@@ -108,10 +134,22 @@ func (w *Worker) expire(ctx context.Context) error {
 	)
 }
 
+// idle drops a waiting run's sandbox and hands it to Waiting, which revokes its tokens; resuming it starts a fresh
+// sandbox from the last checkpoint, which is handed fresh tokens.
+func (w *Worker) idle(ctx context.Context, c claimed) error {
+	if err := w.dropSandbox(ctx, c, ReapWaiting); err != nil {
+		return err
+	}
+	if w.Waiting == nil {
+		return nil
+	}
+	return w.Waiting(ctx, c.ID)
+}
+
 // replace starts a lost runner's run again in a fresh sandbox, which resumes from the last checkpoint; after
 // config.MaxRunAttempts sandboxes the run fails.
 func (w *Worker) replace(ctx context.Context, c claimed) error {
-	if err := w.dropSandbox(ctx, c); err != nil {
+	if err := w.dropSandbox(ctx, c, ReapLost); err != nil {
 		return err
 	}
 	if c.Attempts >= config.MaxRunAttempts {

@@ -51,6 +51,11 @@ type Worker struct {
 	id        string
 	// Teardown runs once for each run that ended, after its sandbox is gone; nil does nothing more.
 	Teardown Teardown
+	// Waiting runs for a run that waits, after its sandbox is gone, such as revoking its tokens (#28); an error
+	// tries again on the next tick. Nil does nothing more.
+	Waiting Teardown
+	// Metrics counts the sandboxes alive and reaped; nil counts nothing.
+	Metrics *WorkerMetrics
 	// Passed is told after every pass, such as for a health check; nil tells nobody.
 	Passed func()
 	// Events tells those following a run that the worker wrote it an event; nil leaves them to poll.
@@ -219,7 +224,7 @@ func (w *Worker) deadline(ctx context.Context, runID uuid.UUID) time.Duration {
 func (w *Worker) teardown(ctx context.Context) error {
 	return w.each(ctx, "teardown", `r.status IN ('succeeded', 'failed', 'cancelled', 'expired') AND r.torn_down_at IS NULL`,
 		func(ctx context.Context, c claimed) error {
-			if err := w.dropSandbox(ctx, c); err != nil {
+			if err := w.dropSandbox(ctx, c, ReapEnded); err != nil {
 				return err
 			}
 			if w.Teardown != nil {
@@ -234,10 +239,14 @@ func (w *Worker) teardown(ctx context.Context) error {
 		})
 }
 
-// dropSandbox destroys the run's sandbox, if it has one, and the credentials it could reconnect with.
-func (w *Worker) dropSandbox(ctx context.Context, c claimed) error {
+// dropSandbox destroys the run's sandbox, if it has one, counting it under reason, and the credentials it could
+// reconnect with.
+func (w *Worker) dropSandbox(ctx context.Context, c claimed, reason string) error {
 	if c.SandboxID != "" {
-		if err := w.sandboxes.Destroy(ctx, sandbox.ID(c.SandboxID)); err != nil && !errors.Is(err, sandbox.ErrNotFound) {
+		switch err := w.sandboxes.Destroy(ctx, sandbox.ID(c.SandboxID)); {
+		case err == nil:
+			w.Metrics.reap(reason)
+		case !errors.Is(err, sandbox.ErrNotFound):
 			return err
 		}
 	}

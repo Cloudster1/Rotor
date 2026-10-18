@@ -2,8 +2,16 @@ package config
 
 import "time"
 
+// Worker is the run worker's own settings.
+type Worker struct {
+	// MetricsAddr is where the worker serves /metrics (#28); empty serves none.
+	MetricsAddr string
+}
+
 // Runs and the worker that carries them (#22); docs/api-contract-m2.md describes their states.
 const (
+	// DefaultWorkerMetricsAddr is where the worker serves /metrics, on the stack's network alone.
+	DefaultWorkerMetricsAddr = ":9464"
 	// WorkerTick is how often the worker looks for runs to start, check and end.
 	WorkerTick = 2 * time.Second
 	// WorkerLease is how long a worker holds a run it is acting on; one that dies delays the run this long at most.
