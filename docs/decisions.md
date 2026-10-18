@@ -26,6 +26,11 @@ tell whether the reason still holds.
   do in Exciter, Armature and Stator is decided by those tools when a run
   acts as them, so Rotor needs no gate of its own beyond the realm.
   `rotor-administrators` makes an administrator of Rotor itself.
+- **A logout token that names a session ends that session alone.** Leaving
+  one browser keeps a person's others, as the specification asks; a token
+  naming only the person ends all of theirs. Keycloak answers its admin
+  sign-out of a person with one token naming one session, so their other
+  Rotor sessions last until they expire; #53 follows that up.
 
 ## 2026-10-18: The shape of Rotor (#2)
 

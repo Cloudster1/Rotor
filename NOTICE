@@ -47,3 +47,12 @@ Adapted from Exciter at 1c6d4d1, its web skeleton, and c3f81ae:
   Armature's Clay tokens
 - e2e/playwright.config.ts, merge.config.ts, fixtures/stack.ts and shell.ts,
   mk/web.mk and mk/e2e.mk, deploy/Dockerfile.web and deploy/nginx.conf
+
+Adapted from Exciter at c3f81ae, its sign-in through the identity provider:
+- backend/internal/oidc/backchannel.go (the client that reaches the issuer
+  at its address inside the stack), claims.go and the code flow in
+  service.go: renamed, configured from the environment rather than a table,
+  one installation's role mapping, re-authentication left out. The
+  back-channel logout (logouttoken.go, logout.go) is Rotor's own.
+- web/src/routes/shell.tsx's guard and the sign-in page's shape, and
+  e2e/fixtures/auth.ts's walk through Keycloak's page

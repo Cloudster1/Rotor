@@ -1,4 +1,5 @@
 import { defineConfig, devices, type ReporterDescription } from "@playwright/test";
+import { ALICE_STATE } from "./fixtures/auth";
 import { WEB_URL } from "./fixtures/stack";
 
 // A spec that only means something at one width carries @desktop or @mobile and runs in that project alone.
@@ -34,12 +35,20 @@ export default defineConfig({
     actionTimeout: ACTION_TIMEOUT_MS,
     navigationTimeout: NAVIGATION_TIMEOUT_MS,
   },
+  // Every browser project starts signed in as alice, by the one real sign-in the setup project makes.
   projects: [
-    { name: "chromium", grepInvert: /@mobile/, use: { ...devices["Desktop Chrome"] } },
+    { name: "setup", testMatch: /.*\.setup\.ts/ },
+    {
+      name: "chromium",
+      grepInvert: /@mobile/,
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Chrome"], storageState: ALICE_STATE },
+    },
     {
       name: "mobile",
       grepInvert: /@desktop/,
-      use: { ...devices["Desktop Chrome"], viewport: MOBILE_VIEWPORT, isMobile: true, hasTouch: true },
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Chrome"], viewport: MOBILE_VIEWPORT, isMobile: true, hasTouch: true, storageState: ALICE_STATE },
     },
   ],
 });

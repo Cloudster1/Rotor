@@ -5,14 +5,14 @@ import { RouterProvider } from "@tanstack/react-router";
 
 import { createQueryClient } from "./lib/session";
 import { applyTheme, readTheme } from "./lib/theme";
-import { buildRouter } from "./routes";
+import { buildRouter, sendToLogin } from "./routes";
 import "./styles/index.css";
 
 // Before the first paint, so a dark choice never flashes light.
 applyTheme(readTheme());
 
-// A 401 anywhere will send the reader to sign in once #6 builds it; until then there is nothing to do.
-const queryClient = createQueryClient(() => {});
+// A 401 anywhere sends the reader to sign in; the router exists by the time any request answers.
+const queryClient = createQueryClient((client) => sendToLogin(router, client));
 const router = buildRouter(queryClient);
 
 const container = document.getElementById("root");

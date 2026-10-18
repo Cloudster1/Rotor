@@ -13,6 +13,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/audit"
 	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/config"
+	"github.com/cloudster1/rotor/backend/internal/oidc"
 )
 
 // backchannelWait bounds how long Keycloak's logout takes to reach the api and end the session.
@@ -63,16 +64,22 @@ func TestARoleFollowsTheRealmAtTheNextSignIn(t *testing.T) {
 	}
 }
 
-// Ending the person's sessions in Keycloak reaches the api through back-channel logout and ends Rotor's too.
+// Ending the session in Keycloak reaches the api through back-channel logout and ends Rotor's too; the test ends
+// it by the provider's session id Rotor keeps, as Keycloak's sign-out of all sessions names only one (#53).
 func TestAKeycloakLogoutEndsTheSessionInRotor(t *testing.T) {
-	newHarness(t)
+	h := newHarness(t)
 	b := newBrowser(t)
 	b.signIn("alice")
 	if status, _ := b.me(); status != http.StatusOK {
 		t.Fatalf("alice is not signed in: %d", status)
 	}
-	kc := newKeycloakAdmin(t)
-	kc.call(http.MethodPost, "/users/"+kc.id("users", "alice")+"/logout", nil)
+	var sid string
+	if err := h.super.QueryRow(context.Background(), `
+		SELECT s.oidc_sid FROM user_session s JOIN app_user u ON u.id = s.user_id
+		WHERE u.email = 'alice@suite.test' ORDER BY s.created_at DESC LIMIT 1`).Scan(&sid); err != nil || sid == "" {
+		t.Fatalf("alice's session keeps no provider session id: %q %v", sid, err)
+	}
+	newKeycloakAdmin(t).call(http.MethodDelete, "/sessions/"+sid, nil)
 
 	deadline := time.Now().Add(backchannelWait)
 	for {
@@ -109,5 +116,71 @@ func TestASwitchedOffPersonLosesTheirSessionsAndCannotSignInAgain(t *testing.T) 
 	}
 	if landed := newBrowser(t).signIn("dave"); landed != "/login?error=switched_off" {
 		t.Errorf("a switched-off dave signing in landed on %q", landed)
+	}
+}
+
+// Ending one of a person's sessions at the provider ends only the Rotor session it signed in, not their others.
+func TestEndingOneProviderSessionLeavesThePersonsOthers(t *testing.T) {
+	h := newHarness(t)
+	first, second := newBrowser(t), newBrowser(t)
+	first.signIn("bob")
+	second.signIn("bob")
+	var sids []string
+	rows, err := h.super.Query(context.Background(), `
+		SELECT s.oidc_sid FROM user_session s JOIN app_user u ON u.id = s.user_id
+		WHERE u.email = 'bob@suite.test' ORDER BY s.created_at DESC LIMIT 2`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var sid string
+		if err := rows.Scan(&sid); err != nil {
+			t.Fatal(err)
+		}
+		sids = append(sids, sid)
+	}
+	rows.Close()
+	if len(sids) != 2 || sids[0] == sids[1] {
+		t.Fatalf("bob's two newest sessions name provider sessions %q", sids)
+	}
+	// Newest first, so the second entry is the first browser's.
+	newKeycloakAdmin(t).call(http.MethodDelete, "/sessions/"+sids[1], nil)
+
+	deadline := time.Now().Add(backchannelWait)
+	for {
+		if status, _ := first.me(); status == http.StatusUnauthorized {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the first browser's session survived its provider session for %s", backchannelWait)
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	if status, _ := second.me(); status != http.StatusOK {
+		t.Errorf("ending bob's first provider session ended his second Rotor session too: %d", status)
+	}
+}
+
+// A logout naming only the person, as the specification allows, ends every session they have.
+func TestALogoutNamingOnlyThePersonEndsAllTheirSessions(t *testing.T) {
+	h := newHarness(t)
+	first, second := newBrowser(t), newBrowser(t)
+	first.signIn("carol")
+	second.signIn("carol")
+	var issuer, subject string
+	if err := h.super.QueryRow(context.Background(), `
+		SELECT i.issuer, i.subject FROM user_identity i JOIN app_user u ON u.id = i.user_id WHERE u.email = 'carol@suite.test'`,
+	).Scan(&issuer, &subject); err != nil {
+		t.Fatal(err)
+	}
+	signIn := oidc.NewService(h.cluster, nil, h.cfg.OIDC)
+	if err := signIn.EndSessions(context.Background(), &oidc.Logout{Issuer: issuer, Subject: subject, JTI: uuid.NewString(),
+		Expires: time.Now().Add(time.Minute)}); err != nil {
+		t.Fatal(err)
+	}
+	for i, b := range []*browser{first, second} {
+		if status, _ := b.me(); status != http.StatusUnauthorized {
+			t.Errorf("carol's session %d survived a logout naming her: %d", i+1, status)
+		}
 	}
 }

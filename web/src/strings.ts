@@ -43,6 +43,28 @@ export const s = {
     loading: "Asking the server which build it runs.",
     unreachable: "The server did not say which build it runs. Reload the page to ask again.",
   },
+  signIn: {
+    title: (app: string) => `Sign in to ${app}`,
+    body: "Rotor uses the same account as Exciter, Armature and Stator. Your workflows act with your permissions there.",
+    action: "Sign in with your suite account",
+    signOut: "Sign out",
+    errors: {
+      denied: "The sign-in was cancelled at the identity provider. Try again when you are ready.",
+      expired: "That sign-in took too long or was already used. Start again.",
+      switched_off: "Your account is switched off in Rotor. Ask an administrator of Rotor to switch it on again.",
+      no_email: "The identity provider did not vouch for an email address, which Rotor knows you by. Ask its administrator to add one.",
+      failed: "Signing in did not work. Try again, and tell an administrator if it keeps happening.",
+    },
+  },
+  account: {
+    title: "You",
+    name: "Name",
+    email: "Email",
+    role: "Role in Rotor",
+    groups: "Groups",
+    noGroups: "None",
+    roles: { admin: "Administrator", member: "Member" },
+  },
   notFound: {
     title: "Not found",
     body: "Nothing lives at this address. Pick a place from the sidebar.",

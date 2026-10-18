@@ -63,4 +63,3 @@ func TestMetaAnswersAsTheDocumentSays(t *testing.T) {
 		t.Errorf("the api says it is build %q, the checkout made %q", meta.Build.Version, want)
 	}
 }
-
