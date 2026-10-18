@@ -14,7 +14,8 @@ func clean(t *testing.T) {
 	for _, key := range []string{
 		"ROTOR_ENV", "ROTOR_HTTP_ADDR", "ROTOR_LOG_LEVEL", "ROTOR_APP_URL", "ROTOR_CORS_ORIGINS",
 		"ROTOR_REQUEST_TIMEOUT", "ROTOR_DB_ADMIN_URL", "ROTOR_DB_MAX_CONNS", "ROTOR_DB_MIN_CONNS",
-		"ROTOR_DB_CONN_MAX_LIFETIME",
+		"ROTOR_DB_CONN_MAX_LIFETIME", "ROTOR_OIDC_ISSUER", "ROTOR_OIDC_CLIENT_ID", "ROTOR_OIDC_CLIENT_SECRET",
+		"ROTOR_OIDC_REDIRECT_URL", "ROTOR_SESSION_TTL", "ROTOR_SECURE_COOKIES",
 	} {
 		t.Setenv(key, "")
 	}
@@ -60,6 +61,10 @@ func TestListsAreTrimmedAndTheAppURLLosesItsSlash(t *testing.T) {
 func TestSettingsAreRead(t *testing.T) {
 	clean(t)
 	t.Setenv("ROTOR_ENV", EnvProduction)
+	t.Setenv("ROTOR_SECURE_COOKIES", "true")
+	t.Setenv("ROTOR_OIDC_ISSUER", "https://id.example.com/realms/dynamo")
+	t.Setenv("ROTOR_OIDC_CLIENT_ID", "rotor")
+	t.Setenv("ROTOR_OIDC_CLIENT_SECRET", "s")
 	t.Setenv("ROTOR_DB_ADMIN_URL", "postgres://admin@db/rotor")
 	t.Setenv("ROTOR_DB_MAX_CONNS", "7")
 	t.Setenv("ROTOR_REQUEST_TIMEOUT", "5s")
@@ -83,8 +88,9 @@ func TestEveryProblemIsReportedAtOnceAsSentences(t *testing.T) {
 	if !errors.As(err, &cfgErr) {
 		t.Fatalf("want *Error, got %v", err)
 	}
-	if len(cfgErr.Problems) != 4 {
-		t.Fatalf("want 4 problems, got %d: %q", len(cfgErr.Problems), cfgErr.Problems)
+	// An environment that is not development also asks for secure cookies and an identity provider.
+	if len(cfgErr.Problems) != 6 {
+		t.Fatalf("want 6 problems, got %d: %q", len(cfgErr.Problems), cfgErr.Problems)
 	}
 	for _, p := range cfgErr.Problems {
 		if !strings.HasSuffix(p, ".") || !strings.Contains(p, "ROTOR_") {
@@ -104,5 +110,48 @@ func TestPoolBoundsAreChecked(t *testing.T) {
 	t.Setenv("ROTOR_DB_MAX_CONNS", "0")
 	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "at least 1") {
 		t.Fatalf("want an empty pool refused, got %v", err)
+	}
+}
+
+func TestSignInSettings(t *testing.T) {
+	clean(t)
+	for _, key := range []string{"ROTOR_OIDC_ISSUER", "ROTOR_OIDC_CLIENT_ID", "ROTOR_OIDC_CLIENT_SECRET", "ROTOR_OIDC_REDIRECT_URL",
+		"ROTOR_OIDC_BACKCHANNEL", "ROTOR_SESSION_COOKIE", "ROTOR_SECURE_COOKIES", "ROTOR_SESSION_TTL"} {
+		t.Setenv(key, "")
+	}
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.SignInConfigured() || c.Auth.SessionCookie != DefaultSessionCookie || c.Auth.SessionTTL != DefaultSessionTTL || c.Auth.SecureCookies {
+		t.Errorf("sign-in defaults = %+v %+v", c.Auth, c.OIDC)
+	}
+	if c.OIDC.RedirectURL != DefaultAppBaseURL+CallbackPath {
+		t.Errorf("the callback defaults to %q", c.OIDC.RedirectURL)
+	}
+
+	t.Setenv("ROTOR_OIDC_ISSUER", "http://localhost:30042/realms/dynamo/")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "ROTOR_OIDC_CLIENT_ID") {
+		t.Errorf("an issuer without a client = %v", err)
+	}
+	t.Setenv("ROTOR_OIDC_CLIENT_ID", "rotor")
+	t.Setenv("ROTOR_OIDC_CLIENT_SECRET", "rotor-dev-secret")
+	if c, err = Load(); err != nil || c.OIDC.Issuer != "http://localhost:30042/realms/dynamo" || !c.SignInConfigured() {
+		t.Errorf("a full provider = %+v, %v", c.OIDC, err)
+	}
+}
+
+func TestOutsideDevelopmentSignInAndSecureCookiesAreRequired(t *testing.T) {
+	clean(t)
+	t.Setenv("ROTOR_ENV", EnvStaging)
+	t.Setenv("ROTOR_OIDC_ISSUER", "")
+	t.Setenv("ROTOR_SECURE_COOKIES", "")
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "ROTOR_SECURE_COOKIES") || !strings.Contains(err.Error(), "ROTOR_OIDC_ISSUER") {
+		t.Fatalf("staging without sign-in or secure cookies = %v", err)
+	}
+	t.Setenv("ROTOR_SECURE_COOKIES", "maybe")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "true or false") {
+		t.Fatalf("a cookie flag that is no boolean = %v", err)
 	}
 }

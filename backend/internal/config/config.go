@@ -23,6 +23,11 @@ const (
 	DefaultMaxConns        = 20
 	DefaultMinConns        = 2
 	DefaultConnMaxLifetime = time.Hour
+	DefaultSessionCookie   = "rotor_session"
+	// DefaultSessionTTL is short because a session can start runs that act in three tools.
+	DefaultSessionTTL = 12 * time.Hour
+	// CallbackPath is where the identity provider returns the browser, under the web client's origin.
+	CallbackPath = "/api/v1/auth/oidc/callback"
 )
 
 // Fixed timings the processes rely on, kept here so every tunable value has one home.
@@ -42,6 +47,14 @@ const (
 	// The migrate container may start alongside Postgres, so it waits this long for it.
 	MigrateConnectAttempts = 30
 	MigrateConnectPause    = time.Second
+	// OIDCLoginTTL is how long a person may take at the identity provider before the attempt is forgotten.
+	OIDCLoginTTL = 15 * time.Minute
+	// LogoutTokenLeeway is how far a logout token's iat may stray from our clock.
+	LogoutTokenLeeway = 5 * time.Minute
+	// ProviderTimeout bounds every call to the identity provider; a sign-in waits on it.
+	ProviderTimeout = 10 * time.Second
+	// MaxLogoutTokenBody bounds the form a provider posts; a logout token is a few kilobytes at most.
+	MaxLogoutTokenBody = 64 << 10
 )
 
 // Config is the fully resolved configuration for every binary.
@@ -56,7 +69,27 @@ type Config struct {
 	// RequestTimeout bounds every request's handler.
 	RequestTimeout time.Duration
 
-	DB DB
+	DB   DB
+	Auth Auth
+	OIDC OIDC
+}
+
+// Auth is how a signed-in browser is remembered.
+type Auth struct {
+	SessionCookie string
+	// SecureCookies sends the cookie over HTTPS only; it must be on outside development.
+	SecureCookies bool
+	SessionTTL    time.Duration
+}
+
+// OIDC is the suite's identity provider, the only way to sign in to Rotor.
+type OIDC struct {
+	Issuer       string
+	ClientID     string
+	ClientSecret string
+	RedirectURL  string
+	// Backchannel maps the issuer's public origin to the one this process reaches it at, as public=reachable.
+	Backchannel string
 }
 
 // DB describes the Postgres database and the two roles Rotor connects as.
@@ -97,6 +130,21 @@ func Load() (Config, error) {
 			MinConns:        int32(l.integer("ROTOR_DB_MIN_CONNS", DefaultMinConns)),
 			ConnMaxLifetime: l.duration("ROTOR_DB_CONN_MAX_LIFETIME", DefaultConnMaxLifetime),
 		},
+		Auth: Auth{
+			SessionCookie: l.str("ROTOR_SESSION_COOKIE", DefaultSessionCookie),
+			SecureCookies: l.boolean("ROTOR_SECURE_COOKIES", false),
+			SessionTTL:    l.duration("ROTOR_SESSION_TTL", DefaultSessionTTL),
+		},
+		OIDC: OIDC{
+			Issuer:       strings.TrimSuffix(l.str("ROTOR_OIDC_ISSUER", ""), "/"),
+			ClientID:     l.str("ROTOR_OIDC_CLIENT_ID", ""),
+			ClientSecret: l.raw("ROTOR_OIDC_CLIENT_SECRET"),
+			RedirectURL:  l.str("ROTOR_OIDC_REDIRECT_URL", ""),
+			Backchannel:  l.str("ROTOR_OIDC_BACKCHANNEL", ""),
+		},
+	}
+	if c.OIDC.RedirectURL == "" {
+		c.OIDC.RedirectURL = c.AppBaseURL + CallbackPath
 	}
 
 	if c.DB.URL == "" {
@@ -115,6 +163,18 @@ func Load() (Config, error) {
 	if c.RequestTimeout <= 0 {
 		l.problem("ROTOR_REQUEST_TIMEOUT must be longer than zero, such as 30s.")
 	}
+	if c.Auth.SessionTTL <= 0 {
+		l.problem("ROTOR_SESSION_TTL must be longer than zero, such as 12h.")
+	}
+	if c.Env != EnvDevelopment && !c.Auth.SecureCookies {
+		l.problem("ROTOR_SECURE_COOKIES must be true outside development, so the session cookie never travels unencrypted.")
+	}
+	if c.OIDC.Issuer != "" && (c.OIDC.ClientID == "" || c.OIDC.ClientSecret == "") {
+		l.problem("ROTOR_OIDC_ISSUER is set, so set ROTOR_OIDC_CLIENT_ID and ROTOR_OIDC_CLIENT_SECRET too: the client Rotor signs in as.")
+	}
+	if c.Env != EnvDevelopment && c.OIDC.Issuer == "" {
+		l.problem("Set ROTOR_OIDC_ISSUER to the identity provider's issuer, such as https://id.example.com/realms/dynamo; it is the only way to sign in.")
+	}
 	if c.DB.AdminURL == "" {
 		c.DB.AdminURL = c.DB.URL
 	}
@@ -123,6 +183,9 @@ func Load() (Config, error) {
 	}
 	return c, nil
 }
+
+// SignInConfigured says whether an identity provider is set, without which nobody can sign in.
+func (c Config) SignInConfigured() bool { return c.OIDC.Issuer != "" }
 
 // IsProduction reports whether this is the production deployment.
 func (c Config) IsProduction() bool { return c.Env == EnvProduction }

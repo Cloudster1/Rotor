@@ -29,8 +29,9 @@ type operation struct {
 	summary string
 	tag     string
 	query   []param
-	// request is the JSON body type the handler decodes.
+	// request is the JSON body type the handler decodes; form is a urlencoded form's.
 	request any
+	form    any
 	// responses maps a status to its envelope or bare type; nil is no body.
 	responses map[int]any
 	// public routes need no session.
@@ -53,23 +54,29 @@ var operations = []operation{
 	{method: "GET", path: "/meta", handler: "handleMeta", tag: "health", summary: "Which product and build answers here, and what it offers.",
 		public: true, responses: ok(metaResponse{})},
 
-	// Sign-in through the suite's identity provider, built in #6.
-	{method: "GET", path: "/auth/oidc/start", handler: "handleOIDCStart", tag: "auth", public: true, pending: true,
+	// Sign-in through the suite's identity provider (#6).
+	{method: "GET", path: "/auth/oidc/start", handler: "handleOIDCStart", tag: "auth", public: true,
 		summary:   "Send the browser to the identity provider to sign in.",
 		query:     []param{{name: "next", description: "Where in Rotor to land after signing in; a path, never another site."}},
 		responses: map[int]any{http.StatusFound: nil}},
-	{method: "GET", path: "/auth/oidc/callback", handler: "handleOIDCCallback", tag: "auth", public: true, pending: true,
+	{method: "GET", path: "/auth/oidc/callback", handler: "handleOIDCCallback", tag: "auth", public: true,
 		summary:   "Where the identity provider returns the browser; opens the session.",
 		query:     []param{{name: "code"}, {name: "state"}, {name: "error"}},
 		responses: map[int]any{http.StatusFound: nil}},
-	{method: "POST", path: "/auth/oidc/backchannel-logout", handler: "handleBackchannelLogout", tag: "auth", public: true, pending: true,
+	{method: "POST", path: "/auth/oidc/backchannel-logout", handler: "handleBackchannelLogout", tag: "auth", public: true,
 		summary:     "Ends the sessions the identity provider says have ended.",
 		description: "OpenID Connect Back-Channel Logout 1.0: a form with one field, logout_token, a JWT signed by the provider.",
+		form:        logoutTokenForm{},
 		responses:   map[int]any{http.StatusOK: nil, http.StatusBadRequest: errorEnvelope{}}},
-	{method: "POST", path: "/auth/logout", handler: "handleLogout", tag: "auth", pending: true,
+	{method: "POST", path: "/auth/logout", handler: "handleLogout", tag: "auth",
 		summary: "Ends this session.", responses: map[int]any{http.StatusNoContent: nil}},
-	{method: "GET", path: "/auth/me", handler: "handleMe", tag: "auth", pending: true,
+	{method: "GET", path: "/auth/me", handler: "handleMe", tag: "auth",
 		summary: "Who is signed in, with their role and groups.", responses: ok(meResponse{})},
+}
+
+// logoutTokenForm is what the identity provider posts to end sessions.
+type logoutTokenForm struct {
+	LogoutToken string `json:"logout_token"`
 }
 
 // meResponse is the signed-in person, as the web client shows them.

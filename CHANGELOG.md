@@ -9,6 +9,13 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- People sign in with their suite account (#6). Rotor sends the browser to
+  the realm `dynamo` and keeps the session as an HttpOnly cookie whose
+  SHA-256 alone is stored; `rotor-administrators` makes an administrator,
+  everyone else in the realm is a member, and the role follows the realm at
+  every sign-in. Ending a session in Keycloak ends it in Rotor through
+  back-channel logout, and a switched-off person loses their sessions and
+  cannot sign in again. The settings show who is signed in.
 - Rotor has a face (#5): `make up` now serves the web client, a shell with
   Workflows, Runs, Approvals, Connections and Settings, each saying what will
   live there, in the suite's light and dark colours. Settings names the build

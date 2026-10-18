@@ -15,7 +15,7 @@ export const HTTP_UNAUTHORIZED = 401;
 /** Where the index sends a visitor, the first place of the sidebar. */
 export const HOME_PATH = "/workflows";
 
-/** Where the sign-in page will live from #6, which a returning visitor must never be sent back to. */
+/** Where the sign-in page lives, which a returning visitor must never be sent back to. */
 export const LOGIN_PATH = "/login";
 
 /** How long a query's answer stays fresh before a refetch. */

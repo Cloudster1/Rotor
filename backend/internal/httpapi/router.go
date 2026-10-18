@@ -24,6 +24,11 @@ type Database interface {
 type Server struct {
 	DB  Database
 	Log *slog.Logger
+	// Sessions and SignIn are nil only in tests that exercise neither.
+	Sessions Sessions
+	SignIn   SignIn
+	// SessionTTL is how long the cookie a sign-in sets lives, matching the session behind it.
+	SessionTTL time.Duration
 
 	// CookieName is the session cookie the same-site check guards.
 	CookieName string
@@ -53,6 +58,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 	r.Use(cors(allowedOrigins))
 	r.Use(s.sameSite(allowedOrigins))
 	r.Use(middleware.Timeout(timeout))
+	r.Use(s.authenticate)
 
 	// Liveness and readiness are deliberately outside the API and authentication.
 	r.Get("/healthz", s.handleLiveness)
@@ -61,8 +67,16 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 	r.Route(APIPrefix, func(r chi.Router) {
 		r.Get("/openapi.json", s.handleOpenAPI)
 		r.Get("/meta", s.handleMeta)
+		r.Get("/auth/oidc/start", s.handleOIDCStart)
+		r.Get("/auth/oidc/callback", s.handleOIDCCallback)
+		r.Post("/auth/oidc/backchannel-logout", s.handleBackchannelLogout)
 		mountPending(r, true)
-		mountPending(r, false)
+		r.Group(func(r chi.Router) {
+			r.Use(requireAuth)
+			r.Get("/auth/me", s.handleMe)
+			r.Post("/auth/logout", s.handleLogout)
+			mountPending(r, false)
+		})
 	})
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
@@ -78,7 +92,8 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 	return r
 }
 
-// mountPending routes each pending operation to a 501 so clients can be written against it.
+// mountPending routes each pending operation to a 501 so clients can be written against it; the ones
+// that are not public sit behind the sign-in.
 func mountPending(r chi.Router, public bool) {
 	for _, op := range operations {
 		if op.pending && op.public == public && !op.root {

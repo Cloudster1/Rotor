@@ -29,7 +29,7 @@ function setting(name: string): string {
 /** The web client's origin, which proxies /api/ to the api. */
 export const WEB_URL = setting("ROTOR_WEB_URL");
 
-/** Keycloak as the browser sees it; read when first needed, by the sign-in fixtures of #6. */
+/** Keycloak as the browser sees it; read when first needed, by the sign-in fixtures. */
 export function keycloakURL(): string {
   return setting("ROTOR_KEYCLOAK_URL");
 }

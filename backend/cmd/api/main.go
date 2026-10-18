@@ -13,10 +13,12 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
 	"github.com/cloudster1/rotor/backend/internal/httpapi"
 	"github.com/cloudster1/rotor/backend/internal/observability"
+	"github.com/cloudster1/rotor/backend/internal/oidc"
 	"github.com/cloudster1/rotor/backend/internal/version"
 )
 
@@ -58,9 +60,18 @@ func run() error {
 		}
 	}
 
+	if !cfg.SignInConfigured() {
+		log.Warn("ROTOR_OIDC_ISSUER is not set, so nobody can sign in; set it to the identity provider's issuer")
+	}
+	sessions := auth.NewService(cluster, cfg.Auth.SessionTTL)
 	server := &httpapi.Server{
 		DB:             cluster,
 		Log:            log,
+		Sessions:       sessions,
+		SignIn:         oidc.NewService(cluster, sessions, cfg.OIDC),
+		SessionTTL:     cfg.Auth.SessionTTL,
+		CookieName:     cfg.Auth.SessionCookie,
+		Secure:         cfg.Auth.SecureCookies,
 		AppBaseURL:     cfg.AppBaseURL,
 		CheckOrigin:    cfg.IsProduction(),
 		RequestTimeout: cfg.RequestTimeout,
