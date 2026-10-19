@@ -157,6 +157,7 @@ func TestAGroupDecidesAnApprovalAndTheRunGoesOnInAFreshSandbox(t *testing.T) {
 }
 
 func TestARejectedApprovalEndsTheRunAndOnlyItsStarterDecides(t *testing.T) {
+	h := newHarness(t)
 	product := "reject-" + uuid.NewString()[:8]
 	stub := newToolStub(t, map[string]any{"product": product})
 	bob, _, _ := connected(t, stub)
@@ -166,6 +167,9 @@ func TestARejectedApprovalEndsTheRunAndOnlyItsStarterDecides(t *testing.T) {
 	approvalID := approvalOf(t, bob, runID)
 	if status, _ := carol.api(http.MethodGet, "/approvals/"+approvalID, nil); status != http.StatusNotFound {
 		t.Errorf("someone else reads the starter's approval with %d", status)
+	}
+	if !h.audited(t, "approval.requested", approvalID) {
+		t.Error("the audit log does not record the approval asked for")
 	}
 
 	decide(t, bob, approvalID, map[string]any{"decision": "reject", "comment": "not now"}, http.StatusOK)

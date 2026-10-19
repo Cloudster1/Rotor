@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/cloudster1/rotor/backend/internal/audit"
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
 	"github.com/cloudster1/rotor/backend/internal/runnerctl"
@@ -204,9 +205,13 @@ func (w *Worker) startOne(ctx context.Context, c claimed) error {
 	}
 	return w.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		// A run cancelled meanwhile no longer names the sandbox, which the next reconcile destroys.
-		_, err := tx.Exec(ctx, `UPDATE run SET sandbox_id = $3, sandbox_started_at = now()
-			WHERE id = $1 AND claimed_by = $2 AND status = 'starting'`, c.ID, w.id, string(id))
-		return err
+		if _, err := tx.Exec(ctx, `UPDATE run SET sandbox_id = $3, sandbox_started_at = now()
+			WHERE id = $1 AND claimed_by = $2 AND status = 'starting'`, c.ID, w.id, string(id)); err != nil {
+			return err
+		}
+		// What started, never how: the spec carries the bootstrap token.
+		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionSandboxSpawned, TargetType: "run", TargetID: c.ID.String(),
+			Data: map[string]any{"sandboxId": string(id), "image": w.launch.Image}})
 	})
 }
 
@@ -261,9 +266,12 @@ func (w *Worker) dropSandbox(ctx context.Context, c claimed, reason string) erro
 		if _, err := tx.Exec(ctx, `DELETE FROM runner_credential WHERE run_id = $1`, c.ID); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `UPDATE run SET sandbox_id = NULL, sandbox_started_at = NULL, runner_lost_at = NULL
-			WHERE id = $1 AND claimed_by = $2`, c.ID, w.id)
-		return err
+		if _, err := tx.Exec(ctx, `UPDATE run SET sandbox_id = NULL, sandbox_started_at = NULL, runner_lost_at = NULL
+			WHERE id = $1 AND claimed_by = $2`, c.ID, w.id); err != nil || c.SandboxID == "" {
+			return err
+		}
+		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionSandboxDestroyed, TargetType: "run", TargetID: c.ID.String(),
+			Data: map[string]any{"sandboxId": c.SandboxID, "reason": reason}})
 	})
 }
 

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/cloudster1/rotor/backend/internal/audit"
 	"github.com/cloudster1/rotor/backend/internal/db"
 	"github.com/cloudster1/rotor/backend/internal/runnerpb"
 )
@@ -86,6 +87,10 @@ func endLocked(ctx context.Context, tx db.DBTX, runID uuid.UUID, status, reason 
 	}
 	if Ended(status) {
 		if err := closeApprovals(ctx, tx, runID, status); err != nil {
+			return err
+		}
+		if err := audit.Write(ctx, tx, audit.Entry{Action: audit.ActionRunEnded, TargetType: "run", TargetID: runID.String(),
+			Data: map[string]any{"status": status, "reason": reason}}); err != nil {
 			return err
 		}
 	}

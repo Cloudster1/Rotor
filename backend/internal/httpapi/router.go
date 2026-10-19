@@ -44,6 +44,8 @@ type Server struct {
 	Approvals Approvals
 	// Triggers is nil where runs are not set up; its routes then answer 503.
 	Triggers Triggers
+	// Audit reads the audit log for administrators (#36); nil answers 503.
+	Audit AuditLog
 	// Hooks is nil where OpenBao is not configured; its routes then answer 503.
 	Hooks Hooks
 	// Sessions and SignIn are nil only in tests that exercise neither.
@@ -145,6 +147,9 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Delete("/providers/{providerID}", s.handleRemoveProvider)
 				r.Post("/providers/{providerID}/test", s.handleTestProvider)
 				r.Delete("/tools/{toolID}", s.handleRemoveTool)
+				r.Get("/audit", s.handleListAudit)
+				r.Get("/audit/facets", s.handleAuditFacets)
+				r.Get("/audit/export", s.handleExportAudit)
 				r.Get("/tools/{toolID}/hook", s.handleGetHook)
 				r.Put("/tools/{toolID}/hook", s.handleSetHookSecret)
 				r.Delete("/tools/{toolID}/hook", s.handleRemoveHookSecret)
