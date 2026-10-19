@@ -69,6 +69,7 @@ const RUN: Run = {
   finishedAt: null,
   ended: false,
   approvalId: null,
+  trigger: null,
 };
 
 const listed = { "/api/v1/workflows": { workflows: [DRAFT] }, [`/api/v1/workflows/${DRAFT.id}`]: RESPONSE };

@@ -32,6 +32,7 @@ const RUN: Run = {
   finishedAt: null,
   ended: false,
   approvalId: null,
+  trigger: null,
   graph: {
     entry: "ask",
     nodes: [
