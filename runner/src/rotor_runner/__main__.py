@@ -7,6 +7,7 @@ import os
 import sys
 
 from rotor_runner.graph import SELF_CHECK_ANSWER, self_check
+from rotor_runner.guard import keep_out
 
 EXIT_USAGE = 2
 # What the sandbox is started with, read once and removed, so nothing the runner starts can find them.
@@ -18,6 +19,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="rotor-runner", description="Runs a Rotor workflow inside its sandbox.")
     parser.add_argument("--self-check", action="store_true", help="build and run a graph offline, then exit")
     args = parser.parse_args(argv)
+    # Before the bootstrap token is read: from here on no code node can read this process or its environment. The
+    # self-check runs it too, so the image is proven able to.
+    keep_out()
     if args.self_check:
         answer = self_check()
         print(f"rotor-runner self-check: {answer}")

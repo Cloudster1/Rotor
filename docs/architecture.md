@@ -132,7 +132,9 @@ Python 3.13 with uv, LangGraph, langchain-core and langchain-mcp-adapters,
 pinned by `uv.lock`. Its image is distroless, runs as non-root with a
 read-only root filesystem, and is tested with no network and no
 capabilities. From M2 it compiles a workflow into a graph (#16), talks to the
-control plane over gRPC (#18) and keeps its checkpoints there (#19).
+control plane over gRPC (#18) and keeps its checkpoints there (#19). It
+makes itself not dumpable before it reads its bootstrap token, so the code
+nodes it starts as children cannot read its memory or environment (#89).
 
 ## Web (`web/`, #5)
 
