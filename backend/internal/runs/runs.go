@@ -68,6 +68,8 @@ type Run struct {
 	UpdatedAt     time.Time
 	StartedAt     *time.Time
 	FinishedAt    *time.Time
+	// ApprovalID is the pending approval the run waits for, if any.
+	ApprovalID *uuid.UUID
 }
 
 // Workflows is what starting a run reads of the workflow, as the caller sees it; *workflows.Service is the real one.

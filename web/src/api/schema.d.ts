@@ -948,6 +948,7 @@ export interface components {
             description: string;
         };
         RunResponse: {
+            approvalId: string | null;
             /** Format: date-time */
             createdAt: string;
             ended: boolean;
