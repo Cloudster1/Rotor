@@ -21,6 +21,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/hooks"
 	"github.com/cloudster1/rotor/backend/internal/httpapi"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
@@ -106,6 +107,7 @@ func run() error {
 		registry.Connections = people
 		sessions.OnSwitchOff = people.EndPersonConnections
 		server.Tools, server.Connections = registry, people
+		server.Hooks = hooks.NewService(cluster, secrets)
 		reader := catalog.NewService(registry, people, boot.ToolClient(cfg), store, log)
 		server.Catalogs = reader
 		workflowService = workflows.NewService(cluster, reader)

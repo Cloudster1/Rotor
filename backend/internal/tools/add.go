@@ -168,6 +168,9 @@ func (s *Service) Remove(ctx context.Context, id uuid.UUID) error {
 	if err := s.vault.DeleteToolClient(context.WithoutCancel(ctx), id); err != nil {
 		return fmt.Errorf("forget the client secret of %s: %w", tool.Name, err)
 	}
+	if err := s.vault.DeleteWebhookSecret(context.WithoutCancel(ctx), id); err != nil {
+		return fmt.Errorf("forget the webhook secret of %s: %w", tool.Name, err)
+	}
 	return nil
 }
 
