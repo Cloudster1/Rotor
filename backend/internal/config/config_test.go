@@ -76,7 +76,7 @@ func TestSettingsAreRead(t *testing.T) {
 	t.Setenv("ROTOR_DB_MAX_CONNS", "7")
 	t.Setenv("ROTOR_REQUEST_TIMEOUT", "5s")
 	t.Setenv("ROTOR_OPENBAO_ADDR", "https://openbao.example.com:8200")
-	t.Setenv("ROTOR_VALKEY_URL", "redis://valkey:6379/0")
+	t.Setenv("ROTOR_VALKEY_URL", "redis://:pw@valkey:6379/0")
 	t.Setenv("ROTOR_CONTROL_PLANE_CLIENT_ID", "rotor-control-plane")
 	t.Setenv("ROTOR_CONTROL_PLANE_CLIENT_SECRET", "s")
 	c, err := Load()
@@ -85,6 +85,16 @@ func TestSettingsAreRead(t *testing.T) {
 	}
 	if !c.IsProduction() || c.DB.AdminURL != "postgres://admin@db/rotor" || c.DB.MaxConns != 7 || c.RequestTimeout != 5*time.Second {
 		t.Fatalf("config = %+v", c)
+	}
+}
+
+func TestAValkeyWithoutAPasswordIsRefusedOutsideDevelopment(t *testing.T) {
+	clean(t)
+	t.Setenv("ROTOR_ENV", EnvProduction)
+	t.Setenv("ROTOR_VALKEY_URL", "rediss://valkey:6379/0")
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "ROTOR_VALKEY_URL names no password") {
+		t.Errorf("a Valkey without a password in production = %v", err)
 	}
 }
 

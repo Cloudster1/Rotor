@@ -90,6 +90,7 @@ golden() { # name args...
 TRIAL=(-f /chart/values-trial.yaml --set openbao.addr=http://openbao:8200 --set sandbox.egress.openbao.namespace=openbao)
 PRODUCTION=(--set openbao.addr=https://openbao.example:8200 --set oidc.issuer=https://id.example/realms/dynamo
     --set oidc.clientSecret.name=rotor-oidc --set database.host=db.example --set valkey.host=valkey.example
+    --set valkey.auth=true --set valkey.tls=true
     --set images.runner.digest=sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
     --set images.backend.digest=sha256:1111111111111111111111111111111111111111111111111111111111111111
     --set images.web.digest=sha256:2222222222222222222222222222222222222222222222222222222222222222
@@ -147,6 +148,9 @@ check "the api, the worker and the migrations run the backend image by digest" \
     "$(grep -c 'image: ghcr.io/cloudster1/rotor-backend@sha256:1111' <<<"${RENDERED}")" "3"
 check "the web runs its image by digest" "$(grep -c 'image: ghcr.io/cloudster1/rotor-web@sha256:2222' <<<"${RENDERED}")" "1"
 check "no signature is required unless asked" "$(grep -c 'kind: ClusterImagePolicy' <<<"${RENDERED}")" "0"
+check "Valkey is reached over TLS with its password" "$(env_value "${RENDERED}" ROTOR_VALKEY_URL)" \
+    "rediss://:\$(VALKEY_PASSWORD)@valkey.example:6379/0"
+check "OpenBao without an audit device is refused" "$(env_value "${RENDERED}" ROTOR_OPENBAO_REQUIRE_AUDIT)" "true"
 
 echo "== sandboxes run signed images only"
 # A cosign public key, made for this test alone; the chart only passes it on.
@@ -170,6 +174,7 @@ refused "runc in production" "would run hostile code without gVisor" "${PRODUCTI
     --set sandbox.runtimeClass= --set sandbox.allowRunc=true
 refused "no gVisor without the override" "sandboxes would run without gVisor" "${TRIAL[@]}" --set sandbox.runtimeClass=
 refused "no OpenBao" "Set openbao.addr" -f /chart/values-trial.yaml
+refused "a Valkey without a password" "valkey.auth is off" "${PRODUCTION[@]}" --set valkey.auth=false
 refused "production without sign-in" "Set oidc.issuer" --set openbao.addr=https://openbao.example:8200 --set database.host=db
 refused "no database" "Set database.host" --set openbao.addr=https://openbao.example:8200 --set env=development
 refused "configuring OpenBao without a token" "openbao.configure is on" "${TRIAL[@]}" --set openbao.configure.enabled=true

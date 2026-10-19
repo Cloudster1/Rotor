@@ -1,6 +1,9 @@
 package config
 
-import "time"
+import (
+	"net/url"
+	"time"
+)
 
 // Workflow limits; docs/api-contract-m2.md names each.
 const (
@@ -38,7 +41,17 @@ func loadValkey(l *loader) Valkey {
 }
 
 func checkValkey(l *loader, c Config) {
-	if c.Valkey.URL == "" && c.Env != EnvDevelopment {
+	if c.Env == EnvDevelopment {
+		return
+	}
+	if c.Valkey.URL == "" {
 		l.problem("Set ROTOR_VALKEY_URL to Valkey's address, such as redis://:password@valkey:6379/0; Rotor caches the tools' catalogs there.")
+		return
+	}
+	// Anyone who reaches a Valkey without a password could read the catalogs and wake every replica (#92).
+	if u, err := url.Parse(c.Valkey.URL); err == nil {
+		if _, set := u.User.Password(); !set {
+			l.problem("ROTOR_VALKEY_URL names no password; give Valkey one and put it in the address, as redis://:password@valkey:6379/0.")
+		}
 	}
 }

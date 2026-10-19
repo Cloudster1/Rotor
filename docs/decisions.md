@@ -3,6 +3,19 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-19: OpenBao's audit log and Valkey's password (#92)
+
+- **Refuse, rather than enable, an audit device.** OpenBao 2.7 takes audit
+  devices only from its configuration file, never through its API, so
+  Rotor's init script cannot turn one on. It refuses to configure an OpenBao
+  that has none, with a switch for throwaway test servers such as the kind
+  test's dev-mode one.
+- **The development stack's audit log goes to the container's log**, where
+  `docker compose logs openbao` shows it, hashed as OpenBao hashes secrets.
+- **A Valkey password is required outside development, twice.** The chart
+  refuses to render without one and the api refuses to start, so an
+  installation that does not use the chart is held to it too.
+
 ## 2026-10-19: Code nodes and the runner's memory (#89)
 
 - **The runner is not dumpable.** A code node runs as the runner's own user,

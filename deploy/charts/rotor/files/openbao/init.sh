@@ -10,6 +10,16 @@ RUNNER_HOST="${ROTOR_RUNNER_HOST:-api}"
 
 enabled() { bao "$1" list -format=json | grep -q "\"$2/\""; }
 
+# Who read which secret is known only from OpenBao's audit log, which it takes from its configuration alone (#92).
+if ! bao audit list -format=json 2>/dev/null | grep -q '"type"'; then
+  if [ "${ROTOR_OPENBAO_REQUIRE_AUDIT:-true}" = true ]; then
+    echo "OpenBao has no audit device, so nobody could tell who read Rotor's secrets. Declare one in OpenBao's" \
+      "configuration (docs/deployment.md), or set ROTOR_OPENBAO_REQUIRE_AUDIT=false for a throwaway test server." >&2
+    exit 1
+  fi
+  echo "OpenBao has no audit device; going on, as ROTOR_OPENBAO_REQUIRE_AUDIT=false asks" >&2
+fi
+
 enabled secrets rotor || bao secrets enable -path=rotor -version=2 kv >/dev/null
 # Every write names the version it read, so two writers never overwrite each other unseen.
 bao write rotor/config cas_required=true max_versions=3 >/dev/null

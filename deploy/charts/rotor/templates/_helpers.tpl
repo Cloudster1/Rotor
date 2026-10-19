@@ -96,6 +96,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if or .Values.valkey.bundled .Values.valkey.auth -}}true{{- end -}}
 {{- end -}}
 
+{{- define "rotor.valkeyScheme" -}}
+{{- if and .Values.valkey.tls (not .Values.valkey.bundled) -}}rediss{{- else -}}redis{{- end -}}
+{{- end -}}
+
 {{- define "rotor.appURL" -}}
 {{- printf "%s://%s" (ternary "https" "http" .Values.ingress.tls.enabled) .Values.ingress.host -}}
 {{- end -}}
@@ -135,6 +139,9 @@ argocd.argoproj.io/sync-wave: {{ .weight | quote }}
 {{- end -}}
 {{- if and .Values.oidc.issuer (not .Values.oidc.clientSecret.name) -}}
 {{- fail "oidc.issuer is set, so name the Secret holding Rotor's client secret in oidc.clientSecret.name." -}}
+{{- end -}}
+{{- if and (ne .Values.env "development") .Values.valkey.host (not (include "rotor.valkeyAuth" .)) -}}
+{{- fail "valkey.auth is off, so anyone who reaches Valkey could read the tools' catalogs and wake every api replica. Give Valkey a password, name its Secret in secrets.names.valkey and set valkey.auth, or use the bundled one for a trial." -}}
 {{- end -}}
 {{- if and .Values.openbao.configure.enabled (not .Values.openbao.configure.tokenSecret.name) -}}
 {{- fail "openbao.configure is on, so name the Secret holding a token allowed to configure OpenBao in openbao.configure.tokenSecret.name." -}}
@@ -203,10 +210,10 @@ ROTOR_LANGSMITH_ENDPOINT: {{ .Values.telemetry.langsmithEndpoint | quote }}
 {{- if include "rotor.valkeyAuth" . }}
 {{ include "rotor.passwordEnv" (dict "root" . "name" "valkey" "var" "VALKEY_PASSWORD") }}
 - name: ROTOR_VALKEY_URL
-  value: {{ printf "redis://:$(VALKEY_PASSWORD)@%s:%d/%d" $host (int .Values.valkey.port) (int .Values.valkey.db) | quote }}
+  value: {{ printf "%s://:$(VALKEY_PASSWORD)@%s:%d/%d" (include "rotor.valkeyScheme" .) $host (int .Values.valkey.port) (int .Values.valkey.db) | quote }}
 {{- else }}
 - name: ROTOR_VALKEY_URL
-  value: {{ printf "redis://%s:%d/%d" $host (int .Values.valkey.port) (int .Values.valkey.db) | quote }}
+  value: {{ printf "%s://%s:%d/%d" (include "rotor.valkeyScheme" .) $host (int .Values.valkey.port) (int .Values.valkey.db) | quote }}
 {{- end }}
 {{- end }}
 {{- end -}}
