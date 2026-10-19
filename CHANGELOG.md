@@ -205,6 +205,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- A workflow's code node can no longer read the runner it runs under
+  (#89). The runner makes itself not dumpable before it reads anything
+  secret, so a code node cannot trace it or open its memory, environment
+  or files, where its tool tokens and the provider key are.
 - A person signing in to Rotor for the first time from two browsers at
   once lands signed in in both, instead of the second failing (#96).
 - Signing a person out of every session in Keycloak ends all their Rotor

@@ -3,6 +3,18 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-19: Code nodes and the runner's memory (#89)
+
+- **The runner is not dumpable.** A code node runs as the runner's own user,
+  and the runner holds the run's tool tokens and the provider key in memory.
+  `prctl(PR_SET_DUMPABLE, 0)` before the bootstrap token is read keeps every
+  process of that user without `CAP_SYS_PTRACE` from tracing the runner or
+  opening its `/proc` files, its environment as it started included, which
+  `os.environ.pop` does not clear. A second user for code nodes would have
+  needed a setuid helper or a capability in an image that has neither.
+- **The runner refuses to start without it**, and its self-check runs it, so
+  an image that cannot is caught by the smoke test.
+
 ## 2026-10-19: Signed images and dependency audits for M8 (#42)
 
 - **Signing is make targets, publishing waits for the release.** `make sbom`,

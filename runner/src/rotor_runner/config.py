@@ -66,3 +66,7 @@ SPAN_FLUSH_TIMEOUT_MS = 30_000
 # W3C trace context's sizes: a trace id is 16 bytes, a span id 8.
 TRACE_ID_BYTES = 16
 SPAN_ID_BYTES = 8
+
+# prctl options from <linux/prctl.h>; the runner clears its dumpable flag so code nodes cannot read it (#89).
+PR_GET_DUMPABLE = 3
+PR_SET_DUMPABLE = 4

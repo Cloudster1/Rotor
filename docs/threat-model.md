@@ -171,7 +171,7 @@ listed.
 | | Threat | Mitigation | Status |
 |---|---|---|---|
 | I | Reading the runner's environment | The child gets an empty environment; tokens never enter the environment | Built (#17) |
-| I | Reading the runner's memory, which holds tokens and the provider key | The child runs as the runner's own user; only the kernel's ptrace policy keeps it out | Open #89 |
+| I | Reading the runner's memory, which holds tokens and the provider key | The runner makes itself not dumpable before it reads its bootstrap token, so a child of the same user cannot trace it or open its memory, environment or files | Built (#89) |
 | E | Calling tools outside its bindings | Tool calls go back to the runner, which applies the node's bindings | Built (#17) |
 | D | Exhausting the sandbox | Memory, CPU, open files and a timeout per node | Built (#17) |
 
@@ -256,10 +256,12 @@ assumes the one inside it has failed:
 4. **The network:** a default-deny policy, with hostnames allowed by Cilium
    (#27).
 
-The weak point is inside the sandbox. The child runs as the runner's own
-user, so the kernel's ptrace policy alone keeps it out of the runner's
-memory and its tokens (#89). Escaping the sandbox gains a node of the
-cluster, which gVisor and the restricted Pod Security standard make hard.
+Inside the sandbox the child runs as the runner's own user, so the runner
+makes itself not dumpable before it reads its bootstrap token: without
+`CAP_SYS_PTRACE`, which no sandbox has, the child can neither trace it nor
+open its memory, environment or files (#89). Escaping the sandbox gains a
+node of the cluster, which gVisor and the restricted Pod Security standard
+make hard.
 
 ### Token replay
 
@@ -296,7 +298,6 @@ new one ends that.
 
 | Id | Finding | Severity | Issue |
 |---|---|---|---|
-| F1 | A code node runs as the runner's user; only the kernel's ptrace policy keeps it out of the runner's memory | High | #89 |
 | F2 | `approval: beforeWrite` is checked on save against a cached catalog, never again when a run starts | Medium | #90 |
 | F3 | Approval content is stored in clear | Medium | #91 |
 | F4 | No OpenBao audit device | Medium | #92 |

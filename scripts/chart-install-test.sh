@@ -78,14 +78,15 @@ for d in api worker web; do kubectl rollout status -n "${NS}" "deploy/${RELEASE}
 
 psql() { kubectl exec -i -n "${NS}" "${RELEASE}-postgresql-0" -- psql -v ON_ERROR_STOP=1 -U postgres -d rotor -At "$@"; }
 
-# Starts a code node's run straight through the database and waits until it succeeded and its pod is gone.
+# Starts a code node's run straight through the database and waits until it succeeded and its pod is gone. The node
+# fails the run if it can open the runner's environment or memory, which the runner keeps from it (#89).
 carry_run() {
     local run status=""
     run=$(psql <<'SQL'
 WITH u AS (INSERT INTO app_user (email, name, role) VALUES ('kind-' || gen_random_uuid() || '@suite.test', 'Kind', 'member') RETURNING id),
      w AS (INSERT INTO workflow (name, owner_id) SELECT 'kind', id FROM u RETURNING id, owner_id),
      v AS (INSERT INTO workflow_version (workflow_id, number, spec_yaml, spec, hash)
-           SELECT id, 1, E'apiVersion: rotor.dev/v1\nkind: Workflow\nmetadata: {name: kind}\nlimits: {maxSteps: 5, timeout: 2m}\nentry: hello\nnodes:\n  - id: hello\n    type: code\n    output: {schema: {type: object}}\n    source: |\n      def run(state, ctx):\n          return {"hello": "from a pod"}\n',
+           SELECT id, 1, E'apiVersion: rotor.dev/v1\nkind: Workflow\nmetadata: {name: kind}\nlimits: {maxSteps: 5, timeout: 2m}\nentry: hello\nnodes:\n  - id: hello\n    type: code\n    output: {schema: {type: object}}\n    source: |\n      import os\n      def run(state, ctx):\n          for name in ("environ", "mem", "maps"):\n              try:\n                  open("/proc/%d/%s" % (os.getppid(), name), "rb").close()\n              except PermissionError:\n                  continue\n              raise RuntimeError("the code node read the runner''s " + name)\n          return {"hello": "from a pod"}\n',
                   '{"limits": {"timeout": "2m"}}', 'kind' FROM w RETURNING workflow_id)
 INSERT INTO run (workflow_id, version, user_id) SELECT v.workflow_id, 1, w.owner_id FROM v JOIN w ON w.id = v.workflow_id RETURNING id;
 SQL
