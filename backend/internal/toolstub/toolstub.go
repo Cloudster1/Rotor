@@ -42,7 +42,7 @@ type Options struct {
 	ReuseDetection *bool `json:"reuseDetection,omitempty"`
 	// Product is what /meta names; exciter unless told.
 	Product string `json:"product,omitempty"`
-	// Capabilities is what /meta lists; mcp@1 unless told, and an empty list is none.
+	// Capabilities is what /meta lists; mcp@1 and webhooks@1 unless told, and an empty list is none.
 	Capabilities *[]string `json:"capabilities,omitempty"`
 	// AccessTokenSeconds overrides AccessTTL, for tests that watch a token expire.
 	AccessTokenSeconds int `json:"accessTokenSeconds,omitempty"`
@@ -120,7 +120,7 @@ func (t *tenant) product() string {
 
 func (t *tenant) capabilities() []string {
 	if t.opts.Capabilities == nil {
-		return []string{"mcp@1"}
+		return []string{"mcp@1", "webhooks@1"}
 	}
 	return append([]string{}, *t.opts.Capabilities...)
 }

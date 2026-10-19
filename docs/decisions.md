@@ -3,6 +3,27 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-19: Rotor in the suite, for M9 (#43)
+
+- **Rotor's names are what it offers partners.** `workflows@1`, `runs@1` and
+  `hooks@1` follow the API's three areas a partner would build on; until
+  Dynamo#4 writes the shared list, they are the names proposed there, and a
+  unit test holds each to operations the build serves.
+- **Protocols from metadata, promises from names.** No tool reports a name
+  for partner OAuth or token exchange that all agree on, while RFC 9728 and
+  RFC 8414 metadata say both exactly. So Rotor checks names only for what
+  metadata cannot say: `mcp@1` and `webhooks@1`.
+- **Checked when an administrator asks, never on its own.** Capabilities are
+  read when a tool is added, registered again or checked again. Checking
+  again never registers, since a new client would leave every person's
+  connection behind, and a tool that stopped offering `mcp@1` is kept with
+  it under `missing`, so its pages say what to update instead of the tool
+  vanishing.
+- **The siblings' main, nightly, beside the pinned commits.** Pull requests
+  test the pinned documents and Exciter commit, so a sibling's change never
+  turns an unrelated pull request red; the nightly's main leg says what will
+  break before the sibling tags it.
+
 ## 2026-10-19: A run's writes checked as it starts (#90)
 
 - **Every start reads the tools afresh.** Saving checks a workflow against

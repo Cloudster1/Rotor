@@ -100,6 +100,11 @@ func (s *toolStub) ListAsWrites(calls ...string) {
 	s.controlCall(http.MethodPut, "/control/tenants/"+s.name+"/writes", map[string]any{"calls": calls}, http.StatusOK)
 }
 
+// ListCapabilities makes the tenant's /meta list these, as a tool updated to another release (#43).
+func (s *toolStub) ListCapabilities(capabilities ...string) {
+	s.controlCall(http.MethodPut, "/control/tenants/"+s.name+"/capabilities", map[string]any{"capabilities": append([]string{}, capabilities...)}, http.StatusOK)
+}
+
 // ForgetClients forgets every client and its grants, as Exciter sweeps an unused one.
 func (s *toolStub) ForgetClients() {
 	s.controlCall(http.MethodDelete, "/control/tenants/"+s.name+"/clients", nil, http.StatusOK)

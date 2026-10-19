@@ -11,6 +11,7 @@ import (
 
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/hooks"
+	"github.com/cloudster1/rotor/backend/internal/tools"
 )
 
 // Hooks keeps the tools' webhook secrets and takes their deliveries (#35); *hooks.Service is the real one.
@@ -38,7 +39,10 @@ var (
 
 // hookError says what went wrong with a hook in the words its caller needs.
 func hookError(err error) error {
+	var lacking *tools.Missing
 	switch {
+	case errors.As(err, &lacking):
+		return &APIError{Status: http.StatusUnprocessableEntity, Code: "tool_lacks", Message: lacking.Message}
 	case errors.Is(err, hooks.ErrNotFound):
 		return errHookNotFound
 	case errors.Is(err, hooks.ErrNotProduct):

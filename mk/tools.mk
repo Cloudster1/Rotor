@@ -21,6 +21,15 @@ tool-contracts: ## Vendor a tool's api/openapi.json at a commit: make tool-contr
 		&& printf '%s %s api/openapi.json\n' '$(TOOL_REPO_$(TOOL))' "$$sha" > $(TOOLS_API_DIR)/$(TOOL)/SOURCE \
 		&& echo "Vendored $(TOOL_REPO_$(TOOL)) $$sha; run make check-go to see what the stub has to follow."
 
+# Nightly against the siblings' main (#43): vendored into the working copy only, which CI never commits.
+.PHONY: tool-contracts-main
+tool-contracts-main: ## Vendor every tool's api/openapi.json at its main, to test against what is not tagged yet
+	@for tool in exciter armature stator; do $(MAKE) --no-print-directory tool-contracts TOOL=$$tool REF=main || exit 1; done
+
+.PHONY: test-contracts
+test-contracts: | $(GO_CACHE) ## Hold the tool-stub and what Rotor reads of each tool to the vendored documents
+	$(DOCKER_GO) go test -count=1 ./internal/toolstub/ ./internal/tools/
+
 .PHONY: tool-snapshots
 tool-snapshots: ## Record the running suite's Exciter tools/list into api/tools/exciter/tools-list.json
 	@docker network inspect $(SUITE_NET) >/dev/null 2>&1 \

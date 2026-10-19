@@ -116,6 +116,12 @@ token for it, one refresh per connection at a time, so the tool's refresh
 token rotation never ends a grant. The api reaches OpenBao with JWT auth as
 the realm client `rotor-control-plane`.
 
+Rotor reads which capabilities a tool lists at its `/meta` when it is added
+or checked again, and offers only what the tool can carry: no connecting
+without `mcp@1`, no event triggers without `webhooks@1`. Rotor lists its own,
+`workflows@1`, `runs@1` and `hooks@1`, for the suite
+([`docs/integration.md`](integration.md), #43).
+
 ## Workflows (#14, #15)
 
 A workflow is YAML checked by `internal/workflow/spec`; `internal/workflows`

@@ -1,6 +1,7 @@
 # The real Exciter beside this checkout's stack (#8), for the tests that a test double cannot settle. Exciter runs
 # its own compose from a clone at the commit in deploy/suite/EXCITER_REF, with deploy/suite/exciter.yml over it;
 # Armature and Stator join once they are OAuth authorization servers. Adapted from Exciter's mk/suite.mk.
+# EXCITER_REF=main on the command line runs against what Exciter has not tagged yet, as the nightly does (#43).
 EXCITER_REPO ?= https://github.com/Cloudster1/Exciter.git
 EXCITER_REF := $(shell cat $(ROOT)/deploy/suite/EXCITER_REF 2>/dev/null)
 SUITE_DIR := $(ROOT)/.cache/suite
@@ -53,7 +54,7 @@ suite-up: ## Start the real Exciter beside this checkout's running stack, signin
 	@[ -f $(SUITE_EXCITER_DIR)/deploy/docker-compose.yml ] \
 		&& [ "$$(git -C $(SUITE_EXCITER_DIR) rev-parse -q --verify HEAD)" = "$(EXCITER_REF)" ] || { \
 		git -C $(SUITE_EXCITER_DIR) fetch --quiet origin $(EXCITER_REF) && \
-		git -C $(SUITE_EXCITER_DIR) -c advice.detachedHead=false checkout --quiet --detach $(EXCITER_REF); }
+		git -C $(SUITE_EXCITER_DIR) -c advice.detachedHead=false checkout --quiet --detach FETCH_HEAD; }
 	@docker network inspect $(SUITE_NET) >/dev/null 2>&1 || docker network create $(SUITE_NET) >/dev/null
 	$(call suite_join,docker compose,rotor-,$(SUITE_ROTOR_SERVICES))
 	$(SUITE_EXCITER) up -d --build --wait --quiet-pull

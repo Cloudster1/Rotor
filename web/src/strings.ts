@@ -2,6 +2,7 @@ import { audit } from "./strings_audit";
 import { usageStrings } from "./strings_usage";
 import { langSmithStrings } from "./strings_telemetry";
 import { retentionStrings } from "./strings_retention";
+import { capabilityStrings } from "./strings_tools";
 import { untrustedStrings } from "./strings_untrusted";
 
 /** Every word the interface shows, in one place, so a second language is a second copy of this object. */
@@ -307,7 +308,13 @@ export const s = {
     confirmDisconnect: (name: string) => `Disconnect ${name}? Workflows can no longer act as you there until you connect again.`,
     confirm: "Disconnect",
     keep: "Keep it",
-    status: { connected: "Connected", reconnect: "Needs connecting again", none: "Not connected", unavailable: "Unavailable" },
+    status: {
+      connected: "Connected",
+      reconnect: "Needs connecting again",
+      none: "Not connected",
+      unavailable: "Unavailable",
+      outdated: capabilityStrings.outdated,
+    },
     scopes: "Allowed",
     connectedAt: "Connected",
     lastUsed: "Last used",
@@ -455,5 +462,6 @@ export const s = {
   },
   langsmith: langSmithStrings,
   retention: retentionStrings,
+  capabilities: capabilityStrings,
   untrusted: untrustedStrings,
 } as const;

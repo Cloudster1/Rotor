@@ -67,6 +67,9 @@ export const GRAPH_HEIGHT_PX = 360;
 
 /** The products whose webhook deliveries start event triggers (#35), as the server names them. */
 export const HOOK_PRODUCTS = ["armature", "exciter", "stator"] as const;
+/** What Rotor needs of a tool to act in it and to take its events, as backend/internal/tools/needs.go names them (#43). */
+export const CAPABILITY_MCP = "mcp@1";
+export const CAPABILITY_WEBHOOKS = "webhooks@1";
 /** How long the hook panel says a copied address was copied. */
 export const COPIED_NOTICE_MS = 2_000;
 /** The topics an event trigger offers per product, from docs/triggers.md; any other may be typed in. */

@@ -2578,6 +2578,97 @@
         }
       }
     },
+    "/tools/{toolID}/check": {
+      "post": {
+        "operationId": "checkTool",
+        "summary": "Read the tool's meta and metadata again, for a tool that was updated, without registering again.",
+        "description": "Keeps the tool's name, endpoints, scopes and capabilities as they answer now. A tool that stopped offering mcp@1 is kept and lists it under missing, so its pages say what to update.",
+        "tags": [
+          "tools"
+        ],
+        "parameters": [
+          {
+            "name": "toolID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tool": {
+                      "$ref": "#/components/schemas/ToolResponse"
+                    }
+                  },
+                  "required": [
+                    "tool"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/tools/{toolID}/connection": {
       "delete": {
         "operationId": "disconnect",
@@ -5257,6 +5348,21 @@
           "capabilities"
         ]
       },
+      "MissingCapability": {
+        "type": "object",
+        "properties": {
+          "capability": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "capability",
+          "message"
+        ]
+      },
       "ModelPrice": {
         "type": "object",
         "properties": {
@@ -6076,6 +6182,12 @@
           "issuer": {
             "type": "string"
           },
+          "missing": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MissingCapability"
+            }
+          },
           "name": {
             "type": "string"
           },
@@ -6110,6 +6222,7 @@
           "resource",
           "issuer",
           "capabilities",
+          "missing",
           "scopesSupported",
           "registration",
           "status",

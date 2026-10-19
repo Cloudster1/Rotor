@@ -657,6 +657,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tools/{toolID}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read the tool's meta and metadata again, for a tool that was updated, without registering again.
+         * @description Keeps the tool's name, endpoints, scopes and capabilities as they answer now. A tool that stopped offering mcp@1 is kept and lists it under missing, so its pages say what to update.
+         */
+        post: operations["checkTool"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tools/{toolID}/connection": {
         parameters: {
             query?: never;
@@ -1259,6 +1279,10 @@ export interface components {
             capabilities: string[];
             product: string;
         };
+        MissingCapability: {
+            capability: string;
+            message: string;
+        };
         ModelPrice: {
             inputPerMillion: number;
             model: string;
@@ -1472,6 +1496,7 @@ export interface components {
             capabilities: string[];
             id: string;
             issuer: string;
+            missing: components["schemas"]["MissingCapability"][];
             name: string;
             /** @enum {string} */
             registration: "dynamic" | "manual";
@@ -3516,6 +3541,75 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    checkTool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                toolID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tool: components["schemas"]["ToolResponse"];
+                    };
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

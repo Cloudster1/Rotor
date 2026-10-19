@@ -2,8 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useId, useState } from "react";
 import { meQuery } from "@/api/auth";
 import { ApiError } from "@/api/client";
-import { addTool, removeTool, type Tool, toolName, toolsQuery, toolsQueryKey } from "@/api/tools";
-import { CONNECTION_CALLBACK_PATH, HOOK_PRODUCTS } from "@/config";
+import { addTool, checkTool, lacks, removeTool, type Tool, toolName, toolsQuery, toolsQueryKey } from "@/api/tools";
+import { CAPABILITY_WEBHOOKS, CONNECTION_CALLBACK_PATH, HOOK_PRODUCTS } from "@/config";
 import { s } from "@/strings";
 import { HookPanel } from "./HookPanel";
 
@@ -51,6 +51,8 @@ function ToolRow({ tool, admin }: { tool: Tool; admin: boolean }) {
   const [confirming, setConfirming] = useState(false);
   const remove = useMutation({ mutationFn: () => removeTool(tool.id), onSuccess: () => client.invalidateQueries({ queryKey: toolsQueryKey }) });
   const again = useMutation({ mutationFn: () => addTool({ baseURL: tool.baseURL }), onSuccess: () => client.invalidateQueries({ queryKey: toolsQueryKey }) });
+  const check = useMutation({ mutationFn: () => checkTool(tool.id), onSuccess: () => client.invalidateQueries({ queryKey: toolsQueryKey }) });
+  const missing = tool.missing ?? [];
   const name = toolName(tool);
   const ready = tool.status === "ready";
   return (
@@ -69,6 +71,16 @@ function ToolRow({ tool, admin }: { tool: Tool; admin: boolean }) {
         <dd className="text-ink">{tool.scopesSupported.join(" ")}</dd>
         <dt className="text-ink-muted">{s.tools.client}</dt>
         <dd className="text-ink">{s.tools.registration[tool.registration]}</dd>
+        {missing.length > 0 && (
+          <>
+            <dt className="text-ink-muted">{s.capabilities.missing}</dt>
+            <dd className="text-warning" data-missing>
+              {missing.map((m) => (
+                <p key={m.capability}>{s.capabilities.lacks(name, m.capability)}</p>
+              ))}
+            </dd>
+          </>
+        )}
       </dl>
       {admin && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -77,6 +89,9 @@ function ToolRow({ tool, admin }: { tool: Tool; admin: boolean }) {
               {s.tools.registerAgain}
             </button>
           )}
+          <button type="button" className={secondary} disabled={check.isPending} onClick={() => check.mutate()} data-action="check-tool">
+            {check.isPending ? s.capabilities.checking : s.capabilities.checkAgain}
+          </button>
           {!confirming ? (
             <button type="button" className={secondary} onClick={() => setConfirming(true)} data-action="remove-tool">
               {s.tools.remove}
@@ -100,10 +115,15 @@ function ToolRow({ tool, admin }: { tool: Tool; admin: boolean }) {
           )}
         </div>
       )}
-      {admin && (HOOK_PRODUCTS as readonly string[]).includes(tool.name) && <HookPanel toolID={tool.id} name={name} />}
-      {(remove.isError || again.isError) && (
+      {admin && (HOOK_PRODUCTS as readonly string[]).includes(tool.name) && !lacks(tool, CAPABILITY_WEBHOOKS) && <HookPanel toolID={tool.id} name={name} />}
+      {check.isSuccess && (
+        <p role="status" className="mt-2 text-sm text-success">
+          {s.capabilities.checked(name)}
+        </p>
+      )}
+      {(remove.isError || again.isError || check.isError) && (
         <p role="alert" className="mt-2 text-sm text-danger">
-          {message(remove.error ?? again.error)}
+          {message(remove.error ?? again.error ?? check.error)}
         </p>
       )}
     </li>

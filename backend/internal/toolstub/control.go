@@ -25,6 +25,7 @@ func (s *Stub) Control() http.Handler {
 	r.Delete("/control/tenants/{tenant}/grants", s.controlled(s.handleEndGrants))
 	r.Delete("/control/tenants/{tenant}/clients", s.controlled(s.handleForgetClients))
 	r.Put("/control/tenants/{tenant}/writes", s.controlled(s.handleSetWrites))
+	r.Put("/control/tenants/{tenant}/capabilities", s.controlled(s.handleSetCapabilities))
 	r.Delete("/control/tenants/{tenant}", s.controlled(s.handleForgetTenant))
 	r.Get("/control/langsmith", s.handleLangSmithCalls)
 	r.Delete("/control/langsmith", s.handleForgetLangSmith)
@@ -121,4 +122,17 @@ func (s *Stub) handleSetWrites(w http.ResponseWriter, r *http.Request, t *tenant
 	}
 	t.opts.Writes = in.Calls
 	writeJSON(w, http.StatusOK, map[string]any{"writes": t.opts.Writes})
+}
+
+// handleSetCapabilities changes what the tenant's /meta lists, as a tool updated to another release (#43).
+func (s *Stub) handleSetCapabilities(w http.ResponseWriter, r *http.Request, t *tenant) {
+	var in struct {
+		Capabilities []string `json:"capabilities"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, MaxFormBytes)).Decode(&in); err != nil || in.Capabilities == nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "Send the capabilities to list, as {\"capabilities\": [...]}.")
+		return
+	}
+	t.opts.Capabilities = &in.Capabilities
+	writeJSON(w, http.StatusOK, map[string]any{"capabilities": in.Capabilities})
 }

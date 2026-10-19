@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { type Connection, connectionsQuery, connectionsQueryKey, disconnect, startConnection } from "@/api/connections";
-import { type Tool, toolName, toolsQuery } from "@/api/tools";
+import { lacks, type Tool, toolName, toolsQuery } from "@/api/tools";
+import { CAPABILITY_MCP } from "@/config";
 import { EmptyState, PageHeader } from "@/features/shell/EmptyState";
 import { Icon } from "@/features/shell/icons";
 import { s } from "@/strings";
@@ -84,7 +85,8 @@ function ToolConnection({ tool, connection }: { tool: Tool; connection?: Connect
     },
   });
   const unavailable = tool.status !== "ready";
-  const status = unavailable ? "unavailable" : (connection?.status ?? "none");
+  const outdated = !unavailable && lacks(tool, CAPABILITY_MCP);
+  const status = unavailable ? "unavailable" : outdated ? "outdated" : (connection?.status ?? "none");
   const titleId = `connection-${tool.id}`;
   return (
     <li className="rounded-overlay border border-border bg-surface p-5 shadow-1" aria-labelledby={titleId} data-connection={tool.name} data-status={status}>
@@ -110,8 +112,9 @@ function ToolConnection({ tool, connection }: { tool: Tool; connection?: Connect
         </dl>
       )}
       {unavailable && <p className="mb-3 text-sm text-ink-muted">{s.connections.needsRegistration}</p>}
+      {outdated && <p className="mb-3 text-sm text-ink-muted">{s.capabilities.lacks(name, CAPABILITY_MCP)}</p>}
       <div className="flex flex-wrap items-center gap-2">
-        {!unavailable && (!connection || connection.status === "reconnect") && (
+        {!unavailable && !outdated && (!connection || connection.status === "reconnect") && (
           <button type="button" className={primary} disabled={connect.isPending} onClick={() => connect.mutate()} data-action="connect">
             {connection ? s.connections.connectAgain(name) : s.connections.connect(name)}
           </button>

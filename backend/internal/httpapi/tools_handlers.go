@@ -17,6 +17,7 @@ type ToolRegistry interface {
 	Get(ctx context.Context, id uuid.UUID) (tools.Tool, error)
 	Add(ctx context.Context, req tools.AddRequest) (tools.Tool, bool, error)
 	Remove(ctx context.Context, id uuid.UUID) error
+	Check(ctx context.Context, id uuid.UUID) (tools.Tool, error)
 }
 
 var (
@@ -42,8 +43,12 @@ func toolError(err error) error {
 }
 
 func toToolResponse(t tools.Tool) toolResponse {
+	missing := []missingCapability{}
+	for _, m := range t.Missing() {
+		missing = append(missing, missingCapability{Capability: m.Capability, Message: m.Message})
+	}
 	return toolResponse{ID: t.ID.String(), Name: t.Name, BaseURL: t.BaseURL, Resource: t.Resource, Issuer: t.Issuer,
-		Capabilities: t.Capabilities, ScopesSupported: t.ScopesSupported, Registration: toolRegistration(t.Registration),
+		Capabilities: t.Capabilities, Missing: missing, ScopesSupported: t.ScopesSupported, Registration: toolRegistration(t.Registration),
 		Status: toolStatus(t.Status), AddedAt: t.AddedAt}
 }
 
@@ -124,4 +129,23 @@ func (s *Server) handleRemoveTool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondNoContent(w)
+}
+
+func (s *Server) handleCheckTool(w http.ResponseWriter, r *http.Request) {
+	id, perr := pathUUID(r, "toolID", "tool")
+	if perr != nil {
+		respondError(w, r, perr)
+		return
+	}
+	if s.Tools == nil {
+		respondError(w, r, errToolsUnavailable)
+		return
+	}
+	t, err := s.Tools.Check(r.Context(), id)
+	if err != nil {
+		loggerFrom(r.Context()).Warn("tool not checked", "tool", id, "error", err)
+		respondError(w, r, toolError(err))
+		return
+	}
+	respondJSON(w, r, http.StatusOK, map[string]any{"tool": toToolResponse(t)})
 }

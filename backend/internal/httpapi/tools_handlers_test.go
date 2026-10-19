@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,6 +21,7 @@ type fakeTools struct {
 	known   bool
 	added   tools.AddRequest
 	removed uuid.UUID
+	checked []string
 }
 
 func (f *fakeTools) List(context.Context) ([]tools.Tool, error) { return f.list, nil }
@@ -44,6 +46,16 @@ func (f *fakeTools) Remove(_ context.Context, id uuid.UUID) error {
 	}
 	f.removed = id
 	return nil
+}
+
+func (f *fakeTools) Check(_ context.Context, id uuid.UUID) (tools.Tool, error) {
+	for i, t := range f.list {
+		if t.ID == id {
+			f.list[i].Capabilities = f.checked
+			return f.list[i], nil
+		}
+	}
+	return tools.Tool{}, tools.ErrNotFound
 }
 
 func toolsServer(t *testing.T) (*Server, *fakeTools) {
@@ -126,5 +138,29 @@ func TestWithoutOpenBaoTheToolsAreUnavailable(t *testing.T) {
 	resp, body := serve(t, s.Routes(nil), withSession(httptest.NewRequest(http.MethodGet, APIPrefix+"/tools", nil), "bob"))
 	if resp.StatusCode != http.StatusServiceUnavailable || errorOf(t, body)["code"] != "tools_unavailable" {
 		t.Fatalf("GET /tools without OpenBao = %d %v", resp.StatusCode, body)
+	}
+}
+
+// A tool updated to a release without what Rotor needs is kept, and says what is missing in a sentence.
+func TestCheckingAToolAgainNamesWhatItNoLongerOffers(t *testing.T) {
+	s, registry := toolsServer(t)
+	path := APIPrefix + "/tools/" + registry.list[0].ID.String() + "/check"
+	if resp, _ := serve(t, s.Routes(nil), withSession(httptest.NewRequest(http.MethodPost, path, nil), "bob")); resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("a member checking a tool = %d", resp.StatusCode)
+	}
+	registry.checked = []string{"webhooks@1"}
+	resp, body := serve(t, s.Routes(nil), withSession(httptest.NewRequest(http.MethodPost, path, nil), "alice"))
+	tool, _ := body["tool"].(map[string]any)
+	missing, _ := tool["missing"].([]any)
+	if resp.StatusCode != http.StatusOK || len(missing) != 1 {
+		t.Fatalf("checking a tool = %d %v", resp.StatusCode, body)
+	}
+	first, _ := missing[0].(map[string]any)
+	if first["capability"] != "mcp@1" || !strings.Contains(fmt.Sprint(first["message"]), "Update Exciter") {
+		t.Errorf("missing = %v, want mcp@1 with what to update", first)
+	}
+	resp, _ = serve(t, s.Routes(nil), withSession(httptest.NewRequest(http.MethodPost, APIPrefix+"/tools/"+uuid.NewString()+"/check", nil), "alice"))
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("checking an unknown tool = %d, want 404", resp.StatusCode)
 	}
 }

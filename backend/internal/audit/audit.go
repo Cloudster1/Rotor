@@ -23,6 +23,7 @@ const (
 	ActionSessionEndedByProvider = "session.ended_by_provider"
 	ActionToolAdded              = "tool.added"
 	ActionToolRemoved            = "tool.removed"
+	ActionToolChecked            = "tool.checked"
 	ActionConnectionGranted      = "connection.granted"
 	ActionConnectionEnded        = "connection.ended"
 	ActionTokenMinted            = "token.minted"
@@ -54,7 +55,7 @@ const (
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
 var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, ActionSwitchedOff, ActionSessionEndedByProvider,
-	ActionToolAdded, ActionToolRemoved, ActionConnectionGranted, ActionConnectionEnded, ActionTokenMinted, ActionTokenRevoked, ActionProviderChanged,
+	ActionToolAdded, ActionToolRemoved, ActionToolChecked, ActionConnectionGranted, ActionConnectionEnded, ActionTokenMinted, ActionTokenRevoked, ActionProviderChanged,
 	ActionWorkflowCreated, ActionWorkflowChanged, ActionWorkflowShared, ActionWorkflowArchived, ActionRunStarted, ActionRunCancelled,
 	ActionApprovalDecided, ActionTriggerCreated, ActionTriggerChanged, ActionTriggerRemoved, ActionTriggerEnabled, ActionTriggerDisabled,
 	ActionHookSecretChanged, ActionLimitsChanged, ActionLangSmithChanged,

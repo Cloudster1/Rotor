@@ -126,3 +126,12 @@ Adapted from Armature at 711d94a, its sealed values:
 - backend/internal/envelope/box.go: the version byte leading every value, the random GCM nonce after it and the
   additional data binding a value to where it is kept, of backend/internal/seal/seal.go, with a key per run that
   OpenBao transit wraps instead of one key from the configuration
+
+Adapted from Armature at cdf4bb1, its integration capabilities:
+- backend/internal/httpapi/capabilities.go: the capability with its promise and operations, sorted at /meta, and the
+  tests holding each to the operations table and to name@version, of backend/internal/httpapi/capabilities.go
+
+Adapted from Exciter at a74de66, its checks of a partner:
+- backend/internal/tools/needs.go: the needs table, Offered with nil as never asked, and Lacks and Missing saying what
+  goes without a capability, of backend/internal/armature/capabilities.go
+- docs/integration.md: the structure of docs/integration.md, what is offered, what is checked and the rules
