@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // rotorHookFromSuite is where the suite's Exciter reaches Rotor's api, on the suite's network.
@@ -58,7 +59,7 @@ func TestSuiteExciterEventsStartATriggerAsItsOwner(t *testing.T) {
 			t.Fatalf("creating a requirement at Exciter = %d %v", status, created)
 		}
 		key, _ := requirement["key"].(string)
-		runID := waitTriggeredRun(t, h, triggerID, key)
+		runID := waitTriggeredRun(t, h, alice, triggerID, key)
 		done := waitRun(t, alice, runID, "succeeded", "failed")
 		echo, _ := done["output"].(map[string]any)["echo"].(map[string]any)
 		if done["status"] != "succeeded" || echo["key"] != key {
@@ -70,23 +71,31 @@ func TestSuiteExciterEventsStartATriggerAsItsOwner(t *testing.T) {
 	}
 }
 
-// waitTriggeredRun waits until the trigger started a run for the event about the requirement key, and answers it.
-func waitTriggeredRun(t *testing.T, h *harness, triggerID, key string) string {
+// waitTriggeredRun waits until the trigger started a run for the event about the requirement key, and answers it;
+// a firing keeps no event once it ends (#41), so the run's inputs, read as its owner, say which event it was.
+func waitTriggeredRun(t *testing.T, h *harness, owner *browser, triggerID, key string) string {
 	t.Helper()
 	deadline := time.Now().Add(hookWait)
-	var outcome, reason string
 	for time.Now().Before(deadline) {
-		var run *uuid.UUID
-		err := h.super.QueryRow(context.Background(), `SELECT COALESCE(outcome, ''), reason, run_id FROM trigger_fire WHERE trigger_id = $1
-			AND inputs->'event'->'payload'->'requirement'->>'key' = $2`, triggerID, key).Scan(&outcome, &reason, &run)
-		if err == nil && outcome != "" {
-			if run == nil {
-				t.Fatalf("the firing for %s ended %s: %s", key, outcome, reason)
+		rows, err := h.super.Query(context.Background(), `SELECT run_id FROM trigger_fire WHERE trigger_id = $1 AND run_id IS NOT NULL`, triggerID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		runs, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, run := range runs {
+			_, got := owner.api(http.MethodGet, "/runs/"+run.String(), nil)
+			event, _ := got["inputs"].(map[string]any)["event"].(map[string]any)
+			payload, _ := event["payload"].(map[string]any)
+			requirement, _ := payload["requirement"].(map[string]any)
+			if requirement["key"] == key {
+				return run.String()
 			}
-			return run.String()
 		}
 		time.Sleep(time.Second)
 	}
-	t.Fatalf("no run for %s within %s (firing: %q %q)", key, hookWait, outcome, reason)
+	t.Fatalf("no run for %s within %s", key, hookWait)
 	return ""
 }

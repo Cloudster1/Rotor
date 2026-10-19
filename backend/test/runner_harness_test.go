@@ -45,9 +45,10 @@ func (h *harness) newRun(t *testing.T, person uuid.UUID, yaml string, inputs map
 		t.Fatal(err)
 	}
 	encoded, _ := json.Marshal(inputs)
-	if err := h.super.QueryRow(ctx, `INSERT INTO run (workflow_id, version, user_id, inputs, status, claimed_by, claimed_until)
-		VALUES ($1, 1, $2, $3, 'starting', $4, now() + interval '1 day') RETURNING id`,
-		workflowID, person, encoded, manualLease).Scan(&runID); err != nil {
+	id, wrapped, sealed := sealedRun(t, encoded)
+	if err := h.super.QueryRow(ctx, `INSERT INTO run (id, data_key, sealed_inputs, workflow_id, version, user_id, status, claimed_by, claimed_until)
+		VALUES ($1, $2, $3, $4, 1, $5, 'starting', $6, now() + interval '1 day') RETURNING id`,
+		id, wrapped, sealed, workflowID, person, manualLease).Scan(&runID); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
@@ -130,20 +131,27 @@ func (h *harness) waitEvent(t *testing.T, runID uuid.UUID, kind string, within t
 
 func (h *harness) events(t *testing.T, runID uuid.UUID) []runEvent {
 	t.Helper()
-	rows, err := h.super.Query(context.Background(), `SELECT seq, type, node, payload FROM run_event WHERE run_id = $1 ORDER BY seq`, runID)
+	rows, err := h.super.Query(context.Background(), `SELECT seq, type, node, sealed_payload FROM run_event WHERE run_id = $1 ORDER BY seq`, runID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rows.Close()
 	var out []runEvent
+	var sealed [][]byte
 	for rows.Next() {
 		var e runEvent
 		var payload []byte
 		if err := rows.Scan(&e.Seq, &e.Type, &e.Node, &payload); err != nil {
 			t.Fatal(err)
 		}
-		_ = json.Unmarshal(payload, &e.Payload)
-		out = append(out, e)
+		out, sealed = append(out, e), append(sealed, payload)
+	}
+	rows.Close()
+	if len(out) == 0 {
+		return out
+	}
+	box := h.runBox(t, runID)
+	for i := range out {
+		_ = json.Unmarshal(openEvent(t, box, out[i].Seq, sealed[i]), &out[i].Payload)
 	}
 	return out
 }

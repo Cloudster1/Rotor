@@ -4,11 +4,12 @@ package test
 
 import (
 	"context"
-	"encoding/base64"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+
+	sealing "github.com/cloudster1/rotor/backend/internal/envelope"
 )
 
 // resumable stops at an approval after calling the tool, and finishes in a code node once approved.
@@ -24,31 +25,42 @@ func resumable(tool string) string {
 		"  - {from: confirm, to: finish}\n"
 }
 
-// decrypted opens every value the run's checkpoints hold, as only OpenBao's transit key can.
-func (h *harness) checkpointValues(t *testing.T, runID uuid.UUID) (sealed, opened []string) {
+// checkpointValues opens every value the run's checkpoints hold, as only the run's data key, which OpenBao's transit
+// key wraps, can.
+func (h *harness) checkpointValues(t *testing.T, runID uuid.UUID) (sealed [][]byte, opened []string) {
 	t.Helper()
-	rows, err := h.super.Query(context.Background(), `SELECT checkpoint FROM run_checkpoint WHERE run_id = $1
-		UNION ALL SELECT metadata FROM run_checkpoint WHERE run_id = $1
-		UNION ALL SELECT value FROM run_checkpoint_write WHERE run_id = $1`, runID)
+	rows, err := h.super.Query(context.Background(), `
+		SELECT 'c', checkpoint_ns || '|' || checkpoint_id, sealed_checkpoint FROM run_checkpoint WHERE run_id = $1
+		UNION ALL SELECT 'm', checkpoint_ns || '|' || checkpoint_id, sealed_metadata FROM run_checkpoint WHERE run_id = $1
+		UNION ALL SELECT 'w', checkpoint_ns || '|' || checkpoint_id || '|' || task_id || '|' || idx, sealed_value
+			FROM run_checkpoint_write WHERE run_id = $1`, runID)
 	if err != nil {
 		t.Fatal(err)
 	}
+	columns := map[string]string{"c": sealing.ColumnCheckpoint, "m": sealing.ColumnMetadata, "w": sealing.ColumnWrite}
+	type value struct {
+		column, row string
+		sealed      []byte
+	}
+	var values []value
 	for rows.Next() {
-		var s string
-		if err := rows.Scan(&s); err != nil {
+		var v value
+		if err := rows.Scan(&v.column, &v.row, &v.sealed); err != nil {
 			t.Fatal(err)
 		}
-		sealed = append(sealed, s)
+		values = append(values, v)
 	}
 	rows.Close()
-	root := rootBao(t)
-	for _, s := range sealed {
-		answer, err := root.Logical().Write("transit/decrypt/rotor-checkpoints", map[string]any{"ciphertext": s})
+	if len(values) == 0 {
+		return nil, nil
+	}
+	box := h.runBox(t, runID)
+	for _, v := range values {
+		plain, err := box.Open(columns[v.column], v.row, v.sealed)
 		if err != nil {
-			t.Fatalf("decrypt a checkpoint value: %v", err)
+			t.Fatalf("open a checkpoint value: %v", err)
 		}
-		plain, _ := base64.StdEncoding.DecodeString(answer.Data["plaintext"].(string))
-		opened = append(opened, string(plain))
+		sealed, opened = append(sealed, v.sealed), append(opened, string(plain))
 	}
 	return sealed, opened
 }
@@ -96,11 +108,11 @@ func TestAWaitingRunResumesInAFreshSandboxFromItsCheckpoint(t *testing.T) {
 	if len(sealed) == 0 {
 		t.Fatal("the run kept no checkpoint")
 	}
-	// Sealed is OpenBao's prefix and base64 alone; random ciphertext may spell any short word, so none is looked for.
+	// Sealed values open only with the run's key, as above, and lead with the format's version; random ciphertext
+	// may spell any short word, so none is looked for.
 	for i, s := range sealed {
-		rest, prefixed := strings.CutPrefix(s, "vault:v1:")
-		if _, err := base64.StdEncoding.DecodeString(rest); !prefixed || err != nil {
-			t.Errorf("checkpoint value %d is not sealed: %.60s", i, s)
+		if len(s) == 0 || s[0] != 1 {
+			t.Errorf("checkpoint value %d is not sealed: %s", i, describe(s))
 		}
 	}
 	joined := strings.Join(opened, "\n")

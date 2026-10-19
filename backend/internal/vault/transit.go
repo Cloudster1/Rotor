@@ -4,31 +4,41 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"strconv"
+
+	"github.com/cloudster1/rotor/backend/internal/config"
 )
 
-// checkpointKey is the transit key run checkpoints are encrypted with.
-const checkpointKey = "rotor-checkpoints"
-
-// Encrypt seals each value with the checkpoint key in one call; the answers are OpenBao ciphertexts, in order.
-func (c *Client) Encrypt(ctx context.Context, values [][]byte) ([]string, error) {
-	batch := make([]map[string]any, len(values))
-	for i, v := range values {
-		batch[i] = map[string]any{"plaintext": base64.StdEncoding.EncodeToString(v)}
+// NewDataKey has OpenBao make a run's data key: the key itself, used at once and only kept in memory, and the same
+// key wrapped by the installation's transit key, which is stored with the run.
+func (c *Client) NewDataKey(ctx context.Context) ([]byte, string, error) {
+	if err := c.ensure(ctx); err != nil {
+		return nil, "", err
 	}
-	results, err := c.transit(ctx, "transit/encrypt/"+checkpointKey, batch, "ciphertext")
+	path := "transit/datakey/plaintext/" + config.RunDataTransitKey
+	secret, err := c.api.Logical().WriteWithContext(ctx, path, map[string]any{"bits": strconv.Itoa(config.DataKeyBits)})
 	if err != nil {
-		return nil, err
+		return nil, "", fmt.Errorf("vault: %s: %w", path, err)
 	}
-	return results, nil
+	if secret == nil {
+		return nil, "", fmt.Errorf("vault: %s answered nothing", path)
+	}
+	plain, _ := secret.Data["plaintext"].(string)
+	wrapped, _ := secret.Data["ciphertext"].(string)
+	key, err := base64.StdEncoding.DecodeString(plain)
+	if err != nil || len(key)*8 != config.DataKeyBits || wrapped == "" {
+		return nil, "", fmt.Errorf("vault: %s answered no usable key", path)
+	}
+	return key, wrapped, nil
 }
 
-// Decrypt opens ciphertexts the checkpoint key sealed, in order.
-func (c *Client) Decrypt(ctx context.Context, ciphertexts []string) ([][]byte, error) {
-	batch := make([]map[string]any, len(ciphertexts))
-	for i, text := range ciphertexts {
+// UnwrapDataKeys opens wrapped data keys in one call, in order.
+func (c *Client) UnwrapDataKeys(ctx context.Context, wrapped []string) ([][]byte, error) {
+	batch := make([]map[string]any, len(wrapped))
+	for i, text := range wrapped {
 		batch[i] = map[string]any{"ciphertext": text}
 	}
-	results, err := c.transit(ctx, "transit/decrypt/"+checkpointKey, batch, "plaintext")
+	results, err := c.transit(ctx, "transit/decrypt/"+config.RunDataTransitKey, batch, "plaintext")
 	if err != nil {
 		return nil, err
 	}

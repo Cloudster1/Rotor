@@ -13,6 +13,8 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/audit"
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/envelope"
+	"github.com/cloudster1/rotor/backend/internal/redact"
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 )
 
@@ -38,7 +40,7 @@ type interruptValue struct {
 
 // openApproval records the approval a run now waits at. Who decides, the form and the expiry come from the pinned
 // spec, never from the sandbox; an interrupt that names no approval node of it opens nothing.
-func openApproval(ctx context.Context, tx db.DBTX, r *run, output []byte, ttl time.Duration) error {
+func openApproval(ctx context.Context, tx db.DBTX, keys *envelope.Keys, r *run, output []byte, ttl time.Duration) error {
 	var v interruptValue
 	if json.Unmarshal(output, &v) != nil || v.ID == "" || r.spec == nil {
 		return nil
@@ -55,8 +57,8 @@ func openApproval(ctx context.Context, tx db.DBTX, r *run, output []byte, ttl ti
 	if node.Form != nil {
 		schema = node.Form.Schema
 	}
-	values := redact(objectOr(v.Values, "{}"))
-	preview := cutPreview(redact(objectOr(v.Preview, "[]")))
+	values := redact.JSON(objectOr(v.Values, "{}"))
+	preview := cutPreview(redact.JSON(objectOr(v.Preview, "[]")))
 	var id uuid.UUID
 	var expires time.Time
 	err := tx.QueryRow(ctx, `INSERT INTO approval (run_id, starter_id, workflow_id, workflow_name, started_by_name, node,
@@ -65,7 +67,7 @@ func openApproval(ctx context.Context, tx db.DBTX, r *run, output []byte, ttl ti
 		FROM run r WHERE r.id = $1
 		ON CONFLICT (run_id, interrupt_id) DO NOTHING
 		RETURNING id, expires_at`,
-		r.ID, node.ID, v.ID, cut(string(redactText(v.Message)), config.MaxApprovalMessageChars), preview, nullJSON(schema), values,
+		r.ID, node.ID, v.ID, cut(redact.Text(v.Message), config.MaxApprovalMessageChars), preview, nullJSON(schema), values,
 		group, node.ExpiresAfter(ttl).String()).Scan(&id, &expires)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
@@ -75,7 +77,7 @@ func openApproval(ctx context.Context, tx db.DBTX, r *run, output []byte, ttl ti
 	}
 	payload, _ := json.Marshal(map[string]any{"approvalId": id.String(), "node": node.ID, "message": v.Message,
 		"approvers": map[string]any{"group": group}, "expiresAt": expires})
-	if err := appendEvent(ctx, tx, r.ID, EventApprovalRequested, node.ID, payload); err != nil {
+	if err := appendEvent(ctx, tx, keys, r.ID, EventApprovalRequested, node.ID, payload); err != nil {
 		return err
 	}
 	return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionApprovalRequested, TargetType: "approval", TargetID: id.String(),
@@ -112,7 +114,7 @@ type Decided struct {
 
 // Decide moves a waiting run on once its approval is decided: approved, a fresh sandbox resumes it from its
 // checkpoint with the answer; rejected, it ends cancelled. The caller has recorded the decision in tx.
-func Decide(ctx context.Context, tx db.DBTX, runID uuid.UUID, d Decided) error {
+func Decide(ctx context.Context, tx db.DBTX, keys *envelope.Keys, runID uuid.UUID, d Decided) error {
 	current, err := lockStatus(ctx, tx, runID)
 	if err != nil {
 		return err
@@ -126,11 +128,11 @@ func Decide(ctx context.Context, tx db.DBTX, runID uuid.UUID, d Decided) error {
 	}
 	payload, _ := json.Marshal(map[string]any{"approvalId": d.ApprovalID.String(), "decision": decision,
 		"by": map[string]string{"id": d.By.String(), "name": d.ByName}, "comment": d.Comment})
-	if err := appendEvent(ctx, tx, runID, EventApprovalDecided, "", payload); err != nil {
+	if err := appendEvent(ctx, tx, keys, runID, EventApprovalDecided, "", payload); err != nil {
 		return err
 	}
 	if !d.Approve {
-		return endLocked(ctx, tx, runID, StatusCancelled, ReasonRejected, map[string]any{"by": d.By.String()}, nil)
+		return endLocked(ctx, tx, keys, runID, StatusCancelled, ReasonRejected, map[string]any{"by": d.By.String()}, nil)
 	}
 	_, err = tx.Exec(ctx, `UPDATE run SET status = 'starting', attempts = 0, sandbox_id = NULL WHERE id = $1`, runID)
 	return err
@@ -174,13 +176,6 @@ func objectOr(raw json.RawMessage, def string) []byte {
 		return []byte(def)
 	}
 	return raw
-}
-
-func redactText(s string) []byte {
-	out, _ := json.Marshal(s)
-	var back string
-	_ = json.Unmarshal(redact(out), &back)
-	return []byte(back)
 }
 
 // cut keeps at most n characters of s.

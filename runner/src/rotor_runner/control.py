@@ -35,9 +35,10 @@ from rotor_runner.mcp import Binding, McpGateway, ToolFailedError
 from rotor_runner.models import build_model
 from rotor_runner.pb.rotor.runner.v1 import runner_pb2 as pb
 from rotor_runner.pb.rotor.runner.v1 import runner_pb2_grpc as pb_grpc
+from rotor_runner.redact import Redactor
 from rotor_runner.spec import parse
 from rotor_runner.telemetry import RunTracing
-from rotor_runner.tokens import Redactor, UnwrapError, Unwrapper
+from rotor_runner.tokens import UnwrapError, Unwrapper
 
 log = logging.getLogger("rotor_runner")
 
@@ -98,9 +99,11 @@ class Tokens:
 class Channel:
     """One run's stream to the control plane, kept open across drops until the run's Done is acknowledged."""
 
-    def __init__(self, address: str, ca_pem: bytes, bootstrap: str, openbao: str) -> None:
+    def __init__(
+        self, address: str, ca_pem: bytes, bootstrap: str, openbao: str, redactor: Redactor | None = None
+    ) -> None:
         self.address, self._ca, self._bootstrap = address, ca_pem, bootstrap
-        self.unwrapper, self.redactor = Unwrapper(openbao), Redactor()
+        self.unwrapper, self.redactor = Unwrapper(openbao), redactor or Redactor()
         self._opening: set[asyncio.Task[None]] = set()
         self._session: str | None = None
         self._next_seq, self._handled_control = 1, 0
@@ -273,8 +276,8 @@ class Channel:
         await self.tracing.flush()
         done = pb.Done(
             outcome=OUTCOMES[outcome.status],
-            reason=outcome.reason,
-            output_json=json.dumps(outcome.interrupt or outcome.output, default=str),
+            reason=self.redactor.scrub(outcome.reason),
+            output_json=self.redactor.scrub(json.dumps(outcome.interrupt or outcome.output, default=str)),
         )
         self.send_numbered(pb.ConnectRequest(done=done))
 

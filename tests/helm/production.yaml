@@ -730,7 +730,9 @@ data:
     # Every write names the version it read, so two writers never overwrite each other unseen.
     bao write rotor/config cas_required=true max_versions=3 >/dev/null
     enabled secrets transit || bao secrets enable transit
-    bao read transit/keys/rotor-checkpoints >/dev/null 2>&1 || bao write -f transit/keys/rotor-checkpoints >/dev/null
+    # The installation's key for runs' data keys (#41), rotated every 90 days; older versions still open older runs.
+    bao read transit/keys/rotor-run-data >/dev/null 2>&1 \
+      || bao write transit/keys/rotor-run-data auto_rotate_period=2160h >/dev/null
     
     # A CA for the runner protocol's TLS: the api is issued a certificate for the runner host, sandboxes trust the CA.
     enabled secrets pki || bao secrets enable pki >/dev/null
@@ -802,12 +804,13 @@ data:
       capabilities = ["read"]
     }
     
-    # Checkpoints are encrypted and decrypted with this one key, which never leaves OpenBao (#19).
-    path "transit/encrypt/rotor-checkpoints" {
+    # Every run's data is sealed with a data key of its own (#41): this key makes and unwraps them and never leaves
+    # OpenBao. Nothing else is encrypted with it, so encrypting through it is not allowed.
+    path "transit/datakey/plaintext/rotor-run-data" {
       capabilities = ["update"]
     }
     
-    path "transit/decrypt/rotor-checkpoints" {
+    path "transit/decrypt/rotor-run-data" {
       capabilities = ["update"]
     }
     

@@ -14,6 +14,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/envelope"
 	"github.com/cloudster1/rotor/backend/internal/tools"
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 	"github.com/cloudster1/rotor/backend/internal/workflows"
@@ -64,10 +65,13 @@ type Run struct {
 	Reason        string
 	Inputs        json.RawMessage
 	Output        json.RawMessage
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	StartedAt     *time.Time
-	FinishedAt    *time.Time
+	// dataKey and the sealed inputs and output are the run as stored (#41); open fills Inputs and Output from them.
+	dataKey             string
+	sealedIn, sealedOut []byte
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+	StartedAt           *time.Time
+	FinishedAt          *time.Time
 	// ApprovalID is the pending approval the run waits for, if any.
 	ApprovalID *uuid.UUID
 	// TriggerID and TriggerName name the trigger that started the run, if one did; the name only for its owner.
@@ -111,6 +115,7 @@ type Signals interface {
 // Service starts, lists, follows and cancels runs as the person on the context; the worker carries them.
 type Service struct {
 	db          *db.Cluster
+	keys        *envelope.Keys
 	workflows   Workflows
 	tools       ToolFinder
 	connections Connections
@@ -125,12 +130,12 @@ type StartCheck interface {
 }
 
 // NewService returns the runs; signals may be nil, and streams then find a cancel or an event on their next beat.
-func NewService(cluster *db.Cluster, wf Workflows, finder ToolFinder, conns Connections, signals Signals) *Service {
-	return &Service{db: cluster, workflows: wf, tools: finder, connections: conns, signals: signals}
+func NewService(cluster *db.Cluster, keys *envelope.Keys, wf Workflows, finder ToolFinder, conns Connections, signals Signals) *Service {
+	return &Service{db: cluster, keys: keys, workflows: wf, tools: finder, connections: conns, signals: signals}
 }
 
 const runColumns = `r.id, r.workflow_id, r.workflow_name, r.version, r.user_id, r.started_by_name, r.status, r.reason,
-	r.inputs, r.output, r.created_at, r.updated_at, r.started_at, r.finished_at,
+	r.data_key, r.sealed_inputs, r.sealed_output, r.created_at, r.updated_at, r.started_at, r.finished_at,
 	(SELECT a.id FROM approval a WHERE a.run_id = r.id AND a.status = 'pending'), run_visible(r.user_id, r.workflow_id),
 	r.trigger_id, (SELECT t.name FROM trigger t WHERE t.id = r.trigger_id),
 	COALESCE((SELECT u.input_tokens FROM run_usage u WHERE u.run_id = r.id), 0),
@@ -139,14 +144,37 @@ const runColumns = `r.id, r.workflow_id, r.workflow_name, r.version, r.user_id, 
 
 func scanRun(row pgx.Row) (Run, error) {
 	var r Run
-	var output []byte
 	err := row.Scan(&r.ID, &r.WorkflowID, &r.WorkflowName, &r.Version, &r.UserID, &r.StartedByName, &r.Status, &r.Reason,
-		&r.Inputs, &output, &r.CreatedAt, &r.UpdatedAt, &r.StartedAt, &r.FinishedAt, &r.ApprovalID, &r.Manages, &r.TriggerID, &r.TriggerName, &r.InputTokens, &r.OutputTokens, &r.Cost)
+		&r.dataKey, &r.sealedIn, &r.sealedOut, &r.CreatedAt, &r.UpdatedAt, &r.StartedAt, &r.FinishedAt, &r.ApprovalID, &r.Manages, &r.TriggerID, &r.TriggerName, &r.InputTokens, &r.OutputTokens, &r.Cost)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return r, ErrNotFound
 	}
-	r.Output = output
 	return r, err
+}
+
+// open fills in the runs' inputs and output from what is sealed of them, unwrapping the keys not in memory at once.
+func (s *Service) open(ctx context.Context, runs []Run) error {
+	wanted := make(map[uuid.UUID]string, len(runs))
+	for _, r := range runs {
+		wanted[r.ID] = r.dataKey
+	}
+	if len(wanted) == 0 {
+		return nil
+	}
+	boxes, err := s.keys.ForMany(ctx, wanted)
+	if err != nil {
+		return err
+	}
+	for i := range runs {
+		box := boxes[runs[i].ID]
+		if runs[i].Inputs, err = box.Open(envelope.ColumnInputs, "", runs[i].sealedIn); err != nil {
+			return err
+		}
+		if runs[i].Output, err = box.OpenOr(envelope.ColumnOutput, "", runs[i].sealedOut); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Get is a run the caller may see: one they started, one of a workflow they own, one whose approval their group
@@ -158,7 +186,12 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (Run, error) {
 		r, err = scanRun(tx.QueryRow(ctx, `SELECT `+runColumns+` FROM run r WHERE r.id = $1`, id))
 		return err
 	})
-	return r, err
+	if err != nil {
+		return r, err
+	}
+	one := []Run{r}
+	err = s.open(ctx, one)
+	return one[0], err
 }
 
 // Filter narrows a list of runs; zero values do not narrow.
@@ -193,7 +226,10 @@ func (s *Service) List(ctx context.Context, f Filter) ([]Run, error) {
 		}
 		return rows.Err()
 	})
-	return out, err
+	if err != nil {
+		return out, err
+	}
+	return out, s.open(ctx, out)
 }
 
 func nullUUID(id uuid.UUID) any {

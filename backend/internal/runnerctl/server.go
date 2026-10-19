@@ -15,6 +15,7 @@ import (
 
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/envelope"
 	"github.com/cloudster1/rotor/backend/internal/runnerpb"
 	"github.com/cloudster1/rotor/backend/internal/usage"
 )
@@ -23,7 +24,9 @@ import (
 type Server struct {
 	runnerpb.UnimplementedRunnerControlServiceServer
 
-	DB    *db.Cluster
+	DB *db.Cluster
+	// Keys seals and opens the run's data with its own key (#41).
+	Keys  *envelope.Keys
 	Tools ToolFinder
 	Mint  Minter
 	Log   *slog.Logger
@@ -67,8 +70,9 @@ type Checkpoints interface {
 }
 
 // NewServer returns the protocol's server; Serve puts it on the network.
-func NewServer(cluster *db.Cluster, finder ToolFinder, minter Minter, log *slog.Logger) *Server {
-	return &Server{DB: cluster, Tools: finder, Mint: minter, Log: log, store: store{db: cluster}, live: map[uuid.UUID]*liveStream{}}
+func NewServer(cluster *db.Cluster, keys *envelope.Keys, finder ToolFinder, minter Minter, log *slog.Logger) *Server {
+	return &Server{DB: cluster, Keys: keys, Tools: finder, Mint: minter, Log: log, store: store{db: cluster, keys: keys},
+		live: map[uuid.UUID]*liveStream{}}
 }
 
 // claim makes this stream the run's one, ending any earlier stream of the run, which a reconnect leaves behind.
@@ -272,15 +276,17 @@ func (s *Server) handle(ctx context.Context, stream runnerpb.RunnerControlServic
 	switch m := msg.Message.(type) {
 	case *runnerpb.ConnectRequest_Event:
 		apply = func(ctx context.Context, tx db.DBTX) error {
-			if err := appendEvent(ctx, tx, r.ID, m.Event.Type, m.Event.NodeId, []byte(m.Event.PayloadJson)); err != nil || m.Event.Type != usage.EventUsage {
+			if err := appendEvent(ctx, tx, s.Keys, r.ID, m.Event.Type, m.Event.NodeId, []byte(m.Event.PayloadJson)); err != nil || m.Event.Type != usage.EventUsage {
 				return err
 			}
 			var err error
-			stopped, err = recordUsage(ctx, tx, r, []byte(m.Event.PayloadJson))
+			stopped, err = recordUsage(ctx, tx, s.Keys, r, []byte(m.Event.PayloadJson))
 			return err
 		}
 	case *runnerpb.ConnectRequest_Done:
-		apply = func(ctx context.Context, tx db.DBTX) error { return finish(ctx, tx, r, m.Done, s.approvalTTL()) }
+		apply = func(ctx context.Context, tx db.DBTX) error {
+			return finish(ctx, tx, s.Keys, r, m.Done, s.approvalTTL())
+		}
 	case *runnerpb.ConnectRequest_TokenRequest:
 		return stream.Send(s.grant(ctx, r, bindings, m.TokenRequest.Binding))
 	case *runnerpb.ConnectRequest_Spans:
@@ -295,6 +301,10 @@ func (s *Server) handle(ctx context.Context, stream runnerpb.RunnerControlServic
 	}
 	if apply == nil || msg.Seq == 0 {
 		return nil
+	}
+	// The run's key is unwrapped now, if it is not in memory, rather than while its row is held.
+	if _, err := s.Keys.For(ctx, r.ID, r.dataKey); err != nil {
+		return s.fail(r.ID, "open the run's key", err)
 	}
 	fresh, err := s.store.received(ctx, r.ID, msg.Seq, apply)
 	if err != nil {
@@ -322,7 +332,7 @@ func (s *Server) announce(ctx context.Context, runID uuid.UUID) {
 
 // finish records how the run ended in its sandbox, as a run.finished event and the run's status, and opens the
 // approval a waiting run waits at; a run the control plane already ended, such as a cancelled one, stays as it is.
-func finish(ctx context.Context, tx db.DBTX, r *run, done *runnerpb.Done, approvalTTL time.Duration) error {
+func finish(ctx context.Context, tx db.DBTX, keys *envelope.Keys, r *run, done *runnerpb.Done, approvalTTL time.Duration) error {
 	current, err := lockStatus(ctx, tx, r.ID)
 	if err != nil || current != StatusRunning {
 		return err
@@ -331,10 +341,10 @@ func finish(ctx context.Context, tx db.DBTX, r *run, done *runnerpb.Done, approv
 	if !ok {
 		state = StatusFailed
 	}
-	if err := endLocked(ctx, tx, r.ID, state, done.Reason, nil, []byte(done.OutputJson)); err != nil || state != StatusWaiting {
+	if err := endLocked(ctx, tx, keys, r.ID, state, done.Reason, nil, []byte(done.OutputJson)); err != nil || state != StatusWaiting {
 		return err
 	}
-	return openApproval(ctx, tx, r, []byte(done.OutputJson), approvalTTL)
+	return openApproval(ctx, tx, keys, r, []byte(done.OutputJson), approvalTTL)
 }
 
 // approvalTTL is how long an approval waits when its node sets no expiresIn.

@@ -22,6 +22,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/envelope"
 	"github.com/cloudster1/rotor/backend/internal/hooks"
 	"github.com/cloudster1/rotor/backend/internal/httpapi"
 	"github.com/cloudster1/rotor/backend/internal/langsmith"
@@ -126,16 +127,18 @@ func run() error {
 		reader := catalog.NewService(registry, people, boot.ToolClient(cfg), store, log)
 		server.Catalogs = reader
 		workflowService = workflows.NewService(cluster, reader)
-		runService := runs.NewService(cluster, workflowService, registry, people, store)
+		// Every run's data is sealed with a key of its own, which OpenBao wraps (#41).
+		keys := envelope.NewKeys(secrets)
+		runService := runs.NewService(cluster, keys, workflowService, registry, people, store)
 		server.Runs = runService
 		triggerService := triggers.NewService(cluster, workflowService, reader, runService)
 		triggerService.CheckEvent = hookService.CheckEvent(people)
 		server.Triggers = triggerService
-		server.Approvals = approvals.NewService(cluster, store)
-		runners := runnerctl.NewServer(cluster, registry, people, log)
+		server.Approvals = approvals.NewService(cluster, keys, store)
+		runners := runnerctl.NewServer(cluster, keys, registry, people, log)
 		reach := oidc.ParseRewrites(cfg.Tools.Backchannel)
 		runners.Reach = func(address string) string { return oidc.Rewrite(reach, address) }
-		runners.Checkpoints = runs.NewCheckpoints(cluster, secrets)
+		runners.Checkpoints = runs.NewCheckpoints(cluster, keys)
 		runners.Signals, runners.Wrap, runners.Events, runners.Host = store, secrets, store, cfg.Runner.Host
 		runners.ApprovalTTL = cfg.Approvals.TTL
 		smith := langsmith.NewService(cluster, secrets, cfg.Telemetry.LangSmithEndpoint)

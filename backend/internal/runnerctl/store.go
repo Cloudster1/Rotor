@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/envelope"
+	"github.com/cloudster1/rotor/backend/internal/redact"
 	"github.com/cloudster1/rotor/backend/internal/runnerpb"
 )
 
@@ -35,20 +38,34 @@ var outcomes = map[runnerpb.RunOutcome]string{
 
 // store keeps a run's protocol state in Postgres, as rotor_admin: the control plane acts for the run.
 type store struct {
-	db *db.Cluster
+	db   *db.Cluster
+	keys *envelope.Keys
 }
 
-// appendEvent stores the next event for the run, numbering it after the last, with every credential cut out.
-func appendEvent(ctx context.Context, tx db.DBTX, runID uuid.UUID, kind, node string, payload []byte) error {
-	payload = redact(payload)
+// appendEvent stores the next event for the run, numbering it after the last, with every credential cut out and
+// sealed with the run's key (#41). It holds the run's row, so two writers never take one number.
+func appendEvent(ctx context.Context, tx db.DBTX, keys *envelope.Keys, runID uuid.UUID, kind, node string, payload []byte) error {
+	payload = redact.JSON(payload)
 	if len(payload) > config.MaxEventBytes {
 		payload, _ = json.Marshal(map[string]any{"truncated": true, "bytes": len(payload)})
 	}
 	if !json.Valid(payload) {
 		payload = []byte(`{}`)
 	}
-	_, err := tx.Exec(ctx, `INSERT INTO run_event (run_id, seq, type, node, payload)
-		VALUES ($1, (SELECT COALESCE(max(seq), 0) + 1 FROM run_event WHERE run_id = $1), $2, $3, $4)`, runID, kind, node, payload)
+	var wrapped string
+	if err := tx.QueryRow(ctx, `SELECT data_key FROM run WHERE id = $1 FOR UPDATE`, runID).Scan(&wrapped); err != nil {
+		return err
+	}
+	var seq int64
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(max(seq), 0) + 1 FROM run_event WHERE run_id = $1`, runID).Scan(&seq); err != nil {
+		return err
+	}
+	box, err := keys.For(ctx, runID, wrapped)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO run_event (run_id, seq, type, node, sealed_payload) VALUES ($1, $2, $3, $4, $5)`,
+		runID, seq, kind, node, box.Seal(envelope.ColumnEvent, strconv.FormatInt(seq, 10), payload))
 	return err
 }
 
@@ -86,8 +103,9 @@ func (s *store) lastReceived(ctx context.Context, runID uuid.UUID) (uint64, erro
 	return last, err
 }
 
-// enqueueTx numbers a control message and keeps it until the runner acknowledges it.
-func enqueueTx(ctx context.Context, tx db.DBTX, runID uuid.UUID, msg *runnerpb.ConnectResponse) (*runnerpb.ConnectResponse, error) {
+// enqueueTx numbers a control message and keeps it, sealed, until the runner acknowledges it: a StartRun carries
+// the run's inputs and the answer it resumes with.
+func enqueueTx(ctx context.Context, tx db.DBTX, keys *envelope.Keys, runID uuid.UUID, msg *runnerpb.ConnectResponse) (*runnerpb.ConnectResponse, error) {
 	if err := tx.QueryRow(ctx, `SELECT COALESCE(max(seq), 0) + 1 FROM run_control WHERE run_id = $1`, runID).Scan(&msg.Seq); err != nil {
 		return nil, err
 	}
@@ -95,7 +113,12 @@ func enqueueTx(ctx context.Context, tx db.DBTX, runID uuid.UUID, msg *runnerpb.C
 	if err != nil {
 		return nil, err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO run_control (run_id, seq, message) VALUES ($1, $2, $3)`, runID, msg.Seq, encoded)
+	box, err := keys.Run(ctx, tx, runID)
+	if err != nil {
+		return nil, err
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO run_control (run_id, seq, sealed_message) VALUES ($1, $2, $3)`,
+		runID, msg.Seq, box.Seal(envelope.ColumnControl, strconv.FormatUint(msg.Seq, 10), encoded))
 	return msg, err
 }
 
@@ -106,7 +129,7 @@ func (s *store) supersede(ctx context.Context, runID uuid.UUID, start *runnerpb.
 		if _, err := tx.Exec(ctx, `UPDATE run_control SET acked_at = now() WHERE run_id = $1 AND acked_at IS NULL`, runID); err != nil {
 			return err
 		}
-		if _, err := enqueueTx(ctx, tx, runID, start); err != nil {
+		if _, err := enqueueTx(ctx, tx, s.keys, runID, start); err != nil {
 			return err
 		}
 		_, err := tx.Exec(ctx, `UPDATE run SET status = 'running', reason = '', runner_lost_at = NULL, deadline_at = $2 WHERE id = $1`, runID, deadline)
@@ -155,17 +178,25 @@ func (s *store) unacknowledged(ctx context.Context, runID uuid.UUID) ([]*runnerp
 		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM run_control WHERE run_id = $1)`, runID).Scan(&sent); err != nil {
 			return err
 		}
-		rows, err := tx.Query(ctx, `SELECT message FROM run_control WHERE run_id = $1 AND acked_at IS NULL ORDER BY seq`, runID)
+		rows, err := tx.Query(ctx, `SELECT seq, sealed_message FROM run_control WHERE run_id = $1 AND acked_at IS NULL ORDER BY seq`, runID)
 		if err != nil {
 			return err
 		}
-		raw, err := pgx.CollectRows(rows, pgx.RowTo[[]byte])
+		raw, err := pgx.CollectRows(rows, pgx.RowToStructByPos[sealedControl])
+		if err != nil || len(raw) == 0 {
+			return err
+		}
+		box, err := s.keys.Run(ctx, tx, runID)
 		if err != nil {
 			return err
 		}
 		for _, r := range raw {
+			plain, err := box.Open(envelope.ColumnControl, strconv.FormatInt(r.Seq, 10), r.Sealed)
+			if err != nil {
+				return err
+			}
 			msg := &runnerpb.ConnectResponse{}
-			if err := proto.Unmarshal(r, msg); err != nil {
+			if err := proto.Unmarshal(plain, msg); err != nil {
 				return err
 			}
 			out = append(out, msg)
@@ -186,10 +217,25 @@ func (s *store) acknowledge(ctx context.Context, runID uuid.UUID, seq uint64) er
 	})
 }
 
-// setStatus moves a run along; the run_status_move trigger refuses a move the contract does not allow.
-func setStatus(ctx context.Context, tx db.DBTX, runID uuid.UUID, status, reason string, output []byte) error {
-	_, err := tx.Exec(ctx, `UPDATE run SET status = $2, reason = $3, output = COALESCE($4::jsonb, output) WHERE id = $1`,
-		runID, status, reason, nullJSON(output))
+// sealedControl is a control message as stored.
+type sealedControl struct {
+	Seq    int64
+	Sealed []byte
+}
+
+// setStatus moves a run along, keeping its output without credentials and sealed; the run_status_move trigger
+// refuses a move the contract does not allow.
+func setStatus(ctx context.Context, tx db.DBTX, keys *envelope.Keys, runID uuid.UUID, status, reason string, output []byte) error {
+	var sealed []byte
+	if len(output) > 0 && json.Valid(output) {
+		box, err := keys.Run(ctx, tx, runID)
+		if err != nil {
+			return err
+		}
+		sealed = box.Seal(envelope.ColumnOutput, "", redact.JSON(output))
+	}
+	_, err := tx.Exec(ctx, `UPDATE run SET status = $2, reason = $3, sealed_output = COALESCE($4, sealed_output) WHERE id = $1`,
+		runID, status, redact.Text(reason), sealed)
 	return err
 }
 
@@ -204,7 +250,7 @@ func nullJSON(b []byte) any {
 func (s *store) lost(ctx context.Context, runID uuid.UUID) error {
 	return s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		payload, _ := json.Marshal(map[string]any{"missedHeartbeats": config.MissedHeartbeats})
-		if err := appendEvent(ctx, tx, runID, eventRunnerLost, "", payload); err != nil {
+		if err := appendEvent(ctx, tx, s.keys, runID, eventRunnerLost, "", payload); err != nil {
 			return err
 		}
 		_, err := tx.Exec(ctx, `UPDATE run SET runner_lost_at = COALESCE(runner_lost_at, now()) WHERE id = $1 AND status = 'running'`, runID)

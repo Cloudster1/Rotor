@@ -24,12 +24,13 @@ path "pki/cert/ca" {
   capabilities = ["read"]
 }
 
-# Checkpoints are encrypted and decrypted with this one key, which never leaves OpenBao (#19).
-path "transit/encrypt/rotor-checkpoints" {
+# Every run's data is sealed with a data key of its own (#41): this key makes and unwraps them and never leaves
+# OpenBao. Nothing else is encrypted with it, so encrypting through it is not allowed.
+path "transit/datakey/plaintext/rotor-run-data" {
   capabilities = ["update"]
 }
 
-path "transit/decrypt/rotor-checkpoints" {
+path "transit/decrypt/rotor-run-data" {
   capabilities = ["update"]
 }
 

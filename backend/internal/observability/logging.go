@@ -6,12 +6,14 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+
+	"github.com/cloudster1/rotor/backend/internal/redact"
 )
 
-// NewLogger returns the process logger: JSON in production so it can be
-// ingested, and human readable text elsewhere.
+// NewLogger returns the process logger: JSON in production so it can be ingested, and human readable text
+// elsewhere; every line loses the credentials it would carry (#41).
 func NewLogger(level string, production bool) *slog.Logger {
-	opts := &slog.HandlerOptions{Level: parseLevel(level)}
+	opts := &slog.HandlerOptions{Level: parseLevel(level), ReplaceAttr: redact.Attr}
 
 	var handler slog.Handler
 	if production {

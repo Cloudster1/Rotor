@@ -88,11 +88,13 @@ func TestTheRunStateMachineRefusesMovesItDoesNotKnow(t *testing.T) {
 	if err := h.super.QueryRow(ctx, `SELECT workflow_id FROM run WHERE id = $1`, runID).Scan(&workflowID); err != nil {
 		t.Fatal(err)
 	}
-	if err := as(`INSERT INTO run (workflow_id, version, user_id, status) VALUES ($1, 1, $2, 'running')`, workflowID, person); err == nil {
+	if err := as(`INSERT INTO run (workflow_id, version, user_id, status, data_key, sealed_inputs) VALUES ($1, 1, $2, 'running', $3, $4)`,
+		workflowID, person, placeholderKey, placeholderSealed); err == nil {
 		t.Error("a person added a run that is already running")
 	}
 	other := h.addPerson(t, "member")
-	if err := as(`INSERT INTO run (workflow_id, version, user_id) VALUES ($1, 1, $2)`, workflowID, other); err == nil {
+	if err := as(`INSERT INTO run (workflow_id, version, user_id, data_key, sealed_inputs) VALUES ($1, 1, $2, $3, $4)`,
+		workflowID, other, placeholderKey, placeholderSealed); err == nil {
 		t.Error("a person added a run as someone else")
 	}
 }
@@ -189,7 +191,7 @@ func TestASandboxThatNeverSaysHelloIsReplacedUntilTheRunFails(t *testing.T) {
 	runID := uuid.MustParse(run["id"].(string))
 
 	fake := newFakeSandboxes()
-	worker := runs.NewWorker(h.cluster, fake, runs.Launch{Image: "never-starts", Dial: "nowhere:1", Stack: "test-fake",
+	worker := runs.NewWorker(h.cluster, runKeys(t), fake, runs.Launch{Image: "never-starts", Dial: "nowhere:1", Stack: "test-fake",
 		CA: func(context.Context) (string, error) { return "a CA", nil }}, slog.New(slog.DiscardHandler))
 	ctx := context.Background()
 	for attempt := 1; attempt <= config.MaxRunAttempts; attempt++ {

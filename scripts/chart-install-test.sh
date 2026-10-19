@@ -78,20 +78,48 @@ for d in api worker web; do kubectl rollout status -n "${NS}" "deploy/${RELEASE}
 
 psql() { kubectl exec -i -n "${NS}" "${RELEASE}-postgresql-0" -- psql -v ON_ERROR_STOP=1 -U postgres -d rotor -At "$@"; }
 
-# Starts a code node's run straight through the database and waits until it succeeded and its pod is gone. The node
-# fails the run if it can open the runner's environment or memory, which the runner keeps from it (#89).
+# The workflow the run carries. The node fails the run if it can open the runner's environment or memory, which the
+# runner keeps from it (#89).
+KIND_WORKFLOW='apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: kind}
+limits: {maxSteps: 5, timeout: 2m}
+entry: hello
+nodes:
+  - id: hello
+    type: code
+    output: {schema: {type: object}}
+    source: |
+      import os
+      def run(state, ctx):
+          for name in ("environ", "mem", "maps"):
+              try:
+                  open("/proc/%d/%s" % (os.getppid(), name), "rb").close()
+              except PermissionError:
+                  continue
+              raise RuntimeError("the code node read the runner process " + name)
+          return {"hello": "from a pod"}
+'
+
+# Asks the api, from inside its own pod, as the person whose session cookie is given.
+api() { # session method path body
+    kubectl exec -n "${NS}" "deploy/${RELEASE}-api" -- wget -qO- --header "Cookie: rotor_session=$1" \
+        --header "Content-Type: application/json" --post-data "$4" "http://127.0.0.1:8080/api/v1$3"
+}
+
+# Starts a code node's run as a person whose session is made straight in the database, through the api, which alone
+# can seal a run's inputs with its data key (#41), then waits until it succeeded and its pod is gone.
 carry_run() {
-    local run status=""
-    run=$(psql <<'SQL'
-WITH u AS (INSERT INTO app_user (email, name, role) VALUES ('kind-' || gen_random_uuid() || '@suite.test', 'Kind', 'member') RETURNING id),
-     w AS (INSERT INTO workflow (name, owner_id) SELECT 'kind', id FROM u RETURNING id, owner_id),
-     v AS (INSERT INTO workflow_version (workflow_id, number, spec_yaml, spec, hash)
-           SELECT id, 1, E'apiVersion: rotor.dev/v1\nkind: Workflow\nmetadata: {name: kind}\nlimits: {maxSteps: 5, timeout: 2m}\nentry: hello\nnodes:\n  - id: hello\n    type: code\n    output: {schema: {type: object}}\n    source: |\n      import os\n      def run(state, ctx):\n          for name in ("environ", "mem", "maps"):\n              try:\n                  open("/proc/%d/%s" % (os.getppid(), name), "rb").close()\n              except PermissionError:\n                  continue\n              raise RuntimeError("the code node read the runner''s " + name)\n          return {"hello": "from a pod"}\n',
-                  '{"limits": {"timeout": "2m"}}', 'kind' FROM w RETURNING workflow_id)
-INSERT INTO run (workflow_id, version, user_id) SELECT v.workflow_id, 1, w.owner_id FROM v JOIN w ON w.id = v.workflow_id RETURNING id;
+    local run status="" session workflow
+    session="kind-$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+    psql >/dev/null <<SQL
+WITH u AS (INSERT INTO app_user (email, name, role) VALUES ('kind-' || gen_random_uuid() || '@suite.test', 'Kind', 'member') RETURNING id)
+INSERT INTO user_session (user_id, token_hash, expires_at)
+SELECT id, sha256(convert_to('${session}', 'UTF8')), now() + interval '1 hour' FROM u;
 SQL
-    )
-    run=$(echo "${run}" | head -1)
+    workflow=$(api "${session}" POST /workflows "$(jq -n --arg y "${KIND_WORKFLOW}" '{specYAML: $y, comment: "kind"}')" |
+        jq -r .workflow.id)
+    run=$(api "${session}" POST "/workflows/${workflow}/runs" '{"inputs": {}}' | jq -r .id)
     echo "run ${run}"
     for _ in $(seq "${RUN_WAIT}"); do
         status=$(psql -c "SELECT status FROM run WHERE id = '${run}'")
@@ -100,7 +128,8 @@ SQL
     done
     if [ "${status}" != succeeded ]; then
         echo "the run ended ${status}:" >&2
-        psql -c "SELECT seq, type, node, payload FROM run_event WHERE run_id = '${run}' ORDER BY seq" >&2
+        psql -c "SELECT reason FROM run WHERE id = '${run}'" >&2
+        psql -c "SELECT seq, type, node FROM run_event WHERE run_id = '${run}' ORDER BY seq" >&2
         exit 1
     fi
     echo "the run succeeded in its sandbox"

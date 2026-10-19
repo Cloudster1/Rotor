@@ -58,10 +58,12 @@ func TestTheDatabaseKeepsTriggersToTheirOwners(t *testing.T) {
 	}
 	_, err := as(alice, `INSERT INTO trigger_fire (trigger_id, fire_key, due_at) VALUES ($1, 'forged', now())`, triggerID)
 	permissionDenied(t, "an owner queueing a firing as rotor_app", err)
-	if _, err := as(bob, `INSERT INTO run (workflow_id, version, user_id, trigger_id) VALUES ($1, 1, $2, $3)`, workflowID, bob, triggerID); err == nil {
+	if _, err := as(bob, `INSERT INTO run (workflow_id, version, user_id, trigger_id, data_key, sealed_inputs) VALUES ($1, 1, $2, $3, $4, $5)`,
+		workflowID, bob, triggerID, placeholderKey, placeholderSealed); err == nil {
 		t.Error("a person started a run under someone else's trigger")
 	}
-	if touched, err := as(alice, `INSERT INTO run (workflow_id, version, user_id, trigger_id) VALUES ($1, 1, $2, $3)`, workflowID, alice, triggerID); err != nil || touched != 1 {
+	if touched, err := as(alice, `INSERT INTO run (workflow_id, version, user_id, trigger_id, data_key, sealed_inputs) VALUES ($1, 1, $2, $3, $4, $5)`,
+		workflowID, alice, triggerID, placeholderKey, placeholderSealed); err != nil || touched != 1 {
 		t.Errorf("the owner starting a run under their trigger = %d rows, %v", touched, err)
 	}
 }

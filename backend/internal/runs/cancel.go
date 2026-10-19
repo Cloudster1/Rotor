@@ -34,7 +34,7 @@ func (s *Service) Cancel(ctx context.Context, id uuid.UUID) (Run, error) {
 		return Run{}, ErrNotManager
 	}
 	err = s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		if err := runnerctl.Cancel(ctx, tx, id, p.UserID); err != nil {
+		if err := runnerctl.Cancel(ctx, tx, s.keys, id, p.UserID); err != nil {
 			return err
 		}
 		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionRunCancelled, TargetType: "run", TargetID: id.String(), Actor: p.UserID,

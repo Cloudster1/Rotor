@@ -197,11 +197,12 @@ func (f *Firer) refuse(ctx context.Context, fr fire, t Trigger, reason, detail s
 	return f.end(ctx, fr, t, OutcomeRefused, reason, nil)
 }
 
-// end records how a firing ended, on it and as its trigger's last outcome.
+// end records how a firing ended, on it and as its trigger's last outcome. The event it carried is cleared: a run
+// it started holds it sealed (#41), and the firing's row is kept a while longer for its outcome alone.
 func (f *Firer) end(ctx context.Context, fr fire, t Trigger, outcome, reason string, runID *uuid.UUID) error {
 	err := f.triggers.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		if _, err := tx.Exec(ctx, `UPDATE trigger_fire SET outcome = $2, reason = $3, run_id = $4, done_at = now(),
-				claimed_by = NULL, claimed_until = NULL WHERE id = $1`, fr.id, outcome, reason, runID); err != nil {
+				claimed_by = NULL, claimed_until = NULL, inputs = '{}'::jsonb WHERE id = $1`, fr.id, outcome, reason, runID); err != nil {
 			return err
 		}
 		_, err := tx.Exec(ctx, `UPDATE trigger SET last_fired_at = now(), last_outcome = $2, last_reason = $3,
