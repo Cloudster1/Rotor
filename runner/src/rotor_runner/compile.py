@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import functools
 import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -28,6 +29,7 @@ from rotor_runner.limits import RunEnded, TokenBudget, TokenBudgetError, failed
 from rotor_runner.mcp import ToolFailedError, ToolGateway, ToolRefusedError
 from rotor_runner.preview import preview
 from rotor_runner.spec import Spec
+from rotor_runner.telemetry import RunTracing
 from rotor_runner.templates import lookup, render
 from rotor_runner.usage import UsageReporter
 
@@ -58,6 +60,7 @@ class RunContext:
     emit: EventSink
     model: Callable[[], BaseChatModel] | None = None
     code: CodeRunner | None = None
+    tracing: RunTracing = field(default_factory=RunTracing)
 
 
 @dataclass
@@ -177,6 +180,19 @@ async def _pass(_state: State) -> dict[str, Any]:
     return {}
 
 
+def _traced(run: Callable[..., Any], node: dict[str, Any], tracing: RunTracing) -> Callable[..., Any]:
+    """A node under a span of its own (#37); wraps keeps its signature, which LangGraph reads to pass its config."""
+    if not tracing.on:
+        return run
+
+    @functools.wraps(run)
+    async def traced(*args: Any, **kwargs: Any) -> Any:
+        with tracing.span(f"node {node['id']}", {"rotor.node": node["id"], "rotor.node.type": node["type"]}):
+            return await run(*args, **kwargs)
+
+    return traced
+
+
 def compile_workflow(ctx: RunContext, checkpointer: BaseCheckpointSaver[Any] | None = None) -> Any:
     """The spec as a compiled graph; a checkpointer lets an approval wait and the run resume."""
     graph = StateGraph(State)
@@ -188,7 +204,7 @@ def compile_workflow(ctx: RunContext, checkpointer: BaseCheckpointSaver[Any] | N
         "router": lambda _n: _pass,
     }
     for node in ctx.spec.nodes.values():
-        graph.add_node(node["id"], makers[node["type"]](node))
+        graph.add_node(node["id"], _traced(makers[node["type"]](node), node, ctx.tracing))
     graph.add_edge(START, ctx.spec.entry)
     for node in ctx.spec.nodes.values():
         targets = ctx.spec.next(node["id"])
@@ -201,7 +217,13 @@ def compile_workflow(ctx: RunContext, checkpointer: BaseCheckpointSaver[Any] | N
     return graph.compile(checkpointer=checkpointer or InMemorySaver())
 
 
-async def run_workflow(
+async def run_workflow(ctx: RunContext, inputs: dict[str, Any], *, thread_id: str, **kwargs: Any) -> Outcome:
+    """Runs the workflow, under the run's span when it is traced (#37); _run_workflow says the rest."""
+    with ctx.tracing.root("run", {"rotor.run": thread_id}):
+        return await _run_workflow(ctx, inputs, thread_id=thread_id, **kwargs)
+
+
+async def _run_workflow(
     ctx: RunContext,
     inputs: dict[str, Any],
     *,
@@ -218,6 +240,8 @@ async def run_workflow(
     callbacks: list[Any] = [UsageReporter(ctx.emit)]
     if limits.get("maxTokens"):
         callbacks.append(TokenBudget(int(limits["maxTokens"])))
+    if ctx.tracing.on:
+        callbacks.extend(ctx.tracing.callbacks())
     config["callbacks"] = callbacks
     start: Any = {"inputs": inputs, "nodes": {}}
     snapshot = await graph.aget_state(config) if checkpointer is not None else None
