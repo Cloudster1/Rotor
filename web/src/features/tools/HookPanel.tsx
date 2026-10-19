@@ -54,66 +54,69 @@ export function HookPanel({ toolID, name }: { toolID: string; name: string }) {
   }
   const error = save.error ?? forget.error;
   return (
-    <form onSubmit={submit} className="mt-3 flex flex-col gap-2 border-t border-border pt-3" aria-labelledby={`${id}-title`} data-hook>
-      <h3 id={`${id}-title`} className="text-sm font-semibold text-ink">
-        {s.tools.hook.title}
-      </h3>
-      <p className="text-xs text-ink-muted">{s.tools.hook.body(name)}</p>
-      <label htmlFor={`${id}-url`} className="text-sm font-medium text-ink">
-        {s.tools.hook.address}
-      </label>
-      <div className="flex flex-wrap items-center gap-2">
-        <input id={`${id}-url`} readOnly className={`${input} flex-1 font-mono`} value={h.url} data-hook-url />
-        <button type="button" className={secondary} onClick={copy} data-action="copy-hook-url">
-          {s.tools.hook.copy}
-        </button>
-      </div>
-      {copied && (
-        <p role="status" className="text-xs text-ink-muted">
-          {copied === "done" ? s.tools.hook.copied : s.tools.hook.copyFailed}
-        </p>
-      )}
-      <p className="text-xs text-ink" data-hook-secret={h.secretSet ? "set" : "missing"}>
-        {h.secretSet && h.secretSetAt ? s.tools.hook.set(when(h.secretSetAt)) : s.tools.hook.notSet}{" "}
-        {h.lastReceivedAt ? s.tools.hook.lastReceived(when(h.lastReceivedAt)) : s.tools.hook.neverReceived}
-      </p>
-      <label htmlFor={`${id}-secret`} className="text-sm font-medium text-ink">
-        {s.tools.hook.secret}
-      </label>
-      <input
-        id={`${id}-secret`}
-        name="hookSecret"
-        type="password"
-        autoComplete="off"
-        required
-        className={input}
-        value={secret}
-        onChange={(e) => setSecret(e.target.value)}
-        aria-describedby={`${id}-secret-hint`}
-      />
-      <p id={`${id}-secret-hint`} className="text-xs text-ink-muted">
-        {s.tools.hook.secretHint(name)}
-      </p>
-      {error && (
-        <p role="alert" className="text-sm text-danger">
-          {error instanceof Error ? error.message : String(error)}
-        </p>
-      )}
-      {save.isSuccess && (
-        <p role="status" className="text-sm text-success">
-          {s.tools.hook.saved}
-        </p>
-      )}
-      <div className="flex flex-wrap gap-2">
-        <button type="submit" className={secondary} disabled={save.isPending || secret === ""} data-action="save-hook-secret">
-          {s.tools.hook.save}
-        </button>
-        {h.secretSet && (
-          <button type="button" className={secondary} disabled={forget.isPending} onClick={() => forget.mutate()} data-action="remove-hook-secret">
-            {s.tools.hook.remove}
+    // A group, not a named form: a landmark per tool would share one name, and each tool's panel sits inside its row.
+    <form onSubmit={submit} className="mt-3 flex flex-col gap-2 border-t border-border pt-3" data-hook>
+      <fieldset aria-labelledby={`${id}-title`} className="flex flex-col gap-2">
+        <h3 id={`${id}-title`} className="text-sm font-semibold text-ink">
+          {s.tools.hook.title}
+        </h3>
+        <p className="text-xs text-ink-muted">{s.tools.hook.body(name)}</p>
+        <label htmlFor={`${id}-url`} className="text-sm font-medium text-ink">
+          {s.tools.hook.address}
+        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <input id={`${id}-url`} readOnly className={`${input} flex-1 font-mono`} value={h.url} data-hook-url />
+          <button type="button" className={secondary} onClick={copy} data-action="copy-hook-url">
+            {s.tools.hook.copy}
           </button>
+        </div>
+        {copied && (
+          <p role="status" className="text-xs text-ink-muted">
+            {copied === "done" ? s.tools.hook.copied : s.tools.hook.copyFailed}
+          </p>
         )}
-      </div>
+        <p className="text-xs text-ink" data-hook-secret={h.secretSet ? "set" : "missing"}>
+          {h.secretSet && h.secretSetAt ? s.tools.hook.set(when(h.secretSetAt)) : s.tools.hook.notSet}{" "}
+          {h.lastReceivedAt ? s.tools.hook.lastReceived(when(h.lastReceivedAt)) : s.tools.hook.neverReceived}
+        </p>
+        <label htmlFor={`${id}-secret`} className="text-sm font-medium text-ink">
+          {s.tools.hook.secret}
+        </label>
+        <input
+          id={`${id}-secret`}
+          name="hookSecret"
+          type="password"
+          autoComplete="off"
+          required
+          className={input}
+          value={secret}
+          onChange={(e) => setSecret(e.target.value)}
+          aria-describedby={`${id}-secret-hint`}
+        />
+        <p id={`${id}-secret-hint`} className="text-xs text-ink-muted">
+          {s.tools.hook.secretHint(name)}
+        </p>
+        {error && (
+          <p role="alert" className="text-sm text-danger">
+            {error instanceof Error ? error.message : String(error)}
+          </p>
+        )}
+        {save.isSuccess && (
+          <p role="status" className="text-sm text-success">
+            {s.tools.hook.saved}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <button type="submit" className={secondary} disabled={save.isPending || secret === ""} data-action="save-hook-secret">
+            {s.tools.hook.save}
+          </button>
+          {h.secretSet && (
+            <button type="button" className={secondary} disabled={forget.isPending} onClick={() => forget.mutate()} data-action="remove-hook-secret">
+              {s.tools.hook.remove}
+            </button>
+          )}
+        </div>
+      </fieldset>
     </form>
   );
 }
