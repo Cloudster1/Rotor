@@ -5,6 +5,7 @@ package test
 import (
 	"context"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -207,5 +208,47 @@ func TestKeycloaksSignOutOfAPersonEndsAllTheirSessions(t *testing.T) {
 			}
 			time.Sleep(200 * time.Millisecond)
 		}
+	}
+}
+
+// Two browsers signing a person in for the first time at the same moment both land signed in, as one person (#96).
+func TestTwoFirstSignInsAtOnceBothLand(t *testing.T) {
+	h := newHarness(t)
+	admin := newKeycloakAdmin(t)
+	name := "first-" + uuid.NewString()[:8]
+	admin.send(http.MethodPost, "/users", map[string]any{
+		"username": name, "email": name + "@suite.test", "firstName": "First", "lastName": "Time",
+		"enabled": true, "emailVerified": true,
+		"credentials": []map[string]any{{"type": "password", "value": name + " password", "temporary": false}},
+	}, nil)
+	t.Cleanup(func() { admin.call(http.MethodDelete, "/users/"+admin.id("users", name), nil) })
+
+	browsers := []*browser{newBrowser(t), newBrowser(t)}
+	callbacks := []string{browsers[0].untilCallback(name), browsers[1].untilCallback(name)}
+	landed := make([]string, len(browsers))
+	var wg sync.WaitGroup
+	for i, b := range browsers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err := b.client.Get(callbacks[i])
+			if err != nil {
+				landed[i] = err.Error()
+				return
+			}
+			resp.Body.Close()
+			landed[i] = resp.Header.Get("Location")
+		}()
+	}
+	wg.Wait()
+	for i, b := range browsers {
+		if status, me := b.me(); status != http.StatusOK || landed[i] != "/runs" {
+			t.Errorf("browser %d landed on %q and is signed in with %d %v", i+1, landed[i], status, me)
+		}
+	}
+	var people int
+	if err := h.super.QueryRow(context.Background(), `SELECT count(*) FROM app_user WHERE email = $1`,
+		name+"@suite.test").Scan(&people); err != nil || people != 1 {
+		t.Errorf("the person is %d people (%v)", people, err)
 	}
 }

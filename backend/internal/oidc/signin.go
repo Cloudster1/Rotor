@@ -95,10 +95,17 @@ func upsertUser(ctx context.Context, tx db.DBTX, identity *Identity) (knownUser,
 	if err != nil {
 		return u, fmt.Errorf("make the person: %w", err)
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO user_identity (issuer, subject, user_id) VALUES ($1, $2, $3)`,
-		identity.Issuer, identity.Subject, u.id)
+	// Two first sign-ins of one person at once both get here; the second waits for the first and keeps its row (#96).
+	_, err = tx.Exec(ctx, `INSERT INTO user_identity (issuer, subject, user_id) VALUES ($1, $2, $3)
+		ON CONFLICT (issuer, subject) DO NOTHING`, identity.Issuer, identity.Subject, u.id)
 	if err != nil {
 		return u, fmt.Errorf("remember the provider's name for the person: %w", err)
+	}
+	err = tx.QueryRow(ctx, `
+		SELECT a.id, a.role, a.is_active FROM user_identity i JOIN app_user a ON a.id = i.user_id
+		WHERE i.issuer = $1 AND i.subject = $2`, identity.Issuer, identity.Subject).Scan(&u.id, &u.role, &u.active)
+	if err != nil {
+		return u, fmt.Errorf("find the person: %w", err)
 	}
 	return u, nil
 }

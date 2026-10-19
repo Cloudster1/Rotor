@@ -3,6 +3,7 @@
 package test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -81,6 +82,16 @@ func (b *browser) get(url string) (*http.Response, string) {
 // signIn walks the whole flow and returns where the callback sends the browser.
 func (b *browser) signIn(username string) string {
 	b.t.Helper()
+	resp, body := b.get(b.untilCallback(username))
+	if resp.StatusCode != http.StatusFound {
+		b.t.Fatalf("callback = %d %s", resp.StatusCode, body)
+	}
+	return resp.Header.Get("Location")
+}
+
+// untilCallback walks the flow up to Rotor's callback and returns its address, so a test can choose when it lands.
+func (b *browser) untilCallback(username string) string {
+	b.t.Helper()
 	resp, body := b.get(b.app + "/api/v1/auth/oidc/start?next=/runs")
 	if resp.StatusCode != http.StatusFound {
 		b.t.Fatalf("start = %d %s", resp.StatusCode, body)
@@ -99,10 +110,6 @@ func (b *browser) signIn(username string) string {
 	resp, body = b.do(req)
 	if resp.StatusCode != http.StatusFound || !strings.HasPrefix(resp.Header.Get("Location"), b.app) {
 		b.t.Fatalf("Keycloak after the password = %d to %q %.300s", resp.StatusCode, resp.Header.Get("Location"), body)
-	}
-	resp, body = b.get(resp.Header.Get("Location"))
-	if resp.StatusCode != http.StatusFound {
-		b.t.Fatalf("callback = %d %s", resp.StatusCode, body)
 	}
 	return resp.Header.Get("Location")
 }
@@ -144,9 +151,26 @@ func newKeycloakAdmin(t *testing.T) *keycloakAdmin {
 
 func (k *keycloakAdmin) call(method, path string, out any) {
 	k.t.Helper()
-	req, err := http.NewRequest(method, k.base+"/admin/realms/"+realm+path, nil)
+	k.send(method, path, nil, out)
+}
+
+// send calls the admin API with a JSON body, when in is not nil.
+func (k *keycloakAdmin) send(method, path string, in, out any) {
+	k.t.Helper()
+	var body io.Reader
+	if in != nil {
+		raw, err := json.Marshal(in)
+		if err != nil {
+			k.t.Fatal(err)
+		}
+		body = bytes.NewReader(raw)
+	}
+	req, err := http.NewRequest(method, k.base+"/admin/realms/"+realm+path, body)
 	if err != nil {
 		k.t.Fatal(err)
+	}
+	if in != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Authorization", "Bearer "+k.token)
 	resp, err := http.DefaultClient.Do(req)

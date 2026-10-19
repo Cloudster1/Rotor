@@ -196,6 +196,8 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- A person signing in to Rotor for the first time from two browsers at
+  once lands signed in in both, instead of the second failing (#96).
 - Signing a person out of every session in Keycloak ends all their Rotor
   sessions, not only the one its logout token names (#53). Rotor reads the
   time of that sign-out from Keycloak a moment after the token arrives, with
