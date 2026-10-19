@@ -9,6 +9,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The triggers API is agreed (#33): `docs/api-contract-m6.md` says how a
+  person schedules a workflow or starts it from Armature, Exciter and Stator
+  events as themselves, how Rotor checks the tools' signed deliveries, and
+  when it turns a trigger off. Its operations answer 501 until they are
+  built.
 - A person decides before a run goes on (#31). A run that reaches an
   approval waits, keeping no sandbox and no token, and shows what it is
   about to write. Its starter, or the group the step names, approves it,

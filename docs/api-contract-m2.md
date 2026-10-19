@@ -65,7 +65,7 @@ sentences.
 - `apiVersion: rotor.dev/v1`, `kind: Workflow`, `metadata.name` (lower case and dashes)
 - `inputs`: a JSON Schema for what the person gives at the start
 - `tools`: bindings by name; `model`; `limits`
-- `triggers`: empty until M6
+- `triggers`: empty; since M6 triggers are records each person makes (`docs/api-contract-m6.md`)
 - `entry`, `nodes` and `edges`
 
 **Binding.** `{tool, scopes, allowTools, access, approval}`:
@@ -376,5 +376,5 @@ type Spec struct {
 
 ## What is left for later
 
-- Approvals people answer in the browser: `docs/api-contract-m5.md` (#30). Triggers (M6); the spec reserves `triggers`.
+- Approvals people answer in the browser: `docs/api-contract-m5.md` (#30). Triggers: `docs/api-contract-m6.md` (#33); the spec keeps `triggers` reserved and empty.
 - Narrowing tokens at the tool once tools offer token exchange (Cloudster1/Exciter#235).

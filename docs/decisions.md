@@ -3,6 +3,40 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-19: Triggers for M6 (#33)
+
+- **Triggers are records each person makes, not part of the workflow's
+  YAML.** A trigger acts as someone, and that someone is whoever made it: a
+  colleague can schedule a shared workflow as themselves, with their own
+  connections, and their trigger ends with their consent, not the author's.
+  Whether a trigger is on, and why Rotor turned it off, is state, which a
+  versioned document should not hold. The spec keeps `triggers` reserved and
+  empty.
+- **Until writes are confirmed at the tool, a triggered run writes only
+  after an approval.** Nobody watches a run a schedule or an event starts,
+  and #32, which holds a write back at the tool, waits on token exchange
+  (Cloudster1/Exciter#235). So a trigger needs every node that may write to
+  sit behind an approval node, whatever its binding says, checked again at
+  each firing against the version that will run.
+- **A run starts only if its owner can read the event's subject.** The tools
+  read a webhook's payload with the rights of the administrator who added
+  the webhook, so the payload may show what the trigger's owner may not
+  see. Rotor asks the tool, as the owner, for the requirement, issue or page
+  first, and skips the firing otherwise.
+- **Registration is manual for now.** Each tool makes the webhook's secret,
+  and its administrator pastes it into Rotor, which keeps it in OpenBao.
+  Armature now lets a connected app register its own webhook (Armature
+  #281); using it comes later, with the other tools following.
+- **A firings queue between deciding and starting.** The scheduler and the
+  hook endpoint only write `trigger_fire` rows; the worker starts the runs.
+  A delivery is answered without waiting for a sandbox, one scheduler at a
+  time is enough under an advisory lock, and a firing has one key, so
+  retries and duplicate deliveries never start a run twice.
+- **Lost consent is swept, not signalled.** Consent ends in several places
+  and two processes; one sweep in the worker that compares triggers with
+  connections and accounts catches each of them, and every firing checks
+  again.
+
 ## 2026-10-19: Approvals for M5 (#30)
 
 - **Approvers are set per approval node, and a group decides alone.** Each
