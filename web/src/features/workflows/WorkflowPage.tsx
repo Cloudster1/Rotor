@@ -14,6 +14,7 @@ import {
 import { MAX_VERSION_COMMENT, VALIDATE_DELAY_MS } from "@/config";
 import { RunDialog } from "@/features/runs/RunDialog";
 import { PageHeader } from "@/features/shell/EmptyState";
+import { TriggersSection } from "@/features/triggers/TriggersSection";
 import { s } from "@/strings";
 import { SharePanel } from "./SharePanel";
 import { ToolPicker } from "./ToolPicker";
@@ -196,6 +197,11 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
           {summary?.canEdit && !summary.archived && <SharePanel workflow={summary} />}
         </div>
       </div>
+      {summary && !summary.archived && (
+        <div className="mt-6">
+          <TriggersSection workflowID={summary.id} inputsSchema={existing?.version.inputs} />
+        </div>
+      )}
     </div>
   );
 }

@@ -109,7 +109,7 @@ func (s *Service) End(ctx context.Context, token string) error {
 }
 
 // SwitchOff stops a person signing in and ends every session they have; actor is who did it, nil for the system.
-// OnSwitchOff then ends their connections to the tools; their triggers follow once they exist.
+// OnSwitchOff then ends their connections to the tools; the worker's sweep turns their triggers off (#34).
 func (s *Service) SwitchOff(ctx context.Context, actor, userID uuid.UUID) error {
 	err := s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		tag, err := tx.Exec(ctx, `UPDATE app_user SET is_active = false WHERE id = $1`, userID)

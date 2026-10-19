@@ -9,6 +9,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A workflow runs on a schedule as the person who set it (#34). On a
+  workflow's page, add a trigger with cron fields and a time zone, see its
+  next runs, choose whether a time is skipped while the last run goes on,
+  and give the inputs each run starts with. Rotor checks each firing as you
+  and turns the trigger off, saying why on the trigger and the Workflows
+  page, once your account, a connection it needs or the workflow is gone.
+  Until writes are confirmed at the tool, a triggered workflow must ask for
+  an approval before every write.
 - The triggers API is agreed (#33): `docs/api-contract-m6.md` says how a
   person schedules a workflow or starts it from Armature, Exciter and Stator
   events as themselves, how Rotor checks the tools' signed deliveries, and

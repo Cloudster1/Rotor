@@ -223,6 +223,14 @@ type runResponse struct {
 	Ended bool `json:"ended"`
 	// ApprovalID is the approval the run waits for, while it waits for one (#31).
 	ApprovalID *string `json:"approvalId"`
+	// Trigger is the trigger that started the run (#34); its name is shown to its owner alone.
+	Trigger *runTrigger `json:"trigger"`
 	// Graph is the pinned version's nodes and edges, for the run's page; one run alone carries it, not a list.
 	Graph *spec.Graph `json:"graph,omitempty"`
+}
+
+// runTrigger names the trigger that started a run.
+type runTrigger struct {
+	ID   string  `json:"id"`
+	Name *string `json:"name"`
 }

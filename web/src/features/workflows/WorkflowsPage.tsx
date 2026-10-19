@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { myTriggersQuery } from "@/api/triggers";
 import { archiveWorkflow, type WorkflowSummary, workflowsQuery, workflowsQueryKey } from "@/api/workflows";
 import { RunDialog } from "@/features/runs/RunDialog";
 import { EmptyState, PageHeader } from "@/features/shell/EmptyState";
@@ -14,6 +15,9 @@ const secondary = "h-8 rounded-control border border-border-strong px-3 text-sm 
 export function WorkflowsPage() {
   const [archived, setArchived] = useState(false);
   const list = useQuery(workflowsQuery(archived));
+  // A trigger Rotor turned off is flagged on its workflow, since nobody is told otherwise.
+  const mine = useQuery(myTriggersQuery);
+  const turnedOff = new Set((mine.data ?? []).filter((t) => t.disabled).map((t) => t.workflow.id));
   const Glyph = Icon.Workflow;
   return (
     <div className="flex flex-col gap-6">
@@ -42,7 +46,7 @@ export function WorkflowsPage() {
       {list.data && list.data.length > 0 && (
         <ul className="flex max-w-3xl flex-col gap-3">
           {list.data.map((w) => (
-            <WorkflowRow key={w.id} workflow={w} />
+            <WorkflowRow key={w.id} workflow={w} triggerOff={turnedOff.has(w.id)} />
           ))}
         </ul>
       )}
@@ -50,7 +54,7 @@ export function WorkflowsPage() {
   );
 }
 
-function WorkflowRow({ workflow }: { workflow: WorkflowSummary }) {
+function WorkflowRow({ workflow, triggerOff }: { workflow: WorkflowSummary; triggerOff: boolean }) {
   const client = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const [running, setRunning] = useState(false);
@@ -69,6 +73,11 @@ function WorkflowRow({ workflow }: { workflow: WorkflowSummary }) {
         </span>
       </div>
       {workflow.description && <p className="mt-1 text-sm text-ink-muted">{workflow.description}</p>}
+      {triggerOff && (
+        <p className="mt-2 rounded-control border border-warning bg-warning-subtle px-3 py-1 text-sm text-ink" data-trigger-off>
+          {s.triggers.flagNamed(workflow.name)}
+        </p>
+      )}
       <p className="mt-1 text-xs text-ink-muted">
         {s.workflows.owner}: {workflow.owner.name} . {s.workflows.version(workflow.currentVersion)}
       </p>

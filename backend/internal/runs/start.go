@@ -22,6 +22,8 @@ type StartRequest struct {
 	Version        int
 	Inputs         []byte
 	IdempotencyKey string
+	// TriggerID names the trigger of the caller's that starts the run (#34); the database refuses anyone else's.
+	TriggerID uuid.UUID
 }
 
 // Start queues a run of a workflow the caller may see, as the caller. A key the caller used before answers that
@@ -48,7 +50,7 @@ func (s *Service) Start(ctx context.Context, req StartRequest) (Run, bool, error
 	if problems := parsed.CheckInputs(req.Inputs); len(problems) > 0 {
 		return Run{}, false, &InputsRefused{Problems: problems}
 	}
-	if err := s.connected(ctx, parsed); err != nil {
+	if err := s.Connected(ctx, parsed); err != nil {
 		return Run{}, false, err
 	}
 	var r Run
@@ -56,12 +58,12 @@ func (s *Service) Start(ctx context.Context, req StartRequest) (Run, bool, error
 	err = s.db.Write(ctx, func(ctx context.Context, tx db.DBTX) error {
 		var err error
 		r, err = scanRun(tx.QueryRow(ctx, `WITH started AS (
-				INSERT INTO run (workflow_id, version, user_id, inputs, idempotency_key, workflow_name, started_by_name)
-				VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6, $7)
+				INSERT INTO run (workflow_id, version, user_id, inputs, idempotency_key, workflow_name, started_by_name, trigger_id)
+				VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6, $7, $8)
 				ON CONFLICT (user_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
 				RETURNING *)
 			SELECT `+runColumns+` FROM started r`,
-			w.ID, version.Number, p.UserID, req.Inputs, req.IdempotencyKey, w.Name, p.Name))
+			w.ID, version.Number, p.UserID, req.Inputs, req.IdempotencyKey, w.Name, p.Name, nullUUID(req.TriggerID)))
 		if errors.Is(err, ErrNotFound) {
 			// Another request with the same key won the race; it answers instead.
 			created = false
@@ -71,7 +73,7 @@ func (s *Service) Start(ctx context.Context, req StartRequest) (Run, bool, error
 			return err
 		}
 		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionRunStarted, TargetType: "run", TargetID: r.ID.String(), Actor: p.UserID,
-			Data: map[string]any{"workflow": w.ID.String(), "name": w.Name, "version": version.Number}})
+			Data: startedData(w, version.Number, req.TriggerID)})
 	})
 	if err != nil || created {
 		return r, created, err
@@ -111,9 +113,9 @@ func (s *Service) pinned(ctx context.Context, req StartRequest) (workflows.Workf
 	return w, v, err
 }
 
-// connected refuses a run whose bindings name a tool the caller has no working connection to, with every scope the
+// Connected refuses a run whose bindings name a tool the caller has no working connection to, with every scope the
 // binding asks for; the run would otherwise fail at its first call.
-func (s *Service) connected(ctx context.Context, parsed *spec.Spec) error {
+func (s *Service) Connected(ctx context.Context, parsed *spec.Spec) error {
 	mine, err := s.connections.List(ctx)
 	if err != nil {
 		return err
@@ -148,4 +150,13 @@ func (s *Service) connected(ctx context.Context, parsed *spec.Spec) error {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return &NeedsConnections{Tools: out}
+}
+
+// startedData is what run.started records: the workflow, its version and, for a triggered run, the trigger.
+func startedData(w workflows.Workflow, version int, trigger uuid.UUID) map[string]any {
+	data := map[string]any{"workflow": w.ID.String(), "name": w.Name, "version": version}
+	if trigger != uuid.Nil {
+		data["trigger"] = trigger.String()
+	}
+	return data
 }

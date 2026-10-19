@@ -230,6 +230,29 @@ nobody but the control plane write one.
 The web client's Approvals inbox lists what waits for you, with a badge in
 the sidebar; an approval's page shows the preview, the form and the decision.
 
+## Triggers (#34, #35)
+
+A trigger is a record a person makes on a workflow they may see. It starts
+the workflow's current version as them, on a schedule (#34) or when a tool
+delivers a matching event (#35). The worker runs three more steps each pass,
+before queued runs start:
+1. **Schedule:** one worker at a time, under an advisory lock, turns each
+   due schedule into a `trigger_fire` row and moves its next time on. Times
+   come from five cron fields read in the trigger's time zone, skipping a
+   time summer time removes and firing a repeated one once.
+2. **Fire:** every queued firing is checked again as the trigger's owner,
+   with a principal built from their account and no session. The owner must
+   be active and see the workflow; every binding needs their connection;
+   every write must sit behind an approval until #32; the inputs must fit.
+   Then `runs.Start` runs with the exact version it checked and a key per
+   firing, so a firing never starts two runs. A failed check turns the
+   trigger off with a reason the owner reads. A tool that does not answer
+   only delays the firing.
+3. **Sweep:** once a minute, one query turns off the triggers whose owner
+   was switched off, lost a connection a binding needs, or whose workflow
+   was archived. Consent ends in several places and two processes, so a
+   sweep catches them all.
+
 ## A run's tokens (#23)
 
 A run's sandbox never sees a token in clear on the wire. When its runner asks

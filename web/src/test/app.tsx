@@ -45,6 +45,8 @@ export function stubApi(answers: Record<string, Answer> = { "/api/v1/meta": META
     const answer = key in answers ? answers[key] : request.method === "GET" && path in answers ? answers[path] : undefined;
     if (typeof answer === "function") return (answer as (request: Request) => Response | Promise<Response>)(request);
     if (answer !== undefined) return Response.json(answer);
+    // A workflow's page lists its triggers; it has none unless a test says so.
+    if (request.method === "GET" && /^\/api\/v1\/workflows\/[^/]+\/triggers$/.test(path)) return Response.json({ triggers: [] });
     return Response.json({ error: { code: "not_found", message: "Not found." } }, { status: 404 });
   });
   vi.stubGlobal("fetch", fetch);
@@ -64,6 +66,7 @@ export async function renderAt(path: string, { me = ME as Me | null, answers = {
     // The sidebar asks for the badge's number on every page.
     "/api/v1/approvals/count": { waitingOnMe: 0 },
     "/api/v1/approvals": { approvals: [] },
+    "/api/v1/triggers": { triggers: [] },
     "/api/v1/schemas/workflow.v1.json": { $id: "https://rotor.dev/schemas/workflow.v1.json", type: "object" },
     "POST /api/v1/workflows/validate": { valid: true, problems: [] },
     ...answers,
