@@ -1,5 +1,8 @@
+import { audit } from "./strings_audit";
+
 /** Every word the interface shows, in one place, so a second language is a second copy of this object. */
 export const s = {
+  audit,
   shell: {
     skipToContent: "Skip to content",
     navigation: "Places",

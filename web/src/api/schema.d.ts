@@ -75,6 +75,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The audit log, newest first, one window at a time. */
+        get: operations["listAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/audit/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The filtered log as one file, CSV or a JSON array; the export is itself recorded.
+         * @description Refused with 422 export_too_large when the filter matches more than 50000 entries; narrow it rather than receive a file cut short.
+         */
+        get: operations["exportAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/audit/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The actions, people and kinds of target the log holds, to filter it by. */
+        get: operations["auditFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/logout": {
         parameters: {
             query?: never;
@@ -880,6 +934,28 @@ export interface components {
         Approvers: {
             group: string | null;
         };
+        AuditEntry: {
+            action: string;
+            actor: components["schemas"]["PersonRef"] | null;
+            /** Format: date-time */
+            at: string;
+            /** @description A JSON value. */
+            data: unknown;
+            id: string;
+            ip: string;
+            requestId: string;
+            targetId: string;
+            targetType: string;
+        };
+        AuditFacets: {
+            actions: string[];
+            actors: components["schemas"]["PersonRef"][];
+            targetTypes: string[];
+        };
+        AuditWindow: {
+            entries: components["schemas"]["AuditEntry"][];
+            next: string | null;
+        };
         BindingRef: {
             access: string;
             name: string;
@@ -1489,6 +1565,168 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listAudit: {
+        parameters: {
+            query?: {
+                /** @description Only entries of this action, one of the actions the log records. */
+                action?: string;
+                /** @description Only entries of the person with this id. */
+                actor?: string;
+                /** @description Only entries about this kind of target, such as run or trigger. */
+                targetType?: string;
+                /** @description Only entries about the target with this id. */
+                target?: string;
+                /** @description From this day (YYYY-MM-DD, the whole day in UTC) or instant (RFC 3339), inclusive. */
+                from?: string;
+                /** @description Up to this day (YYYY-MM-DD, the whole day in UTC) or instant (RFC 3339). */
+                to?: string;
+                /** @description How many entries one window holds, at most 200. */
+                limit?: string;
+                /** @description The next window's cursor, from the window before. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditWindow"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    exportAudit: {
+        parameters: {
+            query?: {
+                /** @description Only entries of this action, one of the actions the log records. */
+                action?: string;
+                /** @description Only entries of the person with this id. */
+                actor?: string;
+                /** @description Only entries about this kind of target, such as run or trigger. */
+                targetType?: string;
+                /** @description Only entries about the target with this id. */
+                target?: string;
+                /** @description From this day (YYYY-MM-DD, the whole day in UTC) or instant (RFC 3339), inclusive. */
+                from?: string;
+                /** @description Up to this day (YYYY-MM-DD, the whole day in UTC) or instant (RFC 3339). */
+                to?: string;
+                /** @description csv (the default) or json. */
+                format?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    auditFacets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditFacets"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

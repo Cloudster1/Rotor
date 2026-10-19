@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/cloudster1/rotor/backend/internal/audit"
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
@@ -74,7 +75,11 @@ func openApproval(ctx context.Context, tx db.DBTX, r *run, output []byte, ttl ti
 	}
 	payload, _ := json.Marshal(map[string]any{"approvalId": id.String(), "node": node.ID, "message": v.Message,
 		"approvers": map[string]any{"group": group}, "expiresAt": expires})
-	return appendEvent(ctx, tx, r.ID, EventApprovalRequested, node.ID, payload)
+	if err := appendEvent(ctx, tx, r.ID, EventApprovalRequested, node.ID, payload); err != nil {
+		return err
+	}
+	return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionApprovalRequested, TargetType: "approval", TargetID: id.String(),
+		Data: map[string]any{"run": r.ID.String(), "node": node.ID, "group": group}})
 }
 
 func approvalNode(s *spec.Spec, id string) (spec.Node, bool) {

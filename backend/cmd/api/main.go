@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/cloudster1/rotor/backend/internal/approvals"
+	"github.com/cloudster1/rotor/backend/internal/audit"
 	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/boot"
 	"github.com/cloudster1/rotor/backend/internal/cache"
@@ -133,6 +134,7 @@ func run() error {
 		}()
 	}
 	server.Workflows = workflowService
+	server.Audit = audit.NewService(cluster)
 	origins := cfg.CORSOrigins
 	if len(origins) == 0 && !cfg.IsProduction() {
 		origins = devOrigins
