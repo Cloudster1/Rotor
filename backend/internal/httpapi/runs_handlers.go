@@ -97,7 +97,11 @@ func toRunResponse(r runs.Run) runResponse {
 		id := r.ApprovalID.String()
 		approval = &id
 	}
-	return runResponse{ID: r.ID.String(), ApprovalID: approval, Workflow: personRef{ID: r.WorkflowID.String(), Name: r.WorkflowName}, Version: r.Version,
+	var trigger *runTrigger
+	if r.TriggerID != nil {
+		trigger = &runTrigger{ID: r.TriggerID.String(), Name: r.TriggerName}
+	}
+	return runResponse{ID: r.ID.String(), ApprovalID: approval, Trigger: trigger, Workflow: personRef{ID: r.WorkflowID.String(), Name: r.WorkflowName}, Version: r.Version,
 		Status: runStatus(r.Status), StartedBy: personRef{ID: r.UserID.String(), Name: r.StartedByName}, Reason: r.Reason,
 		Inputs: r.Inputs, Output: output, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, StartedAt: r.StartedAt,
 		FinishedAt: r.FinishedAt, Ended: runnerctl.Ended(r.Status)}

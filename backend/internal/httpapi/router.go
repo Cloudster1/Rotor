@@ -42,6 +42,8 @@ type Server struct {
 	Runs Runs
 	// Approvals is nil where runs are not set up; its routes then answer 503.
 	Approvals Approvals
+	// Triggers is nil where runs are not set up; its routes then answer 503.
+	Triggers Triggers
 	// Sessions and SignIn are nil only in tests that exercise neither.
 	Sessions Sessions
 	SignIn   SignIn
@@ -121,6 +123,15 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Get("/approvals/count", s.handleCountApprovals)
 			r.Get("/approvals/{approvalID}", s.handleGetApproval)
 			r.Post("/approvals/{approvalID}/decision", s.handleDecideApproval)
+			r.Get("/triggers", s.handleListTriggers)
+			r.Post("/triggers/schedule", s.handlePreviewSchedule)
+			r.Get("/triggers/{triggerID}", s.handleGetTrigger)
+			r.Put("/triggers/{triggerID}", s.handleChangeTrigger)
+			r.Delete("/triggers/{triggerID}", s.handleRemoveTrigger)
+			r.Post("/triggers/{triggerID}/enable", s.handleEnableTrigger)
+			r.Post("/triggers/{triggerID}/disable", s.handleDisableTrigger)
+			r.Get("/workflows/{workflowID}/triggers", s.handleListWorkflowTriggers)
+			r.Post("/workflows/{workflowID}/triggers", s.handleCreateTrigger)
 			mountPending(r, false, false)
 			r.Group(func(r chi.Router) {
 				r.Use(requireAdmin)

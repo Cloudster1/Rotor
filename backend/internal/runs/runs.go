@@ -70,6 +70,9 @@ type Run struct {
 	FinishedAt    *time.Time
 	// ApprovalID is the pending approval the run waits for, if any.
 	ApprovalID *uuid.UUID
+	// TriggerID and TriggerName name the trigger that started the run, if one did; the name only for its owner.
+	TriggerID   *uuid.UUID
+	TriggerName *string
 	// Manages says the caller started the run, owns its workflow or administers Rotor, and so may cancel it; a group
 	// approver sees the run without managing it.
 	Manages bool
@@ -118,13 +121,14 @@ func NewService(cluster *db.Cluster, wf Workflows, finder ToolFinder, conns Conn
 
 const runColumns = `r.id, r.workflow_id, r.workflow_name, r.version, r.user_id, r.started_by_name, r.status, r.reason,
 	r.inputs, r.output, r.created_at, r.updated_at, r.started_at, r.finished_at,
-	(SELECT a.id FROM approval a WHERE a.run_id = r.id AND a.status = 'pending'), run_visible(r.user_id, r.workflow_id)`
+	(SELECT a.id FROM approval a WHERE a.run_id = r.id AND a.status = 'pending'), run_visible(r.user_id, r.workflow_id),
+	r.trigger_id, (SELECT t.name FROM trigger t WHERE t.id = r.trigger_id)`
 
 func scanRun(row pgx.Row) (Run, error) {
 	var r Run
 	var output []byte
 	err := row.Scan(&r.ID, &r.WorkflowID, &r.WorkflowName, &r.Version, &r.UserID, &r.StartedByName, &r.Status, &r.Reason,
-		&r.Inputs, &output, &r.CreatedAt, &r.UpdatedAt, &r.StartedAt, &r.FinishedAt, &r.ApprovalID, &r.Manages)
+		&r.Inputs, &output, &r.CreatedAt, &r.UpdatedAt, &r.StartedAt, &r.FinishedAt, &r.ApprovalID, &r.Manages, &r.TriggerID, &r.TriggerName)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return r, ErrNotFound
 	}

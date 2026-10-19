@@ -28,6 +28,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/runnerctl"
 	"github.com/cloudster1/rotor/backend/internal/runs"
 	"github.com/cloudster1/rotor/backend/internal/tools"
+	"github.com/cloudster1/rotor/backend/internal/triggers"
 	"github.com/cloudster1/rotor/backend/internal/version"
 	"github.com/cloudster1/rotor/backend/internal/workflows"
 )
@@ -108,7 +109,9 @@ func run() error {
 		reader := catalog.NewService(registry, people, boot.ToolClient(cfg), store, log)
 		server.Catalogs = reader
 		workflowService = workflows.NewService(cluster, reader)
-		server.Runs = runs.NewService(cluster, workflowService, registry, people, store)
+		runService := runs.NewService(cluster, workflowService, registry, people, store)
+		server.Runs = runService
+		server.Triggers = triggers.NewService(cluster, workflowService, reader, runService)
 		server.Approvals = approvals.NewService(cluster, store)
 		runners := runnerctl.NewServer(cluster, registry, people, log)
 		reach := oidc.ParseRewrites(cfg.Tools.Backchannel)

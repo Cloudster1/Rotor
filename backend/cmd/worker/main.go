@@ -14,6 +14,7 @@ import (
 
 	"github.com/cloudster1/rotor/backend/internal/boot"
 	"github.com/cloudster1/rotor/backend/internal/cache"
+	"github.com/cloudster1/rotor/backend/internal/catalog"
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/db"
@@ -24,7 +25,9 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/sandbox/docker"
 	"github.com/cloudster1/rotor/backend/internal/sandbox/kube"
 	"github.com/cloudster1/rotor/backend/internal/tools"
+	"github.com/cloudster1/rotor/backend/internal/triggers"
 	"github.com/cloudster1/rotor/backend/internal/version"
+	"github.com/cloudster1/rotor/backend/internal/workflows"
 )
 
 func main() {
@@ -96,6 +99,17 @@ func run() error {
 		if err := os.Chtimes(config.WorkerAliveFile, now, now); errors.Is(err, os.ErrNotExist) {
 			_ = os.WriteFile(config.WorkerAliveFile, nil, aliveFileMode)
 		}
+	}
+	// Triggers (#34): schedules queue firings, and each firing starts its run as the trigger's owner.
+	reader := catalog.NewService(registry, people, boot.ToolClient(cfg), store, log)
+	workflowService := workflows.NewService(cluster, reader)
+	starter := runs.NewService(cluster, workflowService, registry, people, store)
+	scheduler := triggers.NewScheduler(cluster, log)
+	firer := triggers.NewFirer(triggers.NewService(cluster, workflowService, reader, starter), log)
+	fired := counted.Counter("rotor_trigger_fires_total", "Firings of triggers that ended, by outcome.", "outcome")
+	firer.Fired = func(outcome string) { fired.Add(outcome, 1) }
+	worker.Also = func(ctx context.Context) error {
+		return errors.Join(scheduler.Sweep(ctx), scheduler.Schedule(ctx), firer.Fire(ctx))
 	}
 	build := version.Current()
 	log.Info("worker starting", "env", cfg.Env, "version", build.Version, "commit", build.Commit, "stack", cfg.Sandbox.Stack)

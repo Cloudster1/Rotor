@@ -79,7 +79,7 @@ func (s *Spec) approvalProblems(infos map[string]ToolInfo) []Problem {
 		if n.Type == TypeApproval || !unapproved[n.ID] {
 			continue
 		}
-		for _, name := range s.writesThrough(n, infos) {
+		for _, name := range s.writesThrough(n, infos, func(b Binding) bool { return b.Approval == ApprovalBeforeWrite }) {
 			out = append(out, Problem{Path: fmt.Sprintf("/nodes/%d", i), Code: CodeNeedsApproval,
 				Message: fmt.Sprintf("%s writes through %s, which asks for approval first; put an approval node on every way to it.", n.ID, name)})
 		}
@@ -87,11 +87,12 @@ func (s *Spec) approvalProblems(infos map[string]ToolInfo) []Problem {
 	return out
 }
 
-// writesThrough names the beforeWrite bindings a node may write through.
-func (s *Spec) writesThrough(n Node, infos map[string]ToolInfo) []string {
+// writesThrough names the write bindings that asks holds for which a node may write through: a call the tool does
+// not mark read-only counts as a write.
+func (s *Spec) writesThrough(n Node, infos map[string]ToolInfo, asks func(Binding) bool) []string {
 	writes := func(name string, calls []string) bool {
 		b, ok := s.Tools[name]
-		if !ok || b.Approval != ApprovalBeforeWrite || !b.Writes() {
+		if !ok || !asks(b) || !b.Writes() {
 			return false
 		}
 		info := infos[name]

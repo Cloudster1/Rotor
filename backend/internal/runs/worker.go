@@ -60,6 +60,8 @@ type Worker struct {
 	Passed func()
 	// Events tells those following a run that the worker wrote it an event; nil leaves them to poll.
 	Events Publisher
+	// Also runs in each pass before queued runs start, such as the triggers' passes (#34); nil does nothing more.
+	Also func(ctx context.Context) error
 }
 
 // announce tells those following the run that it has a new event, once the event is committed.
@@ -98,9 +100,14 @@ func (w *Worker) Run(ctx context.Context) {
 	}
 }
 
-// Once makes one pass: sandboxes first, so a dead one is replaced in the same pass, then starts, then cleanup.
+// Once makes one pass: sandboxes first, so a dead one is replaced in the same pass, then what else queues runs,
+// then starts, then cleanup.
 func (w *Worker) Once(ctx context.Context) error {
-	return errors.Join(w.reconcile(ctx), w.expire(ctx), w.start(ctx), w.teardown(ctx))
+	errs := []error{w.reconcile(ctx), w.expire(ctx)}
+	if w.Also != nil {
+		errs = append(errs, w.Also(ctx))
+	}
+	return errors.Join(append(errs, w.start(ctx), w.teardown(ctx))...)
 }
 
 // claimed is a run this worker holds the lease of.
