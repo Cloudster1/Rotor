@@ -6,6 +6,7 @@ export const EVENT_TYPES = [
   "node.started",
   "node.finished",
   "llm.output",
+  "llm.usage",
   "tool.called",
   "log",
   "interrupt",

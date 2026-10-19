@@ -10,6 +10,7 @@ import { newWorkflowRoute, workflowRoute, workflowsRoute } from "./workflows";
 import { RouteError, rootRoute } from "./root";
 import { runRoute, runsRoute } from "./runs";
 import { shellRoute } from "./shell";
+import { usageRoute } from "./usage";
 
 // Pages that stand without the shell, such as sign-in, are children of rootRoute beside shellRoute.
 const routeTree = rootRoute.addChildren([
@@ -26,6 +27,7 @@ const routeTree = rootRoute.addChildren([
     connectionsRoute,
     settingsRoute,
     auditRoute,
+    usageRoute,
   ]),
 ]);
 

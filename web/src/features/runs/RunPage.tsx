@@ -72,9 +72,14 @@ export function RunPage({ runID }: { runID: string }) {
       {!r.ended && <p className="text-sm text-ink-muted">{s.runs.page.live}</p>}
       {r.approvalId && <WaitingForApproval approvalID={r.approvalId} />}
       {r.reason && (
-        <p className="text-sm text-ink">
+        <p className="text-sm text-ink" data-run-reason={r.reason}>
           <span className="font-medium">{s.runs.page.reason}: </span>
-          {r.reason}
+          {s.usage.reasons[r.reason] ?? r.reason}
+        </p>
+      )}
+      {(r.usage.inputTokens > 0 || r.usage.outputTokens > 0) && (
+        <p className="text-sm text-ink-muted" data-run-usage>
+          {s.usage.run(r.usage.inputTokens, r.usage.outputTokens, r.usage.cost)}
         </p>
       )}
       {!r.ended &&
