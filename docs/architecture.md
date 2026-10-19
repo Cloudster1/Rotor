@@ -253,6 +253,15 @@ before queued runs start:
    was archived. Consent ends in several places and two processes, so a
    sweep catches them all.
 
+## The audit log (#2, #36)
+
+`audit.Write` records each act in the transaction that does it, with secrets
+scrubbed from its data; `rotor_app` and `rotor_admin` may only insert and
+read, and only administrators read. `internal/audit/service.go` is the read
+side: keyset windows over `(created_at, id)`, facets, and exports as CSV or
+JSON that are recorded before they leave. The worker writes the entries of
+sandboxes and `runnerctl` the end of every run, both without an actor.
+
 ## A run's tokens (#23)
 
 A run's sandbox never sees a token in clear on the wire. When its runner asks

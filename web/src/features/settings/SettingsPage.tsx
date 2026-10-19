@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { meQuery } from "@/api/auth";
 import { metaQuery } from "@/api/meta";
 import { APP_VERSION } from "@/config";
@@ -37,6 +38,17 @@ export function SettingsPage() {
       )}
       {me.data && <ToolsSection />}
       {me.data?.role === "admin" && <ProvidersSection />}
+      {me.data?.role === "admin" && (
+        <section className="max-w-xl rounded-overlay border border-border bg-surface p-5 shadow-1" aria-labelledby="audit-title" data-audit-link>
+          <h2 id="audit-title" className="mb-1 text-lg font-semibold text-ink">
+            {s.audit.title}
+          </h2>
+          <p className="mb-3 text-sm text-ink-muted">{s.audit.settingsBody}</p>
+          <Link to="/settings/audit" className="text-sm font-medium text-accent hover:underline">
+            {s.audit.open}
+          </Link>
+        </section>
+      )}
       <section className="max-w-xl rounded-overlay border border-border bg-surface p-5 shadow-1" aria-labelledby="build-title">
         <h2 id="build-title" className="mb-3 text-lg font-semibold text-ink">
           {s.settings.buildTitle}

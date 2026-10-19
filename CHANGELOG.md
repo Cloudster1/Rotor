@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Administrators read and export the audit log (#36): a page under
+  Settings filters it by action, person, target and dates, walks it window
+  by window, and exports what it shows as CSV or JSON, refusing rather than
+  cutting an export too large. The log now also records sandboxes started
+  and removed, every run's end and each approval asked for, and each export
+  of itself; nobody may change or empty it.
 - Armature, Exciter and Stator can deliver their events to Rotor (#35). An
   administrator adds Rotor's webhook address in the tool and pastes the
   secret it shows into Rotor, which keeps it in OpenBao. Rotor checks each

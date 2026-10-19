@@ -99,3 +99,13 @@ Adapted from Exciter at 6706bd8, its webhook signing and its receiver for Armatu
   backend/internal/webhook/webhook.go, the timestamped HMAC all three tools send
 - backend/internal/hooks/decode.go: Decode of backend/internal/webhook/inbound.go, reading envelope v1 and
   CloudEvents into one event, with string ids and each product's CloudEvents type prefix
+
+Adapted from Exciter, its audit log for administrators:
+- backend/internal/keyset/keyset.go: the opaque (time, id) cursor of backend/internal/keyset/keyset.go at c6c0219
+- backend/internal/audit/service.go: the filter, keyset windows, facets, the CSV export refused rather than cut,
+  the spreadsheet cell guard and Note of backend/internal/audit/service.go at c0d072d, with a JSON export besides
+- backend/internal/httpapi/audit_handlers.go: the filters, whole UTC days and the recorded export of
+  backend/internal/httpapi/audit_handlers.go at b554258
+- web/src/features/audit/AuditLog.tsx: the filters, the cursor stack and the row filters of
+  web/src/features/audit/AuditLog.tsx at c0d072d
+- e2e/tests/audit.spec.ts: filtering, then exporting as filtered, of e2e/tests/audit.spec.ts at 3f6c194
