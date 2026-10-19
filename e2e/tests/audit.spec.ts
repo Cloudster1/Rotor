@@ -49,8 +49,8 @@ for (const scheme of SCHEMES) {
     const entries = JSON.parse(await readFile((await json.path()) as string, "utf8")) as { action: string; targetId: string }[];
     expect(entries).toEqual([expect.objectContaining({ action: "workflow.created", targetId: workflowID })]);
 
-    // Each export is itself recorded.
-    await page.locator('[data-action="clear-audit-filters"]').click();
+    // Each export is itself recorded; the page reads the log's actions afresh to offer it.
+    await page.reload();
     await page.getByLabel("Action").selectOption("audit.exported");
     await expect(page.locator('[data-audit-row="audit.exported"]').first()).toBeVisible();
   });
