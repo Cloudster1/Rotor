@@ -376,5 +376,5 @@ type Spec struct {
 
 ## What is left for later
 
-- Approvals people answer in the browser (M5) and triggers (M6); the spec reserves `triggers`.
+- Approvals people answer in the browser: `docs/api-contract-m5.md` (#30). Triggers (M6); the spec reserves `triggers`.
 - Narrowing tokens at the tool once tools offer token exchange (Cloudster1/Exciter#235).

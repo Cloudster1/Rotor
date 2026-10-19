@@ -4,6 +4,77 @@
  */
 
 export interface paths {
+    "/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Approvals you may see: those you may decide, and those of runs you may see; newest first. */
+        get: operations["listApprovals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/approvals/count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How many approvals wait for you to decide them, for the badge. */
+        get: operations["countApprovals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/approvals/{approvalID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One approval, with what the run is about to write and the fields an approver may change. */
+        get: operations["getApproval"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/approvals/{approvalID}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve or reject, with a comment and, when approving, changed values.
+         * @description Refused with 403 not_approver when you may see the approval but not decide it, 409 approval_decided once it is decided or expired, and 422 with a field per value that does not fit the form.
+         */
+        post: operations["decideApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/logout": {
         parameters: {
             query?: never;
@@ -594,6 +665,68 @@ export interface components {
             clientID?: string;
             clientSecret?: string;
         };
+        ApprovalCount: {
+            waitingOnMe: number;
+        };
+        ApprovalDecided: {
+            /** Format: date-time */
+            at: string;
+            by: components["schemas"]["PersonRef"];
+            comment: string;
+            /** @enum {string} */
+            decision: "approve" | "reject";
+            /** @description A JSON value. */
+            values: unknown;
+        };
+        ApprovalForm: {
+            /** @description A JSON value. */
+            schema: unknown;
+            /** @description A JSON value. */
+            values: unknown;
+        };
+        ApprovalResponse: {
+            approvers: components["schemas"]["Approvers"];
+            canDecide: boolean;
+            /** Format: date-time */
+            decidedAt: string | null;
+            decision: components["schemas"]["ApprovalDecided"] | null;
+            /** Format: date-time */
+            expiresAt: string;
+            form: components["schemas"]["ApprovalForm"] | null;
+            id: string;
+            message: string;
+            node: string;
+            preview: components["schemas"]["PreviewWrite"][];
+            /** Format: date-time */
+            requestedAt: string;
+            run: components["schemas"]["ApprovalRun"];
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected" | "expired" | "cancelled";
+        };
+        ApprovalRun: {
+            id: string;
+            startedBy: components["schemas"]["PersonRef"];
+            workflow: components["schemas"]["PersonRef"];
+        };
+        ApprovalSummary: {
+            approvers: components["schemas"]["Approvers"];
+            canDecide: boolean;
+            /** Format: date-time */
+            decidedAt: string | null;
+            /** Format: date-time */
+            expiresAt: string;
+            id: string;
+            message: string;
+            node: string;
+            /** Format: date-time */
+            requestedAt: string;
+            run: components["schemas"]["ApprovalRun"];
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected" | "expired" | "cancelled";
+        };
+        Approvers: {
+            group: string | null;
+        };
         BindingRef: {
             access: string;
             name: string;
@@ -643,6 +776,13 @@ export interface components {
             baseURL: string;
             id: string;
             name: string;
+        };
+        DecisionRequest: {
+            comment?: string;
+            /** @enum {string} */
+            decision: "approve" | "reject";
+            /** @description A JSON value. */
+            values?: unknown;
         };
         DiffHunk: {
             fromLine: number;
@@ -747,6 +887,15 @@ export interface components {
         PersonRef: {
             id: string;
             name: string;
+        };
+        PreviewWrite: {
+            /** @description A JSON value. */
+            arguments: unknown;
+            binding: string;
+            call?: string;
+            calls?: string[];
+            node: string;
+            tool: string;
         };
         Problem: {
             code: string;
@@ -942,6 +1091,218 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listApprovals: {
+        parameters: {
+            query?: {
+                /** @description pending (the default), decided or all. */
+                status?: string;
+                /** @description true lists only the pending approvals you may decide. */
+                waitingOnMe?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvals: components["schemas"]["ApprovalSummary"][];
+                    };
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    countApprovals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalCount"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                approvalID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    decideApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                approvalID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     logout: {
         parameters: {
             query?: never;

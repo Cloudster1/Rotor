@@ -9,6 +9,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The approvals API is agreed (#30): `docs/api-contract-m5.md` says who sees
+  and decides an approval, what it shows of the writes to come, how a
+  decision resumes a run, and how write confirmation will be held at the
+  tool. Its operations answer 501 until they are built.
 - A sandbox reaches only what it needs (#27). The chart denies sandbox
   egress by default and allows cluster DNS, the api's runner port, OpenBao,
   and the tools and the model provider by hostname through Cilium (or by
