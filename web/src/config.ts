@@ -64,3 +64,8 @@ export const GRAPH_ROW_PX = 100;
 
 /** How tall the run graph is drawn, in pixels; it fits the graph inside. */
 export const GRAPH_HEIGHT_PX = 360;
+
+/** The products whose webhook deliveries start event triggers (#35), as the server names them. */
+export const HOOK_PRODUCTS = ["armature", "exciter", "stator"] as const;
+/** How long the hook panel says a copied address was copied. */
+export const COPIED_NOTICE_MS = 2_000;
