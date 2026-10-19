@@ -262,3 +262,19 @@ func TestReadinessFollowsOpenBao(t *testing.T) {
 		}
 	}
 }
+
+// The development OpenBao keeps an audit log, declared in its configuration as an installation's must be (#92).
+func TestOpenBaoAuditsEveryRequest(t *testing.T) {
+	devices, err := rootBao(t).Sys().ListAudit()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(devices) == 0 {
+		t.Fatal("OpenBao keeps no audit log, so nobody could tell who read Rotor's secrets")
+	}
+	for path, device := range devices {
+		if device.Type != "file" {
+			t.Errorf("the audit device %s is a %s, not the declared file", path, device.Type)
+		}
+	}
+}

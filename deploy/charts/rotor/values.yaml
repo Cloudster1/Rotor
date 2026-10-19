@@ -117,8 +117,11 @@ valkey:
   host: ""
   port: 6379
   db: 0
-  # Whether that server wants a password, read from the Secret secrets.names.valkey names, which you create.
+  # Whether that server wants a password, read from the Secret secrets.names.valkey names, which you create. Outside
+  # development the chart refuses a Valkey without one (#92).
   auth: false
+  # Connect over TLS (rediss://), trusting the system's certificate authorities.
+  tls: false
   # A single pod for a trial, with a generated password.
   bundled: false
   storage: 1Gi
@@ -151,6 +154,9 @@ openbao:
     tokenSecret: { name: "", key: token }
     # Where OpenBao reaches this cluster's API server to review the control plane's tokens.
     kubernetesHost: https://kubernetes.default.svc
+    # Refuse an OpenBao without an audit device, which it takes from its own configuration only (#92). Turn off
+    # only for a throwaway test server.
+    requireAudit: true
 
 tools:
   # public=reachable pairs: a tool an administrator adds by the address a browser opens, reached by the pods at another.

@@ -25,7 +25,8 @@ Four things come from outside the chart.
   migrations as `database.ownerRole` before every upgrade. The bundled `postgresql` is for a trial only.
 - **Valkey** at `valkey.host`. It carries the signals between api replicas: a run's new events and a cancel reach
   the api holding the run's stream through it. Losing it costs latency, never data, since every stream also looks
-  on its own.
+  on its own. It must want a password: set `valkey.auth` and name the Secret in `secrets.names.valkey`, which the
+  chart and the api refuse to go without outside development (#92). `valkey.tls` connects over TLS (`rediss://`).
 - **OpenBao** at `openbao.addr`. It keeps every refresh token, provider key and run token, encrypts the checkpoints
   and issues the runner protocol's certificate. The api and the worker sign in with their own ServiceAccount tokens
   (`openbao.auth: kubernetes`); sandboxes hold no OpenBao credential at all, only the single-use wrapping tokens they
@@ -36,6 +37,21 @@ Four things come from outside the chart.
     safe to run on every upgrade.
   - OpenBao reviews those tokens with the cluster's TokenReview API, so its own account needs
     `system:auth-delegator` when it runs in the cluster; `scripts/kind/openbao.yaml` shows the binding.
+  - OpenBao must keep an audit log, so who read which secret can be told afterwards (#92). It takes audit devices
+    from its configuration only, never through its API; declare one in its server configuration, as
+    `deploy/openbao/config.hcl` does for the development stack:
+
+    ```hcl
+    audit "file" "rotor" {
+      options {
+        file_path = "/openbao/audit/audit.log"
+      }
+    }
+    ```
+
+    The init script refuses an OpenBao without one, so the token it runs with must be allowed to list audit
+    devices (`sys/audit`, which needs `sudo`); `openbao.configure.requireAudit: false` lets a throwaway test server
+    through.
 - **Keycloak**, the realm people sign in through: `oidc.issuer`, `oidc.clientId` and the Secret holding the client
   secret in `oidc.clientSecret`. Outside development the chart refuses to render without it.
   - Turn on the client's service account and give it the `realm-management` role `view-users`. When an

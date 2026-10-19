@@ -132,7 +132,7 @@ listed.
 |---|---|---|---|
 | T | Forged pub/sub messages | A message only wakes a replica; events and cancels are read from Postgres | Built (#24) |
 | T | A poisoned tool catalog cache, marking a writing call read-only | The runner checks `readOnlyHint` live for read bindings; saving trusts the cache (see #90) | Open #90 |
-| I | Valkey reachable without a password or TLS | The chart's own Valkey has a password; an external one is configured by the operator | Open #92 |
+| I | Valkey reachable without a password or TLS | The chart and the api refuse a Valkey without a password outside development; `valkey.tls` connects over TLS | Built (#92) |
 | D | Losing Valkey | It holds nothing that is not elsewhere; losing it costs latency | Built (#24) |
 
 ### OpenBao
@@ -141,7 +141,7 @@ listed.
 |---|---|---|---|
 | S | Another workload reading Rotor's secrets | JWT auth in development, Kubernetes auth in a cluster, one policy for the control plane | Built (#7, #26) |
 | T | Changing the transit key's settings | The policy grants encrypt and decrypt only | Built (#19) |
-| R | No record of who read a secret | No audit device is enabled by Rotor's init script or the chart | Open #92 |
+| R | No record of who read a secret | Rotor's init script refuses an OpenBao without an audit device; the development stack declares one | Built (#92) |
 | I | A sandbox reading other runs' tokens | A sandbox holds no OpenBao identity; it can only unwrap a wrapping token, once, within two minutes | Built (#23, #26) |
 | D | A sealed OpenBao | Readiness fails, so the api leaves rotation | Built (#7) |
 
@@ -300,7 +300,5 @@ new one ends that.
 |---|---|---|---|
 | F2 | `approval: beforeWrite` is checked on save against a cached catalog, never again when a run starts | Medium | #90 |
 | F3 | Approval content is stored in clear | Medium | #91 |
-| F4 | No OpenBao audit device | Medium | #92 |
-| F5 | Valkey without a password or TLS is accepted by the chart | Low | #92 |
 | | Tool content steers runs | High | #40, #32 |
 | | Run data unencrypted and kept forever | Medium | #41 |

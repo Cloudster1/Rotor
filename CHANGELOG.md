@@ -205,6 +205,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- OpenBao keeps a record of who read Rotor's secrets (#92): the
+  development stack declares an audit device, and Rotor's init script
+  refuses an OpenBao without one. The chart and the api refuse a Valkey
+  without a password outside development, and `valkey.tls` reaches one over
+  TLS.
 - A workflow's code node can no longer read the runner it runs under
   (#89). The runner makes itself not dumpable before it reads anything
   secret, so a code node cannot trace it or open its memory, environment

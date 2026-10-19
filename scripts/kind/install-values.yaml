@@ -5,6 +5,8 @@ openbao:
   configure:
     enabled: true
     tokenSecret: { name: openbao-admin, key: token }
+    # The test's OpenBao runs in dev mode with no configuration file, so it can declare no audit device.
+    requireAudit: false
 sandbox:
   runtimeClass: ""
   allowRunc: true
