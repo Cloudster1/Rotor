@@ -33,7 +33,9 @@ const idempotencyHeader = "Idempotency-Key"
 var (
 	errRunsUnavailable = &APIError{Status: http.StatusServiceUnavailable, Code: "runs_unavailable",
 		Message: "Runs are not set up on this installation. An operator connects Rotor to OpenBao and starts its worker."}
-	errRunNotFound      = ErrNotFound("There is no such run, or you may not see it.")
+	errRunNotFound   = ErrNotFound("There is no such run, or you may not see it.")
+	errNotRunManager = &APIError{Status: http.StatusForbidden, Code: "not_run_manager",
+		Message: "Only the person who started the run, its workflow's owner or an administrator may cancel it. To stop it, reject its approval."}
 	errRunEnded         = &APIError{Status: http.StatusConflict, Code: "run_ended", Message: "The run has already ended, so there is nothing to cancel."}
 	errKeyReused        = ErrValidation(map[string]string{idempotencyHeader: "This key already started a run of another workflow. Send a new key for each run."})
 	errNoRunsOfArchived = &APIError{Status: http.StatusConflict, Code: "workflow_archived",
@@ -75,6 +77,8 @@ func runError(err error) error {
 		return errRunNotFound
 	case errors.Is(err, runs.ErrEnded):
 		return errRunEnded
+	case errors.Is(err, runs.ErrNotManager):
+		return errNotRunManager
 	case errors.Is(err, runs.ErrKeyReused):
 		return errKeyReused
 	case errors.Is(err, runs.ErrArchived):

@@ -40,6 +40,8 @@ type Server struct {
 	Workflows Workflows
 	// Runs is nil where OpenBao is not configured; its routes then answer 503.
 	Runs Runs
+	// Approvals is nil where runs are not set up; its routes then answer 503.
+	Approvals Approvals
 	// Sessions and SignIn are nil only in tests that exercise neither.
 	Sessions Sessions
 	SignIn   SignIn
@@ -115,6 +117,10 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Get("/runs/{runID}", s.handleGetRun)
 			r.Post("/runs/{runID}/cancel", s.handleCancelRun)
 			r.Get("/runs/{runID}/events", s.handleRunEvents)
+			r.Get("/approvals", s.handleListApprovals)
+			r.Get("/approvals/count", s.handleCountApprovals)
+			r.Get("/approvals/{approvalID}", s.handleGetApproval)
+			r.Post("/approvals/{approvalID}/decision", s.handleDecideApproval)
 			mountPending(r, false, false)
 			r.Group(func(r chi.Router) {
 				r.Use(requireAdmin)

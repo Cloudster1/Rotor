@@ -13,6 +13,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/cloudster1/rotor/backend/internal/approvals"
 	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/boot"
 	"github.com/cloudster1/rotor/backend/internal/cache"
@@ -108,11 +109,13 @@ func run() error {
 		server.Catalogs = reader
 		workflowService = workflows.NewService(cluster, reader)
 		server.Runs = runs.NewService(cluster, workflowService, registry, people, store)
+		server.Approvals = approvals.NewService(cluster, store)
 		runners := runnerctl.NewServer(cluster, registry, people, log)
 		reach := oidc.ParseRewrites(cfg.Tools.Backchannel)
 		runners.Reach = func(address string) string { return oidc.Rewrite(reach, address) }
 		runners.Checkpoints = runs.NewCheckpoints(cluster, secrets)
 		runners.Signals, runners.Wrap, runners.Events, runners.Host = store, secrets, store, cfg.Runner.Host
+		runners.ApprovalTTL = cfg.Approvals.TTL
 		models := providers.NewService(cluster, secrets, boot.ToolClient(cfg))
 		server.Providers, runners.Models = models, models
 		go func() {

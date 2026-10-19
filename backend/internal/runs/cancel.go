@@ -16,6 +16,9 @@ import (
 // ErrEnded is a run that has already ended, which a cancel no longer changes.
 var ErrEnded = runnerctl.ErrEnded
 
+// ErrNotManager is a group approver who sees a run but may not cancel it; rejecting its approval stops it.
+var ErrNotManager = errors.New("only the run's starter, its workflow's owner or an administrator may cancel it")
+
 // Cancel ends a run that has not ended, for whoever may see it: the person who started it, the workflow's owner or
 // an administrator. Its runner is told on whichever api replica serves it; the worker destroys its sandbox.
 func (s *Service) Cancel(ctx context.Context, id uuid.UUID) (Run, error) {
@@ -26,6 +29,9 @@ func (s *Service) Cancel(ctx context.Context, id uuid.UUID) (Run, error) {
 	r, err := s.Get(ctx, id)
 	if err != nil {
 		return Run{}, err
+	}
+	if !r.Manages {
+		return Run{}, ErrNotManager
 	}
 	err = s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		if err := runnerctl.Cancel(ctx, tx, id, p.UserID); err != nil {

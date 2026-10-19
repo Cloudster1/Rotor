@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -64,20 +63,4 @@ func redeem(ctx context.Context, cluster *db.Cluster, token, kind string) (uuid.
 		return uuid.Nil, errBadCredential
 	}
 	return runID, err
-}
-
-// Resume hands a waiting run the answer to its interrupt: the worker starts a sandbox for it, whose StartRun
-// resumes from the last checkpoint. Approvals in the browser (M5) call it; until then tests do.
-func Resume(ctx context.Context, cluster *db.Cluster, runID uuid.UUID, answer []byte) error {
-	return cluster.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		tag, err := tx.Exec(ctx, `UPDATE run SET resume = $2, status = 'starting', attempts = 0, sandbox_id = NULL
-			WHERE id = $1 AND status = 'waiting'`, runID, answer)
-		if err != nil {
-			return err
-		}
-		if tag.RowsAffected() == 0 {
-			return fmt.Errorf("run %s is not waiting for an answer", runID)
-		}
-		return nil
-	})
 }

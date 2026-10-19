@@ -40,6 +40,8 @@ type Server struct {
 	Signals Signals
 	// Events tells those following a run that it has a new event (#24); nil leaves them to poll.
 	Events Publisher
+	// ApprovalTTL is how long an approval waits when its node sets no expiresIn (#31); zero is the default.
+	ApprovalTTL time.Duration
 
 	store store
 	mu    sync.Mutex
@@ -263,7 +265,7 @@ func (s *Server) handle(ctx context.Context, stream runnerpb.RunnerControlServic
 			return appendEvent(ctx, tx, r.ID, m.Event.Type, m.Event.NodeId, []byte(m.Event.PayloadJson))
 		}
 	case *runnerpb.ConnectRequest_Done:
-		apply = func(ctx context.Context, tx db.DBTX) error { return finish(ctx, tx, r.ID, m.Done) }
+		apply = func(ctx context.Context, tx db.DBTX) error { return finish(ctx, tx, r, m.Done, s.approvalTTL()) }
 	case *runnerpb.ConnectRequest_TokenRequest:
 		return stream.Send(s.grant(ctx, r, bindings, m.TokenRequest.Binding))
 	case *runnerpb.ConnectRequest_CheckpointGet, *runnerpb.ConnectRequest_CheckpointList,
@@ -296,10 +298,10 @@ func (s *Server) announce(ctx context.Context, runID uuid.UUID) {
 	}
 }
 
-// finish records how the run ended in its sandbox, as a run.finished event and the run's status; a run the control
-// plane already ended, such as a cancelled one, stays as it is.
-func finish(ctx context.Context, tx db.DBTX, runID uuid.UUID, done *runnerpb.Done) error {
-	current, err := lockStatus(ctx, tx, runID)
+// finish records how the run ended in its sandbox, as a run.finished event and the run's status, and opens the
+// approval a waiting run waits at; a run the control plane already ended, such as a cancelled one, stays as it is.
+func finish(ctx context.Context, tx db.DBTX, r *run, done *runnerpb.Done, approvalTTL time.Duration) error {
+	current, err := lockStatus(ctx, tx, r.ID)
 	if err != nil || current != StatusRunning {
 		return err
 	}
@@ -307,7 +309,18 @@ func finish(ctx context.Context, tx db.DBTX, runID uuid.UUID, done *runnerpb.Don
 	if !ok {
 		state = StatusFailed
 	}
-	return endLocked(ctx, tx, runID, state, done.Reason, nil, []byte(done.OutputJson))
+	if err := endLocked(ctx, tx, r.ID, state, done.Reason, nil, []byte(done.OutputJson)); err != nil || state != StatusWaiting {
+		return err
+	}
+	return openApproval(ctx, tx, r, []byte(done.OutputJson), approvalTTL)
+}
+
+// approvalTTL is how long an approval waits when its node sets no expiresIn.
+func (s *Server) approvalTTL() time.Duration {
+	if s.ApprovalTTL > 0 {
+		return s.ApprovalTTL
+	}
+	return config.DefaultApprovalTTL
 }
 
 func validJSON(b []byte) []byte {

@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
-	"github.com/cloudster1/rotor/backend/internal/runnerctl"
 )
 
 // envWorkerMetrics is the worker's /metrics, on the stack's network.
@@ -107,9 +105,7 @@ func TestAWaitingRunKeepsNoSandboxNorTokenAndResumesWithFreshOnes(t *testing.T) 
 	}
 
 	minted := stub.Stats()["refreshes"].(float64)
-	if err := runnerctl.Resume(context.Background(), h.cluster, runID, []byte(`{"approved": true}`)); err != nil {
-		t.Fatal(err)
-	}
+	approve(t, bob, runID.String())
 	done := waitRun(t, bob, runID.String(), "succeeded", "failed")
 	if done["status"] != "succeeded" {
 		t.Fatalf("the resumed run ended %v; events %+v", done["status"], h.events(t, runID))

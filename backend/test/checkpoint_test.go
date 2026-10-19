@@ -9,8 +9,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-
-	"github.com/cloudster1/rotor/backend/internal/runnerctl"
 )
 
 // resumable stops at an approval after calling the tool, and finishes in a code node once approved.
@@ -60,7 +58,7 @@ func TestAWaitingRunResumesInAFreshSandboxFromItsCheckpoint(t *testing.T) {
 	b, image := dockerBackend(t)
 	product := "resume-" + uuid.NewString()[:8]
 	stub := newToolStub(t, map[string]any{"product": product})
-	_, bobID, _ := connected(t, stub)
+	bob, bobID, _ := connected(t, stub)
 	runID := h.newRun(t, bobID, resumable(product), map[string]any{})
 
 	first := spawnRunner(t, b, image, runID, h.bootstrap(t, runID))
@@ -69,9 +67,7 @@ func TestAWaitingRunResumesInAFreshSandboxFromItsCheckpoint(t *testing.T) {
 	if err := b.Destroy(context.Background(), first); err != nil {
 		t.Fatal(err)
 	}
-	if err := runnerctl.Resume(context.Background(), h.cluster, runID, []byte(`{"approved": true}`)); err != nil {
-		t.Fatal(err)
-	}
+	approve(t, bob, runID.String())
 	spawnRunner(t, b, image, runID, h.bootstrap(t, runID))
 	if status := h.waitStatus(t, runID, "succeeded", "failed"); status != "succeeded" {
 		t.Fatalf("the resumed run ended %s; events: %+v", status, h.events(t, runID))

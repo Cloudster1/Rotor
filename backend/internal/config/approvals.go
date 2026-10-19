@@ -19,6 +19,8 @@ const (
 	MaxApprovalExpiry = WaitingTTL
 	// MaxApprovalPreviewBytes bounds the writes an approval shows; a larger preview is cut and says so.
 	MaxApprovalPreviewBytes = 32 << 10
+	// MaxApprovalMessageChars bounds the message an approval shows, as the spec bounds the template.
+	MaxApprovalMessageChars = 2000
 	// MaxApprovalCommentChars bounds an approver's comment.
 	MaxApprovalCommentChars = 2000
 	// MaxApprovalValueBytes bounds the values an approver sends.
