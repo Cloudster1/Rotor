@@ -12,9 +12,10 @@ from langchain_core.tools import BaseTool, StructuredTool
 from langgraph.checkpoint.memory import InMemorySaver
 from support import ToolCallingModel
 
-from rotor_runner.compile import Outcome, RunContext, render, run_workflow
+from rotor_runner.compile import Outcome, RunContext, run_workflow
 from rotor_runner.mcp import Binding, ToolFailedError, ToolRefusedError, allowed
 from rotor_runner.spec import parse
+from rotor_runner.templates import render
 
 pytestmark = pytest.mark.anyio
 
@@ -137,13 +138,19 @@ async def test_an_approval_waits_and_the_answer_resumes_or_cancels_the_run() -> 
     tools = FakeTools({"whoami": {"username": "bob"}})
     outcome, seen = await events_of(yaml, {"title": "Login"}, tools, checkpointer=saver)
     assert outcome.status == "interrupted"
-    assert outcome.interrupt == {"node": "a", "message": "File Login?"}
+    assert outcome.interrupt is not None
+    assert {k: v for k, v in outcome.interrupt.items() if k != "id"} == {
+        "node": "a",
+        "message": "File Login?",
+        "values": {},
+        "preview": [],
+    }
     assert ("interrupt", "a", {"message": "File Login?"}) in seen
     assert tools.calls == []
 
     outcome, _ = await events_of(yaml, {}, tools, checkpointer=saver, resuming=True, resume={"approved": True})
     assert outcome.status == "succeeded"
-    assert outcome.output["a"] == {"approved": True}
+    assert outcome.output["a"] == {"approved": True, "comment": "", "decidedBy": ""}
     assert tools.calls == [("t", "whoami", {})]
 
     saver = InMemorySaver()

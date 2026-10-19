@@ -355,12 +355,15 @@ class StartRun(_message.Message):
     MODEL_FIELD_NUMBER: _builtins.int
     RESUME_FIELD_NUMBER: _builtins.int
     RESUME_JSON_FIELD_NUMBER: _builtins.int
+    RESUME_INTERRUPT_ID_FIELD_NUMBER: _builtins.int
     run_id: _builtins.str
     spec_yaml: _builtins.str
     inputs_json: _builtins.str
     resume: _builtins.bool
     """resume continues from the last checkpoint, with resume_json the answer to the interrupt it stopped at."""
     resume_json: _builtins.str
+    resume_interrupt_id: _builtins.str
+    """resume_interrupt_id names the interrupt resume_json answers; a run no longer waiting there carries on without it."""
     @_builtins.property
     def tools(self) -> _containers.RepeatedCompositeFieldContainer[Global___ToolBinding]: ...
     @_builtins.property
@@ -375,10 +378,11 @@ class StartRun(_message.Message):
         model: Global___ModelConfig | None = ...,
         resume: _builtins.bool = ...,
         resume_json: _builtins.str = ...,
+        resume_interrupt_id: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["model", b"model"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["inputs_json", b"inputs_json", "model", b"model", "resume", b"resume", "resume_json", b"resume_json", "run_id", b"run_id", "spec_yaml", b"spec_yaml", "tools", b"tools"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["inputs_json", b"inputs_json", "model", b"model", "resume", b"resume", "resume_interrupt_id", b"resume_interrupt_id", "resume_json", b"resume_json", "run_id", b"run_id", "spec_yaml", b"spec_yaml", "tools", b"tools"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

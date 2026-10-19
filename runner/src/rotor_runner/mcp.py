@@ -14,6 +14,7 @@ from langchain_mcp_adapters.interceptors import MCPToolCallRequest, ToolCallInte
 from langchain_mcp_adapters.tools import load_mcp_tools
 
 from rotor_runner.events import EventSink, summary
+from rotor_runner.spec import REVIEW_DECIDING
 
 
 @dataclass(frozen=True)
@@ -54,8 +55,9 @@ class ToolGateway(Protocol):
 
 
 def allowed(binding: Binding, name: str, annotations: dict[str, Any] | None) -> bool:
-    """Whether a binding offers a tool: listed in allowTools, and only reading unless it may write."""
-    if name not in binding.allow_tools:
+    """Whether a binding offers a tool: listed in allowTools, never deciding a review, and only reading unless it
+    may write."""
+    if name not in binding.allow_tools or REVIEW_DECIDING.match(name):
         return False
     return binding.writes or bool((annotations or {}).get("readOnlyHint"))
 

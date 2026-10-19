@@ -903,10 +903,12 @@ type StartRun struct {
 	Tools      []*ToolBinding         `protobuf:"bytes,4,rep,name=tools,proto3" json:"tools,omitempty"`
 	Model      *ModelConfig           `protobuf:"bytes,5,opt,name=model,proto3" json:"model,omitempty"`
 	// resume continues from the last checkpoint, with resume_json the answer to the interrupt it stopped at.
-	Resume        bool   `protobuf:"varint,6,opt,name=resume,proto3" json:"resume,omitempty"`
-	ResumeJson    string `protobuf:"bytes,7,opt,name=resume_json,json=resumeJson,proto3" json:"resume_json,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Resume     bool   `protobuf:"varint,6,opt,name=resume,proto3" json:"resume,omitempty"`
+	ResumeJson string `protobuf:"bytes,7,opt,name=resume_json,json=resumeJson,proto3" json:"resume_json,omitempty"`
+	// resume_interrupt_id names the interrupt resume_json answers; a run no longer waiting there carries on without it.
+	ResumeInterruptId string `protobuf:"bytes,8,opt,name=resume_interrupt_id,json=resumeInterruptId,proto3" json:"resume_interrupt_id,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *StartRun) Reset() {
@@ -984,6 +986,13 @@ func (x *StartRun) GetResume() bool {
 func (x *StartRun) GetResumeJson() string {
 	if x != nil {
 		return x.ResumeJson
+	}
+	return ""
+}
+
+func (x *StartRun) GetResumeInterruptId() string {
+	if x != nil {
+		return x.ResumeInterruptId
 	}
 	return ""
 }
@@ -2212,7 +2221,7 @@ const file_rotor_runner_v1_runner_proto_rawDesc = "" +
 	"\aoutcome\x18\x01 \x01(\x0e2\x1b.rotor.runner.v1.RunOutcomeR\aoutcome\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\x12\x1f\n" +
 	"\voutput_json\x18\x03 \x01(\tR\n" +
-	"outputJson\"\x80\x02\n" +
+	"outputJson\"\xb0\x02\n" +
 	"\bStartRun\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x1b\n" +
 	"\tspec_yaml\x18\x02 \x01(\tR\bspecYaml\x12\x1f\n" +
@@ -2222,7 +2231,8 @@ const file_rotor_runner_v1_runner_proto_rawDesc = "" +
 	"\x05model\x18\x05 \x01(\v2\x1c.rotor.runner.v1.ModelConfigR\x05model\x12\x16\n" +
 	"\x06resume\x18\x06 \x01(\bR\x06resume\x12\x1f\n" +
 	"\vresume_json\x18\a \x01(\tR\n" +
-	"resumeJson\"\xaa\x01\n" +
+	"resumeJson\x12.\n" +
+	"\x13resume_interrupt_id\x18\b \x01(\tR\x11resumeInterruptId\"\xaa\x01\n" +
 	"\vToolBinding\x12\x18\n" +
 	"\abinding\x18\x01 \x01(\tR\abinding\x12\x17\n" +
 	"\atool_id\x18\x02 \x01(\tR\x06toolId\x12\x17\n" +

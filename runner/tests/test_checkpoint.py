@@ -81,9 +81,10 @@ async def test_a_waiting_run_resumes_from_the_control_planes_checkpoint() -> Non
     assert plane.checkpoints
 
     # A fresh saver and graph, as in a new sandbox: only the control plane remembers the run.
-    second = await run(RemoteSaver(plane), tools, resuming=True, resume={"approved": True})  # type: ignore[arg-type]
+    answer = {"resuming": True, "resume": {"approved": True}, "resume_id": first.interrupt["id"]}
+    second = await run(RemoteSaver(plane), tools, **answer)  # type: ignore[arg-type]
     assert second.status == "succeeded", second
-    assert second.output["confirm"] == {"approved": True}
+    assert second.output["confirm"] == {"approved": True, "comment": "", "decidedBy": ""}
     assert second.output["ask"] == {"user": {"name": "bob"}}
     assert [c[1] for c in tools.calls] == ["whoami", "whoami"], "the first call must not run again"
 
