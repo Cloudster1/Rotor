@@ -17,6 +17,16 @@ and the versioning [Semantic Versioning](https://semver.org/).
   no webhook secret. Administrators ask Rotor to read an updated tool again
   with Check again under Settings, Tools, which keeps everyone's connection.
   The nightly suite also runs against the siblings' main.
+- Rotor can be released (#44). `./release.sh` works out the next version,
+  writes it into every file that carries it, turns this section into the
+  release's notes and opens the release as a pull request; merging it tags
+  the merge commit, and the tag builds the backend, web and runner images
+  and the chart, signs each keyless with the release workflow's identity
+  and its SBOM as a signed attestation, publishes them to ghcr.io with the
+  GitHub release and its digests, and tells Dynamo. The chart's sandbox
+  admission trusts that identity when no key is given, so a cluster can
+  refuse any runner image a release did not sign. `docs/releasing.md` says
+  how to cut, install and check a release.
 - An approval's message, preview and values are ciphertext at rest too
   (#91), sealed with their run's data key; the inbox and the approval page
   read as before. Upgrading deletes the runs kept so far once more.

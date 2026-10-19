@@ -135,3 +135,13 @@ Adapted from Exciter at a74de66, its checks of a partner:
 - backend/internal/tools/needs.go: the needs table, Offered with nil as never asked, and Lacks and Missing saying what
   goes without a capability, of backend/internal/armature/capabilities.go
 - docs/integration.md: the structure of docs/integration.md, what is offered, what is checked and the rules
+
+Adapted from Exciter at a74de66, its releases:
+- release.sh, scripts/version-files.sh, release-notes.sh and release-tag.sh: renamed to Rotor, the runner's
+  pyproject.toml and its uv.lock entry among the files that carry the version
+- .github/workflows/release.yml: the tag on the merged release pull request, the images, the chart and the dispatch
+  to Dynamo, with the images and the chart signed keyless and the SBOMs attested, and actions pinned to commits
+- mk/release.mk: chart-package and chart-push of mk/helm.mk, writing the pushed chart's digest beside it
+- tests/test-release.sh, test-release-refusals.sh, release-fixture.sh and test-release-workflow.sh: split in three to
+  stay under 500 lines, with the runner's version files and the images the chart runs
+- docs/releasing.md: cutting a release, installing it, when something fails and the setup

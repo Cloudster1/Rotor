@@ -199,8 +199,13 @@ sandbox:
   # it when it creates the namespace, and one that exists needs the label policy.sigstore.dev/include=true by hand.
   admission:
     requireSignature: false
-    # The cosign public key, PEM, the runner image and its SBOM are signed with.
+    # The cosign public key, PEM, for a runner image you signed yourself; set, it is the only signature trusted.
     publicKey: ""
+    # Without a key, the identity Rotor's release workflow signs with (#44): a certificate from sigstore's public
+    # Fulcio for that workflow at a v* tag, recorded in the public transparency log.
+    keyless:
+      issuer: https://token.actions.githubusercontent.com
+      subjectRegExp: ^https://github.com/Cloudster1/Rotor/.github/workflows/release.yml@refs/tags/v
 
 secrets:
   # Generates the database and Valkey passwords once, inside the cluster, before anything else starts.

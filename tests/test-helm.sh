@@ -168,6 +168,17 @@ check "both cover the runner's repository by digest and by tag" \
     "$(grep -c 'glob: "ghcr.io/cloudster1/rotor-runner[@:]\*"' <<<"${RENDERED}")" "4"
 check "both trust the runner key" "$(grep -c 'Pwutfi/afYYrwM7iAeW4sRf2uPv+Aahl9mNB2pfcqIT6C5tSw+7UW1BLkQ==' <<<"${RENDERED}")" "2"
 check "the SBOM is an SPDX attestation" "$(grep -c 'predicateType: spdxjson' <<<"${RENDERED}")" "1"
+check "a key leaves the release's identity out" "$(grep -c 'keyless:' <<<"${RENDERED}")" "0"
+
+echo "== without a key, sandboxes run images Rotor's release signed"
+render "keyless admission" "${PRODUCTION[@]}" --set sandbox.admission.requireSignature=true
+check "both policies trust the release identity alone" "$(grep -c 'name: rotor-release$' <<<"${RENDERED}")" "2"
+check "the identity is GitHub's" \
+    "$(grep -c 'issuer: "https://token.actions.githubusercontent.com"' <<<"${RENDERED}")" "2"
+check "the identity is the release workflow at a version tag" \
+    "$(grep -cF 'subjectRegExp: "^https://github.com/Cloudster1/Rotor/.github/workflows/release.yml@refs/tags/v"' <<<"${RENDERED}")" "2"
+check "the SBOM must be signed by it too" "$(grep -c 'predicateType: spdxjson' <<<"${RENDERED}")" "1"
+check "no key is trusted" "$(grep -c 'name: runner-key' <<<"${RENDERED}")" "0"
 
 echo "== refusals"
 refused "runc in production" "would run hostile code without gVisor" "${PRODUCTION[@]}" \
@@ -180,8 +191,8 @@ refused "no database" "Set database.host" --set openbao.addr=https://openbao.exa
 refused "configuring OpenBao without a token" "openbao.configure is on" "${TRIAL[@]}" --set openbao.configure.enabled=true
 refused "hostnames without Cilium" "which only Cilium can allow" "${TRIAL[@]}" --set 'sandbox.egress.hosts={exciter.example.com}'
 refused "no word on where OpenBao is" "Say where OpenBao is" -f /chart/values-trial.yaml --set openbao.addr=http://openbao:8200
-refused "a signature required without a key" "set sandbox.admission.publicKey" "${TRIAL[@]}" \
-    --set sandbox.admission.requireSignature=true
+refused "a signature required without a key or an identity" "set sandbox.admission.publicKey" "${TRIAL[@]}" \
+    --set sandbox.admission.requireSignature=true --set sandbox.admission.keyless.subjectRegExp=
 
 echo "== the OpenBao script the chart carries"
 if diff -r "${SRC}/deploy/openbao/policies" "${CHART}/files/openbao/policies" >/dev/null &&

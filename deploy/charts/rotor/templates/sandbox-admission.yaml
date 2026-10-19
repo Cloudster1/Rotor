@@ -1,12 +1,14 @@
 {{- if .Values.sandbox.admission.requireSignature }}
 {{/*
-Admission in the sandbox namespace (#42): sigstore's policy-controller admits a pod there only when its image carries
-the runner key's signature and a signed SBOM. An image from another repository matches no policy, which it refuses too.
-Two policies, since an image must pass every policy that matches it, while one passing authority satisfies a policy.
+Admission in the sandbox namespace (#42, #44): sigstore's policy-controller admits a pod there only when its image
+carries a trusted signature and a signed SBOM, by the operator's key or else keyless by Rotor's release workflow. An
+image from another repository matches no policy, which it refuses too. Two policies, since an image must pass every
+policy that matches it, while one passing authority satisfies a policy.
 */}}
 {{- $a := .Values.sandbox.admission }}
-{{- if not $a.publicKey }}
-{{- fail "sandbox.admission.requireSignature is on, so set sandbox.admission.publicKey to the cosign public key the runner image is signed with." }}
+{{- $keyless := $a.keyless | default dict }}
+{{- if and (not $a.publicKey) (not (and $keyless.issuer $keyless.subjectRegExp)) }}
+{{- fail "sandbox.admission.requireSignature is on, so set sandbox.admission.publicKey to the cosign public key the runner image is signed with, or keep sandbox.admission.keyless.issuer and subjectRegExp for Rotor's released images." }}
 {{- end }}
 {{- $repo := .Values.images.runner.repository }}
 {{- range $check := list "signed" "sbom" }}
@@ -22,11 +24,19 @@ spec:
     - glob: {{ printf "%s@*" $repo | quote }}
     - glob: {{ printf "%s:*" $repo | quote }}
   authorities:
+    {{- if $a.publicKey }}
     - name: runner-key
       key:
         hashAlgorithm: sha256
         data: |
           {{- $a.publicKey | trim | nindent 10 }}
+    {{- else }}
+    - name: rotor-release
+      keyless:
+        identities:
+          - issuer: {{ $keyless.issuer | quote }}
+            subjectRegExp: {{ $keyless.subjectRegExp | quote }}
+    {{- end }}
       {{- if eq $check "sbom" }}
       attestations:
         - name: sbom

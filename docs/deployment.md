@@ -2,7 +2,9 @@
 
 Rotor runs from Docker Compose for development (`make up`) and from the Helm chart in `deploy/charts/rotor`
 anywhere else. The chart is adapted from Exciter's, so the tools of the suite install alike. `values.yaml`
-describes every setting; this page says how they fit together.
+describes every setting; this page says how they fit together. Each release publishes the chart as
+`oci://ghcr.io/cloudster1/charts/rotor` (`docs/releasing.md`), which installs the same way as the checkout's
+`deploy/charts/rotor` below.
 
 ## A trial
 
@@ -104,21 +106,30 @@ the Kubernetes API included. The install test proves each of these from a pod wi
 ### Images you can check
 
 Rotor's images, backend, web and runner, are signed with cosign and carry their SPDX SBOMs as signed attestations
-(#42), so you can tell what runs in a sandbox and that it is the image that was built; the release workflow (#44)
-publishes them that way, and the targets below do the same for images you build.
+(#42), so you can tell what runs in a sandbox and that it is the image that was built. A release (#44,
+`docs/releasing.md`) signs them keyless, as its own workflow at the release's tag; the targets below do the same with a
+key for images you build.
 
 - **By digest.** Set `images.backend.digest`, `images.web.digest` and `images.runner.digest` to the digests you
-  checked; a digest wins over the tag, and a tag can be moved after it was signed while a digest cannot.
-- **Check one.** With the public key the images were signed with, `make verify IMAGES=<image>@sha256:...
-  COSIGN_PUB=cosign.pub` checks the signature and the SBOM attestation, and `make sbom IMAGES=...` writes the SBOM
-  to `reports/sbom/`. `cosign verify --key cosign.pub <image>@sha256:...` does the same without the Makefile.
+  checked, which the release notes list; a digest wins over the tag, and a tag can be moved after it was signed while
+  a digest cannot.
+- **Check one.** `make verify IMAGES=<image>@sha256:... COSIGN_KEYLESS=1` checks a released image's signature and SBOM
+  attestation against the release workflow's identity; with the public key of images you signed yourself,
+  `COSIGN_PUB=cosign.pub` instead. `make sbom IMAGES=...` writes the SBOM to `reports/sbom/`, and `cosign verify`
+  does the same without the Makefile.
 - **Refuse unsigned sandboxes.** With sigstore's
   [policy-controller](https://docs.sigstore.dev/policy-controller/overview/) installed (its chart 0.10.8 is what the
-  install test runs), `sandbox.admission.requireSignature: true` and the public key in `sandbox.admission.publicKey`
-  make the cluster refuse any pod in the sandbox namespace whose image does not carry the key's signature and a
-  signed SBOM; an image from another repository is refused too. The chart labels the sandbox namespace
-  `policy.sigstore.dev/include=true` when it creates it; label one you made yourself by hand. Install
-  policy-controller first, since the chart's `ClusterImagePolicy` needs its resource type.
+  install test runs), `sandbox.admission.requireSignature: true` makes the cluster refuse any pod in the sandbox
+  namespace whose image does not carry a trusted signature and a signed SBOM; an image from another repository is
+  refused too. Which signature is trusted:
+  - by default, Rotor's release workflow, keyless (`sandbox.admission.keyless.issuer` and `subjectRegExp`), which
+    policy-controller checks against sigstore's public Fulcio and transparency log, so the cluster needs to reach
+    them;
+  - with `sandbox.admission.publicKey` set, that key alone, for a runner image you build and sign yourself, as the
+    install test does.
+
+  The chart labels the sandbox namespace `policy.sigstore.dev/include=true` when it creates it; label one you made
+  yourself by hand. Install policy-controller first, since the chart's `ClusterImagePolicy` needs its resource type.
 
 To sign images you build yourself, `make sbom`, `make sign` and `make attest` take `IMAGES` by digest and the key in
 `COSIGN_KEY` (with `COSIGN_PASSWORD` in the environment); `REGISTRY_HTTP=1` speaks plain HTTP to a local registry.

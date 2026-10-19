@@ -31,6 +31,18 @@ refuses "signing without a key" "Set COSIGN_KEY" COSIGN_KEY= "${SUPPLY}" sign "r
 refuses "verifying without a key" "Set COSIGN_PUB" COSIGN_PUB= "${SUPPLY}" verify "registry.example/rotor-runner@${DIGEST}"
 refuses "attesting without an SBOM" "run make sbom first" COSIGN_KEY=/dev/null SBOM_DIR=/nonexistent \
     "${SUPPLY}" attest "registry.example/rotor-runner@${DIGEST}"
+refuses "verifying keyless without an identity" "Set COSIGN_IDENTITY" COSIGN_KEYLESS=1 COSIGN_IDENTITY= \
+    "${SUPPLY}" verify "registry.example/rotor-runner@${DIGEST}"
+refuses "verifying keyless without an issuer" "Set COSIGN_ISSUER" COSIGN_KEYLESS=1 COSIGN_IDENTITY=x COSIGN_ISSUER= \
+    "${SUPPLY}" verify "registry.example/rotor-runner@${DIGEST}"
+
+echo "== the release signs keyless, as its workflow and the chart's admission expect"
+release_identity=$(sed -n 's/^COSIGN_IDENTITY ?= //p' "${SRC}/mk/supply.mk")
+if grep -qF -- "${release_identity}" "${SRC}/deploy/charts/rotor/values.yaml"; then
+    pass "the chart trusts the identity the release signs with"
+else
+    fail "values.yaml's sandbox.admission.keyless.subjectRegExp is not mk/supply.mk's COSIGN_IDENTITY ${release_identity}"
+fi
 
 if [[ "${FAILED}" == 0 ]]; then echo "PASS: supply tests"; else echo "FAIL: supply tests"; fi
 exit "${FAILED}"
