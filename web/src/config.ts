@@ -12,6 +12,9 @@ export const API_BASE = "/api/v1";
 /** The status the API answers when nobody is signed in. */
 export const HTTP_UNAUTHORIZED = 401;
 
+/** The status the API answers when fields of a request need attention, each named in the error's fields. */
+export const HTTP_UNPROCESSABLE = 422;
+
 /** Where the index sends a visitor, the first place of the sidebar. */
 export const HOME_PATH = "/workflows";
 
@@ -45,6 +48,12 @@ export const MAX_VERSION_COMMENT = 500;
 
 /** How often a run's page asks for the run again until it ends; #24 streams its events instead. */
 export const RUN_POLL_MS = 2_000;
+
+/** How often the sidebar asks how many approvals wait for the person; an approval waits hours, not seconds. */
+export const APPROVALS_POLL_MS = 15_000;
+
+/** The longest comment a decision carries, as the server allows (MaxApprovalCommentChars). */
+export const MAX_APPROVAL_COMMENT = 2_000;
 
 /** The longest text an inputs field takes before the form asks for less; the server bounds the whole run's inputs. */
 export const MAX_INPUT_TEXT = 10_000;

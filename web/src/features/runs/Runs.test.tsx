@@ -68,6 +68,7 @@ const RUN: Run = {
   startedAt: "2026-10-18T10:00:01Z",
   finishedAt: null,
   ended: false,
+  approvalId: null,
 };
 
 const listed = { "/api/v1/workflows": { workflows: [DRAFT] }, [`/api/v1/workflows/${DRAFT.id}`]: RESPONSE };

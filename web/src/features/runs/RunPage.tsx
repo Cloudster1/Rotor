@@ -13,13 +13,28 @@ import { useRunEvents } from "./useRunEvents";
 const secondary = "h-9 rounded-control border border-border-strong px-3 text-sm font-medium text-ink hover:bg-surface-raised disabled:opacity-60";
 const danger = "h-9 rounded-control bg-danger px-3 text-sm font-medium text-on-danger hover:bg-danger-hover disabled:opacity-60";
 
+/** The events after which the run reads differently: it ended, lost its sandbox, or waits for or got a decision. */
+const MOVES = new Set(["run.finished", "runner.lost", "approval.requested", "approval.decided"]);
+
+/** A waiting run's way to the approval it waits for. */
+function WaitingForApproval({ approvalID }: { approvalID: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-control border border-warning bg-warning-subtle px-3 py-2 text-sm text-ink" data-run-approval>
+      <span>{s.approvals.run.waits}</span>
+      <Link to="/approvals/$approvalID" params={{ approvalID }} className="font-medium text-accent underline-offset-2 hover:underline">
+        {s.approvals.run.open}
+      </Link>
+    </div>
+  );
+}
+
 /** One run, live: where it is, its graph lit up node by node, what it did step by step, and cancelling it. */
 export function RunPage({ runID }: { runID: string }) {
   const client = useQueryClient();
   const run = useQuery(runQuery(runID));
-  // A run's state moves with its last event, so the page asks for the run again then.
+  // A run's state moves with these events, so the page asks for the run again then.
   const { events, live } = useRunEvents(runID, (event) => {
-    if (event.type === "run.finished" || event.type === "runner.lost") void client.invalidateQueries({ queryKey: runQuery(runID).queryKey });
+    if (MOVES.has(event.type)) void client.invalidateQueries({ queryKey: runQuery(runID).queryKey });
   });
   const timeline = useMemo(() => entries(events), [events]);
   const states = useMemo(() => nodeStates(events), [events]);
@@ -55,6 +70,7 @@ export function RunPage({ runID }: { runID: string }) {
         </Link>
       </div>
       {!r.ended && <p className="text-sm text-ink-muted">{s.runs.page.live}</p>}
+      {r.approvalId && <WaitingForApproval approvalID={r.approvalId} />}
       {r.reason && (
         <p className="text-sm text-ink">
           <span className="font-medium">{s.runs.page.reason}: </span>

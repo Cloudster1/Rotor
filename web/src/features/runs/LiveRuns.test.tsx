@@ -31,6 +31,7 @@ const RUN: Run = {
   startedAt: "2026-10-18T10:00:01Z",
   finishedAt: null,
   ended: false,
+  approvalId: null,
   graph: {
     entry: "ask",
     nodes: [

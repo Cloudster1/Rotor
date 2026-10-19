@@ -2,7 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { type RunEvent, runEventsURL } from "@/api/runs";
 
 /** The event types a run's stream sends, each by its own name. */
-export const EVENT_TYPES = ["node.started", "node.finished", "llm.output", "tool.called", "log", "interrupt", "run.finished", "runner.lost"];
+export const EVENT_TYPES = [
+  "node.started",
+  "node.finished",
+  "llm.output",
+  "tool.called",
+  "log",
+  "interrupt",
+  "approval.requested",
+  "approval.decided",
+  "run.finished",
+  "runner.lost",
+];
 
 /** The states a run never leaves; a run.finished saying one of them is the stream's last event. */
 const ENDED = new Set(["succeeded", "failed", "cancelled", "expired"]);

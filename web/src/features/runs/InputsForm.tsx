@@ -93,6 +93,20 @@ export function inputsOf(fields: Field[] | null, values: Values): { inputs: Reco
   return { inputs, errors };
 }
 
+/** What the form shows for values a run already holds, such as an approval's proposed ones: inputsOf turned around. */
+export function valuesOf(fields: Field[] | null, current: Record<string, unknown> | null | undefined): Values {
+  const given = current ?? {};
+  if (fields === null) return { [WHOLE]: JSON.stringify(given, null, 2) };
+  const out: Values = {};
+  for (const f of fields) {
+    const value = given[f.name];
+    if (value === undefined || value === null) continue;
+    if (f.kind === "json" || typeof value === "object") out[f.name] = JSON.stringify(value, null, 2);
+    else out[f.name] = String(value);
+  }
+  return out;
+}
+
 /** The key under which a schema the form cannot lay out is typed as one JSON document. */
 export const WHOLE = "";
 

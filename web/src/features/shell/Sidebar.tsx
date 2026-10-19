@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { APP_NAME, MARK_WIDTH_PX } from "@/config";
+import { ApprovalBadge } from "@/features/approvals/ApprovalBadge";
 import { s } from "@/strings";
 import { Icon } from "./icons";
 import { PLACES } from "./places";
@@ -26,6 +27,7 @@ export function Sidebar() {
                 >
                   <Glyph className="shrink-0" />
                   <span>{place.label}</span>
+                  {place.path === "/approvals" && <ApprovalBadge />}
                 </Link>
               </li>
             );

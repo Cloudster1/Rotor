@@ -40,6 +40,21 @@ describe("a run's timeline", () => {
     expect(lines[5]).toMatchObject({ replaced: true });
   });
 
+  it("says who an approval waits for and how it was decided", () => {
+    const lines = entries([
+      event("approval.requested", "review", { approvalId: "a1", node: "review", message: "File it?", approvers: { group: "quality" } }),
+      event("approval.decided", "review", { approvalId: "a1", decision: "approve", by: { id: "u", name: "Carol" }, comment: "Fine" }),
+      event("approval.requested", "again", { approvalId: "a2", approvers: { group: null } }),
+      event("approval.decided", "again", { approvalId: "a2", decision: "reject", by: "Bob", comment: "" }),
+    ]);
+    expect(lines).toMatchObject([
+      { kind: "requested", approval: "a1", group: "quality" },
+      { kind: "decided", approval: "a1", decision: "approve", by: "Carol", comment: "Fine" },
+      { kind: "requested", approval: "a2", group: "" },
+      { kind: "decided", decision: "reject", by: "Bob" },
+    ]);
+  });
+
   it("finds the web addresses a tool's answer names, each once", () => {
     expect(linksIn('{"url": "https://exciter.example/r/RTR-1", "again": "https://exciter.example/r/RTR-1", "x": "ftp://no"}')).toEqual([
       "https://exciter.example/r/RTR-1",

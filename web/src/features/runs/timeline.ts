@@ -11,6 +11,8 @@ export type Entry =
   | { kind: "log"; key: string; node: string; at: string; text: string }
   | { kind: "llm"; key: string; node: string; at: string; text: string }
   | { kind: "interrupt"; key: string; node: string; at: string; message: string }
+  | { kind: "requested"; key: string; node: string; at: string; approval: string; group: string }
+  | { kind: "decided"; key: string; node: string; at: string; approval: string; decision: string; by: string; comment: string }
   | { kind: "run"; key: string; node: string; at: string; status: string; reason: string; message: string }
   | { kind: "lost"; key: string; node: string; at: string; replaced: boolean };
 
@@ -67,6 +69,24 @@ export function entries(events: RunEvent[]): Entry[] {
       case "interrupt":
         out.push({ ...base, kind: "interrupt", message: text(e.payload.message) });
         break;
+      case "approval.requested": {
+        const approvers = e.payload.approvers as { group?: unknown } | null | undefined;
+        out.push({ ...base, kind: "requested", approval: text(e.payload.approvalId), group: text(approvers?.group) });
+        break;
+      }
+      case "approval.decided": {
+        // The contract names the decider; a person reference carries the name the timeline shows.
+        const by = e.payload.by as { name?: unknown } | string | null | undefined;
+        out.push({
+          ...base,
+          kind: "decided",
+          approval: text(e.payload.approvalId),
+          decision: text(e.payload.decision),
+          by: typeof by === "object" && by !== null ? text(by.name) : text(by),
+          comment: text(e.payload.comment),
+        });
+        break;
+      }
       case "run.finished":
         out.push({ ...base, kind: "run", status: text(e.payload.status), reason: text(e.payload.reason), message: text(e.payload.message) });
         break;
