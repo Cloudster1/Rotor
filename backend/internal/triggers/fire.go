@@ -126,7 +126,9 @@ func (f *Firer) one(ctx context.Context, fr fire) error {
 
 // start checks the firing as the owner on the context and starts the run of the version it checked.
 func (f *Firer) start(ctx context.Context, fr fire, t Trigger) (outcome, reason string, runID *uuid.UUID, err error) {
-	checked, err := f.triggers.check(ctx, t.WorkflowID, t.Input())
+	in := t.Input()
+	in.Firing = true
+	checked, err := f.triggers.check(ctx, t.WorkflowID, in)
 	if reason, ok := refusal(err); ok {
 		return OutcomeRefused, reason, nil, nil
 	}

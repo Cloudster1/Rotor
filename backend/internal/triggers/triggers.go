@@ -76,6 +76,8 @@ type Input struct {
 	Projects   []string
 	Conditions json.RawMessage
 	Inputs     json.RawMessage
+	// Firing says the trigger is checked as it fires, not as a person makes or turns it on.
+	Firing bool
 }
 
 // Workflows is the workflow as the person on the context sees it; *workflows.Service is the real one.

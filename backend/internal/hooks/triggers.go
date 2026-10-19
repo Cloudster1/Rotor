@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/triggers"
 )
@@ -64,7 +63,7 @@ func (s *Service) CheckEvent(conns Connections) func(ctx context.Context, in tri
 			return out
 		}
 		// A person making or turning on a trigger hears of a missing secret; a firing's event has arrived already.
-		if p := auth.PrincipalFrom(ctx); p != nil && p.SessionID != uuid.Nil && h.SecretSetAt == nil {
+		if !in.Firing && h.SecretSetAt == nil {
 			add("event/toolId", CodeEvent, "No administrator has given Rotor this tool's webhook secret yet, so its events cannot arrive. "+
 				"Ask one to set it up under Settings, Tools.")
 		}
