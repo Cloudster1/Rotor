@@ -1,0 +1,52 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Keeps Rotor's dependencies current (#42): nothing younger than two weeks, images and actions by digest, minor updates grouped per ecosystem.",
+  "extends": ["config:recommended", "docker:pinDigests", "helpers:pinGitHubActionDigests", ":semanticCommitTypeAll(build)"],
+  "minimumReleaseAge": "14 days",
+  "internalChecksFilter": "strict",
+  "labels": ["dependencies"],
+  "postUpdateOptions": ["gomodTidy"],
+  "packageRules": [
+    {
+      "description": "Minor and patch updates of one ecosystem land together, one pull request each.",
+      "matchCategories": ["golang"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "Go dependencies"
+    },
+    {
+      "matchCategories": ["python"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "Python dependencies"
+    },
+    {
+      "matchCategories": ["js"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "npm dependencies"
+    },
+    {
+      "matchCategories": ["docker", "helm", "kubernetes"],
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
+      "groupName": "images and charts"
+    },
+    {
+      "matchCategories": ["ci"],
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "description": "mk/e2e.mk runs the Playwright image of the version e2e/package.json pins, so the two move as one.",
+      "matchPackageNames": ["@playwright/test", "playwright-core", "mcr.microsoft.com/playwright"],
+      "groupName": "Playwright"
+    }
+  ],
+  "customManagers": [
+    {
+      "description": "Tools the Makefile pins, each under a comment naming where its releases come from.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)mk/[^/]+\\.mk$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( registryUrl=(?<registryUrl>\\S+))?\\n[A-Z_]+ \\?= (?:[^\\s:@]+:)?(?<currentValue>[^@\\s:]+)(@(?<currentDigest>sha256:[a-f0-9]+))?"
+      ]
+    }
+  ]
+}

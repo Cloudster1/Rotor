@@ -1,7 +1,7 @@
 # One image carries every backend binary; compose picks the one a service runs with its command.
 # The dependencies compile in a layer that stays cached until an import changes.
 
-FROM golang:1.26-alpine AS modules
+FROM golang:1.26.8-alpine@sha256:8ac98ca534ac3f51e1f420a1dd2c15e74c75cfa0f23f3ad27eb5d7236c349a0c AS modules
 WORKDIR /src
 ENV GOFLAGS=-buildvcs=false GOTOOLCHAIN=local CGO_ENABLED=0
 COPY backend/go.mod backend/go.sum ./
@@ -32,7 +32,7 @@ RUN PKG=github.com/cloudster1/rotor/backend/internal/version && \
     go build -trimpath -ldflags="$LDFLAGS" -tags "$GOOSE_TAGS" -o /out/migrate ./cmd/migrate
 
 # Alpine rather than scratch: the health check runs the binary, and an operator wants a shell to look around.
-FROM alpine:3.22
+FROM alpine:3.22.6@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8
 RUN apk add --no-cache ca-certificates tzdata && \
     adduser -D -u 10001 rotor
 WORKDIR /app

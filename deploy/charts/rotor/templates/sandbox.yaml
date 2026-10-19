@@ -13,6 +13,9 @@ metadata:
     {{- include "rotor.labels" . | nindent 4 }}
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/enforce-version: latest
+    {{- if .Values.sandbox.admission.requireSignature }}
+    policy.sigstore.dev/include: "true"
+    {{- end }}
 ---
 {{- end }}
 apiVersion: v1

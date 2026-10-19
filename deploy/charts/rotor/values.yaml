@@ -7,10 +7,11 @@ fullnameOverride: ""
 
 images:
   # deploy/Dockerfile.backend carries every Go binary; each workload runs the one it needs. An empty tag means the
-  # chart's appVersion.
-  backend: { repository: ghcr.io/cloudster1/rotor-backend, tag: "" }
-  web: { repository: ghcr.io/cloudster1/rotor-web, tag: "" }
-  # The sandboxes' image. Name it by digest in production, so every run executes exactly the image reviewed.
+  # chart's appVersion; a digest, sha256:..., wins over the tag. Name Rotor's images by digest in production, so the
+  # cluster runs exactly the images that were signed (#42); docs/deployment.md says how to check them.
+  backend: { repository: ghcr.io/cloudster1/rotor-backend, tag: "", digest: "" }
+  web: { repository: ghcr.io/cloudster1/rotor-web, tag: "", digest: "" }
+  # The sandboxes' image, which every run executes.
   runner: { repository: ghcr.io/cloudster1/rotor-runner, tag: "", digest: "" }
   # The client the roles Job runs and the server the bundled Postgres runs.
   psql: { repository: postgres, tag: 18-alpine }
@@ -187,6 +188,13 @@ sandbox:
     dns:
       namespace: kube-system
       podLabels: { k8s-app: kube-dns }
+  # Refuse a sandbox pod whose image the runner's cosign key did not sign, or that carries no signed SBOM (#42).
+  # sigstore's policy-controller enforces it and must be installed first; the chart labels the sandbox namespace for
+  # it when it creates the namespace, and one that exists needs the label policy.sigstore.dev/include=true by hand.
+  admission:
+    requireSignature: false
+    # The cosign public key, PEM, the runner image and its SBOM are signed with.
+    publicKey: ""
 
 secrets:
   # Generates the database and Valkey passwords once, inside the cluster, before anything else starts.

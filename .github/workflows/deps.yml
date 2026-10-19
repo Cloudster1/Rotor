@@ -1,0 +1,46 @@
+# The dependency audits (#42): govulncheck, pip-audit and npm audit against what Rotor ships. Nightly, by hand, and on
+# a pull request that changes a dependency. A new advisory must not block unrelated work, so this is no required check;
+# Renovate brings the fix, and the nightly run says when one is due.
+name: Deps
+
+on:
+  pull_request:
+    paths:
+      - backend/go.mod
+      - backend/go.sum
+      - runner/pyproject.toml
+      - runner/uv.lock
+      - web/package.json
+      - web/package-lock.json
+      - mk/supply.mk
+      - .github/workflows/deps.yml
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: deps-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  audit-deps:
+    name: audit-deps
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore the Go module and build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/go
+          key: go-unit-${{ hashFiles('backend/go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            go-unit-${{ hashFiles('backend/go.sum') }}-
+            go-unit-
+
+      - name: Look for known vulnerabilities in Go, Python and npm dependencies
+        run: make audit-deps

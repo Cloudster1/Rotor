@@ -7,3 +7,9 @@ networking:
   disableDefaultCNI: true
 nodes:
   - role: control-plane
+# Where containerd reads how to reach a registry, so the chart install test can pull signed images from a plain HTTP
+# registry beside the cluster (#42).
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"

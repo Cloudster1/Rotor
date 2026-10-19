@@ -204,8 +204,9 @@ listed.
 
 | | Threat | Mitigation | Status |
 |---|---|---|---|
-| T | A sandbox image that is not the one Rotor built | The chart can name the runner by digest | Open #42 |
-| T | A vulnerable dependency | Versions pinned and at least two weeks old; no scanning yet | Open #42 |
+| T | A sandbox image that is not the one Rotor built | Images carry an SPDX SBOM and a cosign signature; the chart names every Rotor image by digest and, with policy-controller, refuses an unsigned sandbox image | Built (#42) |
+| T | A vulnerable dependency | Versions pinned and at least two weeks old; govulncheck, pip-audit and npm audit nightly and on dependency changes; Renovate proposes updates | Built (#42) |
+| T | A tampered image in the api, the worker or the web | The admission policy covers the sandbox namespace only | Accepted: the control plane's namespace is the operator's |
 
 ## Analyses
 
@@ -302,4 +303,3 @@ new one ends that.
 | F5 | Valkey without a password or TLS is accepted by the chart | Low | #92 |
 | | Tool content steers runs | High | #40, #32 |
 | | Run data unencrypted and kept forever | Medium | #41 |
-| | Images unsigned, dependencies unchecked | Medium | #42 |

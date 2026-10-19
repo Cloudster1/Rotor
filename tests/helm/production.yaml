@@ -352,7 +352,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: api
-          image: ghcr.io/cloudster1/rotor-backend:0.1.0
+          image: ghcr.io/cloudster1/rotor-backend@sha256:1111111111111111111111111111111111111111111111111111111111111111
           imagePullPolicy: IfNotPresent
           command: ["/app/api"]
           securityContext:
@@ -451,7 +451,7 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: web
-          image: ghcr.io/cloudster1/rotor-web:0.1.0
+          image: ghcr.io/cloudster1/rotor-web@sha256:2222222222222222222222222222222222222222222222222222222222222222
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -535,7 +535,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: worker
-          image: ghcr.io/cloudster1/rotor-backend:0.1.0
+          image: ghcr.io/cloudster1/rotor-backend@sha256:1111111111111111111111111111111111111111111111111111111111111111
           imagePullPolicy: IfNotPresent
           command: ["/app/worker"]
           securityContext:
@@ -922,7 +922,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: migrate
-          image: ghcr.io/cloudster1/rotor-backend:0.1.0
+          image: ghcr.io/cloudster1/rotor-backend@sha256:1111111111111111111111111111111111111111111111111111111111111111
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

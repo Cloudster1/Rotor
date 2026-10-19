@@ -1,0 +1,36 @@
+{{- if .Values.sandbox.admission.requireSignature }}
+{{/*
+Admission in the sandbox namespace (#42): sigstore's policy-controller admits a pod there only when its image carries
+the runner key's signature and a signed SBOM. An image from another repository matches no policy, which it refuses too.
+Two policies, since an image must pass every policy that matches it, while one passing authority satisfies a policy.
+*/}}
+{{- $a := .Values.sandbox.admission }}
+{{- if not $a.publicKey }}
+{{- fail "sandbox.admission.requireSignature is on, so set sandbox.admission.publicKey to the cosign public key the runner image is signed with." }}
+{{- end }}
+{{- $repo := .Values.images.runner.repository }}
+{{- range $check := list "signed" "sbom" }}
+---
+apiVersion: policy.sigstore.dev/v1beta1
+kind: ClusterImagePolicy
+metadata:
+  name: {{ include "rotor.fullname" $ }}-sandboxes-{{ $check }}
+  labels:
+    {{- include "rotor.labels" $ | nindent 4 }}
+spec:
+  images:
+    - glob: {{ printf "%s@*" $repo | quote }}
+    - glob: {{ printf "%s:*" $repo | quote }}
+  authorities:
+    - name: runner-key
+      key:
+        hashAlgorithm: sha256
+        data: |
+          {{- $a.publicKey | trim | nindent 10 }}
+      {{- if eq $check "sbom" }}
+      attestations:
+        - name: sbom
+          predicateType: spdxjson
+      {{- end }}
+{{- end }}
+{{- end }}

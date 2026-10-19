@@ -91,6 +91,8 @@ TRIAL=(-f /chart/values-trial.yaml --set openbao.addr=http://openbao:8200 --set 
 PRODUCTION=(--set openbao.addr=https://openbao.example:8200 --set oidc.issuer=https://id.example/realms/dynamo
     --set oidc.clientSecret.name=rotor-oidc --set database.host=db.example --set valkey.host=valkey.example
     --set images.runner.digest=sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    --set images.backend.digest=sha256:1111111111111111111111111111111111111111111111111111111111111111
+    --set images.web.digest=sha256:2222222222222222222222222222222222222222222222222222222222222222
     --set openbao.configure.enabled=true --set openbao.configure.tokenSecret.name=openbao-admin
     --set sandbox.egress.openbao.cidr=10.20.0.0/24 --set sandbox.egress.cilium=true
     --set 'sandbox.egress.hosts={exciter.example.com,api.anthropic.com}')
@@ -141,6 +143,27 @@ check "names are learned through Cilium's DNS proxy" "$(grep -c 'matchPattern: "
 check "OpenBao outside the cluster is allowed by range on its port" "$(grep -A3 'cidr: 10.20.0.0/24' <<<"${RENDERED}" | grep -c 'port: 8200 }')" "1"
 check "OpenBao is configured for the api's and the worker's accounts" \
     "$(env_value "${RENDERED}" ROTOR_CONTROL_PLANE_SERVICE_ACCOUNTS)" "${FULL}-api,${FULL}-worker"
+check "the api, the worker and the migrations run the backend image by digest" \
+    "$(grep -c 'image: ghcr.io/cloudster1/rotor-backend@sha256:1111' <<<"${RENDERED}")" "3"
+check "the web runs its image by digest" "$(grep -c 'image: ghcr.io/cloudster1/rotor-web@sha256:2222' <<<"${RENDERED}")" "1"
+check "no signature is required unless asked" "$(grep -c 'kind: ClusterImagePolicy' <<<"${RENDERED}")" "0"
+
+echo "== sandboxes run signed images only"
+# A cosign public key, made for this test alone; the chart only passes it on.
+PUBLIC_KEY='-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1/FIgJXJxXSzGnW7CZFfZZjndy4b
+Pwutfi/afYYrwM7iAeW4sRf2uPv+Aahl9mNB2pfcqIT6C5tSw+7UW1BLkQ==
+-----END PUBLIC KEY-----'
+render "admission" "${PRODUCTION[@]}" --set sandbox.admission.requireSignature=true \
+    --set-string "sandbox.admission.publicKey=${PUBLIC_KEY}"
+check "the sandbox namespace is handed to policy-controller" \
+    "$(grep -c 'policy.sigstore.dev/include: "true"' <<<"${RENDERED}")" "1"
+check "one policy wants the signature and another the signed SBOM" \
+    "$(grep -c 'name: r-rotor-sandboxes-\(signed\|sbom\)$' <<<"${RENDERED}")" "2"
+check "both cover the runner's repository by digest and by tag" \
+    "$(grep -c 'glob: "ghcr.io/cloudster1/rotor-runner[@:]\*"' <<<"${RENDERED}")" "4"
+check "both trust the runner key" "$(grep -c 'Pwutfi/afYYrwM7iAeW4sRf2uPv+Aahl9mNB2pfcqIT6C5tSw+7UW1BLkQ==' <<<"${RENDERED}")" "2"
+check "the SBOM is an SPDX attestation" "$(grep -c 'predicateType: spdxjson' <<<"${RENDERED}")" "1"
 
 echo "== refusals"
 refused "runc in production" "would run hostile code without gVisor" "${PRODUCTION[@]}" \
@@ -152,6 +175,8 @@ refused "no database" "Set database.host" --set openbao.addr=https://openbao.exa
 refused "configuring OpenBao without a token" "openbao.configure is on" "${TRIAL[@]}" --set openbao.configure.enabled=true
 refused "hostnames without Cilium" "which only Cilium can allow" "${TRIAL[@]}" --set 'sandbox.egress.hosts={exciter.example.com}'
 refused "no word on where OpenBao is" "Say where OpenBao is" -f /chart/values-trial.yaml --set openbao.addr=http://openbao:8200
+refused "a signature required without a key" "set sandbox.admission.publicKey" "${TRIAL[@]}" \
+    --set sandbox.admission.requireSignature=true
 
 echo "== the OpenBao script the chart carries"
 if diff -r "${SRC}/deploy/openbao/policies" "${CHART}/files/openbao/policies" >/dev/null &&

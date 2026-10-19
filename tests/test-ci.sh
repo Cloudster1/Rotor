@@ -44,5 +44,18 @@ else
     || fail "no browser job runs part$missing"
 fi
 
+echo "== deps.yml audits every lock file (#42)"
+DEPS="$SRC/.github/workflows/deps.yml"
+grep -q 'run: make audit-deps' "$DEPS" && pass "deps.yml runs make audit-deps" || fail "deps.yml does not run make audit-deps"
+for lock in backend/go.sum runner/uv.lock web/package-lock.json; do
+  grep -qx " *- $lock" "$DEPS" && pass "a change to $lock runs the audit" \
+    || fail "deps.yml's paths leave out $lock, so a change to it is never audited"
+done
+
+echo "== Renovate waits two weeks for a release (#42)"
+age=$(jq -r '.minimumReleaseAge // ""' "$SRC/renovate.json")
+[[ "${age%% *}" =~ ^[0-9]+$ && "${age%% *}" -ge 14 && "$age" == *day* ]] && pass "minimumReleaseAge is $age" \
+  || fail "renovate.json's minimumReleaseAge is [$age]; Rotor takes no release younger than 14 days"
+
 if [[ $FAILED -eq 0 ]]; then echo "ci.yml tests passed"; else echo "ci.yml tests failed"; fi
 exit $FAILED
