@@ -223,7 +223,8 @@ with LangGraph's id, the form's proposed values and a preview of the writes
 the nodes after it may make, rendered from the state it alone holds. In the
 transaction that marks the run `waiting`, the control plane opens an
 `approval` row, taking the group that decides, the form and the expiry from
-the pinned spec, and the worker then drops the run's sandbox and tokens.
+the pinned spec, and the worker then drops the run's sandbox and tokens. Its
+message, preview and values are sealed with the run's data key (#91).
 
 `internal/approvals` lists and decides approvals. The starter decides one
 whose node names no group; otherwise only the group's members do. A decision

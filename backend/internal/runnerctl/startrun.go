@@ -67,6 +67,7 @@ type binding struct {
 func (s *Server) loadRun(ctx context.Context, runID uuid.UUID) (*run, error) {
 	r := &run{ID: runID}
 	var sealed []byte
+	var resume *approved
 	err := s.DB.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		err := tx.QueryRow(ctx, `SELECT r.user_id, r.status, v.spec_yaml, r.data_key, r.sealed_inputs, r.traceparent
 			FROM run r JOIN workflow_version v ON v.workflow_id = r.workflow_id AND v.number = r.version
@@ -74,7 +75,7 @@ func (s *Server) loadRun(ctx context.Context, runID uuid.UUID) (*run, error) {
 		if err != nil {
 			return err
 		}
-		r.ResumeID, r.Resume, err = resumeAnswer(ctx, tx, runID)
+		resume, err = latestApproved(ctx, tx, runID)
 		return err
 	})
 	if err != nil {
@@ -86,6 +87,12 @@ func (s *Server) loadRun(ctx context.Context, runID uuid.UUID) (*run, error) {
 	}
 	if r.Inputs, err = box.Open(envelope.ColumnInputs, "", sealed); err != nil {
 		return nil, err
+	}
+	if resume != nil {
+		if r.Resume, err = resume.answer(box); err != nil {
+			return nil, err
+		}
+		r.ResumeID = resume.interrupt
 	}
 	parsed, problems := spec.Parse([]byte(r.SpecYAML))
 	if parsed == nil || len(problems) > 0 {

@@ -16,6 +16,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/envelope"
 	"github.com/cloudster1/rotor/backend/internal/runnerctl"
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 )
@@ -87,10 +88,19 @@ func (s *Service) Decide(ctx context.Context, id uuid.UUID, d Decision) (Approva
 			return Approval{}, err
 		}
 	}
+	// The approved values are sealed with the run's key, bound to the interrupt they answer (#91).
+	var sealed []byte
+	if values != nil {
+		box, err := s.keys.For(ctx, a.RunID, a.dataKey)
+		if err != nil {
+			return Approval{}, err
+		}
+		sealed = box.Seal(envelope.ColumnApprovalApproved, a.interrupt, values)
+	}
 	err = s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		tag, err := tx.Exec(ctx, `UPDATE approval SET status = $2, decided_by = $3, decided_by_name = $4, comment = $5,
-				approved_values = $6, decided_at = now()
-			WHERE id = $1 AND status = 'pending' AND expires_at > now()`, id, status, p.UserID, p.Name, d.Comment, nullJSON(values))
+				sealed_approved_values = $6, decided_at = now()
+			WHERE id = $1 AND status = 'pending' AND expires_at > now()`, id, status, p.UserID, p.Name, d.Comment, sealed)
 		if err != nil {
 			return err
 		}
@@ -183,11 +193,4 @@ func stamp(t *time.Time) string {
 		return "an unknown time"
 	}
 	return t.UTC().Format(time.RFC3339)
-}
-
-func nullJSON(b json.RawMessage) any {
-	if len(b) == 0 {
-		return nil
-	}
-	return string(b)
 }

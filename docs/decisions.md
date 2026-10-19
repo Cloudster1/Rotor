@@ -58,9 +58,12 @@ tell whether the reason still holds.
   control messages, approvals and usage go with it by cascade, which
   PostgreSQL runs as the tables' owner, so no runtime role needs the right to
   delete events alone; daily totals and the audit log stay.
-- **Approvals are redacted, not sealed.** Their values are read in SQL to
-  build the answer a run resumes with; sealing them is left to #91,
-  which the threat model names.
+- **Approvals are sealed too (#91).** Their message, preview and values are
+  sealed with the run's key and bound to the interrupt they answer, which is
+  unique within the run, so they need no id before they are stored. The
+  answer a resumed run gets is built in Go from the opened values instead of
+  in SQL, and a page of approvals across many runs unwraps their keys in one
+  OpenBao call.
 
 ## 2026-10-19: OpenBao's audit log and Valkey's password (#92)
 

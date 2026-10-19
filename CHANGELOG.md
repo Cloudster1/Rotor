@@ -9,6 +9,9 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- An approval's message, preview and values are ciphertext at rest too
+  (#91), sealed with their run's data key; the inbox and the approval page
+  read as before. Upgrading deletes the runs kept so far once more.
 - Text a run reads cannot quietly steer it (#40). Every agent works under a
   fixed policy, and every value its prompt quotes and every answer a tool
   gives it is fenced as data that nothing inside can close. A link an agent

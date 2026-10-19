@@ -41,9 +41,9 @@ func TestTheDatabaseShowsAnApprovalToItsPeopleAndLetsNobodyWriteIt(t *testing.T)
 		t.Fatal(err)
 	}
 	if err := h.super.QueryRow(ctx, `INSERT INTO approval (run_id, starter_id, workflow_id, workflow_name, started_by_name, node,
-			interrupt_id, message, approver_group, expires_at)
-		VALUES ($1, $2, $3, 'approved', 'Starter', 'review', 'i-1', 'Go on?', $4, $5) RETURNING id`,
-		runID, starter, workflowID, group, time.Now().Add(time.Hour)).Scan(&approvalID); err != nil {
+			interrupt_id, sealed_message, sealed_preview, sealed_form_values, approver_group, expires_at)
+		VALUES ($1, $2, $3, 'approved', 'Starter', 'review', 'i-1', $6, $6, $6, $4, $5) RETURNING id`,
+		runID, starter, workflowID, group, time.Now().Add(time.Hour), placeholderSealed).Scan(&approvalID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -81,8 +81,9 @@ func TestTheDatabaseShowsAnApprovalToItsPeopleAndLetsNobodyWriteIt(t *testing.T)
 	}
 	permissionDenied(t, "an approver deciding as rotor_app", as(approver, `UPDATE approval SET status = 'approved', decided_at = now() WHERE id = $1`, approvalID))
 	permissionDenied(t, "a starter opening an approval as rotor_app", as(starter, `INSERT INTO approval (run_id, starter_id, workflow_id,
-		workflow_name, started_by_name, node, interrupt_id, message, expires_at) VALUES ($1, $2, $3, 'x', 'x', 'n', 'i-2', 'm', now())`,
-		runID, starter, workflowID))
+		workflow_name, started_by_name, node, interrupt_id, sealed_message, sealed_preview, sealed_form_values, expires_at)
+		VALUES ($1, $2, $3, 'x', 'x', 'n', 'i-2', $4, $4, $4, now())`,
+		runID, starter, workflowID, placeholderSealed))
 
 	if _, err := h.super.Exec(ctx, `UPDATE approval SET status = 'rejected', decided_at = now() WHERE id = $1`, approvalID); err != nil {
 		t.Fatal(err)
