@@ -159,6 +159,24 @@ may not see is 404; refusals are sentences.
 - **A payload is the registering administrator's view:** the tools read a webhook's payload with the rights of whoever added the webhook. So an event trigger needs its owner connected to the tool, and before its run starts Rotor reads the event's subject at the tool as the owner: the requirement (Exciter), the issue (Armature) or the page (Stator). A subject the owner cannot read makes the firing `skipped`, and nothing of it reaches the run.
 - **Audit:** `hook.secret_changed` (set or removed), never the secret.
 
+- **As built (#35):**
+  - **Refusal codes:**
+    - `signature_invalid` (401).
+    - `envelope_unknown` (422), which also covers a body that is no envelope at all.
+    - `hook_not_product` (422) for a tool that is not one of the three; `GET /tools/{toolID}/hook` answers it too.
+    - `too_large` (413).
+    - A secret of the wrong shape answers 422 with the field `secret`.
+  - **Delivery answers:** `{status}` reading `accepted`, `duplicate` or `pong`.
+  - **The secret:** each api keeps a tool's secret in memory for `HookSecretCacheTTL` (1 minute). A secret set or removed applies at once on the api that took it, and within a minute on the others; an id Rotor does not know is never kept.
+  - **The queue:** a matching event queues a `trigger_fire` with `inputs.event`, the event's id as its key, and the time it arrived as its due time.
+  - **Tables:**
+    - `hook_event` has `rotor_admin` access alone.
+    - `tool.hook_secret_set_at` and `tool.hook_last_received_at` say when the secret was set and when the last event came.
+    - Removing a tool removes its webhook secret from OpenBao too.
+  - **The suite:**
+    - The suite's Exciter runs its worker, which delivers webhooks, and lets `rotor-api` through its outbound guard.
+    - `TestSuiteExciterDeliversItsEventsToRotorsHook` registers Rotor's webhook there in versions 2 and 1 and sees a created requirement queue the trigger.
+
 ## What is left for later
 
 - Rotor registering its own webhook at Armature through Armature's partner webhooks (Armature #281, `webhooks.partner@1`), and at Exciter and Stator once they offer it.
