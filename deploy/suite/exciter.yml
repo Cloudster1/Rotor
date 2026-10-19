@@ -10,13 +10,23 @@ services:
   keycloak:
     profiles: ["off"]
 
-  # Mail, PDF printing and the outbox are not part of connecting, and the printer's image is the slowest to build.
+  # Mail and PDF printing are not part of connecting, and the printer's image is the slowest to build.
   mailpit:
-    profiles: ["off"]
-  worker:
     profiles: ["off"]
   render:
     profiles: ["off"]
+
+  # The worker delivers Exciter's webhooks, which start Rotor's event triggers (#35); it sends no mail here.
+  worker:
+    depends_on: !override
+      migrate:
+        condition: service_completed_successfully
+      valkey:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_healthy
+    environment:
+      EXCITER_OUTBOUND_ALLOW: armature-stub,stator-stub,rotor-api
 
   # dave is let in too, so the end-to-end run (#25) shows Exciter refusing a viewer's write; the seed ensures
   # members on every start, so a running suite takes him in at its next make suite-up.
@@ -26,4 +36,6 @@ services:
 
   api:
     environment:
+      # A webhook's address is checked when it is saved, so Rotor's api is let through here too.
+      EXCITER_OUTBOUND_ALLOW: armature-stub,stator-stub,rotor-api
       EXCITER_OIDC_BACKCHANNEL: http://localhost:${KEYCLOAK_PORT}=http://rotor-keycloak:8080

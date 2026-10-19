@@ -18,10 +18,11 @@ SUITE_EXCITER = COMPOSE_PROJECT_NAME=$(SUITE_EXCITER_PROJECT) \
 	ARMATURE_STUB_PORT=$(call stack_port,14) STATOR_STUB_PORT=$(call stack_port,15) docker compose
 
 # Rotor's services the suite reaches, each joining the suite's network as rotor-<service>, and Exciter's, as
-# suite-exciter-<service>; by hand, so no service is known there by a name another stack uses too. The worker is
-# among them because it revokes a run's tokens at Exciter when the run ends.
+# suite-exciter-<service>; by hand, so no service is known there by a name another stack uses too. Rotor's worker is
+# among them because it revokes a run's tokens at Exciter when the run ends, Exciter's because it delivers webhooks
+# to rotor-api (#35).
 SUITE_ROTOR_SERVICES := api worker keycloak postgres openbao tool-stub
-SUITE_EXCITER_SERVICES := api web
+SUITE_EXCITER_SERVICES := api web worker
 
 # suite_join connects services $(3) of compose $(1) to the suite's network as $(2)<service>, once each.
 define suite_join
