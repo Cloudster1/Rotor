@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cloudster1/rotor/backend/internal/config"
+	"github.com/cloudster1/rotor/backend/internal/observability"
 )
 
 // DBTX is the query surface shared by pgxpool.Pool and pgx.Tx, so the same
@@ -56,6 +57,7 @@ func openPool(ctx context.Context, cfg config.DB, url string) (*pgxpool.Pool, er
 	pcfg.MaxConns = cfg.MaxConns
 	pcfg.MinConns = min(cfg.MinConns, cfg.MaxConns)
 	pcfg.MaxConnLifetime = cfg.ConnMaxLifetime
+	pcfg.ConnConfig.Tracer = observability.QueryTracer()
 
 	pool, err := pgxpool.NewWithConfig(ctx, pcfg)
 	if err != nil {

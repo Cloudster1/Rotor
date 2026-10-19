@@ -156,6 +156,9 @@ data:
   ROTOR_RUNNER_HOST: "r-rotor-api.default.svc"
   ROTOR_RUNNER_DIAL: "r-rotor-api.default.svc:9443"
   ROTOR_WORKER_METRICS_ADDR: ":9464"
+  ROTOR_API_METRICS_ADDR: ":9465"
+  ROTOR_TRACE_SAMPLE_RATIO: "1"
+  ROTOR_LANGSMITH_ENDPOINT: "https://api.smith.langchain.com/otel/v1/traces"
 ---
 # Source: rotor/templates/configmap-nginx.yaml
 apiVersion: v1
@@ -337,7 +340,7 @@ spec:
         app.kubernetes.io/instance: r
         app.kubernetes.io/component: api
       annotations:
-        checksum/env: 2078689df713a065db487070479a30c2544e813898aac4daecd6b30509bd387f
+        checksum/env: 74035114f044c18de447611adfb6dde1fd758fe978d25624a44ec9285593ed5a
     spec:
       serviceAccountName: r-rotor-api
       terminationGracePeriodSeconds: 40
@@ -386,6 +389,8 @@ spec:
               containerPort: 8080
             - name: runner
               containerPort: 9443
+            - name: metrics
+              containerPort: 9465
           readinessProbe:
             httpGet: { path: /readyz, port: http }
             periodSeconds: 5
@@ -518,7 +523,7 @@ spec:
         app.kubernetes.io/instance: r
         app.kubernetes.io/component: worker
       annotations:
-        checksum/env: 2078689df713a065db487070479a30c2544e813898aac4daecd6b30509bd387f
+        checksum/env: 74035114f044c18de447611adfb6dde1fd758fe978d25624a44ec9285593ed5a
     spec:
       serviceAccountName: r-rotor-worker
       terminationGracePeriodSeconds: 20
@@ -807,6 +812,15 @@ data:
     # Tokens and keys reach a sandbox wrapped: single use and short lived, unwrapped by the runner itself (#23).
     path "sys/wrapping/wrap" {
       capabilities = ["update"]
+    }
+    
+    # The LangSmith key an administrator gives, which the control plane alone sends runs' spans with (#37).
+    path "rotor/data/settings/langsmith/*" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+    
+    path "rotor/metadata/settings/langsmith/*" {
+      capabilities = ["read", "list", "delete"]
     }
 ---
 # Source: rotor/templates/job-secrets.yaml

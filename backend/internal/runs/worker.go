@@ -167,7 +167,8 @@ func (w *Worker) release(ctx context.Context, runID uuid.UUID) {
 
 // start gives each queued run, and each starting one without a sandbox, a sandbox with a fresh bootstrap token.
 func (w *Worker) start(ctx context.Context) error {
-	return w.each(ctx, "start", `(r.status = 'queued' AND NOT `+atCapacity+`) OR (r.status = 'starting' AND r.sandbox_id IS NULL)`, w.startOne)
+	return w.each(ctx, "start", `(r.status = 'queued' AND NOT `+atCapacity+`) OR (r.status = 'starting' AND r.sandbox_id IS NULL)`,
+		w.traced("run.start_sandbox", w.startOne))
 }
 
 func (w *Worker) startOne(ctx context.Context, c claimed) error {
@@ -243,7 +244,7 @@ func (w *Worker) deadline(ctx context.Context, runID uuid.UUID) time.Duration {
 // teardown cleans up after each ended run once: its sandbox, its credentials, then whatever Teardown adds.
 func (w *Worker) teardown(ctx context.Context) error {
 	return w.each(ctx, "teardown", `r.status IN ('succeeded', 'failed', 'cancelled', 'expired') AND r.torn_down_at IS NULL`,
-		func(ctx context.Context, c claimed) error {
+		w.traced("run.teardown", func(ctx context.Context, c claimed) error {
 			if err := w.dropSandbox(ctx, c, ReapEnded); err != nil {
 				return err
 			}
@@ -252,11 +253,12 @@ func (w *Worker) teardown(ctx context.Context) error {
 					return err
 				}
 			}
+			w.ran(ctx, c.ID)
 			return w.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 				_, err := tx.Exec(ctx, `UPDATE run SET torn_down_at = now() WHERE id = $1`, c.ID)
 				return err
 			})
-		})
+		}))
 }
 
 // dropSandbox destroys the run's sandbox, if it has one, counting it under reason, and the credentials it could

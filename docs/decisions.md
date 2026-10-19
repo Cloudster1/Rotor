@@ -24,6 +24,26 @@ tell whether the reason still holds.
   inside an agent, whose tool node re-raises it rather than handing it to the
   model.
 
+## 2026-10-19: Traces, metrics and LangSmith for M7 (#37)
+
+- **The runner's spans go through the control plane.** A sandbox reaches
+  the api, OpenBao's unwrap and the tools, nothing else; a route to a
+  collector would be one more way out. The runner sends its spans on the
+  stream it already holds, and the api checks, redacts and exports them,
+  so a forged span can neither leave the run's trace nor carry a secret.
+- **So does LangSmith.** LangSmith reads OpenTelemetry, so the api forwards
+  the same spans there while an administrator allows it. The key stays in
+  OpenBao and in the api's memory, never in a sandbox where workflow code
+  runs, and the sandbox's egress rules, fixed when the chart is installed,
+  need no LangSmith host that an administrator's switch could not open.
+- **Prompts and answers go to LangSmith alone.** They are what LangSmith is
+  for and what an operator's collector does not need, so model spans carry
+  them only while LangSmith is on, and the collector never receives them.
+- **Off until acknowledged.** Turning LangSmith on sends run data out of
+  the installation; the administrator says so in the same request.
+- **Metrics on client_golang, its names kept.** Histograms and the
+  process's own metrics came with it; nothing a dashboard reads changed.
+
 ## 2026-10-19: Triggers for M6 (#33)
 
 - **Triggers are records each person makes, not part of the workflow's

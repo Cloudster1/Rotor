@@ -96,8 +96,10 @@ func TestAWaitingRunResumesInAFreshSandboxFromItsCheckpoint(t *testing.T) {
 	if len(sealed) == 0 {
 		t.Fatal("the run kept no checkpoint")
 	}
+	// Sealed is OpenBao's prefix and base64 alone; random ciphertext may spell any short word, so none is looked for.
 	for i, s := range sealed {
-		if !strings.HasPrefix(s, "vault:v1:") || strings.Contains(s, "bob") {
+		rest, prefixed := strings.CutPrefix(s, "vault:v1:")
+		if _, err := base64.StdEncoding.DecodeString(rest); !prefixed || err != nil {
 			t.Errorf("checkpoint value %d is not sealed: %.60s", i, s)
 		}
 	}

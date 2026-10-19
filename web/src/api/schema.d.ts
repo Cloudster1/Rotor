@@ -524,6 +524,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings/langsmith": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether runs' spans also go to LangSmith, and under which project; never the key. */
+        get: operations["getLangSmith"];
+        /**
+         * Turn LangSmith on or off, name its project, or give a new key, kept in OpenBao.
+         * @description Turning it on is refused with 422 data_leaves_unacknowledged unless acknowledgeDataLeaves is true, since run data then leaves the installation, and with 422 langsmith_key_missing while no key is held. Leaving key out keeps the one held.
+         */
+        put: operations["setLangSmith"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/langsmith/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Forget the LangSmith key, which turns LangSmith off. */
+        delete: operations["removeLangSmithKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings/limits": {
         parameters: {
             query?: never;
@@ -1155,6 +1193,23 @@ export interface components {
             description?: string;
             title: string;
             version: string;
+        };
+        LangSmithRequest: {
+            acknowledgeDataLeaves: boolean;
+            enabled: boolean;
+            key?: string;
+            project: string;
+        };
+        LangSmithResponse: {
+            changedBy: string | null;
+            enabled: boolean;
+            endpoint: string;
+            keySet: boolean;
+            /** Format: date-time */
+            keySetAt: string | null;
+            project: string;
+            /** Format: date-time */
+            updatedAt: string;
         };
         LimitsBody: {
             concurrentRuns: number | null;
@@ -2877,6 +2932,133 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getLangSmith: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LangSmithResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    setLangSmith: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LangSmithRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LangSmithResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    removeLangSmithKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LangSmithResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description An error, in the one shape every endpoint uses. */

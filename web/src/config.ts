@@ -75,3 +75,7 @@ export const HOOK_TOPICS: Record<string, string[]> = {
   armature: ["issue.created", "issue.updated", "issue.transitioned", "comment.added"],
   stator: ["page.published", "page.moved", "page.deleted", "comment.created"],
 };
+
+/** The longest LangSmith key and project the server takes (MaxLangSmithKeyChars, MaxLangSmithProjectChars). */
+export const MAX_LANGSMITH_KEY = 512;
+export const MAX_LANGSMITH_PROJECT = 128;

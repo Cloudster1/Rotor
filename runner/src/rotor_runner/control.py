@@ -36,6 +36,7 @@ from rotor_runner.models import build_model
 from rotor_runner.pb.rotor.runner.v1 import runner_pb2 as pb
 from rotor_runner.pb.rotor.runner.v1 import runner_pb2_grpc as pb_grpc
 from rotor_runner.spec import parse
+from rotor_runner.telemetry import RunTracing
 from rotor_runner.tokens import Redactor, UnwrapError, Unwrapper
 
 log = logging.getLogger("rotor_runner")
@@ -111,6 +112,7 @@ class Channel:
         self._keys: dict[str, asyncio.Future[str]] = {}
         self.replies: dict[str, asyncio.Future[pb.ConnectResponse]] = {}
         self.checkpointer: BaseCheckpointSaver[Any] = RemoteSaver(self)
+        self.tracing = RunTracing()
 
     def send(self, message: pb.ConnectRequest) -> None:
         """Sends now if connected; a numbered message also waits in the outbox until acknowledged."""
@@ -257,6 +259,7 @@ class Channel:
             queue.put_nowait(pb.ConnectRequest(heartbeat=pb.Heartbeat(), ack=self._handled_control))
 
     async def _execute(self, start: pb.StartRun) -> None:
+        self.tracing = RunTracing(start.traceparent, self.send, self.redactor.scrub, start.trace_content)
         try:
             outcome = await self._run_workflow(start)
         except asyncio.CancelledError:
@@ -266,6 +269,8 @@ class Channel:
         except Exception as err:
             log.exception("the run broke")
             outcome = Outcome("failed", "runner_error", {"message": str(err)})
+        # The spans go before Done, so the control plane has them while the stream is still open.
+        await self.tracing.flush()
         done = pb.Done(
             outcome=OUTCOMES[outcome.status],
             reason=outcome.reason,
@@ -295,10 +300,12 @@ class Channel:
                 tokens=self.tokens,
                 emit=self.emit,
                 rate=ToolRate(int(spec.limits.get("toolCallsPerMinute") or DEFAULT_TOOL_CALLS_PER_MINUTE)),
+                tracing=self.tracing,
             ),
             emit=self.emit,
             model=model,
             code=CodeNodeRunner(),
+            tracing=self.tracing,
         )
         inputs = json.loads(start.inputs_json or "{}")
         resume = json.loads(start.resume_json) if start.resume else None

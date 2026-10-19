@@ -83,6 +83,23 @@ and never rewrites one that exists. To bring your own, name existing `kubernetes
 `secrets.names` (`dbOwner`, `dbApp`, `dbAdmin`, `valkey`). With your own Postgres the owner's password is yours:
 create its Secret before installing.
 
+### Traces and metrics
+
+Set `telemetry.otlpEndpoint` to your collector's OTLP/HTTP traces URL, such as
+`http://otel-collector.observability:4318/v1/traces`, and the api and the worker send their spans there, each run one
+trace: the request that started it, the worker starting and removing its sandbox, and the runner's nodes, model calls
+and MCP calls. The runner's spans travel over the runner protocol and the api sends them on, so sandboxes need no
+route to the collector. `telemetry.sampleRatio` keeps a share of new traces.
+
+Prometheus scrapes the worker on `worker.metricsPort` (9464: sandboxes, runs by state, run durations) and the api on
+`api.metricsPort` (9465: token mint failures); both also serve the process's own Go and process metrics.
+
+LangSmith is off until an administrator turns it on in Rotor's settings with a key, which Rotor keeps in OpenBao. The
+api then sends runs' spans, with prompts and answers, to `telemetry.langsmithEndpoint`, so the api's pods must reach
+that host; the sandboxes never do. `docs/api-contract-m7-telemetry.md` says what is sent.
+
+In development, `make observe` starts the stack with a collector, Jaeger and Prometheus and says where they are.
+
 ## Tests
 
 - `tests/test-helm.sh`, in the shell layer of `./run-tests.sh`, lints the chart with `helm lint --strict` and

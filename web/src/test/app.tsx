@@ -22,6 +22,17 @@ export const ME: Me = {
   groups: ["rotor-administrators", "engineering"],
 };
 
+/** LangSmith as a fresh installation has it: off, with no key. */
+export const LANGSMITH_OFF = {
+  enabled: false,
+  project: "rotor",
+  keySet: false,
+  keySetAt: null,
+  changedBy: null,
+  updatedAt: "2026-10-19T08:00:00Z",
+  endpoint: "https://api.smith.langchain.com/otel/v1/traces",
+};
+
 const NOBODY = { error: { code: "unauthorized", message: "Sign in to continue." } };
 
 /** An answer: a body sent as JSON with 200, or a function of the request for anything else. */
@@ -67,6 +78,8 @@ export async function renderAt(path: string, { me = ME as Me | null, answers = {
     "/api/v1/approvals/count": { waitingOnMe: 0 },
     "/api/v1/approvals": { approvals: [] },
     "/api/v1/triggers": { triggers: [] },
+    // An administrator's settings show whether runs go to LangSmith (#37); off unless a test says otherwise.
+    "/api/v1/settings/langsmith": LANGSMITH_OFF,
     "/api/v1/schemas/workflow.v1.json": { $id: "https://rotor.dev/schemas/workflow.v1.json", type: "object" },
     "POST /api/v1/workflows/validate": { valid: true, problems: [] },
     ...answers,

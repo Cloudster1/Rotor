@@ -37,6 +37,9 @@
       "name": "runs"
     },
     {
+      "name": "telemetry"
+    },
+    {
       "name": "tools"
     },
     {
@@ -1879,6 +1882,148 @@
                   "additionalProperties": {
                     "description": "A JSON value."
                   }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/langsmith": {
+      "get": {
+        "operationId": "getLangSmith",
+        "summary": "Whether runs' spans also go to LangSmith, and under which project; never the key.",
+        "tags": [
+          "telemetry"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LangSmithResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setLangSmith",
+        "summary": "Turn LangSmith on or off, name its project, or give a new key, kept in OpenBao.",
+        "description": "Turning it on is refused with 422 data_leaves_unacknowledged unless acknowledgeDataLeaves is true, since run data then leaves the installation, and with 422 langsmith_key_missing while no key is held. Leaving key out keeps the one held.",
+        "tags": [
+          "telemetry"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LangSmithRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LangSmithResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/langsmith/key": {
+      "delete": {
+        "operationId": "removeLangSmithKey",
+        "summary": "Forget the LangSmith key, which turns LangSmith off.",
+        "tags": [
+          "telemetry"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LangSmithResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -4827,6 +4972,71 @@
         "required": [
           "title",
           "version"
+        ]
+      },
+      "LangSmithRequest": {
+        "type": "object",
+        "properties": {
+          "acknowledgeDataLeaves": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "project",
+          "acknowledgeDataLeaves"
+        ]
+      },
+      "LangSmithResponse": {
+        "type": "object",
+        "properties": {
+          "changedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "keySet": {
+            "type": "boolean"
+          },
+          "keySetAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "project": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "enabled",
+          "project",
+          "keySet",
+          "keySetAt",
+          "changedBy",
+          "updatedAt",
+          "endpoint"
         ]
       },
       "LimitsBody": {

@@ -16,6 +16,7 @@ from langchain_mcp_adapters.tools import load_mcp_tools
 from rotor_runner.events import EventSink, summary
 from rotor_runner.limits import ToolRate
 from rotor_runner.spec import REVIEW_DECIDING
+from rotor_runner.telemetry import RunTracing
 
 
 @dataclass(frozen=True)
@@ -92,6 +93,7 @@ class McpGateway:
     emit: EventSink
     # rate ends the run on a call past its toolCallsPerMinute; None calls without a limit, as tests do.
     rate: ToolRate | None = None
+    tracing: RunTracing = field(default_factory=RunTracing)
     _annotations: dict[str, dict[str, dict[str, Any] | None]] = field(default_factory=dict)
 
     async def _connection(self, binding: Binding) -> dict[str, Any]:
@@ -124,8 +126,9 @@ class McpGateway:
         if self.rate is not None:
             self.rate.check()
         try:
-            async with (await self._client(b)).session(binding) as session:
-                result = await session.call_tool(name, arguments)
+            with self.tracing.maybe(f"mcp {name}", {"rotor.binding": binding, "mcp.tool": name, "rotor.node": node}):
+                async with (await self._client(b)).session(binding) as session:
+                    result = await session.call_tool(name, arguments)
         except Exception as err:
             raise ToolFailedError(f"calling {name} at {binding} failed: {leaf(err)}") from err
         failed = bool(getattr(result, "isError", False))
@@ -167,7 +170,9 @@ class McpGateway:
             if self.rate is not None:
                 self.rate.check()
             token = await self.tokens.token(binding.name)
-            result = await handler(request.override(headers={"Authorization": f"Bearer {token}"}))
+            span = {"rotor.binding": binding.name, "mcp.tool": request.name, "rotor.node": node}
+            with self.tracing.maybe(f"mcp {request.name}", span):
+                result = await handler(request.override(headers={"Authorization": f"Bearer {token}"}))
             await self.emit(
                 "tool.called",
                 node,

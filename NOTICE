@@ -109,3 +109,12 @@ Adapted from Exciter, its audit log for administrators:
 - web/src/features/audit/AuditLog.tsx: the filters, the cursor stack and the row filters of
   web/src/features/audit/AuditLog.tsx at c0d072d
 - e2e/tests/audit.spec.ts: filtering, then exporting as filtered, of e2e/tests/audit.spec.ts at 3f6c194
+
+Adapted from Armature at 8dc710d, its tracing:
+- backend/internal/observability/tracing.go: the propagator always installed and a provider only with somewhere to send
+  spans, the ParentBased ratio sampler, StartSpan, Inject and Extract of backend/internal/observability/tracing.go
+- backend/internal/observability/exporter.go: the OTLP/HTTP exporter by the whole endpoint URL
+- backend/internal/observability/dbtrace.go: the pgx tracer drawing a span per statement under an existing span only
+
+Adapted from Armature at f191fc9, its observe profile:
+- deploy/docker-compose.yml: the observe profile with Jaeger and Prometheus, here behind an OpenTelemetry collector

@@ -47,6 +47,7 @@ const (
 	ActionAuditExported          = "audit.exported"
 	ActionLimitsChanged          = "limits.changed"
 	ActionHookSecretChanged      = "hook.secret_changed"
+	ActionLangSmithChanged       = "langsmith.changed"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
@@ -54,7 +55,7 @@ var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, Actio
 	ActionToolAdded, ActionToolRemoved, ActionConnectionGranted, ActionConnectionEnded, ActionTokenMinted, ActionTokenRevoked, ActionProviderChanged,
 	ActionWorkflowCreated, ActionWorkflowChanged, ActionWorkflowShared, ActionWorkflowArchived, ActionRunStarted, ActionRunCancelled,
 	ActionApprovalDecided, ActionTriggerCreated, ActionTriggerChanged, ActionTriggerRemoved, ActionTriggerEnabled, ActionTriggerDisabled,
-	ActionHookSecretChanged, ActionLimitsChanged,
+	ActionHookSecretChanged, ActionLimitsChanged, ActionLangSmithChanged,
 	ActionSandboxSpawned, ActionSandboxDestroyed, ActionRunEnded, ActionApprovalRequested, ActionAuditExported}
 
 // Redacted stands in the record for a value that looked like a credential.
@@ -63,7 +64,7 @@ const Redacted = "[redacted]"
 // SecretPrefixes start the credentials Rotor and the tools issue, and every JWT,
 // so such a value never reaches the record whatever key it hides under.
 var SecretPrefixes = []string{
-	"rotor_pat_", "exciter_pat_", "exciter_whs_", "exciter_oat_", "exciter_ort_", "exciter_ocs_", "exciter_oac_", "armature_pat_", "armature_whs_", "stator_pat_", "stator_whs_", "eyJ",
+	"rotor_pat_", "exciter_pat_", "exciter_whs_", "exciter_oat_", "exciter_ort_", "exciter_ocs_", "exciter_oac_", "armature_pat_", "armature_whs_", "stator_pat_", "stator_whs_", "lsv2_", "eyJ",
 }
 
 // secretWords mark a key whose value would be a credential if it were text.

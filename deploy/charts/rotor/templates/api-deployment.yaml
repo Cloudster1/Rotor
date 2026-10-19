@@ -47,6 +47,8 @@ spec:
               containerPort: {{ .Values.api.port }}
             - name: runner
               containerPort: {{ .Values.api.runnerPort }}
+            - name: metrics
+              containerPort: {{ .Values.api.metricsPort }}
           readinessProbe:
             httpGet: { path: /readyz, port: http }
             periodSeconds: 5

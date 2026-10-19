@@ -59,6 +59,17 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// Starting a run's sandbox and cleaning up after it join the run's trace when a collector is set (#37).
+	tracing, err := observability.SetupTracing(ctx, "rotor-worker", cfg.Env, cfg.Telemetry, log, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		flush, cancel := context.WithTimeout(context.WithoutCancel(ctx), config.ShutdownGrace)
+		defer cancel()
+		_ = tracing.Shutdown(flush)
+	}()
+
 	cluster, err := db.Open(ctx, cfg.DB, log)
 	if err != nil {
 		return err

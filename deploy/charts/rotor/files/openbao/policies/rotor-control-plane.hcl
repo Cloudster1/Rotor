@@ -55,3 +55,12 @@ path "rotor/metadata/runs/*" {
 path "sys/wrapping/wrap" {
   capabilities = ["update"]
 }
+
+# The LangSmith key an administrator gives, which the control plane alone sends runs' spans with (#37).
+path "rotor/data/settings/langsmith/*" {
+  capabilities = ["create", "read", "update", "delete"]
+}
+
+path "rotor/metadata/settings/langsmith/*" {
+  capabilities = ["read", "list", "delete"]
+}

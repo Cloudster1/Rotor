@@ -64,6 +64,21 @@ else
   fail "compose refuses the file: $config"
 fi
 
+# The observe profile (#37): a collector, Jaeger and Prometheus, on the loopback alone, which the control plane feeds.
+if observed="$(docker compose -f "$COMPOSE" --profile observe config --format json 2>&1)"; then
+  extra="$(jq -r '[.services | keys[] | select(. == "otel-collector" or . == "jaeger" or . == "prometheus")] | join(" ")' <<< "$observed")"
+  [[ "$extra" == "jaeger otel-collector prometheus" ]] && pass "the observe profile adds a collector, Jaeger and Prometheus" \
+    || fail "the observe profile adds: $extra"
+  open="$(jq -r '.services | to_entries[] | .key as $s | (.value.ports // [])[] | select(.host_ip != "127.0.0.1") | "\($s):\(.published)"' <<< "$observed")"
+  [[ -z "$open" ]] && pass "the observe profile publishes on 127.0.0.1 alone" || fail "the observe profile publishes beyond the loopback: $open"
+  for service in api worker; do
+    [[ "$(jq -r --arg s "$service" '.services[$s].environment.ROTOR_OTLP_ENDPOINT // ""' <<< "$observed")" == http://otel-collector:4318/v1/traces ]] \
+      && pass "the $service sends its traces to the collector" || fail "the $service does not name the collector"
+  done
+else
+  fail "compose refuses the observe profile: $observed"
+fi
+
 echo "== tool test double"
 if [[ -n "${config:-}" ]] && jq -e .services <<< "$config" > /dev/null 2>&1; then
   # The control API lets anyone end grants and forget clients, so only the stack's network may reach it.

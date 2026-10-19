@@ -1,0 +1,12 @@
+# The development stack's Prometheus (#37), started by make observe: it scrapes the api's and the worker's /metrics,
+# which listen on the stack's network alone.
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: rotor-api
+    static_configs:
+      - targets: ["api:9465"]
+  - job_name: rotor-worker
+    static_configs:
+      - targets: ["worker:9464"]

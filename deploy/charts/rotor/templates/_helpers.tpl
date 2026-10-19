@@ -177,6 +177,12 @@ ROTOR_RUNNER_ADDR: {{ printf ":%d" (int .Values.api.runnerPort) | quote }}
 ROTOR_RUNNER_HOST: {{ include "rotor.runnerHost" . | quote }}
 ROTOR_RUNNER_DIAL: {{ printf "%s:%d" (include "rotor.runnerHost" .) (int .Values.api.runnerPort) | quote }}
 ROTOR_WORKER_METRICS_ADDR: {{ printf ":%d" (int .Values.worker.metricsPort) | quote }}
+ROTOR_API_METRICS_ADDR: {{ printf ":%d" (int .Values.api.metricsPort) | quote }}
+{{- with .Values.telemetry.otlpEndpoint }}
+ROTOR_OTLP_ENDPOINT: {{ . | quote }}
+{{- end }}
+ROTOR_TRACE_SAMPLE_RATIO: {{ .Values.telemetry.sampleRatio | quote }}
+ROTOR_LANGSMITH_ENDPOINT: {{ .Values.telemetry.langsmithEndpoint | quote }}
 {{- end -}}
 
 {{/* The credentials the api and the worker read, by reference to their Secrets. */}}
