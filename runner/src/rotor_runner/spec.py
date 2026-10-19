@@ -13,9 +13,19 @@ from jsonschema import Draft202012Validator
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
 
-from rotor_runner.config import CODE_MAX_MEMORY, CODE_MAX_TIMEOUT_S, DURATION_UNITS, MAX_SPEC_BYTES, MEBIBYTE
+from rotor_runner.config import (
+    APPROVAL_MAX_EXPIRY_S,
+    CODE_MAX_MEMORY,
+    CODE_MAX_TIMEOUT_S,
+    DURATION_UNITS,
+    MAX_SPEC_BYTES,
+    MEBIBYTE,
+    RESERVED_FORM_FIELDS,
+    REVIEW_DECIDING_CALLS,
+)
 
 TEMPLATE_REF = re.compile(r"\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}")
+REVIEW_DECIDING = re.compile(REVIEW_DECIDING_CALLS)
 
 SCHEMA: dict[str, Any] = json.loads(resources.files("rotor_runner").joinpath("workflow.v1.schema.json").read_text())
 _VALIDATOR = Draft202012Validator(SCHEMA)
@@ -213,6 +223,8 @@ def check_sense(document: dict[str, Any]) -> list[Problem]:
             for path, ref in _argument_refs(node.get("arguments", {}), f"{base}/arguments"):
                 if ref not in index:
                     out.append(Problem(path, "unknown_node", f"The argument reads {ref}, which is not a node."))
+        elif node["type"] == "approval":
+            out.extend(_approval_sense(node, base, index))
         elif node["type"] in ("agent", "code"):
             if node["type"] == "code":
                 out.extend(_code_limits(node, base))
@@ -221,6 +233,7 @@ def check_sense(document: dict[str, Any]) -> list[Problem]:
                     out.append(
                         Problem(f"{base}/tools/{j}", "unknown_binding", f"{name} is not one of the workflow's tools.")
                     )
+    out.extend(_review_deciders(tools))
     if entry in index:
         reached = {entry}
         queue = [entry]
@@ -235,4 +248,58 @@ def check_sense(document: dict[str, Any]) -> list[Problem]:
                 out.append(
                     Problem(f"/nodes/{i}", "unreachable", f"Nothing leads to {node['id']} from the entry {entry}.")
                 )
+    return out
+
+
+def _approval_sense(node: dict[str, Any], base: str, index: dict[str, int]) -> list[Problem]:
+    """An approval's expiry within the longest wait and a form an approver can fill, as Go's approvalSense."""
+    out: list[Problem] = []
+    expires = str(node.get("expiresIn") or "")
+    if expires and float(expires[:-1]) * DURATION_UNITS[expires[-1]] > APPROVAL_MAX_EXPIRY_S:
+        message = f"An approval may wait 168h at most, not {expires}."
+        out.append(Problem(f"{base}/expiresIn", "approval_expiry", message))
+    form = node.get("form")
+    if form is None:
+        return out
+    properties = form_fields(form["schema"])
+    if properties is None:
+        out.append(Problem(f"{base}/form/schema", "approval_form", "The form's schema must be an object with fields."))
+        return out
+    for name in sorted(properties):
+        if name in RESERVED_FORM_FIELDS:
+            out.append(
+                Problem(f"{base}/form/schema/properties/{_escape(name)}", "approval_form", f"{name} is reserved.")
+            )
+    values = form.get("values") or {}
+    for name in sorted(values):
+        if name not in properties:
+            out.append(Problem(f"{base}/form/values/{_escape(name)}", "approval_form", f"{name} is not a field."))
+    for path, ref in _argument_refs(values, f"{base}/form/values"):
+        if ref not in index:
+            out.append(Problem(path, "unknown_node", f"The value reads {ref}, which is not a node."))
+    return out
+
+
+def form_fields(schema: Any) -> dict[str, Any] | None:
+    """A form schema's properties, or None when it is no object schema with fields that checks."""
+    if not isinstance(schema, dict) or schema.get("type") != "object":
+        return None
+    properties = schema.get("properties")
+    if not isinstance(properties, dict) or not properties:
+        return None
+    try:
+        Draft202012Validator.check_schema(schema)
+    except Exception:
+        return None
+    return properties
+
+
+def _review_deciders(tools: dict[str, dict[str, Any]]) -> list[Problem]:
+    """A binding that allows a call deciding a review is refused: a person decides a review in the tool itself."""
+    out: list[Problem] = []
+    for name in sorted(tools):
+        for j, call in enumerate(tools[name].get("allowTools", [])):
+            if REVIEW_DECIDING.match(call):
+                path = f"/tools/{_escape(name)}/allowTools/{j}"
+                out.append(Problem(path, "decides_review", f"{call} decides a review."))
     return out

@@ -1,0 +1,31 @@
+# expect: /nodes/0/expiresIn approval_expiry
+# expect: /nodes/0/form/schema/properties/approved approval_form
+# expect: /nodes/0/form/values/summary approval_form
+# expect: /nodes/0/form/values/title unknown_node
+# expect: /nodes/1/form/schema approval_form
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+limits: {maxSteps: 5, timeout: 1m}
+entry: ask
+nodes:
+  - id: ask
+    type: approval
+    message: Go on?
+    expiresIn: 200h
+    form:
+      schema:
+        type: object
+        properties:
+          title: {type: string}
+          approved: {type: boolean}
+      values:
+        title: '{{ nodes.draft.title }}'
+        summary: nothing
+  - id: again
+    type: approval
+    message: And now?
+    form:
+      schema: {type: string}
+edges:
+  - {from: ask, to: again}

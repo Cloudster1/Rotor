@@ -1,0 +1,16 @@
+# expect: /tools/exciter-write/allowTools/1 decides_review
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+tools:
+  exciter-write:
+    tool: exciter
+    scopes: [mcp]
+    access: write
+    allowTools: [request_review, approve_review]
+limits: {maxSteps: 5, timeout: 1m}
+entry: ask
+nodes:
+  - id: ask
+    type: approval
+    message: Go on?

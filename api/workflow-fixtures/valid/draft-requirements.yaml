@@ -44,15 +44,27 @@ nodes:
           statement: { type: string }
   - id: review
     type: approval
-    message: File the drafted requirement in Exciter?
+    message: File "{{ nodes.draft.title }}" in Exciter?
+    approvers: { group: quality }
+    expiresIn: 48h
+    form:
+      schema:
+        type: object
+        required: [title, statement]
+        properties:
+          title: { type: string, minLength: 1, maxLength: 200 }
+          statement: { type: string, minLength: 1 }
+      values:
+        title: "{{ nodes.draft.title }}"
+        statement: "{{ nodes.draft.statement }}"
   - id: file
     type: tool
     tool: exciter-write
     call: create_requirement
     arguments:
       projectKey: "{{ inputs.projectKey }}"
-      title: "{{ nodes.draft.title }}"
-      statementMarkdown: "{{ nodes.draft.statement }}"
+      title: "{{ nodes.review.title }}"
+      statementMarkdown: "{{ nodes.review.statement }}"
 edges:
   - { from: draft, to: review }
   - { from: review, to: file }

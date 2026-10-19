@@ -206,7 +206,39 @@
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "type": { "const": "approval" },
-        "message": { "type": "string", "minLength": 1, "maxLength": 2000 }
+        "message": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "approvers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["group"],
+          "properties": {
+            "group": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "A group of the identity provider; only its members decide. Without approvers, the person who started the run decides."
+            }
+          }
+        },
+        "expiresIn": {
+          "$ref": "#/$defs/duration",
+          "description": "How long the approval waits before it expires and ends the run; at most 168h."
+        },
+        "form": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema"],
+          "properties": {
+            "schema": {
+              "type": "object",
+              "description": "A JSON Schema object; its properties are the fields an approver may change."
+            },
+            "values": {
+              "type": "object",
+              "description": "What the run proposes for each field; a string may hold {{ inputs.x }} or {{ nodes.n.x }}."
+            }
+          }
+        }
       }
     },
     "routerNode": {
