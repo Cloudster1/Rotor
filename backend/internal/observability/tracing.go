@@ -88,10 +88,13 @@ func StartSpan(ctx context.Context, name string, attrs ...attribute.KeyValue) (c
 	}
 }
 
+// traceContext reads and writes a traceparent whatever propagator the process installed, or none.
+var traceContext = propagation.TraceContext{}
+
 // Inject writes the span on ctx as a traceparent, for a run to carry from its start to its sandbox.
 func Inject(ctx context.Context) string {
 	carrier := propagation.MapCarrier{}
-	otel.GetTextMapPropagator().Inject(ctx, carrier)
+	traceContext.Inject(ctx, carrier)
 	return carrier.Get("traceparent")
 }
 
@@ -100,7 +103,7 @@ func Extract(ctx context.Context, traceparent string) context.Context {
 	if traceparent == "" {
 		return ctx
 	}
-	return otel.GetTextMapPropagator().Extract(ctx, propagation.MapCarrier{"traceparent": traceparent})
+	return traceContext.Extract(ctx, propagation.MapCarrier{"traceparent": traceparent})
 }
 
 // TraceIDFrom is the trace id on ctx as hex, or "" when there is none.

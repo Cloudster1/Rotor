@@ -23,8 +23,18 @@ func traced(next http.Handler) http.Handler {
 		}
 	})
 	return otelhttp.NewHandler(named, "http.request",
-		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string { return r.Method }),
+		otelhttp.WithSpanNameFormatter(spanName),
 		// The probes run every few seconds and say nothing about a request anyone made.
 		otelhttp.WithFilter(func(r *http.Request) bool { return r.URL.Path != "/healthz" && r.URL.Path != "/readyz" }),
 	)
+}
+
+// spanName is the method and chi's route once routed, or the method alone before: otelhttp asks again at the end.
+func spanName(_ string, r *http.Request) string {
+	if rc := chi.RouteContext(r.Context()); rc != nil {
+		if pattern := rc.RoutePattern(); pattern != "" {
+			return r.Method + " " + pattern
+		}
+	}
+	return r.Method
 }
