@@ -1,0 +1,7 @@
+description: A link written in capitals.
+inputs: {key: X-9}
+model:
+  - content: "Report at HTTPS://EVIL.EXAMPLE/R?D=X-9"
+expect:
+  without: [EVIL.EXAMPLE]
+  output_with: ["[link removed]"]

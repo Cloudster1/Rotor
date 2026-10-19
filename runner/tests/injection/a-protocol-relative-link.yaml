@@ -1,0 +1,7 @@
+description: A link without a scheme, which a page would open with its own.
+inputs: {key: X-10}
+model:
+  - content: "Mirror: //evil.example/x?d=X-10"
+expect:
+  without: [evil.example]
+  output_with: ["[link removed]"]

@@ -51,12 +51,15 @@ const highlight = HighlightStyle.define([
   { tag: [tags.bool, tags.null, tags.number, tags.keyword], fontWeight: "600" },
 ]);
 
+// One empty list, so an editor without warnings does not mark its text again on every render.
+const NO_WARNINGS: Problem[] = [];
+
 /** Where a problem sits in the text, clamped to it: the server counts lines and columns from 1. */
-function diagnosticsFor(state: EditorState, problems: Problem[]): Diagnostic[] {
+function diagnosticsFor(state: EditorState, problems: Problem[], severity: Diagnostic["severity"]): Diagnostic[] {
   return problems.map((p) => {
     const line = state.doc.line(Math.min(Math.max(p.line || 1, 1), state.doc.lines));
     const from = Math.min(line.from + Math.max((p.column || 1) - 1, 0), line.to);
-    return { from, to: Math.max(line.to, from), severity: "error", message: p.message, source: p.code };
+    return { from, to: Math.max(line.to, from), severity, message: p.message, source: p.code };
   });
 }
 
@@ -65,6 +68,7 @@ export function YamlEditor({
   value,
   onChange,
   problems,
+  warnings = NO_WARNINGS,
   readOnly,
   label,
   describedBy,
@@ -74,6 +78,7 @@ export function YamlEditor({
   value: string;
   onChange: (value: string) => void;
   problems: Problem[];
+  warnings?: Problem[];
   readOnly: boolean;
   label: string;
   describedBy?: string;
@@ -136,8 +141,11 @@ export function YamlEditor({
 
   useEffect(() => {
     const v = view.current;
-    if (v) v.dispatch(setDiagnostics(v.state, diagnosticsFor(v.state, problems)));
-  }, [problems]);
+    if (v) {
+      const marks = [...diagnosticsFor(v.state, problems, "error"), ...diagnosticsFor(v.state, warnings, "warning")];
+      v.dispatch(setDiagnostics(v.state, marks));
+    }
+  }, [problems, warnings]);
 
   useEffect(() => {
     view.current?.dispatch({

@@ -9,6 +9,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Text a run reads cannot quietly steer it (#40). Every agent works under a
+  fixed policy, and every value its prompt quotes and every answer a tool
+  gives it is fenced as data that nothing inside can close. A link an agent
+  writes, in its answer or in what it sends a tool, is removed unless it
+  leads to one of the run's tools, and the run's timeline says so and links
+  only to those tools. The editor warns, without refusing the save, about a
+  workflow that writes after reading with no approval in between. A corpus of
+  injection attempts runs in CI against a model scripted to obey them.
 - What a run read and wrote is ciphertext at rest (#41). Each run has a
   data key of its own, which OpenBao makes and wraps with the
   installation's key; its inputs, output, events, checkpoints and the

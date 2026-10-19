@@ -1195,8 +1195,10 @@ type ToolBinding struct {
 	McpUrl  string                 `protobuf:"bytes,3,opt,name=mcp_url,json=mcpUrl,proto3" json:"mcp_url,omitempty"`
 	Scopes  []string               `protobuf:"bytes,4,rep,name=scopes,proto3" json:"scopes,omitempty"`
 	// access is read or write, as the spec declares it.
-	Access        string   `protobuf:"bytes,5,opt,name=access,proto3" json:"access,omitempty"`
-	AllowTools    []string `protobuf:"bytes,6,rep,name=allow_tools,json=allowTools,proto3" json:"allow_tools,omitempty"`
+	Access     string   `protobuf:"bytes,5,opt,name=access,proto3" json:"access,omitempty"`
+	AllowTools []string `protobuf:"bytes,6,rep,name=allow_tools,json=allowTools,proto3" json:"allow_tools,omitempty"`
+	// link_hosts are the tool's public hosts, the only ones links an agent writes may point at (#40).
+	LinkHosts     []string `protobuf:"bytes,7,rep,name=link_hosts,json=linkHosts,proto3" json:"link_hosts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1269,6 +1271,13 @@ func (x *ToolBinding) GetAccess() string {
 func (x *ToolBinding) GetAllowTools() []string {
 	if x != nil {
 		return x.AllowTools
+	}
+	return nil
+}
+
+func (x *ToolBinding) GetLinkHosts() []string {
+	if x != nil {
+		return x.LinkHosts
 	}
 	return nil
 }
@@ -2444,7 +2453,7 @@ const file_rotor_runner_v1_runner_proto_rawDesc = "" +
 	"\x0estatus_message\x18\t \x01(\tR\rstatusMessage\x1a=\n" +
 	"\x0fAttributesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xaa\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc9\x01\n" +
 	"\vToolBinding\x12\x18\n" +
 	"\abinding\x18\x01 \x01(\tR\abinding\x12\x17\n" +
 	"\atool_id\x18\x02 \x01(\tR\x06toolId\x12\x17\n" +
@@ -2452,7 +2461,9 @@ const file_rotor_runner_v1_runner_proto_rawDesc = "" +
 	"\x06scopes\x18\x04 \x03(\tR\x06scopes\x12\x16\n" +
 	"\x06access\x18\x05 \x01(\tR\x06access\x12\x1f\n" +
 	"\vallow_tools\x18\x06 \x03(\tR\n" +
-	"allowTools\"\x94\x01\n" +
+	"allowTools\x12\x1d\n" +
+	"\n" +
+	"link_hosts\x18\a \x03(\tR\tlinkHosts\"\x94\x01\n" +
 	"\vModelConfig\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x12\x12\n" +

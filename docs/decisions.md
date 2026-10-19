@@ -3,6 +3,33 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-19: Content a run reads, for M8 (#40)
+
+- **Every quoted value is data, not only tool answers.** A template can
+  quote a tool node's output, a code node's, another agent's or a hook's
+  payload, and tracking where each came from would be one more thing to get
+  wrong. So every value a prompt quotes is fenced, and only the author's own
+  words instruct.
+- **A random fence id the policy never names.** The id changes with each
+  sandbox, so content cannot know it, and the policy describes fences
+  without one, so a resumed run reads the same policy. Markers inside content
+  are defanged as well, so even a guessed id closes nothing.
+- **Links limited in the runner, to exact hosts.** The runner is where an
+  agent's text and the arguments it sends a tool are made, so that is where a
+  link to another host becomes `[link removed]`; the run's page links only to
+  the same hosts. A subdomain is another host, since anyone may own one.
+  Code nodes are the author's code and keep their links.
+- **A warning, not a refusal.** A workflow that reads and then writes with
+  nobody approving in between is often what its author means, so saving
+  works and the editor says why it may be unwise; triggers keep refusing
+  unattended writes (#34). `confirmWrites` (#32) will make the warning
+  answerable without an approval node.
+- **The corpus proves the guards, not the model.** A fake model cannot be
+  persuaded, so `runner/tests/injection/` scripts one that obeys the planted
+  text and checks what holds anyway: the policy leads, every quote is
+  fenced, a binding's limits and the review rule hold, and no other host
+  leaves.
+
 ## 2026-10-19: A run's data at rest for M8 (#41)
 
 - **Envelope encryption, one data key per run.** OpenBao transit makes each

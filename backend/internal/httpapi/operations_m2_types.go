@@ -126,10 +126,12 @@ type validateRequest struct {
 	SpecYAML string `json:"specYAML"`
 }
 
-// validateResponse lists what is wrong; valid is true when nothing is.
+// validateResponse lists what is wrong; valid is true when nothing is. Warnings say what is allowed but may be
+// unwise, such as a write that text read from a tool could steer (#40); they never stop a save.
 type validateResponse struct {
 	Valid    bool      `json:"valid"`
 	Problems []problem `json:"problems"`
+	Warnings []problem `json:"warnings"`
 }
 
 // problem is one thing wrong with a workflow, where it is: a JSON pointer, and a line and column from 1.
@@ -229,6 +231,8 @@ type runResponse struct {
 	Usage runUsage `json:"usage"`
 	// Graph is the pinned version's nodes and edges, for the run's page; one run alone carries it, not a list.
 	Graph *spec.Graph `json:"graph,omitempty"`
+	// LinkHosts are the hosts of the run's tools, the only ones its page makes links to (#40); one run alone has them.
+	LinkHosts []string `json:"linkHosts,omitempty"`
 }
 
 // runTrigger names the trigger that started a run.

@@ -2,6 +2,7 @@ import { audit } from "./strings_audit";
 import { usageStrings } from "./strings_usage";
 import { langSmithStrings } from "./strings_telemetry";
 import { retentionStrings } from "./strings_retention";
+import { untrustedStrings } from "./strings_untrusted";
 
 /** Every word the interface shows, in one place, so a second language is a second copy of this object. */
 export const s = {
@@ -454,4 +455,5 @@ export const s = {
   },
   langsmith: langSmithStrings,
   retention: retentionStrings,
+  untrusted: untrustedStrings,
 } as const;

@@ -5713,6 +5713,12 @@
           "inputs": {
             "description": "A JSON value."
           },
+          "linkHosts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "output": {
             "description": "A JSON value."
           },
@@ -6412,11 +6418,18 @@
           },
           "valid": {
             "type": "boolean"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Problem"
+            }
           }
         },
         "required": [
           "valid",
-          "problems"
+          "problems",
+          "warnings"
         ]
       },
       "VersionResponse": {

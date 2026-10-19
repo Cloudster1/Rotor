@@ -1,0 +1,10 @@
+description: Links to the run's own tools stay, so a summary can point at what it read.
+inputs: {key: X-12}
+answers:
+  get_issue: {url: "https://exciter.example/r/X-12"}
+model:
+  - calls: [{name: r_get_issue, args: {key: X-12}}]
+  - content: "Summary of https://exciter.example/r/X-12"
+expect:
+  executed: [get_issue]
+  output_with: ["https://exciter.example/r/X-12"]

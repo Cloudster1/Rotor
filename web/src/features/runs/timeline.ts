@@ -15,7 +15,8 @@ export type Entry =
   | { kind: "requested"; key: string; node: string; at: string; approval: string; group: string }
   | { kind: "decided"; key: string; node: string; at: string; approval: string; decision: string; by: string; comment: string }
   | { kind: "run"; key: string; node: string; at: string; status: string; reason: string; message: string }
-  | { kind: "lost"; key: string; node: string; at: string; replaced: boolean };
+  | { kind: "lost"; key: string; node: string; at: string; replaced: boolean }
+  | { kind: "links"; key: string; node: string; at: string; where: string; count: number; hosts: string[] };
 
 const text = (v: unknown): string => (typeof v === "string" ? v : v === undefined || v === null ? "" : JSON.stringify(v, null, 2));
 
@@ -97,6 +98,11 @@ export function entries(events: RunEvent[]): Entry[] {
       case "runner.lost":
         out.push({ ...base, kind: "lost", replaced: e.payload.replaced === true });
         break;
+      case "link.removed": {
+        const hosts = Array.isArray(e.payload.hosts) ? e.payload.hosts.map(text) : [];
+        out.push({ ...base, kind: "links", where: text(e.payload.where), count: Number(e.payload.count ?? hosts.length), hosts });
+        break;
+      }
     }
   }
   return out;
@@ -104,7 +110,18 @@ export function entries(events: RunEvent[]): Entry[] {
 
 const urls = /https?:\/\/[^\s"'<>\\)\]}]+/g;
 
-/** The web addresses a tool's answer names, such as the item it created, each once. */
-export function linksIn(answer: string): string[] {
-  return [...new Set(answer.match(urls) ?? [])];
+/** The host an address reaches, lowercased, or empty when it does not read as one. */
+function hostOf(address: string): string {
+  try {
+    return new URL(address).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+/** The web addresses a tool's answer names on the run's own tools, such as the item it created, each once; any other
+ * host stays text, so content cannot plant a link here (#40). */
+export function linksIn(answer: string, hosts: readonly string[]): string[] {
+  const allowed = new Set(hosts.map((h) => h.toLowerCase()));
+  return [...new Set(answer.match(urls) ?? [])].filter((address) => allowed.has(hostOf(address)));
 }

@@ -85,7 +85,7 @@ export async function renderAt(path: string, { me = ME as Me | null, answers = {
     "/api/v1/settings/langsmith": LANGSMITH_OFF,
     "/api/v1/settings/retention": RETENTION_DEFAULT,
     "/api/v1/schemas/workflow.v1.json": { $id: "https://rotor.dev/schemas/workflow.v1.json", type: "object" },
-    "POST /api/v1/workflows/validate": { valid: true, problems: [] },
+    "POST /api/v1/workflows/validate": { valid: true, problems: [], warnings: [] },
     ...answers,
   });
   // The router is made right below; a 401 can only arrive once it exists.

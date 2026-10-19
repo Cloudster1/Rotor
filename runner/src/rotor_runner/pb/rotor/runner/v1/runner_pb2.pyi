@@ -505,6 +505,7 @@ class ToolBinding(_message.Message):
     SCOPES_FIELD_NUMBER: _builtins.int
     ACCESS_FIELD_NUMBER: _builtins.int
     ALLOW_TOOLS_FIELD_NUMBER: _builtins.int
+    LINK_HOSTS_FIELD_NUMBER: _builtins.int
     binding: _builtins.str
     tool_id: _builtins.str
     mcp_url: _builtins.str
@@ -514,6 +515,10 @@ class ToolBinding(_message.Message):
     def scopes(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
     @_builtins.property
     def allow_tools(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
+    @_builtins.property
+    def link_hosts(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """link_hosts are the tool's public hosts, the only ones links an agent writes may point at (#40)."""
+
     def __init__(
         self,
         *,
@@ -523,10 +528,11 @@ class ToolBinding(_message.Message):
         scopes: _abc.Iterable[_builtins.str] | None = ...,
         access: _builtins.str = ...,
         allow_tools: _abc.Iterable[_builtins.str] | None = ...,
+        link_hosts: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["access", b"access", "allow_tools", b"allow_tools", "binding", b"binding", "mcp_url", b"mcp_url", "scopes", b"scopes", "tool_id", b"tool_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["access", b"access", "allow_tools", b"allow_tools", "binding", b"binding", "link_hosts", b"link_hosts", "mcp_url", b"mcp_url", "scopes", b"scopes", "tool_id", b"tool_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

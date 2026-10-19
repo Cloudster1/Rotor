@@ -42,7 +42,7 @@ export function RunPage({ runID }: { runID: string }) {
   const cancel = useMutation({
     mutationFn: () => cancelRun(runID),
     onSuccess: (cancelled) => {
-      client.setQueryData(runQuery(runID).queryKey, (before) => ({ ...cancelled, graph: before?.graph }));
+      client.setQueryData(runQuery(runID).queryKey, (before) => ({ ...cancelled, graph: before?.graph, linkHosts: before?.linkHosts }));
       void client.invalidateQueries({ queryKey: runsQueryKey });
       setConfirming(false);
     },
@@ -107,7 +107,7 @@ export function RunPage({ runID }: { runID: string }) {
       )}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         {r.graph && <RunGraph graph={r.graph} states={states} />}
-        <RunTimeline entries={timeline} live={live && !r.ended} />
+        <RunTimeline entries={timeline} live={live && !r.ended} hosts={r.linkHosts ?? []} />
       </div>
       {r.output !== null && (
         <section className="flex flex-col gap-2">

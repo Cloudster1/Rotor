@@ -14,6 +14,7 @@ export const EVENT_TYPES = [
   "approval.decided",
   "run.finished",
   "runner.lost",
+  "link.removed",
 ];
 
 /** The states a run never leaves; a run.finished saying one of them is the stream's last event. */

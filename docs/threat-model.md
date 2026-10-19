@@ -90,7 +90,7 @@ listed.
 | S | A stolen session cookie | HttpOnly, `Secure` outside development, `SameSite=Lax`; only its hash is stored; it lives 12 hours | Built (#6) |
 | T | Cross-site requests with the cookie | Same-site check and, in production, the origin check on every cookie-carried write | Built (#6) |
 | I | Script injection from tool content shown in a run | React escapes text; no markdown or HTML is rendered from tool or model content; a strict CSP in nginx | Built (#5, #24) |
-| I | A link in a run's timeline leading to a host a content author chose | Links shown only for the run's tools' hosts | Open #40 |
+| I | A link in a run's timeline leading to a host a content author chose | The timeline links only to the run's tools' hosts; any other address stays text | Built (#40) |
 | I | Clickjacking | `frame-ancestors 'none'`, `X-Frame-Options: DENY` | Built (#5) |
 
 ### api
@@ -183,14 +183,14 @@ listed.
 | S | A spoofed webhook delivery | HMAC-SHA256 of the timestamp and body with a secret from OpenBao | Built (#35) |
 | I | A token for one tool reaching another | Each token is minted for one tool's resource and the binding's scopes | Built (#12) |
 | E | A run doing more than its person may | The tool enforces the person's rights on every call; read bindings never write | Built (#12, #16) |
-| E | Content in a tool steering a run | See [the analysis](#untrusted-content-private-data-and-a-way-out) | Open #40, #32 |
+| E | Content in a tool steering a run | Fenced as data under a fixed policy, links limited, a warning on unapproved writes; see [the analysis](#untrusted-content-private-data-and-a-way-out) | Built (#40); write confirmation open #32 |
 
 ### LLM provider
 
 | | Threat | Mitigation | Status |
 |---|---|---|---|
 | I | Prompts carry tool content to the provider | An administrator chooses the provider; that is the purpose | Accepted |
-| T | A model answer steering a write | Read bindings, approvals; fencing tool content | Open #40 |
+| T | A model answer steering a write | Read bindings, approvals; tool content fenced as data; links in what an agent writes limited to the tools' hosts | Built (#40) |
 
 ### Traces and LangSmith
 
@@ -228,15 +228,20 @@ What stands in the way, from the outside in:
 - **People decide writes.** An approval node stops a run before its writes,
   and a trigger refuses any write not behind one (#31, #34). Approvals are
   enforced outside the sandbox.
-- **What is still to come:**
-  - Tool content is marked as data in every prompt, under a fixed system
-    policy.
-  - Links in a model's output and in the writes it makes are limited to the
-    tools' hosts.
-  - Validation warns about a workflow that reads and then writes without an
-    approval in between (#40).
-  - `confirmWrites` holds each write for a person (#32), blocked on narrower
-    tool tokens (Cloudster1/Exciter#235).
+- **Content is data (#40).** Every agent works under a fixed system policy,
+  and everything a prompt quotes, from tool answers, earlier steps and the
+  run's inputs, sits inside a fence with an id random to the sandbox; a
+  marker planted in content is defanged, so it cannot close one.
+- **Links lead only to the tools (#40).** A link in an agent's answer, its
+  streamed text or the arguments it sends a tool is removed unless its host
+  is one of the run's tools', and a `link.removed` event says so; the run's
+  page links only to those hosts.
+- **Unwatched writes are named (#40).** Validation warns about a workflow
+  that reads and then writes without an approval in between, and about an
+  agent that reads and writes in one step; saving still works.
+- **What is still to come:** `confirmWrites` holds each write for a person
+  (#32), blocked on narrower tool tokens (Cloudster1/Exciter#235). A code
+  node is the author's own code, so links it writes are not limited.
 
 Fencing lowers the chance a model follows planted text; it does not prevent
 it. The guarantees are the bindings, the approvals and the egress policy.
@@ -300,4 +305,4 @@ new one ends that.
 |---|---|---|---|
 | F2 | `approval: beforeWrite` is checked on save against a cached catalog, never again when a run starts | Medium | #90 |
 | F3 | Approval content is stored in clear | Medium | #91 |
-| | Tool content steers runs | High | #40, #32 |
+| | A steered model's writes wait for nobody without an approval node | High | #32 |

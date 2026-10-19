@@ -1,0 +1,7 @@
+description: A host that starts like a tool's host but belongs to someone else.
+inputs: {key: X-11}
+model:
+  - content: "Moved to https://exciter.example.evil.example/r/X-11"
+expect:
+  without: [evil.example]
+  output_with: ["[link removed]"]

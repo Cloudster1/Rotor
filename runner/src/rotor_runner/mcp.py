@@ -28,6 +28,8 @@ class Binding:
     scopes: tuple[str, ...]
     access: str
     allow_tools: tuple[str, ...]
+    # The tool's public hosts, where links in an agent's text may point (#40).
+    link_hosts: tuple[str, ...] = ()
 
     @property
     def writes(self) -> bool:

@@ -156,6 +156,8 @@ message ToolBinding {
   // access is read or write, as the spec declares it.
   string access = 5;
   repeated string allow_tools = 6;
+  // link_hosts are the tool's public hosts, the only ones links an agent writes may point at (#40).
+  repeated string link_hosts = 7;
 }
 
 // ModelConfig is the provider a run's agent nodes use; its key arrives in a SecretGrant.

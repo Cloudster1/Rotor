@@ -26,15 +26,25 @@ var groupName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 ._-]{0,99}$`)
 
 // Validate lists everything wrong with a spec: its YAML, schema and sense, then what the caller's tools tell.
 func (s *Service) Validate(ctx context.Context, source string) []spec.Problem {
+	problems, _ := s.Check(ctx, source)
+	return problems
+}
+
+// Check is Validate with the warnings too: what is allowed but may be unwise, such as a write that text read from
+// a tool could steer (#40). Warnings never stop a save.
+func (s *Service) Check(ctx context.Context, source string) (problems, warnings []spec.Problem) {
 	parsed, problems := spec.Parse([]byte(source))
-	if parsed == nil || len(problems) > 0 || s.catalog == nil {
-		return problems
+	if parsed == nil {
+		return problems, nil
 	}
-	catalog, err := s.catalog.For(ctx, parsed)
-	if err != nil {
-		return problems
+	var catalog spec.Catalog
+	if len(problems) == 0 && s.catalog != nil {
+		if found, err := s.catalog.For(ctx, parsed); err == nil {
+			catalog = found
+			problems = append(problems, parsed.CheckAgainst(found)...)
+		}
 	}
-	return append(problems, parsed.CheckAgainst(catalog)...)
+	return problems, parsed.Warnings(catalog)
 }
 
 // checked parses a spec for saving, refusing one with any problem.
