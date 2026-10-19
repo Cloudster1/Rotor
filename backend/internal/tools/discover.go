@@ -15,16 +15,15 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/config"
 )
 
-// Paths Rotor reads under a tool's base URL, and the capability it needs there.
+// Paths Rotor reads under a tool's base URL, and what it asks of the authorization server.
 const (
-	metaPath      = "/api/v1/meta"
-	mcpPath       = "/api/v1/mcp"
-	mcpCapability = "mcp@1"
-	resourceMeta  = "/.well-known/oauth-protected-resource"
-	serverMeta    = "/.well-known/oauth-authorization-server"
-	methodS256    = "S256"
-	authBasic     = "client_secret_basic"
-	authPost      = "client_secret_post"
+	metaPath     = "/api/v1/meta"
+	mcpPath      = "/api/v1/mcp"
+	resourceMeta = "/.well-known/oauth-protected-resource"
+	serverMeta   = "/.well-known/oauth-authorization-server"
+	methodS256   = "S256"
+	authBasic    = "client_secret_basic"
+	authPost     = "client_secret_post"
 )
 
 // discovery is everything Rotor learns about a tool before it registers there.
@@ -89,8 +88,8 @@ func (s *Service) discover(ctx context.Context, base string) (discovery, error) 
 	if d.Name == "" {
 		return d, refuse("The address %s answers %s without naming its product, so it is not a tool of the suite.", base, metaPath)
 	}
-	if !slices.Contains(d.Capabilities, mcpCapability) {
-		return d, refuse("%s does not offer %s, so Rotor cannot act in it. Upgrade it to a version with an MCP server.", title(d.Name), mcpCapability)
+	if m := Offered(d.Capabilities).Lacks(d.Name, CapabilityMCP); m != nil {
+		return d, &Refusal{Message: m.Message, cause: m}
 	}
 
 	var resource struct {

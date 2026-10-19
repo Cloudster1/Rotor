@@ -18,6 +18,7 @@ const EXCITER: Tool = {
   resource: "https://exciter.test/api/v1/mcp",
   issuer: "https://exciter.test",
   capabilities: ["mcp@1", "webhooks@2"],
+  missing: [],
   scopesSupported: ["mcp", "mcp:read"],
   registration: "dynamic",
   status: "ready",
@@ -168,6 +169,28 @@ describe("a tool's events", () => {
     await userEvent.type(await screen.findByLabelText(s.tools.hook.secret), "nope");
     await userEvent.click(screen.getByRole("button", { name: s.tools.hook.save }));
     expect(await screen.findByRole("alert")).toHaveTextContent(refusal);
+  });
+
+  it("are checked again on asking, and a tool that stopped sending webhooks says so instead of offering a hook", async () => {
+    let tool: Tool = EXCITER;
+    const sentence = "Exciter does not offer webhooks@1, which Rotor needs to start workflows from its events.";
+    const { fetch } = await renderAt("/settings", {
+      answers: {
+        "/api/v1/tools": () => Response.json({ tools: [tool] }),
+        [HOOK_PATH]: unset,
+        [`POST /api/v1/tools/${EXCITER.id}/check`]: () => {
+          tool = { ...EXCITER, capabilities: ["mcp@1"], missing: [{ capability: "webhooks@1", message: sentence }] };
+          return Response.json({ tool });
+        },
+      },
+    });
+    expect(await screen.findByLabelText(s.tools.hook.address)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: s.capabilities.checkAgain }));
+    expect(await screen.findByText(s.capabilities.lacks("Exciter", "webhooks@1"))).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(s.capabilities.checked("Exciter"));
+    expect(screen.queryByLabelText(s.tools.hook.address)).not.toBeInTheDocument();
+    const calls = fetch.mock.calls.map(([request]) => `${request.method} ${new URL(request.url).pathname}`);
+    expect(calls).toContain(`POST /api/v1/tools/${EXCITER.id}/check`);
   });
 
   it("are not offered to members, nor for a tool that sends none", async () => {

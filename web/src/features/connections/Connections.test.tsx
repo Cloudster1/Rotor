@@ -19,6 +19,7 @@ const EXCITER: Tool = {
   resource: "https://exciter.test/api/v1/mcp",
   issuer: "https://exciter.test",
   capabilities: ["mcp@1"],
+  missing: [],
   scopesSupported: ["mcp", "mcp:read"],
   registration: "dynamic",
   status: "ready",
@@ -93,6 +94,15 @@ describe("the connections", () => {
     expect(await within(exciter).findByRole("button", { name: s.connections.connect("Exciter") })).toBeInTheDocument();
     const calls = fetch.mock.calls.map(([request]) => `${request.method} ${new URL(request.url).pathname}`);
     expect(calls).toContain(`DELETE /api/v1/tools/${EXCITER.id}/connection`);
+  });
+
+  it("say what to update at a tool that stopped offering MCP, instead of offering to connect", async () => {
+    const outdated: Tool = { ...STATOR, missing: [{ capability: "mcp@1", message: "Stator does not offer mcp@1." }] };
+    await renderAt("/connections", { answers: { "/api/v1/tools": { tools: [outdated] }, "/api/v1/connections": { connections: [] } } });
+    const stator = await screen.findByRole("listitem", { name: "Stator" });
+    expect(within(stator).getByText(s.connections.status.outdated)).toBeInTheDocument();
+    expect(within(stator).getByText(s.capabilities.lacks("Stator", "mcp@1"))).toBeInTheDocument();
+    expect(within(stator).queryByRole("button", { name: s.connections.connect("Stator") })).not.toBeInTheDocument();
   });
 
   it("pass axe", async () => {

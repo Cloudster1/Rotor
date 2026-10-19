@@ -26,9 +26,14 @@ var (
 )
 
 // Refusal is a tool Rotor will not add, with the sentence an administrator reads.
-type Refusal struct{ Message string }
+type Refusal struct {
+	Message string
+	// cause is what the refusal rests on, such as a *Missing capability.
+	cause error
+}
 
 func (r *Refusal) Error() string { return r.Message }
+func (r *Refusal) Unwrap() error { return r.cause }
 
 func refuse(format string, args ...any) error { return &Refusal{Message: fmt.Sprintf(format, args...)} }
 

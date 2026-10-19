@@ -57,5 +57,20 @@ age=$(jq -r '.minimumReleaseAge // ""' "$SRC/renovate.json")
 [[ "${age%% *}" =~ ^[0-9]+$ && "${age%% *}" -ge 14 && "$age" == *day* ]] && pass "minimumReleaseAge is $age" \
   || fail "renovate.json's minimumReleaseAge is [$age]; Rotor takes no release younger than 14 days"
 
+echo "== suite.yml tests the pinned siblings and their main (#43)"
+SUITE="$SRC/.github/workflows/suite.yml"
+grep -q "'\[\"pinned\", \"main\"\]'" "$SUITE" && pass "the nightly runs a pinned and a main leg" \
+  || fail "suite.yml's matrix lacks the pinned and main legs"
+grep -q "matrix.against == 'main' && 'EXCITER_REF=main'" "$SUITE" && pass "only the main leg overrides the pinned commit" \
+  || fail "suite.yml does not override EXCITER_REF on the main leg alone"
+grep -q 'run: make tool-contracts-main test-contracts' "$SUITE" && pass "the main leg tests the contracts at main" \
+  || fail "suite.yml's main leg does not run make tool-contracts-main test-contracts"
+for tool in $(sed -n 's/^TOOL_REPO_\([a-z]*\) .*/\1/p' "$SRC/mk/tools.mk"); do
+  grep -q "for tool in .*\b$tool\b" "$SRC/mk/tools.mk" && pass "tool-contracts-main vendors $tool" \
+    || fail "tool-contracts-main leaves out $tool, so its main is never tested"
+done
+! grep -qE 'git (commit|push)|contents: write' "$SUITE" && pass "suite.yml never commits what it vendors" \
+  || fail "suite.yml may commit or push; the vendored main documents must stay in the working copy"
+
 if [[ $FAILED -eq 0 ]]; then echo "ci.yml tests passed"; else echo "ci.yml tests failed"; fi
 exit $FAILED

@@ -1,5 +1,7 @@
 # The tests against the real Exciter (#8): nightly, by hand, and on a pull request labelled suite. Building Exciter
-# adds minutes, so this is no required check; the gate in ci.yml tests against the tool-stub instead.
+# adds minutes, so this is no required check; the gate in ci.yml tests against the tool-stub instead. Besides the
+# pinned commits, the nightly tests the siblings' main, so a change that would break Rotor shows before it is
+# tagged (#43); a pull request tests the pinned ones only.
 name: Suite
 
 on:
@@ -18,10 +20,17 @@ permissions:
 
 jobs:
   test-suite:
-    name: test-suite
+    name: test-suite (${{ matrix.against }})
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'suite')
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        against: ${{ fromJSON(github.event_name == 'pull_request' && '["pinned"]' || '["pinned", "main"]') }}
+    env:
+      # Only the main leg overrides the pinned commit; the vendored documents it fetches are never committed.
+      SUITE_REFS: ${{ matrix.against == 'main' && 'EXCITER_REF=main' || '' }}
     steps:
       # The build stamp reads tags, which a shallow checkout does not carry.
       - uses: actions/checkout@v4
@@ -37,14 +46,18 @@ jobs:
             go-integration-${{ hashFiles('backend/go.sum') }}-
             go-integration-
 
+      - name: Hold the tool-stub and Rotor's reads to the siblings' main
+        if: matrix.against == 'main'
+        run: make tool-contracts-main test-contracts
+
       - name: Start Rotor's stack
         run: make stack-up
 
       - name: Start the suite's Exciter
-        run: make suite-up
+        run: make suite-up ${SUITE_REFS:+"$SUITE_REFS"}
 
       - name: Run the tests against Exciter
-        run: make test-suite
+        run: make test-suite ${SUITE_REFS:+"$SUITE_REFS"}
 
       - name: Say what the stacks logged
         if: failure()
@@ -56,7 +69,7 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: suite-reports
+          name: suite-reports-${{ matrix.against }}
           path: reports/
           retention-days: 7
           if-no-files-found: ignore

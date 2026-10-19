@@ -27,6 +27,17 @@ export async function removeTool(id: string): Promise<void> {
   await api.DELETE("/tools/{toolID}", { params: { path: { toolID: id } } });
 }
 
+/** Reads a tool's meta and metadata again, for a tool that was updated; the server answers with the tool. */
+export async function checkTool(id: string): Promise<Tool> {
+  const { data } = await api.POST("/tools/{toolID}/check", { params: { path: { toolID: id } } });
+  return data?.tool as Tool;
+}
+
+/** Whether the tool lacks a capability Rotor needs, by its exact name@version. */
+export function lacks(tool: Pick<Tool, "missing">, capability: string): boolean {
+  return (tool.missing ?? []).some((m) => m.capability === capability);
+}
+
 /** A product's name as a sentence writes it: exciter is Exciter. */
 export function toolName(tool: Pick<Tool, "name">): string {
   return tool.name.charAt(0).toUpperCase() + tool.name.slice(1);

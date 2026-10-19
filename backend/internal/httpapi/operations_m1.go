@@ -90,13 +90,15 @@ type toolResponse struct {
 	Name    string `json:"name"`
 	BaseURL string `json:"baseURL"`
 	// Resource is the MCP endpoint tokens are asked for (RFC 8707).
-	Resource        string           `json:"resource"`
-	Issuer          string           `json:"issuer"`
-	Capabilities    []string         `json:"capabilities"`
-	ScopesSupported []string         `json:"scopesSupported"`
-	Registration    toolRegistration `json:"registration"`
-	Status          toolStatus       `json:"status"`
-	AddedAt         time.Time        `json:"addedAt"`
+	Resource     string   `json:"resource"`
+	Issuer       string   `json:"issuer"`
+	Capabilities []string `json:"capabilities"`
+	// Missing is what Rotor needs that the tool does not offer; empty for a tool that offers it all.
+	Missing         []missingCapability `json:"missing"`
+	ScopesSupported []string            `json:"scopesSupported"`
+	Registration    toolRegistration    `json:"registration"`
+	Status          toolStatus          `json:"status"`
+	AddedAt         time.Time           `json:"addedAt"`
 }
 
 // addToolRequest names a tool by its address; a pre-registered client comes with its secret.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -116,8 +117,9 @@ func TestMetaNamesTheProductItsBuildAndWhatItOffers(t *testing.T) {
 	if build, _ := body["build"].(map[string]any); build["version"] == "" || build["version"] == nil {
 		t.Errorf("meta names no version: %v", body)
 	}
-	if caps, ok := body["capabilities"].([]any); !ok || len(caps) != 0 {
-		t.Errorf("capabilities should be an empty list, not absent: %v", body["capabilities"])
+	caps, _ := body["capabilities"].([]any)
+	if got := fmt.Sprint(caps); got != fmt.Sprint(capabilities()) {
+		t.Errorf("meta capabilities = %s, want %v", got, capabilities())
 	}
 }
 

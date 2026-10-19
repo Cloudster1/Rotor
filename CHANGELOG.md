@@ -9,6 +9,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Rotor joins the suite's capability names (#43). `GET /api/v1/meta` lists
+  `workflows@1`, `runs@1` and `hooks@1`, each held by a test to what the build
+  serves, and `docs/integration.md` says what each promises. Rotor reads what
+  each tool offers: a tool that does not offer `mcp@1` shows on the
+  Connections page as needing an update, and one without `webhooks@1` takes
+  no webhook secret. Administrators ask Rotor to read an updated tool again
+  with Check again under Settings, Tools, which keeps everyone's connection.
+  The nightly suite also runs against the siblings' main.
 - An approval's message, preview and values are ciphertext at rest too
   (#91), sealed with their run's data key; the inbox and the approval page
   read as before. Upgrading deletes the runs kept so far once more.

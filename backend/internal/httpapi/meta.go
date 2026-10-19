@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"net/http"
-	"slices"
 
 	"github.com/cloudster1/rotor/backend/internal/version"
 )
@@ -20,13 +19,6 @@ type metaResponse struct {
 	APIVersion string       `json:"apiVersion"`
 	// Capabilities are name@version, from the list the suite agrees in Dynamo, sorted.
 	Capabilities []string `json:"capabilities"`
-}
-
-// capabilities is what Rotor offers partners; none yet, so the list is empty rather than absent.
-func capabilities() []string {
-	out := []string{}
-	slices.Sort(out)
-	return out
 }
 
 func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request) {

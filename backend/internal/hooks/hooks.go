@@ -16,6 +16,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/tools"
 	"github.com/cloudster1/rotor/backend/internal/triggers"
 	"github.com/cloudster1/rotor/backend/internal/vault"
 )
@@ -45,6 +46,8 @@ type Hook struct {
 	Product        string
 	SecretSetAt    *time.Time
 	LastReceivedAt *time.Time
+	// Capabilities are what the tool listed when last asked, for whether it sends webhooks at all.
+	Capabilities []string
 }
 
 // Outcome is what became of a delivery that was let in.
@@ -82,8 +85,8 @@ func NewService(cluster *db.Cluster, secrets Secrets) *Service {
 func (s *Service) Get(ctx context.Context, toolID uuid.UUID) (Hook, error) {
 	h := Hook{ToolID: toolID}
 	err := s.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		return tx.QueryRow(ctx, `SELECT name, hook_secret_set_at, hook_last_received_at FROM tool WHERE id = $1`, toolID).
-			Scan(&h.Product, &h.SecretSetAt, &h.LastReceivedAt)
+		return tx.QueryRow(ctx, `SELECT name, hook_secret_set_at, hook_last_received_at, capabilities FROM tool WHERE id = $1`, toolID).
+			Scan(&h.Product, &h.SecretSetAt, &h.LastReceivedAt, &h.Capabilities)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Hook{}, ErrNotFound
@@ -97,11 +100,15 @@ func (s *Service) Get(ctx context.Context, toolID uuid.UUID) (Hook, error) {
 	return h, nil
 }
 
-// SetSecret keeps the secret the tool made for Rotor's webhook in OpenBao, after checking it is the tool's shape.
+// SetSecret keeps the secret the tool made for Rotor's webhook in OpenBao, after checking the tool sends webhooks and
+// the secret is its shape. A hook set before the tool stopped offering webhooks@1 keeps taking what arrives.
 func (s *Service) SetSecret(ctx context.Context, toolID uuid.UUID, secret string) (Hook, error) {
 	h, err := s.Get(ctx, toolID)
 	if err != nil {
 		return Hook{}, err
+	}
+	if m := tools.Offered(h.Capabilities).Lacks(h.Product, tools.CapabilityWebhooks); m != nil {
+		return Hook{}, m
 	}
 	secret = strings.TrimSpace(secret)
 	if !strings.HasPrefix(secret, h.Product+config.HookSecretSuffix) || len(secret) <= len(h.Product+config.HookSecretSuffix) ||
