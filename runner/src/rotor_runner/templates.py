@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from rotor_runner.policy import Fence
 
 TEMPLATE = re.compile(r"\{\{\s*((?:inputs|nodes)(?:\.[A-Za-z0-9_-]+)+)\s*\}\}")
 
@@ -36,3 +39,14 @@ def render(value: Any, state: dict[str, Any]) -> Any:
         return found if isinstance(found, str) else json.dumps(found, default=str)
 
     return TEMPLATE.sub(text, value)
+
+
+def render_prompt(template: str, state: dict[str, Any], fence: Fence) -> str:
+    """An agent's prompt with every value it quotes fenced as data (#40): only the author's own words instruct."""
+
+    def text(match: re.Match[str]) -> str:
+        found = lookup(state, match.group(1))
+        quoted = found if isinstance(found, str) else json.dumps(found, default=str)
+        return fence.wrap(match.group(1), quoted)
+
+    return TEMPLATE.sub(text, template)

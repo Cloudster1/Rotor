@@ -1380,6 +1380,7 @@ export interface components {
             id: string;
             /** @description A JSON value. */
             inputs: unknown;
+            linkHosts?: string[];
             /** @description A JSON value. */
             output: unknown;
             reason: string;
@@ -1551,6 +1552,7 @@ export interface components {
         ValidateResponse: {
             problems: components["schemas"]["Problem"][];
             valid: boolean;
+            warnings: components["schemas"]["Problem"][];
         };
         VersionResponse: {
             bindings: components["schemas"]["BindingRef"][];

@@ -284,7 +284,9 @@ class Channel:
     async def _run_workflow(self, start: pb.StartRun) -> Outcome:
         spec = parse(start.spec_yaml)
         bindings = {
-            b.binding: Binding(b.binding, b.mcp_url, tuple(b.scopes), b.access, tuple(b.allow_tools))
+            b.binding: Binding(
+                b.binding, b.mcp_url, tuple(b.scopes), b.access, tuple(b.allow_tools), tuple(b.link_hosts)
+            )
             for b in start.tools
         }
         model = None
@@ -309,6 +311,7 @@ class Channel:
             model=model,
             code=CodeNodeRunner(),
             tracing=self.tracing,
+            link_hosts=frozenset(h for b in bindings.values() for h in b.link_hosts),
         )
         inputs = json.loads(start.inputs_json or "{}")
         resume = json.loads(start.resume_json) if start.resume else None

@@ -16,6 +16,7 @@ import { RunDialog } from "@/features/runs/RunDialog";
 import { PageHeader } from "@/features/shell/EmptyState";
 import { TriggersSection } from "@/features/triggers/TriggersSection";
 import { s } from "@/strings";
+import { CheckList } from "./CheckList";
 import { SharePanel } from "./SharePanel";
 import { ToolPicker } from "./ToolPicker";
 import { NEW_WORKFLOW, fileName } from "./template";
@@ -52,6 +53,7 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
   const editor = useRef<YamlEditorHandle>(null);
   const [text, setText] = useState(existing?.version.specYAML ?? NEW_WORKFLOW);
   const [problems, setProblems] = useState<Problem[]>([]);
+  const [warnings, setWarnings] = useState<Problem[]>([]);
   const [checking, setChecking] = useState(false);
   const [comment, setComment] = useState("");
   const [running, setRunning] = useState(false);
@@ -65,7 +67,10 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
     const timer = setTimeout(async () => {
       try {
         const found = await validateWorkflow(text);
-        if (!cancelled) setProblems(found);
+        if (!cancelled) {
+          setProblems(found.problems);
+          setWarnings(found.warnings);
+        }
       } finally {
         if (!cancelled) setChecking(false);
       }
@@ -128,6 +133,7 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
             value={text}
             onChange={setText}
             problems={problems}
+            warnings={warnings}
             readOnly={readOnly}
             label={s.workflows.editor.label}
             describedBy={hintID}
@@ -135,30 +141,7 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
             handle={editor}
           />
           <div aria-live="polite" data-problems>
-            {checking ? (
-              <p className="text-sm text-ink-muted">{s.workflows.editor.checking}</p>
-            ) : problems.length === 0 ? (
-              <p className="text-sm text-ink">{s.workflows.editor.valid}</p>
-            ) : (
-              <>
-                <p className="text-sm font-medium text-danger">{s.workflows.editor.problems(problems.length)}</p>
-                <ul className="mt-1 flex flex-col gap-1">
-                  {problems.map((p) => (
-                    <li key={`${p.path}-${p.code}-${p.line}-${p.column}`}>
-                      <button
-                        type="button"
-                        className="text-left text-sm text-danger underline-offset-2 hover:underline"
-                        onClick={() => editor.current?.focusAt(p.line, p.column)}
-                        data-problem={p.code}
-                      >
-                        {p.line > 0 ? `${s.workflows.editor.at(p.line, p.column)}: ` : ""}
-                        {p.message}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
+            <CheckList checking={checking} problems={problems} warnings={warnings} focusAt={(line, column) => editor.current?.focusAt(line, column)} />
           </div>
           {!readOnly && (
             <div className="flex flex-col gap-3">

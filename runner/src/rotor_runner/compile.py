@@ -26,11 +26,14 @@ from langgraph.types import Command, interrupt
 from rotor_runner.config import DURATION_UNITS, LLM_FLUSH_CHARS
 from rotor_runner.events import EventSink, summary, top_node
 from rotor_runner.limits import RunEnded, TokenBudget, TokenBudgetError, failed
+from rotor_runner.links import LinkLimiter
 from rotor_runner.mcp import ToolFailedError, ToolGateway, ToolRefusedError
+from rotor_runner.policy import Fence, policy_text
 from rotor_runner.preview import preview
 from rotor_runner.spec import Spec
 from rotor_runner.telemetry import RunTracing
-from rotor_runner.templates import lookup, render
+from rotor_runner.templates import lookup, render, render_prompt
+from rotor_runner.untrusted import UntrustedResults, report_removed
 from rotor_runner.usage import UsageReporter
 
 OUTPUT_TOOL = "submit_output"
@@ -61,6 +64,13 @@ class RunContext:
     model: Callable[[], BaseChatModel] | None = None
     code: CodeRunner | None = None
     tracing: RunTracing = field(default_factory=RunTracing)
+    # The public hosts of the run's tools, the only ones an agent's links may name (#40).
+    link_hosts: frozenset[str] = frozenset()
+    fence: Fence = field(default_factory=Fence)
+    links: LinkLimiter = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.links = LinkLimiter(self.link_hosts)
 
 
 @dataclass
@@ -92,14 +102,22 @@ def _agent(node: dict[str, Any], ctx: RunContext) -> Callable[..., Any]:
         response_format: ToolStrategy[dict[str, Any]] | None = (
             ToolStrategy({**copy.deepcopy(schema), "title": OUTPUT_TOOL}) if schema else None
         )
-        agent = create_agent(ctx.model(), tools, response_format=response_format)
-        prompt = render(node["prompt"], cast(dict[str, Any], state))
-        result = await agent.ainvoke({"messages": [HumanMessage(str(prompt))]}, config)
+        agent = create_agent(
+            ctx.model(),
+            tools,
+            system_prompt=policy_text(ctx.link_hosts),
+            middleware=[UntrustedResults(ctx.fence, ctx.links, ctx.emit, node["id"])],
+            response_format=response_format,
+        )
+        prompt = render_prompt(str(node["prompt"]), cast(dict[str, Any], state), ctx.fence)
+        result = await agent.ainvoke({"messages": [HumanMessage(prompt)]}, config)
         if schema:
             value = result.get("structured_response")
         else:
             last = next((m for m in reversed(result["messages"]) if isinstance(m, AIMessage)), None)
             value = {"text": last.text if last else ""}
+        value, removed = ctx.links.limit_value(value)
+        await report_removed(ctx.emit, node["id"], "output", removed)
         return {"nodes": {node["id"]: check_output(node, value)}}
 
     return run
@@ -256,9 +274,12 @@ async def _run_workflow(
         start = None
     buffers: dict[str, str] = {}
 
-    async def flush(node: str) -> None:
-        if buffers.get(node):
-            await ctx.emit("llm.output", node, {"text": buffers.pop(node)})
+    async def flush(node: str, done: bool = True) -> None:
+        head, rest = whole_words(buffers.pop(node, ""), done)
+        if rest:
+            buffers[node] = rest
+        if head:
+            await ctx.emit("llm.output", node, {"text": ctx.links.limit(head)[0]})
 
     try:
         async with asyncio.timeout(_seconds(str(limits["timeout"]))):
@@ -269,7 +290,7 @@ async def _run_workflow(
                         node = top_node(metadata)
                         buffers[node] = buffers.get(node, "") + message.text
                         if len(buffers[node]) >= LLM_FLUSH_CHARS:
-                            await flush(node)
+                            await flush(node, done=False)
                 elif mode == "tasks" and not str(chunk.get("name", "")).startswith("__"):
                     node = str(chunk["name"])
                     if "result" in chunk or "error" in chunk:
@@ -304,6 +325,13 @@ async def _run_workflow(
         value = waiting[0].value if isinstance(waiting[0].value, dict) else {"message": str(waiting[0].value)}
         return Outcome("interrupted", "", interrupt={**value, "id": waiting[0].id})
     return Outcome("succeeded", "", cast(dict[str, Any], snapshot.values.get("nodes", {})))
+
+
+def whole_words(text: str, done: bool) -> tuple[str, str]:
+    """Streamed text split into what may go now and what waits: mid-stream only whole words go, so a link is never
+    cut in two before it is limited (#40)."""
+    cut = len(text) if done else max(text.rfind(" "), text.rfind("\n")) + 1
+    return text[:cut], text[cut:]
 
 
 def _seconds(duration: str) -> float:

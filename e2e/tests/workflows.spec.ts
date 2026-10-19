@@ -103,3 +103,52 @@ test("a workflow shared with a group is seen by its members, read only, and by n
     }
   }
 });
+
+/** Reads from a tool and then writes through it, with no approval between; short lines, so the editor never scrolls sideways. */
+function readThenWrite(name: string): string {
+  return [
+    "apiVersion: rotor.dev/v1",
+    "kind: Workflow",
+    `metadata: {name: ${name}}`,
+    "tools:",
+    "  r:",
+    "    tool: e2e-no-such-tool",
+    "    scopes: [mcp:read]",
+    "    allowTools: [get_requirement]",
+    "  w:",
+    "    tool: e2e-no-such-tool",
+    "    scopes: [mcp]",
+    "    access: write",
+    "    allowTools: [create_requirement]",
+    "limits: {maxSteps: 5, timeout: 1m}",
+    "entry: read",
+    "nodes:",
+    "  - id: read",
+    "    type: tool",
+    "    tool: r",
+    "    call: get_requirement",
+    "    arguments: {key: R-1}",
+    "  - id: write",
+    "    type: tool",
+    "    tool: w",
+    "    call: create_requirement",
+    '    arguments: {title: "{{ nodes.read.title }}"}',
+    "edges:",
+    "  - {from: read, to: write}",
+    "",
+  ].join("\n");
+}
+
+for (const scheme of SCHEMES) {
+  test(`the editor warns about a write that what it read could steer, in ${scheme} @desktop`, async ({ page }) => {
+    await startInScheme(page, scheme);
+    await page.goto("/workflows/new");
+    await expect(page.locator("[data-yaml-editor] .cm-content")).toBeVisible();
+    await replaceText(page, readThenWrite(`e2e-${randomUUID().slice(0, 12)}`));
+    const warnings = page.locator("[data-problems] [data-warnings]");
+    await expect(warnings.locator('[data-warning="untrusted_then_write"]')).toContainText("Put an approval node between them");
+    await expect(warnings).toContainText("Saving still works");
+    await expect(page.locator(".cm-lint-marker-warning, .cm-lintRange-warning").first()).toBeVisible();
+    await expectAccessible(page);
+  });
+}

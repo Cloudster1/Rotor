@@ -21,6 +21,7 @@ type fakeWorkflows struct {
 	saved    int
 	shared   []string
 	problems []spec.Problem
+	warnings []spec.Problem
 }
 
 func (f *fakeWorkflows) List(context.Context, bool) ([]workflows.Workflow, error) {
@@ -50,7 +51,9 @@ func (f *fakeWorkflows) Diff(_ context.Context, _ uuid.UUID, from, to int) (work
 		Lines: []workflows.Line{{Op: workflows.OpDelete, Text: "a"}, {Op: workflows.OpInsert, Text: "b"}}}}}, nil
 }
 
-func (f *fakeWorkflows) Validate(context.Context, string) []spec.Problem { return f.problems }
+func (f *fakeWorkflows) Check(context.Context, string) ([]spec.Problem, []spec.Problem) {
+	return f.problems, f.warnings
+}
 
 func (f *fakeWorkflows) Create(context.Context, string, string) (uuid.UUID, error) {
 	if len(f.problems) > 0 {
@@ -150,6 +153,21 @@ func TestValidatingAndCreatingNameEachProblem(t *testing.T) {
 	store.problems = nil
 	if resp, _ := serve(t, s.Routes(nil), withSession(httptestRequest(http.MethodPost, APIPrefix+"/workflows", `{"specYAML":"x"}`), "alice")); resp.StatusCode != http.StatusCreated {
 		t.Errorf("create = %d", resp.StatusCode)
+	}
+}
+
+func TestAWarningLeavesAWorkflowValidAndSavable(t *testing.T) {
+	s, store := workflowServer(t)
+	store.warnings = []spec.Problem{{Path: "/nodes/1", Line: 9, Column: 3, Code: spec.CodeUntrustedWrite, Message: "Put an approval node between them."}}
+	resp, body := serve(t, s.Routes(nil), withSession(httptestRequest(http.MethodPost, APIPrefix+"/workflows/validate", `{"specYAML":"x"}`), "alice"))
+	warnings, _ := body["warnings"].([]any)
+	problems, _ := body["problems"].([]any)
+	if resp.StatusCode != http.StatusOK || body["valid"] != true || len(problems) != 0 || len(warnings) != 1 ||
+		warnings[0].(map[string]any)["code"] != spec.CodeUntrustedWrite {
+		t.Fatalf("validate with a warning = %d %v", resp.StatusCode, body)
+	}
+	if resp, _ := serve(t, s.Routes(nil), withSession(httptestRequest(http.MethodPost, APIPrefix+"/workflows", `{"specYAML":"x"}`), "alice")); resp.StatusCode != http.StatusCreated {
+		t.Errorf("create with a warning = %d", resp.StatusCode)
 	}
 }
 

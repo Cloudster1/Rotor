@@ -73,3 +73,10 @@ SPAN_ID_BYTES = 8
 # prctl options from <linux/prctl.h>; the runner clears its dumpable flag so code nodes cannot read it (#89).
 PR_GET_DUMPABLE = 3
 PR_SET_DUMPABLE = 4
+
+# Untrusted content (#40): the tag that fences what a prompt quotes from tools, steps and inputs, the random bytes of
+# a fence's id, what a link to a host no tool has becomes, and how many such hosts a link.removed event names.
+UNTRUSTED_TAG = "untrusted-data"
+FENCE_ID_BYTES = 8
+LINK_REMOVED = "[link removed]"
+LINK_EVENT_HOSTS = 5

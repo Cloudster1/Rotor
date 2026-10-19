@@ -10,9 +10,9 @@ import pytest
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.tools import BaseTool, StructuredTool
 from langgraph.checkpoint.memory import InMemorySaver
-from support import ToolCallingModel
+from support import StreamingModel, ToolCallingModel
 
-from rotor_runner.compile import Outcome, RunContext, run_workflow
+from rotor_runner.compile import Outcome, RunContext, run_workflow, whole_words
 from rotor_runner.mcp import Binding, ToolFailedError, ToolRefusedError, allowed
 from rotor_runner.spec import parse
 from rotor_runner.templates import render
@@ -219,6 +219,32 @@ async def test_an_agent_without_a_schema_answers_text_and_one_breaking_its_schem
     nodes = "  - {id: a, type: agent, prompt: Draft, output: {schema: {type: object, required: [statement]}}}"
     outcome, _ = await events_of(workflow(nodes), {}, model=bad)
     assert (outcome.status, outcome.reason) == ("failed", "output_schema")
+
+
+async def test_an_agents_answer_keeps_links_to_its_tools_only() -> None:
+    text = "see https://evil.example/x?d=secret and https://exciter.example/r/1"
+    seen: list[tuple[str, str, dict[str, Any]]] = []
+
+    async def emit(kind: str, node: str, payload: dict[str, Any]) -> None:
+        seen.append((kind, node, payload))
+
+    ctx = RunContext(
+        spec=parse(workflow("  - {id: a, type: agent, prompt: Say hello}")),
+        tools=FakeTools({}),
+        emit=emit,
+        model=lambda: StreamingModel(messages=iter([AIMessage(text)])),
+        link_hosts=frozenset({"exciter.example"}),
+    )
+    outcome = await run_workflow(ctx, {}, thread_id="t-links")
+    assert outcome.output["a"]["text"] == "see [link removed] and https://exciter.example/r/1"
+    assert ("link.removed", "a", {"where": "output", "count": 1, "hosts": ["evil.example"]}) in seen
+
+
+def test_streamed_text_goes_out_in_whole_words_so_no_link_is_cut_before_it_is_limited() -> None:
+    assert whole_words("see https://evil.exa", done=False) == ("see ", "https://evil.exa")
+    assert whole_words("no space yet", done=False) == ("no space ", "yet")
+    assert whole_words("https://evil.exa", done=False) == ("", "https://evil.exa")
+    assert whole_words("the end", done=True) == ("the end", "")
 
 
 async def test_an_agent_without_a_model_fails_saying_so() -> None:

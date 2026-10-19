@@ -24,7 +24,7 @@ type Workflows interface {
 	Versions(ctx context.Context, id uuid.UUID) ([]workflows.Version, error)
 	Version(ctx context.Context, id uuid.UUID, number int) (workflows.Version, error)
 	Diff(ctx context.Context, id uuid.UUID, from, to int) (workflows.Diff, error)
-	Validate(ctx context.Context, source string) []spec.Problem
+	Check(ctx context.Context, source string) (problems, warnings []spec.Problem)
 	Create(ctx context.Context, source, comment string) (uuid.UUID, error)
 	Save(ctx context.Context, id uuid.UUID, source, comment string, base int) error
 	Share(ctx context.Context, id uuid.UUID, sharing string, groups []string) error
@@ -312,12 +312,18 @@ func (s *Server) handleValidateWorkflow(w http.ResponseWriter, r *http.Request) 
 	if !s.workflowsReady(w, r) {
 		return
 	}
-	problems := s.Workflows.Validate(r.Context(), req.SpecYAML)
-	out := validateResponse{Valid: len(problems) == 0, Problems: make([]problem, 0, len(problems))}
-	for _, p := range problems {
-		out.Problems = append(out.Problems, problem{Path: p.Path, Line: p.Line, Column: p.Column, Code: p.Code, Message: p.Message})
+	problems, warnings := s.Workflows.Check(r.Context(), req.SpecYAML)
+	respondJSON(w, r, http.StatusOK, validateResponse{Valid: len(problems) == 0, Problems: toProblems(problems),
+		Warnings: toProblems(warnings)})
+}
+
+// toProblems is problems as the API shows them, never null.
+func toProblems(in []spec.Problem) []problem {
+	out := make([]problem, 0, len(in))
+	for _, p := range in {
+		out = append(out, problem{Path: p.Path, Line: p.Line, Column: p.Column, Code: p.Code, Message: p.Message})
 	}
-	respondJSON(w, r, http.StatusOK, out)
+	return out
 }
 
 func (s *Server) handleWorkflowSchema(w http.ResponseWriter, r *http.Request) {

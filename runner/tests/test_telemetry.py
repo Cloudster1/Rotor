@@ -69,7 +69,9 @@ async def test_a_model_call_has_a_span_with_its_model_and_text_only_when_allowed
 
     told = {s.name.split(" ")[0]: s for s in await traced_run(True, [AIMessage(f"Hello {SECRET}")], nodes)}
     attributes = told["llm"].attributes
-    assert attributes["gen_ai.prompt.0.content"] == "Say hello"
+    # The fixed policy (#40) leads every prompt, the author's words follow.
+    assert str(attributes["gen_ai.prompt.0.content"]).startswith("You are one step of a workflow")
+    assert attributes["gen_ai.prompt.1.content"] == "Say hello"
     assert attributes["gen_ai.completion.0.content"] == "Hello [redacted]", "the runner's redactor runs over spans"
 
 

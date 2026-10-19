@@ -78,3 +78,29 @@ backend and the runner; a test on each side refuses a copy that differs.
   approvals and usage go with them; triggers and firings forget them. Each batch writes one `run.data_deleted` entry
   per workflow, `{workflowName, runs, oldestFinishedAt, newestFinishedAt}`, with no actor. Daily usage totals and the
   audit log are never deleted.
+
+## Untrusted tool content (#40)
+
+Content a run reads is data, and links an agent writes lead only to the run's tools. No migration.
+
+- **The runner protocol:** `ToolBinding.link_hosts = 7` names the hosts a person reaches the binding's tool at, from
+  the tool's address and its MCP resource (`tools.Tool.LinkHosts`), never the address the sandbox dials.
+- **The prompt:** every agent node gets the fixed system policy of `rotor_runner/policy.py`. Each value a prompt
+  quotes and each tool answer is fenced as `<untrusted-data id="ID" source="SOURCE">` ... `</untrusted-data
+  id="ID">`, with `ID` 16 random hex characters per sandbox (`FENCE_ID_BYTES` = 8) and any marker inside defanged.
+- **Links:** a link whose host is not exactly one of the run's link hosts becomes `[link removed]` (`LINK_REMOVED`), in
+  an agent's answer, its streamed `llm.output` text and the arguments of the tool calls it makes. Code nodes and tool
+  nodes are not changed.
+- **A new event, `link.removed`:**
+
+  | Field | Value |
+  |---|---|
+  | `where` | `output` or `arguments` |
+  | `count` | how many links were removed |
+  | `hosts` | the hosts they named, sorted, at most `LINK_EVENT_HOSTS` = 5 |
+  | `tool` | the call whose arguments held them, for `arguments` |
+
+- **`POST /workflows/validate`** answers `warnings` beside `problems`, in the same shape. A warning never makes
+  `valid` false and never stops a save. The one warning so far is `untrusted_then_write`.
+- **`GET /runs/{runID}`** answers `linkHosts`: the hosts of the tools the run's pinned version binds, sorted. The page
+  makes links only to them; a list of runs leaves it out.

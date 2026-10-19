@@ -34,6 +34,7 @@ const RUN: Run = {
   approvalId: null,
   trigger: null,
   usage: { inputTokens: 0, outputTokens: 0, cost: 0 },
+  linkHosts: ["exciter.example"],
   graph: {
     entry: "ask",
     nodes: [
@@ -73,7 +74,7 @@ describe("a run, live", () => {
       binding: "t",
       tool: "create_requirement",
       arguments: { title: "Login" },
-      resultSummary: '{"url": "https://exciter.example/r/RTR-7"}',
+      resultSummary: '{"url": "https://exciter.example/r/RTR-7", "planted": "https://evil.example/x"}',
       ok: true,
     });
     send("node.finished", "ask", { ok: true });
@@ -89,6 +90,14 @@ describe("a run, live", () => {
     expect(node("ask")).toHaveAttribute("data-node-state", "done");
     await userEvent.click(within(timeline).getByText(s.runs.live.called("create_requirement", "t")));
     expect(within(timeline).getByRole("link", { name: "https://exciter.example/r/RTR-7" })).toHaveAttribute("href", "https://exciter.example/r/RTR-7");
+    // A host none of the run's tools has is never a link (#40).
+    expect(within(timeline).queryByRole("link", { name: "https://evil.example/x" })).toBeNull();
+    send("link.removed", "draft", { where: "output", count: 1, hosts: ["evil.example"] });
+    await waitFor(() =>
+      expect(timeline.querySelector("[data-links-removed]")?.textContent).toBe(
+        `${s.untrusted.linksRemovedWhere.output}: ${s.untrusted.linksRemoved(1, ["evil.example"])}`,
+      ),
+    );
     expect(await axeViolations()).toEqual([]);
 
     const before = asked;

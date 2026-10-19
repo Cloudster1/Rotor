@@ -26,6 +26,7 @@ type Runs interface {
 	Cancel(ctx context.Context, id uuid.UUID) (runs.Run, error)
 	Follow(ctx context.Context, id uuid.UUID, after int64, to runs.Stream) error
 	Graph(ctx context.Context, r runs.Run) (spec.Graph, error)
+	LinkHosts(ctx context.Context, r runs.Run) []string
 }
 
 // idempotencyHeader names the header a client retries a start with.
@@ -209,6 +210,7 @@ func (s *Server) handleGetRun(w http.ResponseWriter, r *http.Request) {
 	if graph, err := s.Runs.Graph(r.Context(), run); err == nil {
 		out.Graph = &graph
 	}
+	out.LinkHosts = s.Runs.LinkHosts(r.Context(), run)
 	respondJSON(w, r, http.StatusOK, out)
 }
 

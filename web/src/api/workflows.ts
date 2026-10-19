@@ -82,10 +82,13 @@ export const catalogQuery = (toolID: string) =>
     retry: false,
   });
 
+/** What checking a workflow found: problems stop a save, warnings do not (#40). */
+export type Checked = { problems: Problem[]; warnings: Problem[] };
+
 /** Checks YAML without saving it. */
-export async function validateWorkflow(specYAML: string): Promise<Problem[]> {
+export async function validateWorkflow(specYAML: string): Promise<Checked> {
   const { data } = await api.POST("/workflows/validate", { body: { specYAML } });
-  return (data?.problems ?? []) as Problem[];
+  return { problems: (data?.problems ?? []) as Problem[], warnings: (data?.warnings ?? []) as Problem[] };
 }
 
 export async function createWorkflow(specYAML: string, comment: string): Promise<WorkflowResponse> {

@@ -140,6 +140,35 @@ When a workflow is saved, and again when a run starts:
 
 Each problem names where it is, by line and column, and what to do about it.
 
+When saving, a workflow can also get **warnings**, which never stop a save:
+- `untrusted_then_write`: a node may write after another read from a tool,
+  with no approval node in between, or an agent or code node both reads and
+  may write in one step. Text in what was read could steer the write; read in
+  one node, put an approval node after it, and write in the next.
+
+## Content a run reads (#40)
+
+Anyone who can write an issue, a requirement, a wiki page or a tool event can
+put text in front of a run's model. Rotor treats all of it as data:
+- **A fixed policy.** Every agent node starts with the same system prompt: only
+  the request outside the fences says what to do, and links may point only at
+  the run's tools.
+- **Fences.** Every value a prompt quotes with `{{ ... }}`, and every answer a
+  tool gives an agent, is wrapped in
+  `<untrusted-data id="..." source="...">`, closed by
+  `</untrusted-data id="...">`. The id is random for each sandbox, and a marker
+  inside the content is defanged, so content cannot close its fence. Only the
+  words you write in `prompt` instruct.
+- **Links.** A link in an agent's answer, its streamed text or the arguments it
+  sends a tool is replaced by `[link removed]` unless its host is one of the
+  run's tools' hosts, and the run's timeline says so. The run's page makes
+  links only to those hosts too. Code nodes are your own code, so their links
+  are left as written.
+
+Fences make a model less likely to follow planted text; they do not make it
+impossible. What a run can do stays bounded by its bindings, its approval nodes
+and its sandbox's network.
+
 ## Examples
 
 [`examples/`](../examples) holds workflows to start from; the Go and Python checks validate each, and

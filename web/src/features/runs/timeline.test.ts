@@ -56,9 +56,23 @@ describe("a run's timeline", () => {
   });
 
   it("finds the web addresses a tool's answer names, each once", () => {
-    expect(linksIn('{"url": "https://exciter.example/r/RTR-1", "again": "https://exciter.example/r/RTR-1", "x": "ftp://no"}')).toEqual([
+    expect(linksIn('{"url": "https://exciter.example/r/RTR-1", "again": "https://exciter.example/r/RTR-1", "x": "ftp://no"}', ["exciter.example"])).toEqual([
       "https://exciter.example/r/RTR-1",
     ]);
+  });
+
+  it("links only to the run's tools, so planted content stays text", () => {
+    const answer =
+      '{"a": "https://Exciter.Example/r/1", "b": "https://evil.example/x", "c": "https://exciter.example@evil.example/y", "d": "https://exciter.example.evil.example/z"}';
+    expect(linksIn(answer, ["exciter.example"])).toEqual(["https://Exciter.Example/r/1"]);
+    expect(linksIn(answer, [])).toEqual([]);
+  });
+
+  it("says where links to other hosts were removed", () => {
+    const lines = entries([
+      { seq: 1, type: "link.removed", node: "draft", at: "2026-10-19T10:00:00Z", payload: { where: "output", count: 2, hosts: ["evil.example"] } },
+    ]);
+    expect(lines).toMatchObject([{ kind: "links", node: "draft", where: "output", count: 2, hosts: ["evil.example"] }]);
   });
 });
 

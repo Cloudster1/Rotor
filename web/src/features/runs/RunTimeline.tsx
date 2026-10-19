@@ -9,7 +9,7 @@ function time(at: string): string {
 }
 
 /** What one entry says, in words, with a tool call's arguments and answer folded away until asked for. */
-function Line({ entry }: { entry: Entry }) {
+function Line({ entry, hosts }: { entry: Entry; hosts: readonly string[] }) {
   const t = s.runs.live;
   switch (entry.kind) {
     case "started":
@@ -23,7 +23,7 @@ function Line({ entry }: { entry: Entry }) {
         </p>
       );
     case "tool": {
-      const links = linksIn(entry.result);
+      const links = linksIn(entry.result, hosts);
       return (
         <details data-tool-call={entry.tool}>
           <summary className={`cursor-pointer ${entry.ok ? "" : "text-danger"}`}>
@@ -99,11 +99,21 @@ function Line({ entry }: { entry: Entry }) {
       );
     case "lost":
       return <p className="text-warning">{entry.replaced ? t.replaced : t.lost}</p>;
+    case "links": {
+      const u = s.untrusted;
+      const where = u.linksRemovedWhere[entry.where as keyof typeof u.linksRemovedWhere];
+      return (
+        <p className="text-warning" data-links-removed>
+          {where ? `${where}: ` : ""}
+          {u.linksRemoved(entry.count, entry.hosts)}
+        </p>
+      );
+    }
   }
 }
 
-/** The run's events in order, in words; it grows as the run goes on. */
-export function RunTimeline({ entries, live }: { entries: Entry[]; live: boolean }) {
+/** The run's events in order, in words; it grows as the run goes on. Links go only to hosts, the run's tools. */
+export function RunTimeline({ entries, live, hosts = [] }: { entries: Entry[]; live: boolean; hosts?: readonly string[] }) {
   return (
     <section aria-labelledby="run-timeline-title" className="flex min-w-0 flex-col gap-2" data-run-timeline>
       <h2 id="run-timeline-title" className="text-lg font-semibold text-ink">
@@ -117,7 +127,7 @@ export function RunTimeline({ entries, live }: { entries: Entry[]; live: boolean
               {time(entry.at)}
             </time>
             <div className="min-w-0 flex-1">
-              <Line entry={entry} />
+              <Line entry={entry} hosts={hosts} />
             </div>
           </li>
         ))}

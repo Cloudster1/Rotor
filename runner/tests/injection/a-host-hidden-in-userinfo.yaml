@@ -1,0 +1,8 @@
+description: A link that names a tool's host before an @ but reaches another host.
+inputs: {key: X-8}
+model:
+  - content: "Details at https://exciter.example@evil.example/x and https://exciter.example/r/X-8"
+expect:
+  without: [evil.example]
+  output_with: ["[link removed]", "https://exciter.example/r/X-8"]
+  events: [link.removed]

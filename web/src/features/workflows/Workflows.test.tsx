@@ -132,6 +132,33 @@ describe("the workflows", () => {
     await waitFor(() => expect(saved).toEqual(expect.objectContaining({ baseVersion: 2, comment: "Shorter prompt" })));
   });
 
+  it("warn about a write that what it read could steer, and still save (#40)", async () => {
+    let saved = false;
+    const message = "write may write through w after read read from a tool, with no approval in between. Put an approval node between them.";
+    await renderAt(`/workflows/${TRIAGE.id}`, {
+      answers: {
+        ...workflowAnswers(),
+        "POST /api/v1/workflows/validate": {
+          valid: true,
+          problems: [],
+          warnings: [{ path: "/nodes/1", line: 9, column: 5, code: "untrusted_then_write", message }],
+        },
+        [`PUT /api/v1/workflows/${TRIAGE.id}`]: () => {
+          saved = true;
+          return Response.json(RESPONSE);
+        },
+      },
+    });
+    const warning = await screen.findByRole("button", { name: new RegExp(message) });
+    expect(warning).toHaveTextContent(s.workflows.editor.at(9, 5));
+    expect(warning).toHaveAttribute("data-warning", "untrusted_then_write");
+    expect(screen.getByText(s.untrusted.warnings(1))).toBeInTheDocument();
+    expect(screen.getByText(s.workflows.editor.valid)).toBeInTheDocument();
+    expect(await axeViolations()).toEqual([]);
+    await userEvent.click(screen.getByRole("button", { name: s.workflows.editor.save }));
+    await waitFor(() => expect(saved).toBe(true));
+  });
+
   it("show what changed between versions, and share with a group", async () => {
     let shared: unknown;
     await renderAt(`/workflows/${TRIAGE.id}`, {

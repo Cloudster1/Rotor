@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strconv"
 	"time"
 
@@ -136,17 +137,48 @@ func (s *Service) sendNew(ctx context.Context, runID uuid.UUID, after *int64, to
 
 // Graph is the graph of the run's pinned version, for its page; the caller must be allowed to see the run.
 func (s *Service) Graph(ctx context.Context, r Run) (spec.Graph, error) {
+	parsed, err := s.pinnedSpec(ctx, r)
+	if err != nil {
+		return spec.Graph{}, err
+	}
+	return parsed.Graph(), nil
+}
+
+// LinkHosts are the hosts of the tools the run's pinned version binds, the only ones its page links to (#40).
+func (s *Service) LinkHosts(ctx context.Context, r Run) []string {
+	parsed, err := s.pinnedSpec(ctx, r)
+	if err != nil || s.tools == nil {
+		return nil
+	}
+	var out []string
+	for _, b := range parsed.Tools {
+		tool, err := s.tools.ByName(ctx, b.Tool)
+		if err != nil {
+			continue
+		}
+		for _, host := range tool.LinkHosts() {
+			if !slices.Contains(out, host) {
+				out = append(out, host)
+			}
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+// pinnedSpec is the run's pinned version, read as the control plane; the caller must be allowed to see the run.
+func (s *Service) pinnedSpec(ctx context.Context, r Run) (*spec.Spec, error) {
 	var source string
 	err := s.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		return tx.QueryRow(ctx, `SELECT spec_yaml FROM workflow_version WHERE workflow_id = $1 AND number = $2`,
 			r.WorkflowID, r.Version).Scan(&source)
 	})
 	if err != nil {
-		return spec.Graph{}, err
+		return nil, err
 	}
 	parsed, _ := spec.Parse([]byte(source))
 	if parsed == nil {
-		return spec.Graph{}, errors.New("the run's version no longer reads")
+		return nil, errors.New("the run's version no longer reads")
 	}
-	return parsed.Graph(), nil
+	return parsed, nil
 }

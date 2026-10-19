@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -64,6 +66,22 @@ type Tool struct {
 	Registration          string
 	Status                string
 	AddedAt               time.Time
+}
+
+// LinkHosts are the hosts a person reaches the tool at, from its address and its MCP resource: the only ones a run's
+// agent may write links to (#40).
+func (t Tool) LinkHosts() []string {
+	var out []string
+	for _, address := range []string{t.BaseURL, t.Resource} {
+		u, err := url.Parse(address)
+		if err != nil || u.Hostname() == "" {
+			continue
+		}
+		if host := strings.ToLower(u.Hostname()); !slices.Contains(out, host) {
+			out = append(out, host)
+		}
+	}
+	return out
 }
 
 // Secrets is what the registry keeps in OpenBao; *vault.Client is the real one.

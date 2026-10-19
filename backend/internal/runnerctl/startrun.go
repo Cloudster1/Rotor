@@ -118,7 +118,7 @@ func (s *Server) resolve(ctx context.Context, r *run) ([]*runnerpb.ToolBinding, 
 			mcpURL = s.Reach(mcpURL)
 		}
 		out = append(out, &runnerpb.ToolBinding{Binding: name, ToolId: tool.ID.String(), McpUrl: mcpURL,
-			Scopes: b.Scopes, Access: access, AllowTools: b.AllowTools})
+			Scopes: b.Scopes, Access: access, AllowTools: b.AllowTools, LinkHosts: tool.LinkHosts()})
 		resolved[name] = binding{toolID: tool.ID, scopes: b.Scopes}
 	}
 	return out, resolved, nil
