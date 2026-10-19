@@ -3,6 +3,35 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-19: Signed images and dependency audits for M8 (#42)
+
+- **Signing is make targets, publishing waits for the release.** `make sbom`,
+  `sign`, `attest` and `verify` run cosign and syft from the kind tools
+  image, and the kind test proves them against a local registry; the release
+  workflow (#44) calls the same targets, so nothing is published before
+  releases are cut. Locally a key pair signs and nothing goes to a public
+  transparency log, since a private registry's images have no place there;
+  the release can sign keyless with GitHub's identity instead.
+- **The SBOM is an attestation, not a file beside the image.** Signed with
+  the same key and stored with the image, it travels to every registry the
+  image is copied to, and admission can require it.
+- **policy-controller for admission, in the sandbox namespace only.** It is
+  sigstore's own, verifies cosign's signatures and attestations with a key
+  and no transparency log, and acts only on namespaces labelled for it, so
+  the control plane and everything else in the cluster are untouched. It
+  stays optional and the operator's to install: a cluster may already run
+  Kyverno or another admission controller.
+- **Audits read what ships, nightly and when dependencies change.**
+  govulncheck reports only vulnerable code the binaries reach, and pip-audit
+  and npm audit read the runtime dependencies, not the test and build tools,
+  which never meet untrusted input. A new advisory must not block unrelated
+  pull requests, so the `deps` workflow is no required check; Renovate,
+  waiting two weeks after each release as Rotor's dependencies always have,
+  brings the fix. Its pull requests are the one kind of change that hangs off
+  no issue.
+- **Base images by digest.** Every Dockerfile names its bases by digest, so
+  a build is the same tomorrow; Renovate moves the digests.
+
 ## 2026-10-19: Signing a person out everywhere (#53)
 
 - **Rotor asks Keycloak when the person was signed out.** Keycloak 26.2

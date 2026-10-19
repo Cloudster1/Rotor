@@ -9,6 +9,15 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Operators can tell what runs in a sandbox and that it is the image that
+  was built (#42). `make sbom`, `sign`, `attest` and `verify` list an
+  image's contents as an SPDX SBOM and sign the image and its SBOM with
+  cosign; the chart names every Rotor image by digest and, with sigstore's
+  policy-controller installed, can refuse any sandbox pod whose image is not
+  signed (`sandbox.admission`). The kind test signs the images it installs
+  and proves an unsigned one is refused. `make audit-deps` runs govulncheck,
+  pip-audit and npm audit, nightly and on pull requests that change a
+  dependency, and Renovate proposes updates once a release is two weeks old.
 - The threat model (#39): `docs/threat-model.md` names what Rotor protects
   and from whom, goes through each component by STRIDE across its trust
   boundaries, works through untrusted content reaching private data, code

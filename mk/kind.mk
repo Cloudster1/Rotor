@@ -6,7 +6,16 @@ KIND_NODE_IMAGE ?= kindest/node:v1.34.0
 KIND_CLUSTER ?= rotor-$(STACK_HASH)
 # The cluster's network plugin, so the sandboxes' egress policies, hostname allows included, hold as in production.
 CILIUM_REPO ?= https://helm.cilium.io
+# renovate: datasource=helm depName=cilium registryUrl=https://helm.cilium.io
 CILIUM_VERSION ?= 1.19.8
+# The registry the chart install test pushes and signs Rotor's images in, and the admission controller that checks
+# their signatures in the sandbox namespace (#42); the kubectl tag matches scripts/kind/Dockerfile's.
+# renovate: datasource=docker depName=registry
+KIND_REGISTRY_IMAGE ?= registry:3.1.2@sha256:ddf754342cfc8acc51a56d5d0ab6af06826461864460636d8bd5c546dab2a7b8
+POLICY_CONTROLLER_REPO ?= https://sigstore.github.io/helm-charts
+# renovate: datasource=helm depName=policy-controller registryUrl=https://sigstore.github.io/helm-charts
+POLICY_CONTROLLER_CHART ?= 0.10.8
+KIND_KUBECTL_VERSION ?= 1.34.1
 KIND_KUBECONFIG := $(ROOT)/.cache/kind/kubeconfig
 
 # The tools container, on the host's network so the cluster's API server and the node are reachable.
@@ -33,17 +42,20 @@ kind-up: kind-tools $(if $(wildcard $(ROOT)/runner/pyproject.toml),runner-image)
 		&& kubectl apply -f deploy/kube/sandboxes.yaml'
 
 .PHONY: kind-down
-kind-down: kind-tools ## Delete this checkout's kind cluster
+kind-down: kind-tools ## Delete this checkout's kind cluster and the registry beside it
 	$(DOCKER_KIND) kind delete cluster --name $(KIND_CLUSTER)
+	docker rm -f $(KIND_CLUSTER)-registry >/dev/null 2>&1 || true
 
 .PHONY: kind-status
 kind-status: kind-tools ## Show what runs in this checkout's kind cluster and what it reported lately
 	$(DOCKER_KIND) sh -c 'kubectl get pods -A -o wide; kubectl get events -A --sort-by=.lastTimestamp | tail -40'
 
 .PHONY: test-chart-install
-test-chart-install: kind-tools ## Install the chart into this checkout's kind cluster, carry a run in a sandbox pod and upgrade; KEEP=1 keeps it
+test-chart-install: kind-tools ## Install the chart from signed images into this checkout's kind cluster, carry runs in sandbox pods and upgrade; KEEP=1 keeps it
 	@[ -f $(KIND_KUBECONFIG) ] || { echo "No kind cluster for this checkout. Start it with make kind-up, then run this again."; exit 1; }
-	$(call kind_run,-e CLUSTER=$(KIND_CLUSTER) -e RUNNER_IMAGE=$(RUNNER_IMAGE) -e KEEP) scripts/chart-install-test.sh
+	$(call kind_run,-e CLUSTER=$(KIND_CLUSTER) -e RUNNER_IMAGE=$(RUNNER_IMAGE) -e KEEP -e REGISTRY_IMAGE=$(KIND_REGISTRY_IMAGE) \
+		-e POLICY_CONTROLLER_REPO=$(POLICY_CONTROLLER_REPO) -e POLICY_CONTROLLER_CHART=$(POLICY_CONTROLLER_CHART) \
+		-e KUBECTL_VERSION=$(KIND_KUBECTL_VERSION)) scripts/chart-install-test.sh
 
 .PHONY: test-kube
 test-kube: | $(GO_CACHE) ## Run the Kubernetes sandbox tests against this checkout's kind cluster; start it with make kind-up

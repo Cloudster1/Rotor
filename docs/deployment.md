@@ -58,7 +58,7 @@ by default), which the chart creates under the restricted Pod Security standard.
 - **The worker's rights.** It may create, read, update and delete pods and Secrets in the sandbox namespace, and
   nothing else anywhere; the api has no Kubernetes rights.
 - **The runner image.** Name it by digest in `images.runner.digest`, so every run executes exactly the image that
-  was reviewed.
+  was reviewed; see [Images you can check](#images-you-can-check).
 - **Dialling back.** Sandboxes dial the api's Service (`<fullname>-api.<namespace>.svc`, port
   `api.runnerPort`) over TLS; the certificate comes from OpenBao's PKI for that name.
 
@@ -79,6 +79,29 @@ A prompt-injected run must not send what it read anywhere else, so sandbox egres
 
 Everything else is refused, cloud metadata (`169.254.169.254`), the api's HTTP port, the rest of the cluster and
 the Kubernetes API included. The install test proves each of these from a pod with the sandbox's label.
+
+### Images you can check
+
+Rotor's images, backend, web and runner, are signed with cosign and carry their SPDX SBOMs as signed attestations
+(#42), so you can tell what runs in a sandbox and that it is the image that was built; the release workflow (#44)
+publishes them that way, and the targets below do the same for images you build.
+
+- **By digest.** Set `images.backend.digest`, `images.web.digest` and `images.runner.digest` to the digests you
+  checked; a digest wins over the tag, and a tag can be moved after it was signed while a digest cannot.
+- **Check one.** With the public key the images were signed with, `make verify IMAGES=<image>@sha256:...
+  COSIGN_PUB=cosign.pub` checks the signature and the SBOM attestation, and `make sbom IMAGES=...` writes the SBOM
+  to `reports/sbom/`. `cosign verify --key cosign.pub <image>@sha256:...` does the same without the Makefile.
+- **Refuse unsigned sandboxes.** With sigstore's
+  [policy-controller](https://docs.sigstore.dev/policy-controller/overview/) installed (its chart 0.10.8 is what the
+  install test runs), `sandbox.admission.requireSignature: true` and the public key in `sandbox.admission.publicKey`
+  make the cluster refuse any pod in the sandbox namespace whose image does not carry the key's signature and a
+  signed SBOM; an image from another repository is refused too. The chart labels the sandbox namespace
+  `policy.sigstore.dev/include=true` when it creates it; label one you made yourself by hand. Install
+  policy-controller first, since the chart's `ClusterImagePolicy` needs its resource type.
+
+To sign images you build yourself, `make sbom`, `make sign` and `make attest` take `IMAGES` by digest and the key in
+`COSIGN_KEY` (with `COSIGN_PASSWORD` in the environment); `REGISTRY_HTTP=1` speaks plain HTTP to a local registry.
+They sign with the key alone and upload nothing to a transparency log.
 
 ### Secrets
 
@@ -110,7 +133,14 @@ In development, `make observe` starts the stack with a collector, Jaeger and Pro
   `ct lint`, renders a trial and a production install, checks what the chart must refuse and the sandbox
   namespace's hardening, and compares the renders with `tests/helm/*.yaml`. After a deliberate change, run
   `UPDATE=1 tests/test-helm.sh` and review the diff.
-- `make kind-up && make test-chart-install` installs the chart into a throwaway kind cluster beside a dev OpenBao,
-  carries a run to its end in a sandbox pod, checks the pod is gone, tries what a sandbox may and may not reach and
-  upgrades in place; the cluster runs Cilium, so the egress policies hold as in production. `KEEP=1` keeps the
-  release for a look. The `kube` workflow runs it nightly and on pull requests that change what a cluster runs.
+- `make kind-up && make test-chart-install` builds the images, pushes them to a registry beside a throwaway kind
+  cluster, lists and signs them with a key made for the test, and installs the chart from them by digest beside a dev
+  OpenBao. It carries a run to its end in a sandbox pod, checks the pod is gone and tries what a sandbox may and may
+  not reach; the cluster runs Cilium, so the egress policies hold as in production. It then installs
+  policy-controller, upgrades in place to admit signed sandbox images only, carries a second run and checks an
+  unsigned image is refused. `KEEP=1` keeps the release for a look, and `make kind-down` removes the cluster and the
+  registry. The `kube` workflow runs it nightly and on pull requests that change what a cluster runs.
+- `make audit-deps` looks for known vulnerabilities in what Rotor ships: govulncheck over the backend, pip-audit
+  over the runner's lock file and npm audit over the web client's runtime dependencies. The `deps` workflow runs it
+  nightly and on pull requests that change a dependency, and Renovate (`renovate.json`) proposes updates once a
+  release is two weeks old.

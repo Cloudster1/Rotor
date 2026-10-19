@@ -316,6 +316,8 @@ upgrade, creates the sandbox namespace with its token-less ServiceAccount and th
 OpenBao with Rotor's own init script. In a cluster the control plane signs in to OpenBao with Kubernetes auth and
 sandboxes dial the api's Service by its cluster name. Sandbox egress is denied by default (#27): a NetworkPolicy
 allows DNS, the runner port and OpenBao, and Cilium allows the tools and the provider by hostname.
+Rotor's images are named by digest, signed with cosign and carry a signed SBOM (#42); with sigstore's
+policy-controller installed, the chart can have the cluster refuse a sandbox pod whose image is not signed.
 `docs/deployment.md` says how to install it.
 
 ## Development stack (`deploy/docker-compose.yml`, #1)
