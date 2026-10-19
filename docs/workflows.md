@@ -55,7 +55,7 @@ write, however its prompt or the content it reads is worded.
 | `agent` | a model that may call the tools of its bindings | `prompt`, `tools`, `output.schema` |
 | `tool` | one MCP call | `tool` (a binding), `call`, `arguments` |
 | `code` | a Python function | `source`, `output.schema`, `tools`, `timeout`, `memory` |
-| `approval` | waits until a person answers | `message` |
+| `approval` | waits until a person decides | `message`, `approvers`, `form`, `expiresIn` |
 | `router` | chooses the next node by a value | `on`, `cases`, `default` |
 
 A node's output is kept under its id: `nodes.draft.title` is the `title` the node
@@ -67,6 +67,29 @@ A code node defines `def run(state, ctx) -> dict`, runs in a separate process
 with no access to the run's tokens, may use only the libraries the runner
 image has, and calls tools through `ctx.call_tool(binding, name, arguments)`.
 It returns JSON that must match `output.schema`.
+
+An approval shows its message, its form and the writes the run may make before
+the next approval, then waits. The person who started the run decides, or,
+with `approvers: {group: quality}`, only the members of that group do. A
+`form` offers fields an approver may change before approving: a JSON Schema
+object and the values the run proposes, as templates. The approved values are
+the node's output, with `approved`, `comment` and `decidedBy`, so the nodes
+after it read `{{ nodes.review.title }}`. A rejection ends the run, and so
+does an approval nobody decides within `expiresIn` (72h unless it says, at
+most 168h).
+
+```yaml
+- id: review
+  type: approval
+  message: File "{{ nodes.draft.title }}" in Exciter?
+  approvers: { group: quality }
+  expiresIn: 48h
+  form:
+    schema:
+      type: object
+      properties: { title: { type: string } }
+    values: { title: "{{ nodes.draft.title }}" }
+```
 
 A router reads one value and picks a case; its next nodes come from its cases,
 never from `edges`. A node with no edge after it ends the run.
@@ -86,6 +109,8 @@ When a workflow is saved, and again when a run starts:
   - edges, cases and templates name nodes that exist
   - every node reachable from the entry
   - tool nodes call through bindings that allow the call
+  - an approval's form names only its own fields, and no binding allows a
+    call that decides a review, which a person does in the tool itself
 - **When saving, the tools as you see them:**
   - the tool exists and offers the scopes
   - a read binding allows only tools that only read
@@ -106,8 +131,10 @@ The examples below are the golden fixtures, which show more of the spec.
 
 [`draft-requirements.yaml`](../api/workflow-fixtures/valid/draft-requirements.yaml):
 1. An agent reads the project through a read binding and drafts a requirement.
-2. A person approves.
-3. A tool node files it through a write binding that asks for approval first.
+2. A member of the quality group checks the draft, may change its title and
+   statement, and approves.
+3. A tool node files the approved title and statement through a write binding
+   that asks for approval first.
 
 The agent cannot write: its binding offers only reading tools.
 

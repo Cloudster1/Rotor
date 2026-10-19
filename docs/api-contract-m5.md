@@ -124,6 +124,14 @@ An `approval` node gains three optional fields:
 - **Audit:** `approval.decided` with `{run, workflow, node, decision, startedBy, edited}`, where `edited` names the fields the approver changed and never their values.
 - **Notifications:** the inbox, its badge and the two events above. Email and webhooks are left for later, keyed on the same event names, so adding them changes no workflow.
 
+- **As built (#31):**
+  - **Refusal codes:** values or a comment the approval refuses answer 422 `values_invalid`, with `fields` keyed `values/<pointer>` or `comment`. A group approver's cancel answers 403 `not_run_manager`. A decision for a run that no longer waits answers 409 `run_not_waiting`.
+  - **Events:** `approval.decided` names `by` as `{id, name}`. The approval node starts again when it is answered, so its `node.started` comes twice; every other node runs once.
+  - **The table:** `approval` keeps the run's starter and workflow, so its policy never reads `run`, whose new policy `run_approver_read` reads `approval`. `rotor_app` reads it and writes nothing; a trigger keeps a decided approval as it is.
+  - **Resuming:** `StartRun` takes its answer from the run's latest approved approval. `run.resume` is no longer written, and `runnerctl.Resume` is gone: tests decide through the API.
+  - **The preview:** the runner lists at most 50 writes, and the control plane cuts what is above `MaxApprovalPreviewBytes`, ending the list with an entry marked `truncated`.
+  - **Who may decide** is the person's groups at their last sign-in, read from `app_user`.
+
 ## #32 Write confirmation (agreed, built once tools offer token exchange)
 
 - A binding with `approval: beforeWrite` holds a read-only token (`mcp:read`) until the approval before its write is decided.

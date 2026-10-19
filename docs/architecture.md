@@ -61,7 +61,9 @@ browser --> web (nginx, React SPA) --> api (Go) -------+------> OpenBao
   minted for a person carries that person's rights and no more, and the
   workflow's declared scopes narrow it further (#12).
 - Content read from a tool is data, never instructions; approvals and write
-  confirmations are enforced outside the sandbox (#31, #32, #40).
+  confirmations are enforced outside the sandbox (#31, #32, #40). Who decides
+  an approval, its form and its expiry come from the pinned spec, never from
+  what the sandbox sends.
 
 ## Repository layout
 
@@ -197,8 +199,8 @@ dies delays a run by at most its lease. Every pass:
 2. **Expire:** replaces a sandbox that never said Hello and one whose runner
    stopped answering (a replacement resumes from the last checkpoint, up to
    three sandboxes per run), ends a run past its deadline, destroys the
-   sandbox of a run that waits and revokes its tokens (#28), and expires a
-   run that waited a week.
+   sandbox of a run that waits and revokes its tokens (#28), expires a run
+   whose approval nobody decided in time (#31), and one that waited a week.
 3. **Start:** gives each queued run a sandbox with a fresh bootstrap token.
 4. **Teardown:** cleans up once after each run that ended.
 
@@ -206,6 +208,27 @@ A trigger on `run` refuses any move the contract does not list. Cancelling
 ends the run at once and queues a `Cancel`; Valkey tells the api replica
 holding the run's stream to send it, and that stream also looks on every
 heartbeat in case the signal was lost.
+
+## Approvals (#31)
+
+A run that reaches an `approval` node stops: the runner sends the interrupt
+with LangGraph's id, the form's proposed values and a preview of the writes
+the nodes after it may make, rendered from the state it alone holds. In the
+transaction that marks the run `waiting`, the control plane opens an
+`approval` row, taking the group that decides, the form and the expiry from
+the pinned spec, and the worker then drops the run's sandbox and tokens.
+
+`internal/approvals` lists and decides approvals. The starter decides one
+whose node names no group; otherwise only the group's members do. A decision
+moves the run in the same transaction: approved, it goes back to `starting`
+and the next sandbox's `StartRun` carries the approved values with the
+interrupt's id, so it answers that approval and no later one; rejected, it
+ends `cancelled`. The worker expires a run whose approval passed its time.
+The database shows an approval to the run's people and the group, and lets
+nobody but the control plane write one.
+
+The web client's Approvals inbox lists what waits for you, with a badge in
+the sidebar; an approval's page shows the preview, the form and the decision.
 
 ## A run's tokens (#23)
 
