@@ -24,6 +24,7 @@ func (s *Stub) Control() http.Handler {
 	r.Get("/control/tenants/{tenant}/stats", s.controlled(s.handleStats))
 	r.Delete("/control/tenants/{tenant}/grants", s.controlled(s.handleEndGrants))
 	r.Delete("/control/tenants/{tenant}/clients", s.controlled(s.handleForgetClients))
+	r.Put("/control/tenants/{tenant}/writes", s.controlled(s.handleSetWrites))
 	r.Delete("/control/tenants/{tenant}", s.controlled(s.handleForgetTenant))
 	r.Get("/control/langsmith", s.handleLangSmithCalls)
 	r.Delete("/control/langsmith", s.handleForgetLangSmith)
@@ -106,4 +107,18 @@ func (s *Stub) handleForgetClients(w http.ResponseWriter, _ *http.Request, t *te
 func (s *Stub) handleForgetTenant(w http.ResponseWriter, r *http.Request, t *tenant) {
 	delete(s.tenants, t.name)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleSetWrites changes which calls the tenant lists as writing, as a tool that changed a call after a workflow
+// was saved against it (#90).
+func (s *Stub) handleSetWrites(w http.ResponseWriter, r *http.Request, t *tenant) {
+	var in struct {
+		Calls []string `json:"calls"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, MaxFormBytes)).Decode(&in); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "Send the calls to list as writing, as {\"calls\": [...]}.")
+		return
+	}
+	t.opts.Writes = in.Calls
+	writeJSON(w, http.StatusOK, map[string]any{"writes": t.opts.Writes})
 }

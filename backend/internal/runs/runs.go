@@ -122,6 +122,21 @@ type Service struct {
 	signals     Signals
 	// Usage refuses a run its person's quota or its model's prices do not allow (#38); nil allows every run.
 	Usage StartCheck
+	// Catalogs reads the tools as the run's person sees them now, to check its writes again (#90); nil skips that.
+	Catalogs Catalogs
+}
+
+// Catalogs reads what a spec's tools offer, from the tools themselves; *catalog.Service is the real one.
+type Catalogs interface {
+	Fresh(ctx context.Context, sp *spec.Spec) (spec.Catalog, error)
+}
+
+// ToolsChanged is a run whose workflow no longer holds against its tools as they answer now, such as a call that
+// became a write behind no approval since the workflow was saved.
+type ToolsChanged struct{ Problems []spec.Problem }
+
+func (e *ToolsChanged) Error() string {
+	return fmt.Sprintf("the tools changed under the workflow: %s", e.Problems[0].Message)
 }
 
 // StartCheck refuses a run its person may not start for usage; *usage.Service is the real one.

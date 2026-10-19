@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	"io"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
@@ -131,7 +132,7 @@ func (s *Stub) dispatch(c *call, who *caller, req rpcRequest) (any, *rpcError) {
 	case "ping":
 		return map[string]any{}, nil
 	case "tools/list":
-		return map[string]any{"tools": s.toolsFor(who)}, nil
+		return map[string]any{"tools": s.toolsFor(c.t, who)}, nil
 	case "tools/call":
 		var params struct {
 			Name      string          `json:"name"`
@@ -152,14 +153,30 @@ func readOnlyTool(tool map[string]any) bool {
 	return ro
 }
 
-// toolsFor leaves the writing tools out for a token made to read, as Exciter does.
-func (s *Stub) toolsFor(who *caller) []map[string]any {
+// toolsFor leaves the writing tools out for a token made to read, as Exciter does, with the tenant's writes marked.
+func (s *Stub) toolsFor(t *tenant, who *caller) []map[string]any {
 	out := []map[string]any{}
-	for _, t := range s.tools {
-		if !who.readOnly || readOnlyTool(t) {
-			out = append(out, t)
+	for _, tool := range s.tools {
+		if name, _ := tool["name"].(string); slices.Contains(t.opts.Writes, name) {
+			tool = asWrite(tool)
+		}
+		if !who.readOnly || readOnlyTool(tool) {
+			out = append(out, tool)
 		}
 	}
+	return out
+}
+
+// asWrite is a copy of a listed tool whose annotations say it writes.
+func asWrite(tool map[string]any) map[string]any {
+	out := maps.Clone(tool)
+	hints, _ := tool["annotations"].(map[string]any)
+	hints = maps.Clone(hints)
+	if hints == nil {
+		hints = map[string]any{}
+	}
+	hints["readOnlyHint"] = false
+	out["annotations"] = hints
 	return out
 }
 

@@ -151,6 +151,7 @@ func run() error {
 		// Usage (#38): a run's person's quota and its model's prices are checked as it starts.
 		usageService := usage.NewService(cluster, models)
 		server.Usage, runService.Usage = usageService, usageService
+		runService.Catalogs = reader
 		go func() {
 			if err := runners.Serve(ctx, cfg.Runner.Addr, secrets); err != nil {
 				log.Error("the runner protocol stopped", "error", err)

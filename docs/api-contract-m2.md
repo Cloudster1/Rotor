@@ -316,6 +316,8 @@ type Spec struct {
   - **Refusals:**
     - A missing connection answers 409 `connections_needed`. Its `fields` map each tool's name to its id, empty for a tool the installation does not have.
     - Inputs the schema refuses answer 422 `inputs_invalid`, with `fields` keyed `inputs/<pointer>`.
+    - A workflow its tools no longer hold, such as a call that became a write behind no approval since it was
+      saved, answers 422 `tools_changed`, with `fields` keyed `workflow/nodes/<i>` (#90).
     - A key reused for another workflow answers 422.
   - **Replies:**
     - `runResponse` carries `inputs`, `output`, `startedAt` and `ended`.

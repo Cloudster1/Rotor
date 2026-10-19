@@ -49,7 +49,18 @@ func runError(err error) error {
 	var refused *runs.InputsRefused
 	var needs *runs.NeedsConnections
 	var quota *usage.Refused
+	var changed *runs.ToolsChanged
 	switch {
+	case errors.As(err, &changed):
+		fields := map[string]string{}
+		for _, p := range changed.Problems {
+			if _, taken := fields["workflow"+p.Path]; !taken {
+				fields["workflow"+p.Path] = p.Message
+			}
+		}
+		return &APIError{Status: http.StatusUnprocessableEntity, Code: "tools_changed", Fields: fields,
+			Message: "The tools this workflow uses changed since it was saved, so it no longer holds: " +
+				changed.Problems[0].Message + " Its owner must save it again before it runs."}
 	case errors.As(err, &quota):
 		return &APIError{Status: http.StatusUnprocessableEntity, Code: quota.Code, Message: quota.Message}
 	case errors.As(err, &refused):

@@ -94,6 +94,12 @@ func (s *toolStub) EndGrants(username string) {
 	s.controlCall(http.MethodDelete, path, nil, http.StatusOK)
 }
 
+// ListAsWrites makes the tenant list the calls named as writing, as a tool that changed them after a workflow was
+// saved against it (#90).
+func (s *toolStub) ListAsWrites(calls ...string) {
+	s.controlCall(http.MethodPut, "/control/tenants/"+s.name+"/writes", map[string]any{"calls": calls}, http.StatusOK)
+}
+
 // ForgetClients forgets every client and its grants, as Exciter sweeps an unused one.
 func (s *toolStub) ForgetClients() {
 	s.controlCall(http.MethodDelete, "/control/tenants/"+s.name+"/clients", nil, http.StatusOK)

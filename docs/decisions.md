@@ -3,6 +3,18 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-19: A run's writes checked as it starts (#90)
+
+- **Every start reads the tools afresh.** Saving checks a workflow against
+  the catalog cached in Valkey per tool build, which lags a tool that turns a
+  call into a write without a new build and trusts whatever is in Valkey.
+  Starting a run, by hand or from a trigger, now reads each bound tool's
+  list as the run's person past the cache and checks the workflow again;
+  that costs one token and one `tools/list` per tool and start.
+- **Refuse rather than run.** A workflow its tools no longer hold answers
+  422 `tools_changed`, and its owner saves it again, adding the approval it
+  needs.
+
 ## 2026-10-19: Content a run reads, for M8 (#40)
 
 - **Every quoted value is data, not only tool answers.** A template can

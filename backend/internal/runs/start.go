@@ -61,6 +61,16 @@ func (s *Service) Start(ctx context.Context, req StartRequest) (Run, bool, error
 			return Run{}, false, err
 		}
 	}
+	// Saving checked the writes against the tools as they were; a tool may have changed a call since (#90).
+	if s.Catalogs != nil {
+		catalog, err := s.Catalogs.Fresh(ctx, parsed)
+		if err != nil {
+			return Run{}, false, err
+		}
+		if problems := parsed.CheckAgainst(catalog); len(problems) > 0 {
+			return Run{}, false, &ToolsChanged{Problems: problems}
+		}
+	}
 	// The run's trace begins here, so the worker's and the runner's spans join what started it (#37).
 	ctx, endSpan := observability.StartSpan(ctx, "run.start", attribute.String("rotor.workflow", w.ID.String()))
 	defer endSpan(nil)

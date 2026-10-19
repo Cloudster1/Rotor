@@ -94,7 +94,7 @@ func (s *Service) Get(ctx context.Context, toolID uuid.UUID) (Catalog, error) {
 		return Catalog{}, err
 	}
 	key := fmt.Sprintf("catalog:%s:%s:%s", tool.ID, build, p.UserID)
-	if cached, ok := s.cache.Get(ctx, key); ok {
+	if cached, ok := s.cache.Get(ctx, key); ok && ctx.Value(freshKey{}) == nil {
 		var c Catalog
 		if json.Unmarshal(cached, &c) == nil {
 			return c, nil

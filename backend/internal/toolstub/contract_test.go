@@ -102,7 +102,7 @@ func TestToolsListIsTheSnapshot(t *testing.T) {
 	if err := json.Unmarshal(raw, &want); err != nil {
 		t.Fatal(err)
 	}
-	if got := newTestStub(t).toolsFor(&caller{}); !reflect.DeepEqual(got, want.Tools) {
+	if got := newTestStub(t).toolsFor(newTenant("contract", Options{}), &caller{}); !reflect.DeepEqual(got, want.Tools) {
 		t.Errorf("tools/list serves %d tools that are not the snapshot's %d", len(got), len(want.Tools))
 	}
 	for _, tool := range want.Tools {
