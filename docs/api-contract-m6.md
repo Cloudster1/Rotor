@@ -108,6 +108,12 @@ may not see is 404; refusals are sentences.
 - **Who sees triggers:** the owner, and administrators. The database holds this: `rotor_app` reads and writes only its own triggers, on workflows it may see, and a run may name only an enabled trigger of the person starting it.
 - **Audit:** `trigger.created`, `trigger.changed`, `trigger.removed`, `trigger.enabled` and `trigger.disabled`, the last with no actor when Rotor turned it off, and with the reason.
 
+- **As built (#34):**
+  - **Cron** is read by `robfig/cron/v3` with the five-field parser. Rotor checks the shortest gap the minute and hour fields allow, across the hour too, and steps over a time summer time removes or repeats.
+  - **The worker** runs the schedule, fire and sweep steps in each pass, before queued runs start, and counts firings by outcome in `rotor_trigger_fires_total{outcome}`. The sweep also deletes firings that ended more than `TriggerFireRetention` ago.
+  - **Run responses:** a run carries `trigger {id, name}`, with the name shown to the trigger's owner alone.
+  - **Refusal codes:** a trigger the checks refuse answers 422 `trigger_invalid`, or `unattended_write` when a write lacks an approval, with `fields` keyed `name`, `schedule/cron`, `schedule/timeZone`, `inputs/<pointer>` or `workflow/nodes/<i>`. A missing connection answers 409 `connections_needed`, as starting a run does. An administrator changing or turning on someone else's trigger gets 403 `not_trigger_owner`.
+
 ## Hooks
 
 | Operation | Needs | Answers |
