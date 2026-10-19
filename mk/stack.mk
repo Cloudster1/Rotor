@@ -15,6 +15,9 @@ POSTGRES_PORT := $(call stack_port,3)
 VALKEY_PORT   := $(call stack_port,4)
 OPENBAO_PORT  := $(call stack_port,5)
 TOOLSTUB_PORT := $(call stack_port,6)
+# The observe profile's Jaeger and Prometheus (#37); the suite's ports come between.
+JAEGER_PORT     := $(call stack_port,16)
+PROMETHEUS_PORT := $(call stack_port,17)
 
 # Credentials for the throwaway development stack; override them in the environment for anything else.
 POSTGRES_PASSWORD  ?= rotor
@@ -36,7 +39,7 @@ realm-check: ## Fail if deploy/keycloak/realm.json differs from Dynamo's canonic
 
 export COMPOSE_FILE := $(ROOT)/deploy/docker-compose.yml
 export COMPOSE_PROJECT_NAME := $(STACK_PROJECT)
-export WEB_PORT API_PORT KEYCLOAK_PORT POSTGRES_PORT VALKEY_PORT OPENBAO_PORT TOOLSTUB_PORT
+export WEB_PORT API_PORT KEYCLOAK_PORT POSTGRES_PORT VALKEY_PORT OPENBAO_PORT TOOLSTUB_PORT JAEGER_PORT PROMETHEUS_PORT
 export POSTGRES_PASSWORD APP_DB_PASSWORD ADMIN_DB_PASSWORD VALKEY_PASSWORD OPENBAO_ROOT_TOKEN DOCKER_GID
 
 STACK_PG_URL = postgres://$(1):$(2)@$(3):5432/rotor?sslmode=disable
@@ -62,6 +65,8 @@ DOCKER_GO_STACK = $(call go_run,--network $(STACK_NET) \
 	-e ROTOR_TEST_TOOLSTUB_INTERNAL_URL=http://tool-stub:8080 \
 	-e ROTOR_TEST_TOOLSTUB_CONTROL_URL=http://tool-stub:8081 \
 	-e ROTOR_TEST_WORKER_METRICS_URL=http://worker:9464/metrics \
+	-e ROTOR_TEST_API_METRICS_URL=http://api:9465/metrics \
+	-e ROTOR_TEST_JAEGER_URL=http://jaeger:16686 \
 	-e ROTOR_TEST_BUILD_VERSION='$(ROTOR_BUILD_VERSION)' \
 	-e ROTOR_TEST_BUILD_COMMIT='$(ROTOR_BUILD_COMMIT)' \
 	$(1))
@@ -82,6 +87,8 @@ stack-env:
 		'VALKEY_PORT=$(VALKEY_PORT)' \
 		'OPENBAO_PORT=$(OPENBAO_PORT)' \
 		'TOOLSTUB_PORT=$(TOOLSTUB_PORT)' \
+		'JAEGER_PORT=$(JAEGER_PORT)' \
+		'PROMETHEUS_PORT=$(PROMETHEUS_PORT)' \
 		'ROTOR_WEB_URL=http://localhost:$(WEB_PORT)' \
 		'ROTOR_API_URL=http://localhost:$(API_PORT)' \
 		'ROTOR_KEYCLOAK_URL=http://localhost:$(KEYCLOAK_PORT)' \
@@ -110,13 +117,20 @@ up: stack-env $(if $(wildcard $(ROOT)/runner/pyproject.toml),runner-image) ## Bu
 	@echo "Valkey     127.0.0.1:$(VALKEY_PORT)"
 	@echo "Ports and project name are in $(STACK_ENV_FILE)."
 
+.PHONY: observe
+observe: stack-env $(if $(wildcard $(ROOT)/runner/pyproject.toml),runner-image) ## Start the stack with a collector, Jaeger and Prometheus, and say where they are
+	docker compose --profile observe up -d --build --wait
+	@echo "Jaeger     http://localhost:$(JAEGER_PORT) (each run is one trace: open the api's span of its start)"
+	@echo "Prometheus http://localhost:$(PROMETHEUS_PORT)"
+	@echo "Web        http://localhost:$(WEB_PORT)"
+
 .PHONY: down
 down: ## Stop the stack, keeping its data
-	docker compose down
+	docker compose --profile observe down
 
 .PHONY: clean
 clean: ## Stop the stack and delete its volumes
-	docker compose down -v --remove-orphans
+	docker compose --profile observe down -v --remove-orphans
 	@rm -f $(STACK_ENV_FILE)
 
 .PHONY: logs
@@ -129,9 +143,9 @@ ports: ## Print this checkout's compose project and ports
 
 .PHONY: stack-up
 stack-up: stack-env $(if $(wildcard $(ROOT)/runner/pyproject.toml),runner-image) ## The gate's stack: build and start it, and wait until every service is healthy
-	docker compose up -d --build --wait --quiet-pull
+	docker compose --profile observe up -d --build --wait --quiet-pull
 
 .PHONY: stack-down
 stack-down: ## Remove the gate's stack and its volumes
-	docker compose down -v --remove-orphans
+	docker compose --profile observe down -v --remove-orphans
 	@rm -f $(STACK_ENV_FILE)

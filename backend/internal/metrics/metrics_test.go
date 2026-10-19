@@ -38,6 +38,7 @@ func TestTheRegistryServesWhatPrometheusScrapes(t *testing.T) {
 		`rotor_runs{status="waiting"} 1`,
 		`rotor_run_duration_seconds_bucket{status="succeeded",le="10"} 1`,
 		`rotor_run_duration_seconds_count{status="succeeded"} 1`,
+		"# TYPE go_goroutines gauge",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the exposition lacks %q:\n%s", want, got)

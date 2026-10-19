@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/cloudster1/rotor/backend/internal/config"
@@ -22,7 +23,11 @@ type Registry struct {
 }
 
 func (r *Registry) registry() *prometheus.Registry {
-	r.once.Do(func() { r.reg = prometheus.NewRegistry() })
+	r.once.Do(func() {
+		r.reg = prometheus.NewRegistry()
+		// The process's own memory, goroutines and CPU, which say how it is doing before any run does.
+		r.reg.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	})
 	return r.reg
 }
 

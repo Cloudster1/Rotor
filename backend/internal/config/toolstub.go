@@ -30,4 +30,7 @@ const (
 	// ToolStubPromptTokens and ToolStubCompletionTokens are the usage every stub model answer reports.
 	ToolStubPromptTokens     = 10
 	ToolStubCompletionTokens = 5
+	// ToolStubMaxOTLPBytes bounds one export the LangSmith stand-in takes, and ToolStubMaxOTLPCalls how many it keeps.
+	ToolStubMaxOTLPBytes = 4 << 20
+	ToolStubMaxOTLPCalls = 200
 )

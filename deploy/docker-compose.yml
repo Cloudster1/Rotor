@@ -47,6 +47,10 @@ x-control-plane-env: &control-plane-env
   # Exciter once make suite-up runs it, on a network of the stack's.
   ROTOR_TOOLS_BACKCHANNEL: >-
     http://localhost:${TOOLSTUB_PORT:-8306}=http://tool-stub:8080,http://localhost:${SUITE_EXCITER_WEB_PORT:-8307}=http://suite-exciter-web:80
+  # Traces go to the observe profile's collector (#37); without it running they are dropped, quietly.
+  ROTOR_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
+  # LangSmith, once an administrator turns it on, is the tool double's stand-in, which records what reaches it.
+  ROTOR_LANGSMITH_ENDPOINT: http://tool-stub:8080/langsmith/otel/v1/traces
 
 services:
   postgres:
@@ -265,6 +269,29 @@ services:
       retries: 5
       start_period: 30s
       start_interval: 1s
+
+  # Traces and metrics (#37), with make observe and in the gate. The api and the worker send OTLP to the collector,
+  # which hands it to Jaeger; Prometheus scrapes their /metrics.
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.161.0
+    profiles: ["observe"]
+    command: ["--config=/etc/otelcol/collector.yaml"]
+    volumes:
+      - ./otel/collector.yaml:/etc/otelcol/collector.yaml:ro
+
+  jaeger:
+    image: jaegertracing/jaeger:2.14.0
+    profiles: ["observe"]
+    ports:
+      - "127.0.0.1:${JAEGER_PORT:-8316}:16686"
+
+  prometheus:
+    image: prom/prometheus:v3.13.3
+    profiles: ["observe"]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-8317}:9090"
 
 networks:
   default:
