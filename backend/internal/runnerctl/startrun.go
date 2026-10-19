@@ -47,7 +47,10 @@ type run struct {
 	// Resume answers the interrupt ResumeID names: the latest approved approval's decision, if any.
 	Resume   []byte
 	ResumeID string
-	spec     *spec.Spec
+	// Traceparent is the run's trace, which its runner's spans join (#37); TraceContent lets them carry text.
+	Traceparent  string
+	TraceContent bool
+	spec         *spec.Spec
 	// model is the provider and model the run's agents use; nil for a workflow without agents.
 	model *providers.Resolution
 }
@@ -61,9 +64,9 @@ type binding struct {
 func (s *Server) loadRun(ctx context.Context, runID uuid.UUID) (*run, error) {
 	r := &run{ID: runID}
 	err := s.DB.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		err := tx.QueryRow(ctx, `SELECT r.user_id, r.status, v.spec_yaml, r.inputs
+		err := tx.QueryRow(ctx, `SELECT r.user_id, r.status, v.spec_yaml, r.inputs, r.traceparent
 			FROM run r JOIN workflow_version v ON v.workflow_id = r.workflow_id AND v.number = r.version
-			WHERE r.id = $1`, runID).Scan(&r.UserID, &r.Status, &r.SpecYAML, &r.Inputs)
+			WHERE r.id = $1`, runID).Scan(&r.UserID, &r.Status, &r.SpecYAML, &r.Inputs, &r.Traceparent)
 		if err != nil {
 			return err
 		}
@@ -163,7 +166,8 @@ func (s *Server) secret(ctx context.Context, r *run) (*runnerpb.ConnectResponse,
 
 // startRun is the run's StartRun: its pinned spec, inputs, bindings and model, and the answer it resumes with, if any.
 func startRun(r *run, bindings []*runnerpb.ToolBinding, model *runnerpb.ModelConfig) *runnerpb.ConnectResponse {
-	start := &runnerpb.StartRun{RunId: r.ID.String(), SpecYaml: r.SpecYAML, InputsJson: string(r.Inputs), Tools: bindings, Model: model}
+	start := &runnerpb.StartRun{RunId: r.ID.String(), SpecYaml: r.SpecYAML, InputsJson: string(r.Inputs), Tools: bindings, Model: model,
+		Traceparent: r.Traceparent, TraceContent: r.TraceContent}
 	if r.ResumeID != "" {
 		start.Resume, start.ResumeJson, start.ResumeInterruptId = true, string(r.Resume), r.ResumeID
 	}
@@ -178,6 +182,9 @@ func (s *Server) grant(ctx context.Context, r *run, bindings map[string]binding,
 		g.Error = name + " is not one of the run's bindings"
 	} else if delivered, err := s.Mint.Deliver(ctx, connections.MintRequest{UserID: r.UserID, ToolID: b.toolID, Scopes: b.scopes, RunID: r.ID.String()}); err != nil {
 		g.Error = err.Error()
+		if s.MintFailed != nil {
+			s.MintFailed(mintFailure(err))
+		}
 	} else {
 		g.Token = &runnerpb.TokenGrant_WrappingToken{WrappingToken: delivered.WrappingToken}
 		g.ExpiresAt = timestamppb.New(delivered.ExpiresAt)

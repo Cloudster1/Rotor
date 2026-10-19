@@ -50,6 +50,10 @@ type Server struct {
 	Usage Usage
 	// Hooks is nil where OpenBao is not configured; its routes then answer 503.
 	Hooks Hooks
+	// LangSmith is nil where OpenBao is not configured; its routes then answer 503 (#37).
+	LangSmith LangSmith
+	// LangSmithEndpoint is where runs' spans go while LangSmith is on, shown to administrators.
+	LangSmithEndpoint string
 	// Sessions and SignIn are nil only in tests that exercise neither.
 	Sessions Sessions
 	SignIn   SignIn
@@ -77,6 +81,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 	}
 
 	r := chi.NewRouter()
+	r.Use(traced)
 	r.Use(requestID)
 	r.Use(logging(s.Log))
 	r.Use(recovery)
@@ -161,6 +166,9 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Put("/settings/limits", s.handleSetLimits)
 				r.Get("/providers/{providerID}/prices", s.handleGetPrices)
 				r.Put("/providers/{providerID}/prices", s.handleSetPrices)
+				r.Get("/settings/langsmith", s.handleGetLangSmith)
+				r.Put("/settings/langsmith", s.handleSetLangSmith)
+				r.Delete("/settings/langsmith/key", s.handleRemoveLangSmithKey)
 				mountPending(r, false, true)
 			})
 		})

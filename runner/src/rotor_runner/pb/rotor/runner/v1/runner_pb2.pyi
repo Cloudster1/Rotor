@@ -69,6 +69,7 @@ class ConnectRequest(_message.Message):
     CHECKPOINT_LIST_FIELD_NUMBER: _builtins.int
     CHECKPOINT_PUT_FIELD_NUMBER: _builtins.int
     CHECKPOINT_WRITES_FIELD_NUMBER: _builtins.int
+    SPANS_FIELD_NUMBER: _builtins.int
     seq: _builtins.int
     """seq numbers this message, from 1, when it must not be lost; 0 for heartbeats and acknowledgements alone."""
     ack: _builtins.int
@@ -91,6 +92,8 @@ class ConnectRequest(_message.Message):
     def checkpoint_put(self) -> Global___CheckpointPutRequest: ...
     @_builtins.property
     def checkpoint_writes(self) -> Global___CheckpointWritesRequest: ...
+    @_builtins.property
+    def spans(self) -> Global___SpanBatch: ...
     def __init__(
         self,
         *,
@@ -105,12 +108,13 @@ class ConnectRequest(_message.Message):
         checkpoint_list: Global___CheckpointListRequest | None = ...,
         checkpoint_put: Global___CheckpointPutRequest | None = ...,
         checkpoint_writes: Global___CheckpointWritesRequest | None = ...,
+        spans: Global___SpanBatch | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["checkpoint_get", b"checkpoint_get", "checkpoint_list", b"checkpoint_list", "checkpoint_put", b"checkpoint_put", "checkpoint_writes", b"checkpoint_writes", "done", b"done", "event", b"event", "heartbeat", b"heartbeat", "hello", b"hello", "message", b"message", "token_request", b"token_request"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["checkpoint_get", b"checkpoint_get", "checkpoint_list", b"checkpoint_list", "checkpoint_put", b"checkpoint_put", "checkpoint_writes", b"checkpoint_writes", "done", b"done", "event", b"event", "heartbeat", b"heartbeat", "hello", b"hello", "message", b"message", "spans", b"spans", "token_request", b"token_request"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["ack", b"ack", "checkpoint_get", b"checkpoint_get", "checkpoint_list", b"checkpoint_list", "checkpoint_put", b"checkpoint_put", "checkpoint_writes", b"checkpoint_writes", "done", b"done", "event", b"event", "heartbeat", b"heartbeat", "hello", b"hello", "message", b"message", "seq", b"seq", "token_request", b"token_request"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["ack", b"ack", "checkpoint_get", b"checkpoint_get", "checkpoint_list", b"checkpoint_list", "checkpoint_put", b"checkpoint_put", "checkpoint_writes", b"checkpoint_writes", "done", b"done", "event", b"event", "heartbeat", b"heartbeat", "hello", b"hello", "message", b"message", "seq", b"seq", "spans", b"spans", "token_request", b"token_request"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-    _WhichOneofReturnType_message: _TypeAlias = _typing.Literal["hello", "event", "token_request", "heartbeat", "done", "checkpoint_get", "checkpoint_list", "checkpoint_put", "checkpoint_writes"]  # noqa: Y015
+    _WhichOneofReturnType_message: _TypeAlias = _typing.Literal["hello", "event", "token_request", "heartbeat", "done", "checkpoint_get", "checkpoint_list", "checkpoint_put", "checkpoint_writes", "spans"]  # noqa: Y015
     _WhichOneofArgType_message: _TypeAlias = _typing.Literal["message", b"message"]  # noqa: Y015
     def WhichOneof(self, oneof_group: _WhichOneofArgType_message) -> _WhichOneofReturnType_message | None: ...
 
@@ -356,6 +360,8 @@ class StartRun(_message.Message):
     RESUME_FIELD_NUMBER: _builtins.int
     RESUME_JSON_FIELD_NUMBER: _builtins.int
     RESUME_INTERRUPT_ID_FIELD_NUMBER: _builtins.int
+    TRACEPARENT_FIELD_NUMBER: _builtins.int
+    TRACE_CONTENT_FIELD_NUMBER: _builtins.int
     run_id: _builtins.str
     spec_yaml: _builtins.str
     inputs_json: _builtins.str
@@ -364,6 +370,10 @@ class StartRun(_message.Message):
     resume_json: _builtins.str
     resume_interrupt_id: _builtins.str
     """resume_interrupt_id names the interrupt resume_json answers; a run no longer waiting there carries on without it."""
+    traceparent: _builtins.str
+    """traceparent is the run's W3C trace context; the runner's spans belong to it and none are made without it (#37)."""
+    trace_content: _builtins.bool
+    """trace_content lets LLM spans carry the prompt and the answer, redacted and cut short, for LangSmith (#37)."""
     @_builtins.property
     def tools(self) -> _containers.RepeatedCompositeFieldContainer[Global___ToolBinding]: ...
     @_builtins.property
@@ -379,14 +389,109 @@ class StartRun(_message.Message):
         resume: _builtins.bool = ...,
         resume_json: _builtins.str = ...,
         resume_interrupt_id: _builtins.str = ...,
+        traceparent: _builtins.str = ...,
+        trace_content: _builtins.bool = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["model", b"model"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["inputs_json", b"inputs_json", "model", b"model", "resume", b"resume", "resume_interrupt_id", b"resume_interrupt_id", "resume_json", b"resume_json", "run_id", b"run_id", "spec_yaml", b"spec_yaml", "tools", b"tools"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["inputs_json", b"inputs_json", "model", b"model", "resume", b"resume", "resume_interrupt_id", b"resume_interrupt_id", "resume_json", b"resume_json", "run_id", b"run_id", "spec_yaml", b"spec_yaml", "tools", b"tools", "trace_content", b"trace_content", "traceparent", b"traceparent"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___StartRun: _TypeAlias = StartRun  # noqa: Y015
+
+@_typing.final
+class SpanBatch(_message.Message):
+    """SpanBatch carries the runner's finished spans, sent with seq 0: the control plane exports them for it, so the
+    sandbox reaches no collector, and a batch lost with a stream is lost (#37).
+    """
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SPANS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def spans(self) -> _containers.RepeatedCompositeFieldContainer[Global___RunnerSpan]: ...
+    def __init__(
+        self,
+        *,
+        spans: _abc.Iterable[Global___RunnerSpan] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["spans", b"spans"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SpanBatch: _TypeAlias = SpanBatch  # noqa: Y015
+
+@_typing.final
+class RunnerSpan(_message.Message):
+    """RunnerSpan is one finished span of the run's trace."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    @_typing.final
+    class AttributesEntry(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: _builtins.int
+        VALUE_FIELD_NUMBER: _builtins.int
+        key: _builtins.str
+        value: _builtins.str
+        def __init__(
+            self,
+            *,
+            key: _builtins.str = ...,
+            value: _builtins.str = ...,
+        ) -> None: ...
+        _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+    TRACE_ID_FIELD_NUMBER: _builtins.int
+    SPAN_ID_FIELD_NUMBER: _builtins.int
+    PARENT_SPAN_ID_FIELD_NUMBER: _builtins.int
+    NAME_FIELD_NUMBER: _builtins.int
+    START_FIELD_NUMBER: _builtins.int
+    END_FIELD_NUMBER: _builtins.int
+    ATTRIBUTES_FIELD_NUMBER: _builtins.int
+    ERROR_FIELD_NUMBER: _builtins.int
+    STATUS_MESSAGE_FIELD_NUMBER: _builtins.int
+    trace_id: _builtins.bytes
+    span_id: _builtins.bytes
+    parent_span_id: _builtins.bytes
+    """parent_span_id is empty for a span whose parent is the run's traceparent itself."""
+    name: _builtins.str
+    error: _builtins.bool
+    status_message: _builtins.str
+    @_builtins.property
+    def start(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def end(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def attributes(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]: ...
+    def __init__(
+        self,
+        *,
+        trace_id: _builtins.bytes = ...,
+        span_id: _builtins.bytes = ...,
+        parent_span_id: _builtins.bytes = ...,
+        name: _builtins.str = ...,
+        start: _timestamp_pb2.Timestamp | None = ...,
+        end: _timestamp_pb2.Timestamp | None = ...,
+        attributes: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
+        error: _builtins.bool = ...,
+        status_message: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["end", b"end", "start", b"start"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["attributes", b"attributes", "end", b"end", "error", b"error", "name", b"name", "parent_span_id", b"parent_span_id", "span_id", b"span_id", "start", b"start", "status_message", b"status_message", "trace_id", b"trace_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___RunnerSpan: _TypeAlias = RunnerSpan  # noqa: Y015
 
 @_typing.final
 class ToolBinding(_message.Message):

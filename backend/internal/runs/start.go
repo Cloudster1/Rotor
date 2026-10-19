@@ -6,11 +6,13 @@ import (
 	"sort"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/cloudster1/rotor/backend/internal/audit"
 	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/tools"
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 	"github.com/cloudster1/rotor/backend/internal/workflows"
@@ -58,17 +60,21 @@ func (s *Service) Start(ctx context.Context, req StartRequest) (Run, bool, error
 			return Run{}, false, err
 		}
 	}
+	// The run's trace begins here, so the worker's and the runner's spans join what started it (#37).
+	ctx, endSpan := observability.StartSpan(ctx, "run.start", attribute.String("rotor.workflow", w.ID.String()))
+	defer endSpan(nil)
+	traceparent := observability.Inject(ctx)
 	var r Run
 	created := true
 	err = s.db.Write(ctx, func(ctx context.Context, tx db.DBTX) error {
 		var err error
 		r, err = scanRun(tx.QueryRow(ctx, `WITH started AS (
-				INSERT INTO run (workflow_id, version, user_id, inputs, idempotency_key, workflow_name, started_by_name, trigger_id)
-				VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6, $7, $8)
+				INSERT INTO run (workflow_id, version, user_id, inputs, idempotency_key, workflow_name, started_by_name, trigger_id, traceparent)
+				VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6, $7, $8, $9)
 				ON CONFLICT (user_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
 				RETURNING *)
 			SELECT `+runColumns+` FROM started r`,
-			w.ID, version.Number, p.UserID, req.Inputs, req.IdempotencyKey, w.Name, p.Name, nullUUID(req.TriggerID)))
+			w.ID, version.Number, p.UserID, req.Inputs, req.IdempotencyKey, w.Name, p.Name, nullUUID(req.TriggerID), traceparent))
 		if errors.Is(err, ErrNotFound) {
 			// Another request with the same key won the race; it answers instead.
 			created = false

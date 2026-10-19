@@ -1,5 +1,5 @@
-// Package observability is how a process says how it is doing; logs for now,
-// traces and metrics with #37.
+// Package observability is how a process says how it is doing: logs, traces sent over OTLP (#37),
+// and the spans its runners send through it.
 package observability
 
 import (

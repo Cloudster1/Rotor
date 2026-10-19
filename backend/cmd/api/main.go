@@ -24,6 +24,8 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/db"
 	"github.com/cloudster1/rotor/backend/internal/hooks"
 	"github.com/cloudster1/rotor/backend/internal/httpapi"
+	"github.com/cloudster1/rotor/backend/internal/langsmith"
+	"github.com/cloudster1/rotor/backend/internal/metrics"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
 	"github.com/cloudster1/rotor/backend/internal/providers"
@@ -61,6 +63,16 @@ func run() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	// Traces go to the collector when one is set (#37); the api's metrics are served beside its public listener.
+	tracing, err := observability.SetupTracing(ctx, "rotor-api", cfg.Env, cfg.Telemetry, log, nil)
+	if err != nil {
+		return err
+	}
+	defer flushTraces(ctx, tracing)
+	counted := &metrics.Registry{}
+	mintFailures := counted.Counter("rotor_token_mint_failures_total", "Tokens a run asked for and did not get, by why.", "reason")
+	go metrics.Serve(ctx, cfg.Telemetry.APIMetricsAddr, counted, log)
 
 	cluster, err := db.Open(ctx, cfg.DB, log)
 	if err != nil {
@@ -126,6 +138,10 @@ func run() error {
 		runners.Checkpoints = runs.NewCheckpoints(cluster, secrets)
 		runners.Signals, runners.Wrap, runners.Events, runners.Host = store, secrets, store, cfg.Runner.Host
 		runners.ApprovalTTL = cfg.Approvals.TTL
+		smith := langsmith.NewService(cluster, secrets, cfg.Telemetry.LangSmithEndpoint)
+		server.LangSmith, server.LangSmithEndpoint = smith, cfg.Telemetry.LangSmithEndpoint
+		runners.Telemetry = &langsmith.Forwarder{Tracing: tracing, LangSmith: smith, Log: log}
+		runners.MintFailed = func(reason string) { mintFailures.Add(reason, 1) }
 		models := providers.NewService(cluster, secrets, boot.ToolClient(cfg))
 		server.Providers, runners.Models = models, models
 		// Usage (#38): a run's person's quota and its model's prices are checked as it starts.
@@ -206,4 +222,11 @@ func healthcheck() error {
 		return fmt.Errorf("readiness returned %s", resp.Status)
 	}
 	return nil
+}
+
+// flushTraces sends what the tracer still holds as the process ends.
+func flushTraces(ctx context.Context, tracing *observability.Tracing) {
+	flush, cancel := context.WithTimeout(context.WithoutCancel(ctx), config.ShutdownGrace)
+	defer cancel()
+	_ = tracing.Shutdown(flush)
 }

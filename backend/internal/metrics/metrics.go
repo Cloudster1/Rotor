@@ -1,141 +1,132 @@
-// Package metrics serves a process's counters and gauges in Prometheus's text format, written by hand: Rotor needs
-// a handful of families, and a library comes with M7's observability.
+// Package metrics serves a process's counters, gauges and histograms for Prometheus to scrape, on client_golang
+// (#37); families keep at most one label, which is all Rotor's need.
 package metrics
 
 import (
 	"context"
 	"errors"
-	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
-	"sort"
-	"strings"
 	"sync"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/cloudster1/rotor/backend/internal/config"
 )
 
-// Kinds of family, as the format names them.
-const (
-	kindCounter = "counter"
-	kindGauge   = "gauge"
-)
+// Registry is the families one endpoint serves; its zero value is ready to use.
+type Registry struct {
+	once sync.Once
+	reg  *prometheus.Registry
+}
 
-// contentType is the text format's media type, version 0.0.4.
-const contentType = "text/plain; version=0.0.4; charset=utf-8"
+func (r *Registry) registry() *prometheus.Registry {
+	r.once.Do(func() { r.reg = prometheus.NewRegistry() })
+	return r.reg
+}
 
 // Family is one metric with at most one label; a value under "" is the metric without its label.
 type Family struct {
-	name, help, kind, label string
-	mu                      sync.Mutex
-	values                  map[string]float64
-	// collect answers the values when they are read, for a gauge the process does not keep itself.
-	collect func(ctx context.Context) (map[string]float64, error)
+	label     string
+	counter   *prometheus.CounterVec
+	gauge     *prometheus.GaugeVec
+	histogram *prometheus.HistogramVec
 }
 
-// Add adds to the value under one label value; a nil family counts nothing.
+func labels(label string) []string {
+	if label == "" {
+		return nil
+	}
+	return []string{label}
+}
+
+func (f *Family) values(labelValue string) []string {
+	if f.label == "" {
+		return nil
+	}
+	return []string{labelValue}
+}
+
+// Add adds to a counter or gauge under one label value; a nil family counts nothing.
 func (f *Family) Add(labelValue string, delta float64) {
-	if f == nil {
-		return
+	switch {
+	case f == nil:
+	case f.counter != nil:
+		f.counter.WithLabelValues(f.values(labelValue)...).Add(delta)
+	case f.gauge != nil:
+		f.gauge.WithLabelValues(f.values(labelValue)...).Add(delta)
 	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.values[labelValue] += delta
 }
 
-// Set sets the value under one label value; a nil family keeps nothing.
+// Set sets a gauge under one label value; a nil family keeps nothing.
 func (f *Family) Set(labelValue string, value float64) {
-	if f == nil {
-		return
+	if f != nil && f.gauge != nil {
+		f.gauge.WithLabelValues(f.values(labelValue)...).Set(value)
 	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.values[labelValue] = value
 }
 
-func (f *Family) snapshot(ctx context.Context) map[string]float64 {
-	if f.collect != nil {
-		collected, err := f.collect(ctx)
-		if err != nil {
-			return map[string]float64{}
-		}
-		return collected
+// Observe records one value of a histogram under one label value; a nil family records nothing.
+func (f *Family) Observe(labelValue string, value float64) {
+	if f != nil && f.histogram != nil {
+		f.histogram.WithLabelValues(f.values(labelValue)...).Observe(value)
 	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	out := make(map[string]float64, len(f.values))
-	for k, v := range f.values {
-		out[k] = v
-	}
-	return out
-}
-
-// Registry is the families one endpoint serves, in the order registered.
-type Registry struct {
-	mu       sync.Mutex
-	families []*Family
-}
-
-func (r *Registry) add(f *Family) *Family {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.families = append(r.families, f)
-	return f
 }
 
 // Counter registers a family that only goes up.
 func (r *Registry) Counter(name, help, label string) *Family {
-	return r.add(&Family{name: name, help: help, kind: kindCounter, label: label, values: map[string]float64{}})
+	c := prometheus.NewCounterVec(prometheus.CounterOpts{Name: name, Help: help}, labels(label))
+	r.registry().MustRegister(c)
+	return &Family{label: label, counter: c}
 }
 
 // Gauge registers a family whose values the process sets.
 func (r *Registry) Gauge(name, help, label string) *Family {
-	return r.add(&Family{name: name, help: help, kind: kindGauge, label: label, values: map[string]float64{}})
+	g := prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: name, Help: help}, labels(label))
+	r.registry().MustRegister(g)
+	return &Family{label: label, gauge: g}
 }
 
-// GaugeFunc registers a gauge read from collect at every scrape, such as a count the database keeps.
-func (r *Registry) GaugeFunc(name, help, label string, collect func(ctx context.Context) (map[string]float64, error)) *Family {
-	return r.add(&Family{name: name, help: help, kind: kindGauge, label: label, values: map[string]float64{}, collect: collect})
+// Histogram registers a family of observations counted into buckets, such as how long runs take.
+func (r *Registry) Histogram(name, help, label string, buckets []float64) *Family {
+	h := prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: name, Help: help, Buckets: buckets}, labels(label))
+	r.registry().MustRegister(h)
+	return &Family{label: label, histogram: h}
 }
 
-// Write writes every family in the text format, label values sorted; a collect that fails leaves its family empty.
-func (r *Registry) Write(ctx context.Context, w io.Writer) error {
-	r.mu.Lock()
-	families := append([]*Family(nil), r.families...)
-	r.mu.Unlock()
-	var b strings.Builder
-	for _, f := range families {
-		values := f.snapshot(ctx)
-		fmt.Fprintf(&b, "# HELP %s %s\n# TYPE %s %s\n", f.name, f.help, f.name, f.kind)
-		keys := make([]string, 0, len(values))
-		for k := range values {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			if k == "" || f.label == "" {
-				fmt.Fprintf(&b, "%s %v\n", f.name, values[k])
-				continue
-			}
-			fmt.Fprintf(&b, "%s{%s=\"%s\"} %v\n", f.name, f.label, escape(k), values[k])
-		}
+// GaugeFunc registers a gauge read from collect at every scrape, such as a count the database keeps; a collect
+// that fails leaves the family empty for that scrape.
+func (r *Registry) GaugeFunc(name, help, label string, collect func(ctx context.Context) (map[string]float64, error)) {
+	r.registry().MustRegister(&funcGauge{desc: prometheus.NewDesc(name, help, labels(label), nil), label: label, collect: collect})
+}
+
+type funcGauge struct {
+	desc    *prometheus.Desc
+	label   string
+	collect func(ctx context.Context) (map[string]float64, error)
+}
+
+func (g *funcGauge) Describe(ch chan<- *prometheus.Desc) { ch <- g.desc }
+
+func (g *funcGauge) Collect(ch chan<- prometheus.Metric) {
+	ctx, cancel := context.WithTimeout(context.Background(), config.MetricsCollectTimeout)
+	defer cancel()
+	values, err := g.collect(ctx)
+	if err != nil {
+		return
 	}
-	_, err := io.WriteString(w, b.String())
-	return err
-}
-
-// escape writes a label value as the format quotes it.
-func escape(v string) string {
-	return strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`).Replace(v)
+	for k, v := range values {
+		var lvs []string
+		if g.label != "" {
+			lvs = []string{k}
+		}
+		ch <- prometheus.MustNewConstMetric(g.desc, prometheus.GaugeValue, v, lvs...)
+	}
 }
 
 // Handler serves the registry at any path it is mounted on.
 func (r *Registry) Handler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Content-Type", contentType)
-		_ = r.Write(req.Context(), w)
-	})
+	return promhttp.HandlerFor(r.registry(), promhttp.HandlerOpts{})
 }
 
 // Serve serves the registry at /metrics on addr until ctx ends; an empty addr serves nothing.

@@ -80,6 +80,8 @@ type Config struct {
 	Worker  Worker
 	// Approvals is how long an approval waits by default (#31).
 	Approvals Approvals
+	// Telemetry is where traces go and metrics are served (#37).
+	Telemetry Telemetry
 }
 
 // Auth is how a signed-in browser is remembered.
@@ -157,6 +159,7 @@ func Load() (Config, error) {
 		Valkey:    loadValkey(l),
 		Worker:    Worker{MetricsAddr: l.str("ROTOR_WORKER_METRICS_ADDR", DefaultWorkerMetricsAddr)},
 		Approvals: loadApprovals(l),
+		Telemetry: loadTelemetry(l),
 	}
 	if c.OIDC.RedirectURL == "" {
 		c.OIDC.RedirectURL = c.AppBaseURL + CallbackPath

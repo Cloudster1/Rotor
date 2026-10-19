@@ -43,6 +43,10 @@ type Server struct {
 	Events Publisher
 	// ApprovalTTL is how long an approval waits when its node sets no expiresIn (#31); zero is the default.
 	ApprovalTTL time.Duration
+	// Telemetry sends the runner's spans on (#37); nil drops them.
+	Telemetry Telemetry
+	// MintFailed counts a token not minted for a run, by why (#37); nil counts nothing.
+	MintFailed func(reason string)
 
 	store store
 	mu    sync.Mutex
@@ -138,6 +142,7 @@ func (s *Server) Connect(stream runnerpb.RunnerControlService_ConnectServer) err
 	var pending []*runnerpb.ConnectResponse
 	if r.Status == StatusStarting {
 		deadline := time.Now().Add(r.spec.Limits.TimeoutDuration() + config.RunDeadlineGrace)
+		r.TraceContent = s.Telemetry != nil && s.Telemetry.Content(ctx)
 		start, err := s.store.supersede(ctx, runID, startRun(r, bindings, s.modelConfig(r)), deadline)
 		if err != nil {
 			return s.fail(runID, "start the run", err)
@@ -278,6 +283,9 @@ func (s *Server) handle(ctx context.Context, stream runnerpb.RunnerControlServic
 		apply = func(ctx context.Context, tx db.DBTX) error { return finish(ctx, tx, r, m.Done, s.approvalTTL()) }
 	case *runnerpb.ConnectRequest_TokenRequest:
 		return stream.Send(s.grant(ctx, r, bindings, m.TokenRequest.Binding))
+	case *runnerpb.ConnectRequest_Spans:
+		s.spans(ctx, r, m.Spans)
+		return nil
 	case *runnerpb.ConnectRequest_CheckpointGet, *runnerpb.ConnectRequest_CheckpointList,
 		*runnerpb.ConnectRequest_CheckpointPut, *runnerpb.ConnectRequest_CheckpointWrites:
 		if s.Checkpoints == nil {

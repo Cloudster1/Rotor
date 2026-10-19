@@ -31,6 +31,7 @@ message ConnectRequest {
     CheckpointListRequest checkpoint_list = 16;
     CheckpointPutRequest checkpoint_put = 17;
     CheckpointWritesRequest checkpoint_writes = 18;
+    SpanBatch spans = 19;
   }
 }
 
@@ -120,6 +121,30 @@ message StartRun {
   string resume_json = 7;
   // resume_interrupt_id names the interrupt resume_json answers; a run no longer waiting there carries on without it.
   string resume_interrupt_id = 8;
+  // traceparent is the run's W3C trace context; the runner's spans belong to it and none are made without it (#37).
+  string traceparent = 9;
+  // trace_content lets LLM spans carry the prompt and the answer, redacted and cut short, for LangSmith (#37).
+  bool trace_content = 10;
+}
+
+// SpanBatch carries the runner's finished spans, sent with seq 0: the control plane exports them for it, so the
+// sandbox reaches no collector, and a batch lost with a stream is lost (#37).
+message SpanBatch {
+  repeated RunnerSpan spans = 1;
+}
+
+// RunnerSpan is one finished span of the run's trace.
+message RunnerSpan {
+  bytes trace_id = 1;
+  bytes span_id = 2;
+  // parent_span_id is empty for a span whose parent is the run's traceparent itself.
+  bytes parent_span_id = 3;
+  string name = 4;
+  google.protobuf.Timestamp start = 5;
+  google.protobuf.Timestamp end = 6;
+  map<string, string> attributes = 7;
+  bool error = 8;
+  string status_message = 9;
 }
 
 // ToolBinding is one of the spec's tool bindings, resolved to a tool Rotor knows.

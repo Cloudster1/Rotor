@@ -101,6 +101,7 @@ type ConnectRequest struct {
 	//	*ConnectRequest_CheckpointList
 	//	*ConnectRequest_CheckpointPut
 	//	*ConnectRequest_CheckpointWrites
+	//	*ConnectRequest_Spans
 	Message       isConnectRequest_Message `protobuf_oneof:"message"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -238,6 +239,15 @@ func (x *ConnectRequest) GetCheckpointWrites() *CheckpointWritesRequest {
 	return nil
 }
 
+func (x *ConnectRequest) GetSpans() *SpanBatch {
+	if x != nil {
+		if x, ok := x.Message.(*ConnectRequest_Spans); ok {
+			return x.Spans
+		}
+	}
+	return nil
+}
+
 type isConnectRequest_Message interface {
 	isConnectRequest_Message()
 }
@@ -278,6 +288,10 @@ type ConnectRequest_CheckpointWrites struct {
 	CheckpointWrites *CheckpointWritesRequest `protobuf:"bytes,18,opt,name=checkpoint_writes,json=checkpointWrites,proto3,oneof"`
 }
 
+type ConnectRequest_Spans struct {
+	Spans *SpanBatch `protobuf:"bytes,19,opt,name=spans,proto3,oneof"`
+}
+
 func (*ConnectRequest_Hello) isConnectRequest_Message() {}
 
 func (*ConnectRequest_Event) isConnectRequest_Message() {}
@@ -295,6 +309,8 @@ func (*ConnectRequest_CheckpointList) isConnectRequest_Message() {}
 func (*ConnectRequest_CheckpointPut) isConnectRequest_Message() {}
 
 func (*ConnectRequest_CheckpointWrites) isConnectRequest_Message() {}
+
+func (*ConnectRequest_Spans) isConnectRequest_Message() {}
 
 // ConnectResponse is what the control plane sends.
 type ConnectResponse struct {
@@ -907,8 +923,12 @@ type StartRun struct {
 	ResumeJson string `protobuf:"bytes,7,opt,name=resume_json,json=resumeJson,proto3" json:"resume_json,omitempty"`
 	// resume_interrupt_id names the interrupt resume_json answers; a run no longer waiting there carries on without it.
 	ResumeInterruptId string `protobuf:"bytes,8,opt,name=resume_interrupt_id,json=resumeInterruptId,proto3" json:"resume_interrupt_id,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// traceparent is the run's W3C trace context; the runner's spans belong to it and none are made without it (#37).
+	Traceparent string `protobuf:"bytes,9,opt,name=traceparent,proto3" json:"traceparent,omitempty"`
+	// trace_content lets LLM spans carry the prompt and the answer, redacted and cut short, for LangSmith (#37).
+	TraceContent  bool `protobuf:"varint,10,opt,name=trace_content,json=traceContent,proto3" json:"trace_content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *StartRun) Reset() {
@@ -997,6 +1017,176 @@ func (x *StartRun) GetResumeInterruptId() string {
 	return ""
 }
 
+func (x *StartRun) GetTraceparent() string {
+	if x != nil {
+		return x.Traceparent
+	}
+	return ""
+}
+
+func (x *StartRun) GetTraceContent() bool {
+	if x != nil {
+		return x.TraceContent
+	}
+	return false
+}
+
+// SpanBatch carries the runner's finished spans, sent with seq 0: the control plane exports them for it, so the
+// sandbox reaches no collector, and a batch lost with a stream is lost (#37).
+type SpanBatch struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Spans         []*RunnerSpan          `protobuf:"bytes,1,rep,name=spans,proto3" json:"spans,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SpanBatch) Reset() {
+	*x = SpanBatch{}
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SpanBatch) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SpanBatch) ProtoMessage() {}
+
+func (x *SpanBatch) ProtoReflect() protoreflect.Message {
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SpanBatch.ProtoReflect.Descriptor instead.
+func (*SpanBatch) Descriptor() ([]byte, []int) {
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *SpanBatch) GetSpans() []*RunnerSpan {
+	if x != nil {
+		return x.Spans
+	}
+	return nil
+}
+
+// RunnerSpan is one finished span of the run's trace.
+type RunnerSpan struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	TraceId []byte                 `protobuf:"bytes,1,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
+	SpanId  []byte                 `protobuf:"bytes,2,opt,name=span_id,json=spanId,proto3" json:"span_id,omitempty"`
+	// parent_span_id is empty for a span whose parent is the run's traceparent itself.
+	ParentSpanId  []byte                 `protobuf:"bytes,3,opt,name=parent_span_id,json=parentSpanId,proto3" json:"parent_span_id,omitempty"`
+	Name          string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	Start         *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=start,proto3" json:"start,omitempty"`
+	End           *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=end,proto3" json:"end,omitempty"`
+	Attributes    map[string]string      `protobuf:"bytes,7,rep,name=attributes,proto3" json:"attributes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Error         bool                   `protobuf:"varint,8,opt,name=error,proto3" json:"error,omitempty"`
+	StatusMessage string                 `protobuf:"bytes,9,opt,name=status_message,json=statusMessage,proto3" json:"status_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RunnerSpan) Reset() {
+	*x = RunnerSpan{}
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RunnerSpan) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RunnerSpan) ProtoMessage() {}
+
+func (x *RunnerSpan) ProtoReflect() protoreflect.Message {
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RunnerSpan.ProtoReflect.Descriptor instead.
+func (*RunnerSpan) Descriptor() ([]byte, []int) {
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *RunnerSpan) GetTraceId() []byte {
+	if x != nil {
+		return x.TraceId
+	}
+	return nil
+}
+
+func (x *RunnerSpan) GetSpanId() []byte {
+	if x != nil {
+		return x.SpanId
+	}
+	return nil
+}
+
+func (x *RunnerSpan) GetParentSpanId() []byte {
+	if x != nil {
+		return x.ParentSpanId
+	}
+	return nil
+}
+
+func (x *RunnerSpan) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *RunnerSpan) GetStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Start
+	}
+	return nil
+}
+
+func (x *RunnerSpan) GetEnd() *timestamppb.Timestamp {
+	if x != nil {
+		return x.End
+	}
+	return nil
+}
+
+func (x *RunnerSpan) GetAttributes() map[string]string {
+	if x != nil {
+		return x.Attributes
+	}
+	return nil
+}
+
+func (x *RunnerSpan) GetError() bool {
+	if x != nil {
+		return x.Error
+	}
+	return false
+}
+
+func (x *RunnerSpan) GetStatusMessage() string {
+	if x != nil {
+		return x.StatusMessage
+	}
+	return ""
+}
+
 // ToolBinding is one of the spec's tool bindings, resolved to a tool Rotor knows.
 type ToolBinding struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
@@ -1013,7 +1203,7 @@ type ToolBinding struct {
 
 func (x *ToolBinding) Reset() {
 	*x = ToolBinding{}
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[9]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1025,7 +1215,7 @@ func (x *ToolBinding) String() string {
 func (*ToolBinding) ProtoMessage() {}
 
 func (x *ToolBinding) ProtoReflect() protoreflect.Message {
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[9]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1038,7 +1228,7 @@ func (x *ToolBinding) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolBinding.ProtoReflect.Descriptor instead.
 func (*ToolBinding) Descriptor() ([]byte, []int) {
-	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{9}
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ToolBinding) GetBinding() string {
@@ -1098,7 +1288,7 @@ type ModelConfig struct {
 
 func (x *ModelConfig) Reset() {
 	*x = ModelConfig{}
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[10]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1110,7 +1300,7 @@ func (x *ModelConfig) String() string {
 func (*ModelConfig) ProtoMessage() {}
 
 func (x *ModelConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[10]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1123,7 +1313,7 @@ func (x *ModelConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelConfig.ProtoReflect.Descriptor instead.
 func (*ModelConfig) Descriptor() ([]byte, []int) {
-	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{10}
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ModelConfig) GetProviderId() string {
@@ -1171,7 +1361,7 @@ type Resume struct {
 
 func (x *Resume) Reset() {
 	*x = Resume{}
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[11]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1183,7 +1373,7 @@ func (x *Resume) String() string {
 func (*Resume) ProtoMessage() {}
 
 func (x *Resume) ProtoReflect() protoreflect.Message {
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[11]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1196,7 +1386,7 @@ func (x *Resume) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Resume.ProtoReflect.Descriptor instead.
 func (*Resume) Descriptor() ([]byte, []int) {
-	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{11}
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Resume) GetValueJson() string {
@@ -1216,7 +1406,7 @@ type Cancel struct {
 
 func (x *Cancel) Reset() {
 	*x = Cancel{}
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[12]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1228,7 +1418,7 @@ func (x *Cancel) String() string {
 func (*Cancel) ProtoMessage() {}
 
 func (x *Cancel) ProtoReflect() protoreflect.Message {
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[12]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1241,7 +1431,7 @@ func (x *Cancel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Cancel.ProtoReflect.Descriptor instead.
 func (*Cancel) Descriptor() ([]byte, []int) {
-	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{12}
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Cancel) GetReason() string {
@@ -1269,7 +1459,7 @@ type TokenGrant struct {
 
 func (x *TokenGrant) Reset() {
 	*x = TokenGrant{}
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[13]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1281,7 +1471,7 @@ func (x *TokenGrant) String() string {
 func (*TokenGrant) ProtoMessage() {}
 
 func (x *TokenGrant) ProtoReflect() protoreflect.Message {
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[13]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1294,7 +1484,7 @@ func (x *TokenGrant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TokenGrant.ProtoReflect.Descriptor instead.
 func (*TokenGrant) Descriptor() ([]byte, []int) {
-	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{13}
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *TokenGrant) GetBinding() string {
@@ -1380,7 +1570,7 @@ type SecretGrant struct {
 
 func (x *SecretGrant) Reset() {
 	*x = SecretGrant{}
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[14]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1392,7 +1582,7 @@ func (x *SecretGrant) String() string {
 func (*SecretGrant) ProtoMessage() {}
 
 func (x *SecretGrant) ProtoReflect() protoreflect.Message {
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[14]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1405,7 +1595,7 @@ func (x *SecretGrant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SecretGrant.ProtoReflect.Descriptor instead.
 func (*SecretGrant) Descriptor() ([]byte, []int) {
-	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{14}
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *SecretGrant) GetProviderId() string {
@@ -1472,7 +1662,7 @@ type TypedValue struct {
 
 func (x *TypedValue) Reset() {
 	*x = TypedValue{}
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[15]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1484,7 +1674,7 @@ func (x *TypedValue) String() string {
 func (*TypedValue) ProtoMessage() {}
 
 func (x *TypedValue) ProtoReflect() protoreflect.Message {
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[15]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1497,7 +1687,7 @@ func (x *TypedValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TypedValue.ProtoReflect.Descriptor instead.
 func (*TypedValue) Descriptor() ([]byte, []int) {
-	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{15}
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *TypedValue) GetType() string {
@@ -1529,7 +1719,7 @@ type Checkpoint struct {
 
 func (x *Checkpoint) Reset() {
 	*x = Checkpoint{}
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[16]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1541,7 +1731,7 @@ func (x *Checkpoint) String() string {
 func (*Checkpoint) ProtoMessage() {}
 
 func (x *Checkpoint) ProtoReflect() protoreflect.Message {
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[16]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1554,7 +1744,7 @@ func (x *Checkpoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Checkpoint.ProtoReflect.Descriptor instead.
 func (*Checkpoint) Descriptor() ([]byte, []int) {
-	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{16}
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *Checkpoint) GetCheckpointNs() string {
@@ -1613,7 +1803,7 @@ type PendingWrite struct {
 
 func (x *PendingWrite) Reset() {
 	*x = PendingWrite{}
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[17]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1625,7 +1815,7 @@ func (x *PendingWrite) String() string {
 func (*PendingWrite) ProtoMessage() {}
 
 func (x *PendingWrite) ProtoReflect() protoreflect.Message {
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[17]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1638,7 +1828,7 @@ func (x *PendingWrite) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PendingWrite.ProtoReflect.Descriptor instead.
 func (*PendingWrite) Descriptor() ([]byte, []int) {
-	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{17}
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *PendingWrite) GetTaskId() string {
@@ -1688,7 +1878,7 @@ type CheckpointGetRequest struct {
 
 func (x *CheckpointGetRequest) Reset() {
 	*x = CheckpointGetRequest{}
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[18]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1700,7 +1890,7 @@ func (x *CheckpointGetRequest) String() string {
 func (*CheckpointGetRequest) ProtoMessage() {}
 
 func (x *CheckpointGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[18]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1713,7 +1903,7 @@ func (x *CheckpointGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckpointGetRequest.ProtoReflect.Descriptor instead.
 func (*CheckpointGetRequest) Descriptor() ([]byte, []int) {
-	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{18}
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CheckpointGetRequest) GetRequestId() string {
@@ -1750,7 +1940,7 @@ type CheckpointGetResponse struct {
 
 func (x *CheckpointGetResponse) Reset() {
 	*x = CheckpointGetResponse{}
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[19]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1762,7 +1952,7 @@ func (x *CheckpointGetResponse) String() string {
 func (*CheckpointGetResponse) ProtoMessage() {}
 
 func (x *CheckpointGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[19]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1775,7 +1965,7 @@ func (x *CheckpointGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckpointGetResponse.ProtoReflect.Descriptor instead.
 func (*CheckpointGetResponse) Descriptor() ([]byte, []int) {
-	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{19}
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *CheckpointGetResponse) GetRequestId() string {
@@ -1819,7 +2009,7 @@ type CheckpointListRequest struct {
 
 func (x *CheckpointListRequest) Reset() {
 	*x = CheckpointListRequest{}
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[20]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1831,7 +2021,7 @@ func (x *CheckpointListRequest) String() string {
 func (*CheckpointListRequest) ProtoMessage() {}
 
 func (x *CheckpointListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[20]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1844,7 +2034,7 @@ func (x *CheckpointListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckpointListRequest.ProtoReflect.Descriptor instead.
 func (*CheckpointListRequest) Descriptor() ([]byte, []int) {
-	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{20}
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *CheckpointListRequest) GetRequestId() string {
@@ -1887,7 +2077,7 @@ type CheckpointListResponse struct {
 
 func (x *CheckpointListResponse) Reset() {
 	*x = CheckpointListResponse{}
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[21]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1899,7 +2089,7 @@ func (x *CheckpointListResponse) String() string {
 func (*CheckpointListResponse) ProtoMessage() {}
 
 func (x *CheckpointListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[21]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1912,7 +2102,7 @@ func (x *CheckpointListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckpointListResponse.ProtoReflect.Descriptor instead.
 func (*CheckpointListResponse) Descriptor() ([]byte, []int) {
-	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{21}
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *CheckpointListResponse) GetRequestId() string {
@@ -1947,7 +2137,7 @@ type CheckpointPutRequest struct {
 
 func (x *CheckpointPutRequest) Reset() {
 	*x = CheckpointPutRequest{}
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[22]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1959,7 +2149,7 @@ func (x *CheckpointPutRequest) String() string {
 func (*CheckpointPutRequest) ProtoMessage() {}
 
 func (x *CheckpointPutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[22]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1972,7 +2162,7 @@ func (x *CheckpointPutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckpointPutRequest.ProtoReflect.Descriptor instead.
 func (*CheckpointPutRequest) Descriptor() ([]byte, []int) {
-	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{22}
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CheckpointPutRequest) GetRequestId() string {
@@ -2000,7 +2190,7 @@ type CheckpointPutResponse struct {
 
 func (x *CheckpointPutResponse) Reset() {
 	*x = CheckpointPutResponse{}
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[23]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2012,7 +2202,7 @@ func (x *CheckpointPutResponse) String() string {
 func (*CheckpointPutResponse) ProtoMessage() {}
 
 func (x *CheckpointPutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[23]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2025,7 +2215,7 @@ func (x *CheckpointPutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckpointPutResponse.ProtoReflect.Descriptor instead.
 func (*CheckpointPutResponse) Descriptor() ([]byte, []int) {
-	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{23}
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *CheckpointPutResponse) GetRequestId() string {
@@ -2055,7 +2245,7 @@ type CheckpointWritesRequest struct {
 
 func (x *CheckpointWritesRequest) Reset() {
 	*x = CheckpointWritesRequest{}
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[24]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2067,7 +2257,7 @@ func (x *CheckpointWritesRequest) String() string {
 func (*CheckpointWritesRequest) ProtoMessage() {}
 
 func (x *CheckpointWritesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[24]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2080,7 +2270,7 @@ func (x *CheckpointWritesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckpointWritesRequest.ProtoReflect.Descriptor instead.
 func (*CheckpointWritesRequest) Descriptor() ([]byte, []int) {
-	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{24}
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *CheckpointWritesRequest) GetRequestId() string {
@@ -2122,7 +2312,7 @@ type CheckpointWritesResponse struct {
 
 func (x *CheckpointWritesResponse) Reset() {
 	*x = CheckpointWritesResponse{}
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[25]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2134,7 +2324,7 @@ func (x *CheckpointWritesResponse) String() string {
 func (*CheckpointWritesResponse) ProtoMessage() {}
 
 func (x *CheckpointWritesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rotor_runner_v1_runner_proto_msgTypes[25]
+	mi := &file_rotor_runner_v1_runner_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2147,7 +2337,7 @@ func (x *CheckpointWritesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckpointWritesResponse.ProtoReflect.Descriptor instead.
 func (*CheckpointWritesResponse) Descriptor() ([]byte, []int) {
-	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{25}
+	return file_rotor_runner_v1_runner_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *CheckpointWritesResponse) GetRequestId() string {
@@ -2168,7 +2358,7 @@ var File_rotor_runner_v1_runner_proto protoreflect.FileDescriptor
 
 const file_rotor_runner_v1_runner_proto_rawDesc = "" +
 	"\n" +
-	"\x1crotor/runner/v1/runner.proto\x12\x0frotor.runner.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9a\x05\n" +
+	"\x1crotor/runner/v1/runner.proto\x12\x0frotor.runner.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xce\x05\n" +
 	"\x0eConnectRequest\x12\x10\n" +
 	"\x03seq\x18\x01 \x01(\x04R\x03seq\x12\x10\n" +
 	"\x03ack\x18\x02 \x01(\x04R\x03ack\x12.\n" +
@@ -2181,7 +2371,8 @@ const file_rotor_runner_v1_runner_proto_rawDesc = "" +
 	"\x0echeckpoint_get\x18\x0f \x01(\v2%.rotor.runner.v1.CheckpointGetRequestH\x00R\rcheckpointGet\x12Q\n" +
 	"\x0fcheckpoint_list\x18\x10 \x01(\v2&.rotor.runner.v1.CheckpointListRequestH\x00R\x0echeckpointList\x12N\n" +
 	"\x0echeckpoint_put\x18\x11 \x01(\v2%.rotor.runner.v1.CheckpointPutRequestH\x00R\rcheckpointPut\x12W\n" +
-	"\x11checkpoint_writes\x18\x12 \x01(\v2(.rotor.runner.v1.CheckpointWritesRequestH\x00R\x10checkpointWritesB\t\n" +
+	"\x11checkpoint_writes\x18\x12 \x01(\v2(.rotor.runner.v1.CheckpointWritesRequestH\x00R\x10checkpointWrites\x122\n" +
+	"\x05spans\x18\x13 \x01(\v2\x1a.rotor.runner.v1.SpanBatchH\x00R\x05spansB\t\n" +
 	"\amessage\"\xed\x05\n" +
 	"\x0fConnectResponse\x12\x10\n" +
 	"\x03seq\x18\x01 \x01(\x04R\x03seq\x12\x10\n" +
@@ -2221,7 +2412,7 @@ const file_rotor_runner_v1_runner_proto_rawDesc = "" +
 	"\aoutcome\x18\x01 \x01(\x0e2\x1b.rotor.runner.v1.RunOutcomeR\aoutcome\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\x12\x1f\n" +
 	"\voutput_json\x18\x03 \x01(\tR\n" +
-	"outputJson\"\xb0\x02\n" +
+	"outputJson\"\xf7\x02\n" +
 	"\bStartRun\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x1b\n" +
 	"\tspec_yaml\x18\x02 \x01(\tR\bspecYaml\x12\x1f\n" +
@@ -2232,7 +2423,28 @@ const file_rotor_runner_v1_runner_proto_rawDesc = "" +
 	"\x06resume\x18\x06 \x01(\bR\x06resume\x12\x1f\n" +
 	"\vresume_json\x18\a \x01(\tR\n" +
 	"resumeJson\x12.\n" +
-	"\x13resume_interrupt_id\x18\b \x01(\tR\x11resumeInterruptId\"\xaa\x01\n" +
+	"\x13resume_interrupt_id\x18\b \x01(\tR\x11resumeInterruptId\x12 \n" +
+	"\vtraceparent\x18\t \x01(\tR\vtraceparent\x12#\n" +
+	"\rtrace_content\x18\n" +
+	" \x01(\bR\ftraceContent\">\n" +
+	"\tSpanBatch\x121\n" +
+	"\x05spans\x18\x01 \x03(\v2\x1b.rotor.runner.v1.RunnerSpanR\x05spans\"\xa3\x03\n" +
+	"\n" +
+	"RunnerSpan\x12\x19\n" +
+	"\btrace_id\x18\x01 \x01(\fR\atraceId\x12\x17\n" +
+	"\aspan_id\x18\x02 \x01(\fR\x06spanId\x12$\n" +
+	"\x0eparent_span_id\x18\x03 \x01(\fR\fparentSpanId\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x120\n" +
+	"\x05start\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x05start\x12,\n" +
+	"\x03end\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x03end\x12K\n" +
+	"\n" +
+	"attributes\x18\a \x03(\v2+.rotor.runner.v1.RunnerSpan.AttributesEntryR\n" +
+	"attributes\x12\x14\n" +
+	"\x05error\x18\b \x01(\bR\x05error\x12%\n" +
+	"\x0estatus_message\x18\t \x01(\tR\rstatusMessage\x1a=\n" +
+	"\x0fAttributesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xaa\x01\n" +
 	"\vToolBinding\x12\x18\n" +
 	"\abinding\x18\x01 \x01(\tR\abinding\x12\x17\n" +
 	"\atool_id\x18\x02 \x01(\tR\x06toolId\x12\x17\n" +
@@ -2356,7 +2568,7 @@ func file_rotor_runner_v1_runner_proto_rawDescGZIP() []byte {
 }
 
 var file_rotor_runner_v1_runner_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_rotor_runner_v1_runner_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_rotor_runner_v1_runner_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_rotor_runner_v1_runner_proto_goTypes = []any{
 	(RunOutcome)(0),                  // 0: rotor.runner.v1.RunOutcome
 	(*ConnectRequest)(nil),           // 1: rotor.runner.v1.ConnectRequest
@@ -2368,24 +2580,27 @@ var file_rotor_runner_v1_runner_proto_goTypes = []any{
 	(*Heartbeat)(nil),                // 7: rotor.runner.v1.Heartbeat
 	(*Done)(nil),                     // 8: rotor.runner.v1.Done
 	(*StartRun)(nil),                 // 9: rotor.runner.v1.StartRun
-	(*ToolBinding)(nil),              // 10: rotor.runner.v1.ToolBinding
-	(*ModelConfig)(nil),              // 11: rotor.runner.v1.ModelConfig
-	(*Resume)(nil),                   // 12: rotor.runner.v1.Resume
-	(*Cancel)(nil),                   // 13: rotor.runner.v1.Cancel
-	(*TokenGrant)(nil),               // 14: rotor.runner.v1.TokenGrant
-	(*SecretGrant)(nil),              // 15: rotor.runner.v1.SecretGrant
-	(*TypedValue)(nil),               // 16: rotor.runner.v1.TypedValue
-	(*Checkpoint)(nil),               // 17: rotor.runner.v1.Checkpoint
-	(*PendingWrite)(nil),             // 18: rotor.runner.v1.PendingWrite
-	(*CheckpointGetRequest)(nil),     // 19: rotor.runner.v1.CheckpointGetRequest
-	(*CheckpointGetResponse)(nil),    // 20: rotor.runner.v1.CheckpointGetResponse
-	(*CheckpointListRequest)(nil),    // 21: rotor.runner.v1.CheckpointListRequest
-	(*CheckpointListResponse)(nil),   // 22: rotor.runner.v1.CheckpointListResponse
-	(*CheckpointPutRequest)(nil),     // 23: rotor.runner.v1.CheckpointPutRequest
-	(*CheckpointPutResponse)(nil),    // 24: rotor.runner.v1.CheckpointPutResponse
-	(*CheckpointWritesRequest)(nil),  // 25: rotor.runner.v1.CheckpointWritesRequest
-	(*CheckpointWritesResponse)(nil), // 26: rotor.runner.v1.CheckpointWritesResponse
-	(*timestamppb.Timestamp)(nil),    // 27: google.protobuf.Timestamp
+	(*SpanBatch)(nil),                // 10: rotor.runner.v1.SpanBatch
+	(*RunnerSpan)(nil),               // 11: rotor.runner.v1.RunnerSpan
+	(*ToolBinding)(nil),              // 12: rotor.runner.v1.ToolBinding
+	(*ModelConfig)(nil),              // 13: rotor.runner.v1.ModelConfig
+	(*Resume)(nil),                   // 14: rotor.runner.v1.Resume
+	(*Cancel)(nil),                   // 15: rotor.runner.v1.Cancel
+	(*TokenGrant)(nil),               // 16: rotor.runner.v1.TokenGrant
+	(*SecretGrant)(nil),              // 17: rotor.runner.v1.SecretGrant
+	(*TypedValue)(nil),               // 18: rotor.runner.v1.TypedValue
+	(*Checkpoint)(nil),               // 19: rotor.runner.v1.Checkpoint
+	(*PendingWrite)(nil),             // 20: rotor.runner.v1.PendingWrite
+	(*CheckpointGetRequest)(nil),     // 21: rotor.runner.v1.CheckpointGetRequest
+	(*CheckpointGetResponse)(nil),    // 22: rotor.runner.v1.CheckpointGetResponse
+	(*CheckpointListRequest)(nil),    // 23: rotor.runner.v1.CheckpointListRequest
+	(*CheckpointListResponse)(nil),   // 24: rotor.runner.v1.CheckpointListResponse
+	(*CheckpointPutRequest)(nil),     // 25: rotor.runner.v1.CheckpointPutRequest
+	(*CheckpointPutResponse)(nil),    // 26: rotor.runner.v1.CheckpointPutResponse
+	(*CheckpointWritesRequest)(nil),  // 27: rotor.runner.v1.CheckpointWritesRequest
+	(*CheckpointWritesResponse)(nil), // 28: rotor.runner.v1.CheckpointWritesResponse
+	nil,                              // 29: rotor.runner.v1.RunnerSpan.AttributesEntry
+	(*timestamppb.Timestamp)(nil),    // 30: google.protobuf.Timestamp
 }
 var file_rotor_runner_v1_runner_proto_depIdxs = []int32{
 	3,  // 0: rotor.runner.v1.ConnectRequest.hello:type_name -> rotor.runner.v1.Hello
@@ -2393,41 +2608,46 @@ var file_rotor_runner_v1_runner_proto_depIdxs = []int32{
 	6,  // 2: rotor.runner.v1.ConnectRequest.token_request:type_name -> rotor.runner.v1.TokenRequest
 	7,  // 3: rotor.runner.v1.ConnectRequest.heartbeat:type_name -> rotor.runner.v1.Heartbeat
 	8,  // 4: rotor.runner.v1.ConnectRequest.done:type_name -> rotor.runner.v1.Done
-	19, // 5: rotor.runner.v1.ConnectRequest.checkpoint_get:type_name -> rotor.runner.v1.CheckpointGetRequest
-	21, // 6: rotor.runner.v1.ConnectRequest.checkpoint_list:type_name -> rotor.runner.v1.CheckpointListRequest
-	23, // 7: rotor.runner.v1.ConnectRequest.checkpoint_put:type_name -> rotor.runner.v1.CheckpointPutRequest
-	25, // 8: rotor.runner.v1.ConnectRequest.checkpoint_writes:type_name -> rotor.runner.v1.CheckpointWritesRequest
-	4,  // 9: rotor.runner.v1.ConnectResponse.hello_ack:type_name -> rotor.runner.v1.HelloAck
-	9,  // 10: rotor.runner.v1.ConnectResponse.start_run:type_name -> rotor.runner.v1.StartRun
-	12, // 11: rotor.runner.v1.ConnectResponse.resume:type_name -> rotor.runner.v1.Resume
-	13, // 12: rotor.runner.v1.ConnectResponse.cancel:type_name -> rotor.runner.v1.Cancel
-	14, // 13: rotor.runner.v1.ConnectResponse.token_grant:type_name -> rotor.runner.v1.TokenGrant
-	15, // 14: rotor.runner.v1.ConnectResponse.secret_grant:type_name -> rotor.runner.v1.SecretGrant
-	20, // 15: rotor.runner.v1.ConnectResponse.checkpoint_get:type_name -> rotor.runner.v1.CheckpointGetResponse
-	22, // 16: rotor.runner.v1.ConnectResponse.checkpoint_list:type_name -> rotor.runner.v1.CheckpointListResponse
-	24, // 17: rotor.runner.v1.ConnectResponse.checkpoint_put:type_name -> rotor.runner.v1.CheckpointPutResponse
-	26, // 18: rotor.runner.v1.ConnectResponse.checkpoint_writes:type_name -> rotor.runner.v1.CheckpointWritesResponse
-	27, // 19: rotor.runner.v1.HelloAck.session_expires_at:type_name -> google.protobuf.Timestamp
-	27, // 20: rotor.runner.v1.Event.at:type_name -> google.protobuf.Timestamp
-	0,  // 21: rotor.runner.v1.Done.outcome:type_name -> rotor.runner.v1.RunOutcome
-	10, // 22: rotor.runner.v1.StartRun.tools:type_name -> rotor.runner.v1.ToolBinding
-	11, // 23: rotor.runner.v1.StartRun.model:type_name -> rotor.runner.v1.ModelConfig
-	27, // 24: rotor.runner.v1.TokenGrant.expires_at:type_name -> google.protobuf.Timestamp
-	16, // 25: rotor.runner.v1.Checkpoint.checkpoint:type_name -> rotor.runner.v1.TypedValue
-	16, // 26: rotor.runner.v1.Checkpoint.metadata:type_name -> rotor.runner.v1.TypedValue
-	18, // 27: rotor.runner.v1.Checkpoint.pending_writes:type_name -> rotor.runner.v1.PendingWrite
-	16, // 28: rotor.runner.v1.PendingWrite.value:type_name -> rotor.runner.v1.TypedValue
-	17, // 29: rotor.runner.v1.CheckpointGetResponse.checkpoint:type_name -> rotor.runner.v1.Checkpoint
-	17, // 30: rotor.runner.v1.CheckpointListResponse.checkpoints:type_name -> rotor.runner.v1.Checkpoint
-	17, // 31: rotor.runner.v1.CheckpointPutRequest.checkpoint:type_name -> rotor.runner.v1.Checkpoint
-	18, // 32: rotor.runner.v1.CheckpointWritesRequest.writes:type_name -> rotor.runner.v1.PendingWrite
-	1,  // 33: rotor.runner.v1.RunnerControlService.Connect:input_type -> rotor.runner.v1.ConnectRequest
-	2,  // 34: rotor.runner.v1.RunnerControlService.Connect:output_type -> rotor.runner.v1.ConnectResponse
-	34, // [34:35] is the sub-list for method output_type
-	33, // [33:34] is the sub-list for method input_type
-	33, // [33:33] is the sub-list for extension type_name
-	33, // [33:33] is the sub-list for extension extendee
-	0,  // [0:33] is the sub-list for field type_name
+	21, // 5: rotor.runner.v1.ConnectRequest.checkpoint_get:type_name -> rotor.runner.v1.CheckpointGetRequest
+	23, // 6: rotor.runner.v1.ConnectRequest.checkpoint_list:type_name -> rotor.runner.v1.CheckpointListRequest
+	25, // 7: rotor.runner.v1.ConnectRequest.checkpoint_put:type_name -> rotor.runner.v1.CheckpointPutRequest
+	27, // 8: rotor.runner.v1.ConnectRequest.checkpoint_writes:type_name -> rotor.runner.v1.CheckpointWritesRequest
+	10, // 9: rotor.runner.v1.ConnectRequest.spans:type_name -> rotor.runner.v1.SpanBatch
+	4,  // 10: rotor.runner.v1.ConnectResponse.hello_ack:type_name -> rotor.runner.v1.HelloAck
+	9,  // 11: rotor.runner.v1.ConnectResponse.start_run:type_name -> rotor.runner.v1.StartRun
+	14, // 12: rotor.runner.v1.ConnectResponse.resume:type_name -> rotor.runner.v1.Resume
+	15, // 13: rotor.runner.v1.ConnectResponse.cancel:type_name -> rotor.runner.v1.Cancel
+	16, // 14: rotor.runner.v1.ConnectResponse.token_grant:type_name -> rotor.runner.v1.TokenGrant
+	17, // 15: rotor.runner.v1.ConnectResponse.secret_grant:type_name -> rotor.runner.v1.SecretGrant
+	22, // 16: rotor.runner.v1.ConnectResponse.checkpoint_get:type_name -> rotor.runner.v1.CheckpointGetResponse
+	24, // 17: rotor.runner.v1.ConnectResponse.checkpoint_list:type_name -> rotor.runner.v1.CheckpointListResponse
+	26, // 18: rotor.runner.v1.ConnectResponse.checkpoint_put:type_name -> rotor.runner.v1.CheckpointPutResponse
+	28, // 19: rotor.runner.v1.ConnectResponse.checkpoint_writes:type_name -> rotor.runner.v1.CheckpointWritesResponse
+	30, // 20: rotor.runner.v1.HelloAck.session_expires_at:type_name -> google.protobuf.Timestamp
+	30, // 21: rotor.runner.v1.Event.at:type_name -> google.protobuf.Timestamp
+	0,  // 22: rotor.runner.v1.Done.outcome:type_name -> rotor.runner.v1.RunOutcome
+	12, // 23: rotor.runner.v1.StartRun.tools:type_name -> rotor.runner.v1.ToolBinding
+	13, // 24: rotor.runner.v1.StartRun.model:type_name -> rotor.runner.v1.ModelConfig
+	11, // 25: rotor.runner.v1.SpanBatch.spans:type_name -> rotor.runner.v1.RunnerSpan
+	30, // 26: rotor.runner.v1.RunnerSpan.start:type_name -> google.protobuf.Timestamp
+	30, // 27: rotor.runner.v1.RunnerSpan.end:type_name -> google.protobuf.Timestamp
+	29, // 28: rotor.runner.v1.RunnerSpan.attributes:type_name -> rotor.runner.v1.RunnerSpan.AttributesEntry
+	30, // 29: rotor.runner.v1.TokenGrant.expires_at:type_name -> google.protobuf.Timestamp
+	18, // 30: rotor.runner.v1.Checkpoint.checkpoint:type_name -> rotor.runner.v1.TypedValue
+	18, // 31: rotor.runner.v1.Checkpoint.metadata:type_name -> rotor.runner.v1.TypedValue
+	20, // 32: rotor.runner.v1.Checkpoint.pending_writes:type_name -> rotor.runner.v1.PendingWrite
+	18, // 33: rotor.runner.v1.PendingWrite.value:type_name -> rotor.runner.v1.TypedValue
+	19, // 34: rotor.runner.v1.CheckpointGetResponse.checkpoint:type_name -> rotor.runner.v1.Checkpoint
+	19, // 35: rotor.runner.v1.CheckpointListResponse.checkpoints:type_name -> rotor.runner.v1.Checkpoint
+	19, // 36: rotor.runner.v1.CheckpointPutRequest.checkpoint:type_name -> rotor.runner.v1.Checkpoint
+	20, // 37: rotor.runner.v1.CheckpointWritesRequest.writes:type_name -> rotor.runner.v1.PendingWrite
+	1,  // 38: rotor.runner.v1.RunnerControlService.Connect:input_type -> rotor.runner.v1.ConnectRequest
+	2,  // 39: rotor.runner.v1.RunnerControlService.Connect:output_type -> rotor.runner.v1.ConnectResponse
+	39, // [39:40] is the sub-list for method output_type
+	38, // [38:39] is the sub-list for method input_type
+	38, // [38:38] is the sub-list for extension type_name
+	38, // [38:38] is the sub-list for extension extendee
+	0,  // [0:38] is the sub-list for field type_name
 }
 
 func init() { file_rotor_runner_v1_runner_proto_init() }
@@ -2445,6 +2665,7 @@ func file_rotor_runner_v1_runner_proto_init() {
 		(*ConnectRequest_CheckpointList)(nil),
 		(*ConnectRequest_CheckpointPut)(nil),
 		(*ConnectRequest_CheckpointWrites)(nil),
+		(*ConnectRequest_Spans)(nil),
 	}
 	file_rotor_runner_v1_runner_proto_msgTypes[1].OneofWrappers = []any{
 		(*ConnectResponse_HelloAck)(nil),
@@ -2462,11 +2683,11 @@ func file_rotor_runner_v1_runner_proto_init() {
 		(*Hello_BootstrapToken)(nil),
 		(*Hello_SessionToken)(nil),
 	}
-	file_rotor_runner_v1_runner_proto_msgTypes[13].OneofWrappers = []any{
+	file_rotor_runner_v1_runner_proto_msgTypes[15].OneofWrappers = []any{
 		(*TokenGrant_AccessToken)(nil),
 		(*TokenGrant_WrappingToken)(nil),
 	}
-	file_rotor_runner_v1_runner_proto_msgTypes[14].OneofWrappers = []any{
+	file_rotor_runner_v1_runner_proto_msgTypes[16].OneofWrappers = []any{
 		(*SecretGrant_ApiKey)(nil),
 		(*SecretGrant_WrappingToken)(nil),
 	}
@@ -2476,7 +2697,7 @@ func file_rotor_runner_v1_runner_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_rotor_runner_v1_runner_proto_rawDesc), len(file_rotor_runner_v1_runner_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   26,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -3,6 +3,7 @@ package runs
 import (
 	"context"
 
+	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
 	"github.com/cloudster1/rotor/backend/internal/metrics"
 )
@@ -21,6 +22,8 @@ const (
 type WorkerMetrics struct {
 	live   *metrics.Family
 	reaped *metrics.Family
+	// took is how long runs took, by how they ended (#37).
+	took *metrics.Family
 }
 
 // NewWorkerMetrics registers the worker's families, and the runs by status, read from the database at each scrape.
@@ -28,6 +31,8 @@ func NewWorkerMetrics(r *metrics.Registry, cluster *db.Cluster) *WorkerMetrics {
 	m := &WorkerMetrics{
 		live:   r.Gauge("rotor_sandboxes_live", "Sandboxes of this installation alive at the worker's last pass.", ""),
 		reaped: r.Counter("rotor_sandboxes_reaped_total", "Sandboxes the worker destroyed, by why.", "reason"),
+		took: r.Histogram("rotor_run_duration_seconds", "How long ended runs took from their start, by how they ended.", "status",
+			config.RunDurationBuckets),
 	}
 	r.GaugeFunc("rotor_runs", "Runs by status.", "status", func(ctx context.Context) (map[string]float64, error) {
 		out := map[string]float64{}
