@@ -16,6 +16,8 @@ tools:
 limits:
   maxSteps: 5
   timeout: 2m
+# Counts are cheap to make again, so they are kept a month only.
+retention: 30d
 entry: list
 nodes:
   - id: list

@@ -70,6 +70,10 @@
         }
       }
     },
+    "retention": {
+      "$ref": "#/$defs/days",
+      "description": "How long a finished run's data is kept before Rotor deletes it, such as 30d. The installation's retention wins when it is shorter (#41)."
+    },
     "triggers": {
       "type": "array",
       "description": "Reserved and empty: triggers are records each person makes in Rotor, starting the workflow as them (docs/api-contract-m6.md).",
@@ -106,6 +110,11 @@
       "type": "string",
       "pattern": "^[1-9][0-9]*(s|m|h)$",
       "description": "A whole number of seconds, minutes or hours, such as 30s, 10m or 2h."
+    },
+    "days": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,3}d$",
+      "description": "A whole number of days, such as 30d."
     },
     "statePath": {
       "type": "string",

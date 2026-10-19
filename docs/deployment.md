@@ -31,7 +31,9 @@ Four things come from outside the chart.
   key with the transit key `rotor-run-data` (#41) and issues the runner protocol's certificate. Back OpenBao up with
   the database: without the transit key no run's data opens again. The key rotates every 90 days and keeps its
   older versions, so older runs still open; an installation upgraded from before #41 may delete the unused key
-  `rotor-checkpoints`. The api and the worker sign in with their own ServiceAccount tokens
+  `rotor-checkpoints`.
+  Finished runs are deleted after the retention an administrator sets under Settings (90 days by default); traces
+  sent to a collector or to LangSmith follow their own retention there. The api and the worker sign in with their own ServiceAccount tokens
   (`openbao.auth: kubernetes`); sandboxes hold no OpenBao credential at all, only the single-use wrapping tokens they
   are handed.
   - With `openbao.configure.enabled` a hook Job runs Rotor's init script (`deploy/openbao/init.sh`) against it with

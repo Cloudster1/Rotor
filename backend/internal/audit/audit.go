@@ -48,6 +48,8 @@ const (
 	ActionLimitsChanged          = "limits.changed"
 	ActionHookSecretChanged      = "hook.secret_changed"
 	ActionLangSmithChanged       = "langsmith.changed"
+	ActionRetentionChanged       = "retention.changed"
+	ActionRunDataDeleted         = "run.data_deleted"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
@@ -56,7 +58,8 @@ var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, Actio
 	ActionWorkflowCreated, ActionWorkflowChanged, ActionWorkflowShared, ActionWorkflowArchived, ActionRunStarted, ActionRunCancelled,
 	ActionApprovalDecided, ActionTriggerCreated, ActionTriggerChanged, ActionTriggerRemoved, ActionTriggerEnabled, ActionTriggerDisabled,
 	ActionHookSecretChanged, ActionLimitsChanged, ActionLangSmithChanged,
-	ActionSandboxSpawned, ActionSandboxDestroyed, ActionRunEnded, ActionApprovalRequested, ActionAuditExported}
+	ActionSandboxSpawned, ActionSandboxDestroyed, ActionRunEnded, ActionApprovalRequested, ActionAuditExported,
+	ActionRetentionChanged, ActionRunDataDeleted}
 
 // Redacted stands in the record for a value that looked like a credential.
 var Redacted = redact.Redacted

@@ -31,6 +31,10 @@ func checkSense(s *Spec) []Problem {
 		index[n.ID] = i
 	}
 	known := func(id string) bool { _, ok := index[id]; return ok }
+	if days := s.RetentionDays(); days > config.MaxRunDataRetentionDays {
+		add("/retention", CodeRetention, "Keep a run's data for at most %d days; %d is longer than any installation keeps it.",
+			config.MaxRunDataRetentionDays, days)
+	}
 	if !known(s.Entry) {
 		add("/entry", CodeUnknownNode, "The entry %s is not a node of this workflow.", s.Entry)
 	}

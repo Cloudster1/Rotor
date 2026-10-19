@@ -54,6 +54,8 @@ type Server struct {
 	LangSmith LangSmith
 	// LangSmithEndpoint is where runs' spans go while LangSmith is on, shown to administrators.
 	LangSmithEndpoint string
+	// Retention is how long a finished run's data is kept (#41); nil answers 503.
+	Retention Retention
 	// Sessions and SignIn are nil only in tests that exercise neither.
 	Sessions Sessions
 	SignIn   SignIn
@@ -169,6 +171,8 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Get("/settings/langsmith", s.handleGetLangSmith)
 				r.Put("/settings/langsmith", s.handleSetLangSmith)
 				r.Delete("/settings/langsmith/key", s.handleRemoveLangSmithKey)
+				r.Get("/settings/retention", s.handleGetRetention)
+				r.Put("/settings/retention", s.handleSetRetention)
 				mountPending(r, false, true)
 			})
 		})

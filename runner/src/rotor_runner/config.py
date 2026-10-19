@@ -18,6 +18,8 @@ CODE_MAX_TIMEOUT_S = 300
 MEBIBYTE = 1 << 20
 CODE_DEFAULT_MEMORY = 256 * MEBIBYTE
 CODE_MAX_MEMORY = 1024 * MEBIBYTE
+# The longest a workflow may keep a finished run's data, as the control plane's config.MaxRunDataRetentionDays (#41).
+MAX_RETENTION_DAYS = 3650
 # CODE_OUTPUT_BYTES bounds a code node's result, and CODE_LOG_BYTES what its prints may log.
 CODE_OUTPUT_BYTES = 64 << 10
 CODE_LOG_BYTES = 64 << 10

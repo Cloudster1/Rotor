@@ -34,6 +34,9 @@
       "name": "providers"
     },
     {
+      "name": "retention"
+    },
+    {
       "name": "runs"
     },
     {
@@ -2104,6 +2107,107 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/LimitsBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/retention": {
+      "get": {
+        "operationId": "getRetention",
+        "summary": "How many days a finished run's data is kept before Rotor deletes it.",
+        "tags": [
+          "retention"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setRetention",
+        "summary": "Change how many days a finished run's data is kept, from 1 to 3650.",
+        "description": "A workflow may keep its runs for fewer days with its own retention, never for more. The audit log is never deleted.",
+        "tags": [
+          "retention"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionResponse"
                 }
               }
             }
@@ -5537,6 +5641,44 @@
         },
         "required": [
           "description"
+        ]
+      },
+      "RetentionRequest": {
+        "type": "object",
+        "properties": {
+          "runDataDays": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "runDataDays"
+        ]
+      },
+      "RetentionResponse": {
+        "type": "object",
+        "properties": {
+          "changedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "maxDays": {
+            "type": "integer"
+          },
+          "runDataDays": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "runDataDays",
+          "maxDays",
+          "changedBy",
+          "updatedAt"
         ]
       },
       "RunResponse": {

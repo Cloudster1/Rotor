@@ -23,6 +23,14 @@ tell whether the reason still holds.
   holds the patterns, written in the syntax Go's RE2 and Python's re share,
   and a test on each side refuses a copy that differs, as for the workflow
   schema.
+- **Retention per installation, shortened per workflow.** An installation
+  answers for how long it keeps what its people's runs read, so a workflow
+  may keep its runs for less, never for more. The value is read from the
+  workflow's current version, so shortening it applies to runs already kept.
+- **Deleting a run deletes everything it held.** Its events, checkpoints,
+  control messages, approvals and usage go with it by cascade, which
+  PostgreSQL runs as the tables' owner, so no runtime role needs the right to
+  delete events alone; daily totals and the audit log stay.
 - **Approvals are redacted, not sealed.** Their values are read in SQL to
   build the answer a run resumes with; sealing them is left to #91,
   which the threat model names.

@@ -5,8 +5,10 @@ shape is kept or said at all:
 - every run has a data key of its own, which OpenBao transit makes and wraps; the control plane seals the run's data
   with it and keeps it wrapped beside the run
 - the runner and the control plane cut credentials from every event, run output, span, audit record and log line
+- a finished run's data is deleted once kept as long as the installation, or its workflow, says
 
-Nothing here changes an operation: the api answers as before, in plaintext, to whoever may see the run.
+Sealing changes no operation: the api answers as before, in plaintext, to whoever may see the run. Retention adds
+the two operations of `backend/internal/httpapi/operations_m8_retention.go`.
 
 ## Migrations, packages and settings
 
@@ -15,9 +17,10 @@ Nothing here changes an operation: the api answers as before, in plaintext, to w
   | Migration | Change |
   |---|---|
   | 00800 | runs kept so far are deleted; `run.data_key` and the sealed columns below replace the plaintext ones |
+  | 00801 | `retention_setting`: one row, how many days a finished run's data is kept, 90 at first |
 
-- Packages: Go `internal/envelope` (the format and the keys in memory) and `internal/redact` (the patterns);
-  Python `redact.py`.
+- Packages: Go `internal/envelope` (the format and the keys in memory), `internal/redact` (the patterns) and
+  `internal/retention` (the setting and the sweep); Python `redact.py`.
 - Settings, in `internal/config/crypto.go`: the transit key `RunDataTransitKey` = `rotor-run-data`, 256-bit data
   keys, kept in memory `DataKeyCacheTTL` = 5 minutes after their last use, at most `DataKeyCacheEntries` = 4096.
 
@@ -60,3 +63,18 @@ backend and the runner; a test on each side refuses a copy that differs.
 - The control plane applies the patterns and the field names again before it stores an event, a run's output and
   reason, an approval's message, preview and values, a span, or an audit record, and to every log line the api and
   the worker write.
+
+## Retention
+
+- **The installation's:** `GET /settings/retention` and `PUT /settings/retention` `{runDataDays}`, for
+  administrators, answer `{runDataDays, maxDays, changedBy, updatedAt}`. Days run from 1 to `maxDays` (3650); others
+  are refused with 422 and a sentence on `runDataDays`. A change is audited as `retention.changed`
+  `{runDataDays, previous}`. Everyone signed in may read the row in the database; only an administrator changes it.
+- **A workflow's:** the spec's top-level `retention`, whole days such as `30d`, at most 3650 (`retention_too_long`
+  otherwise). A run is kept as long as the shorter of the two, read from the workflow's current version.
+- **Deleting:** every `RetentionSweepEvery` (an hour) one worker, holding the advisory lock `RetentionLockKey`,
+  deletes up to `RetentionBatch` (500) runs at a time that ended and were torn down longer ago than their retention,
+  oldest first, at most `RetentionMaxBatches` (20) batches a sweep. Their events, checkpoints, control messages,
+  approvals and usage go with them; triggers and firings forget them. Each batch writes one `run.data_deleted` entry
+  per workflow, `{workflowName, runs, oldestFinishedAt, newestFinishedAt}`, with no actor. Daily usage totals and the
+  audit log are never deleted.
