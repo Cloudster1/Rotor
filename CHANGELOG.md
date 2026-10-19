@@ -23,6 +23,15 @@ and the versioning [Semantic Versioning](https://semver.org/).
   person's day and concurrent runs. A run over a limit stops and says why,
   one over a concurrency limit waits queued, and a usage page shows what you
   used.
+- Each run is one trace (#37): the api and the worker trace requests,
+  statements and the run's sandbox, and the runner's nodes, model calls and
+  MCP calls join the same trace through the control plane, so a sandbox
+  reaches no collector. `make observe` shows them in Jaeger, with Prometheus
+  beside it; the gate runs with them and proves one trace per run. Run
+  durations and token mint failures are counted, and the api serves its own
+  /metrics. An administrator can send runs' traces to LangSmith, after
+  confirming that run data leaves the installation; the key stays in
+  OpenBao and never reaches a sandbox.
 - Armature, Exciter and Stator can deliver their events to Rotor (#35). An
   administrator adds Rotor's webhook address in the tool and pastes the
   secret it shows into Rotor, which keeps it in OpenBao. Rotor checks each

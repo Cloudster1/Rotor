@@ -1,5 +1,6 @@
 import { audit } from "./strings_audit";
 import { usageStrings } from "./strings_usage";
+import { langSmithStrings } from "./strings_telemetry";
 
 /** Every word the interface shows, in one place, so a second language is a second copy of this object. */
 export const s = {
@@ -450,4 +451,5 @@ export const s = {
   api: {
     unexpected: (status: number) => `The server answered ${status} without saying why. Try again in a moment.`,
   },
+  langsmith: langSmithStrings,
 } as const;

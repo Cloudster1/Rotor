@@ -262,6 +262,19 @@ side: keyset windows over `(created_at, id)`, facets, and exports as CSV or
 JSON that are recorded before they leave. The worker writes the entries of
 sandboxes and `runnerctl` the end of every run, both without an actor.
 
+## Traces and metrics (#37)
+
+Each run is one trace. Starting it opens a `run.start` span, whose context
+the run keeps as its `traceparent`; the worker's sandbox steps join it, and
+`StartRun` hands it to the runner, which traces the run, its nodes, its model
+calls and its MCP calls. The runner sends its spans on its stream; the api
+keeps those of the run's own trace, redacts them again and exports them with
+its own over OTLP to the collector, so a sandbox reaches no collector. While
+an administrator allows it, the api also sends the runner's spans, with
+prompts and answers, to LangSmith with a key from OpenBao. The worker and the
+api serve Prometheus metrics; `make observe` adds a collector, Jaeger and
+Prometheus to the development stack.
+
 ## A run's tokens (#23)
 
 A run's sandbox never sees a token in clear on the wire. When its runner asks

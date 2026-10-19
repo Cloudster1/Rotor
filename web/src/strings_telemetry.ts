@@ -1,0 +1,26 @@
+/** The words of the LangSmith setting (#37), spread into s as s.langsmith; strings.ts holds the rest. */
+export const langSmithStrings = {
+  title: "LangSmith",
+  body: "Rotor can send each run's trace to LangSmith as well: its steps, model calls with their prompts and answers, and tool calls. Rotor sends them itself, so no sandbox ever holds the key.",
+  warning:
+    "Turning this on sends run data out of this installation to LangSmith's servers. Secrets Rotor knows of are removed first, but what people and tools write passes as it is.",
+  loading: "Reading the setting...",
+  on: "Runs are sent to LangSmith.",
+  off: "Runs stay in this installation.",
+  enabled: "Send runs to LangSmith",
+  project: "Project",
+  projectHint: "The LangSmith project runs are filed under.",
+  key: "Key",
+  keyHint: "A key made in LangSmith's settings. Rotor keeps it in OpenBao and never shows it again.",
+  keyKept: "A key is held; leave this empty to keep it.",
+  noKey: "No key is held yet.",
+  acknowledge: "I confirm that run data may leave this installation for LangSmith.",
+  endpoint: (url: string) => `Sent to ${url}`,
+  save: "Save",
+  saving: "Saving...",
+  saved: "Saved.",
+  removeKey: "Forget the key",
+  confirmRemoveKey: "Forget the key? LangSmith is turned off with it.",
+  confirm: "Forget it",
+  keep: "Keep",
+} as const;

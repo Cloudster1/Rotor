@@ -40,6 +40,8 @@ api:
   port: 8080
   # Where sandboxes dial the runner protocol, over TLS with a certificate from OpenBao's PKI.
   runnerPort: 9443
+  # The api's /metrics, in Prometheus's format: token mint failures and the process's own (#37).
+  metricsPort: 9465
   terminationGracePeriodSeconds: 40
   resources:
     requests: { cpu: 100m, memory: 128Mi }
@@ -61,6 +63,15 @@ worker:
   nodeSelector: {}
   tolerations: []
   affinity: {}
+
+# Traces (#37). The api and the worker send their spans and their runners' to otlpEndpoint over OTLP/HTTP, the whole
+# URL with /v1/traces, such as http://otel-collector.observability:4318/v1/traces; empty keeps none.
+telemetry:
+  otlpEndpoint: ""
+  # The share of new traces kept; a trace a caller began keeps its own decision.
+  sampleRatio: 1
+  # Where runs' spans go once an administrator turns LangSmith on in Rotor's settings; the api must reach it.
+  langsmithEndpoint: https://api.smith.langchain.com/otel/v1/traces
 
 web:
   replicas: 2
