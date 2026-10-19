@@ -248,6 +248,7 @@ describe("a waiting run", () => {
     ended: false,
     approvalId: APPROVAL.id,
     trigger: null,
+    usage: { inputTokens: 0, outputTokens: 0, cost: 0 },
   };
 
   it("leads to the approval it waits for, from its page and its timeline", async () => {

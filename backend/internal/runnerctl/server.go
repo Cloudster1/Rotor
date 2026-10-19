@@ -16,6 +16,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
 	"github.com/cloudster1/rotor/backend/internal/runnerpb"
+	"github.com/cloudster1/rotor/backend/internal/usage"
 )
 
 // Server is the control plane's side of the runner protocol.
@@ -131,6 +132,9 @@ func (s *Server) Connect(stream runnerpb.RunnerControlService_ConnectServer) err
 		return s.fail(runID, "resolve the bindings", err)
 	}
 	s.resolveModel(ctx, r)
+	if err := s.openUsage(ctx, r); err != nil {
+		return s.fail(runID, "keep the model's prices", err)
+	}
 	var pending []*runnerpb.ConnectResponse
 	if r.Status == StatusStarting {
 		deadline := time.Now().Add(r.spec.Limits.TimeoutDuration() + config.RunDeadlineGrace)
@@ -259,10 +263,16 @@ func (s *Server) handle(ctx context.Context, stream runnerpb.RunnerControlServic
 		return s.fail(r.ID, "store an acknowledgement", err)
 	}
 	var apply func(ctx context.Context, tx db.DBTX) error
+	stopped := false
 	switch m := msg.Message.(type) {
 	case *runnerpb.ConnectRequest_Event:
 		apply = func(ctx context.Context, tx db.DBTX) error {
-			return appendEvent(ctx, tx, r.ID, m.Event.Type, m.Event.NodeId, []byte(m.Event.PayloadJson))
+			if err := appendEvent(ctx, tx, r.ID, m.Event.Type, m.Event.NodeId, []byte(m.Event.PayloadJson)); err != nil || m.Event.Type != usage.EventUsage {
+				return err
+			}
+			var err error
+			stopped, err = recordUsage(ctx, tx, r, []byte(m.Event.PayloadJson))
+			return err
 		}
 	case *runnerpb.ConnectRequest_Done:
 		apply = func(ctx context.Context, tx db.DBTX) error { return finish(ctx, tx, r, m.Done, s.approvalTTL()) }
@@ -287,6 +297,10 @@ func (s *Server) handle(ctx context.Context, stream runnerpb.RunnerControlServic
 	}
 	if fresh {
 		s.announce(ctx, r.ID)
+	}
+	if stopped && s.Events != nil {
+		// The Cancel just queued goes out on this stream at once, rather than at the next heartbeat.
+		s.Events.Publish(ctx, ControlChannel(r.ID), nil)
 	}
 	return stream.Send(&runnerpb.ConnectResponse{Ack: msg.Seq})
 }

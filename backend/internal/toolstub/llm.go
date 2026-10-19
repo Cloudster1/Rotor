@@ -27,6 +27,9 @@ type LLMTurn struct {
 	ToolCalls []LLMToolCall `json:"toolCalls,omitempty"`
 	// DelayMS holds the answer back, as a slow model would, so a test can act while the run thinks.
 	DelayMS int `json:"delayMs,omitempty"`
+	// PromptTokens and CompletionTokens are the usage the answer reports (#38); zero reports the stub's default.
+	PromptTokens     int `json:"promptTokens,omitempty"`
+	CompletionTokens int `json:"completionTokens,omitempty"`
 }
 
 // LLMToolCall is a tool the scripted model calls, with its arguments.
@@ -119,7 +122,11 @@ func (s *Stub) handleLLMChat(c *call) {
 		}
 		message["tool_calls"], finish = calls, "tool_calls"
 	}
-	usage := map[string]any{"prompt_tokens": config.ToolStubPromptTokens, "completion_tokens": config.ToolStubCompletionTokens, "total_tokens": config.ToolStubPromptTokens + config.ToolStubCompletionTokens}
+	prompt, completion := config.ToolStubPromptTokens, config.ToolStubCompletionTokens
+	if turn.PromptTokens > 0 || turn.CompletionTokens > 0 {
+		prompt, completion = turn.PromptTokens, turn.CompletionTokens
+	}
+	usage := map[string]any{"prompt_tokens": prompt, "completion_tokens": completion, "total_tokens": prompt + completion}
 	id, created := fmt.Sprintf("chatcmpl-%d", c.t.stats.LLMCalls), s.now().Unix()
 	if !req.Stream {
 		writeJSON(c.w, http.StatusOK, map[string]any{"id": id, "object": "chat.completion", "created": created, "model": req.Model,

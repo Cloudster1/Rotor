@@ -31,6 +31,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/runs"
 	"github.com/cloudster1/rotor/backend/internal/tools"
 	"github.com/cloudster1/rotor/backend/internal/triggers"
+	"github.com/cloudster1/rotor/backend/internal/usage"
 	"github.com/cloudster1/rotor/backend/internal/version"
 	"github.com/cloudster1/rotor/backend/internal/workflows"
 )
@@ -127,6 +128,9 @@ func run() error {
 		runners.ApprovalTTL = cfg.Approvals.TTL
 		models := providers.NewService(cluster, secrets, boot.ToolClient(cfg))
 		server.Providers, runners.Models = models, models
+		// Usage (#38): a run's person's quota and its model's prices are checked as it starts.
+		usageService := usage.NewService(cluster, models)
+		server.Usage, runService.Usage = usageService, usageService
 		go func() {
 			if err := runners.Serve(ctx, cfg.Runner.Addr, secrets); err != nil {
 				log.Error("the runner protocol stopped", "error", err)

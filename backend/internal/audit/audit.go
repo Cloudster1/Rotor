@@ -45,6 +45,7 @@ const (
 	ActionRunEnded               = "run.ended"
 	ActionApprovalRequested      = "approval.requested"
 	ActionAuditExported          = "audit.exported"
+	ActionLimitsChanged          = "limits.changed"
 	ActionHookSecretChanged      = "hook.secret_changed"
 )
 
@@ -53,7 +54,7 @@ var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, Actio
 	ActionToolAdded, ActionToolRemoved, ActionConnectionGranted, ActionConnectionEnded, ActionTokenMinted, ActionTokenRevoked, ActionProviderChanged,
 	ActionWorkflowCreated, ActionWorkflowChanged, ActionWorkflowShared, ActionWorkflowArchived, ActionRunStarted, ActionRunCancelled,
 	ActionApprovalDecided, ActionTriggerCreated, ActionTriggerChanged, ActionTriggerRemoved, ActionTriggerEnabled, ActionTriggerDisabled,
-	ActionHookSecretChanged,
+	ActionHookSecretChanged, ActionLimitsChanged,
 	ActionSandboxSpawned, ActionSandboxDestroyed, ActionRunEnded, ActionApprovalRequested, ActionAuditExported}
 
 // Redacted stands in the record for a value that looked like a credential.

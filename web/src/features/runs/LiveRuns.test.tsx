@@ -33,6 +33,7 @@ const RUN: Run = {
   ended: false,
   approvalId: null,
   trigger: null,
+  usage: { inputTokens: 0, outputTokens: 0, cost: 0 },
   graph: {
     entry: "ask",
     nodes: [

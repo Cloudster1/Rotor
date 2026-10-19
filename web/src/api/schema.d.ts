@@ -378,6 +378,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/providers/{providerID}/prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What each model of a provider costs per million tokens, in US dollars. */
+        get: operations["getPrices"];
+        /**
+         * Replace a provider's prices; a model left out counts tokens only from then on.
+         * @description A run keeps the prices its model had when it began.
+         */
+        put: operations["setPrices"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/providers/{providerID}/test": {
         parameters: {
             query?: never;
@@ -496,6 +517,24 @@ export interface paths {
         /** The JSON Schema of workflow version 1, for editors. */
         get: operations["workflowSchema"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The limits on one person: tokens and money a day, and runs going at once. */
+        get: operations["getLimits"];
+        /** Change the limits on one person; null is no limit. */
+        put: operations["setLimits"];
         post?: never;
         delete?: never;
         options?: never;
@@ -683,6 +722,40 @@ export interface paths {
         put?: never;
         /** Turn one of your triggers on, checked again as when it was made. */
         post: operations["enableTrigger"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What your runs used today, this month and in the last days, and the limits that bind you. */
+        get: operations["myUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/usage/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What each person's runs used today and this month, most first. */
+        get: operations["peopleUsage"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1083,6 +1156,11 @@ export interface components {
             title: string;
             version: string;
         };
+        LimitsBody: {
+            concurrentRuns: number | null;
+            dailyCost: number | null;
+            dailyTokens: number | null;
+        };
         LogoutTokenForm: {
             logout_token: string;
         };
@@ -1104,6 +1182,11 @@ export interface components {
             build: components["schemas"]["BuildInfo"];
             capabilities: string[];
             product: string;
+        };
+        ModelPrice: {
+            inputPerMillion: number;
+            model: string;
+            outputPerMillion: number;
         };
         ModelResponse: {
             default: boolean;
@@ -1134,6 +1217,11 @@ export interface components {
         PersonRef: {
             id: string;
             name: string;
+        };
+        PersonUsage: {
+            month: components["schemas"]["UsageDay"];
+            person: components["schemas"]["PersonRef"];
+            today: components["schemas"]["UsageDay"];
         };
         PreviewWrite: {
             /** @description A JSON value. */
@@ -1217,12 +1305,18 @@ export interface components {
             trigger: components["schemas"]["RunTrigger"] | null;
             /** Format: date-time */
             updatedAt: string;
+            usage: components["schemas"]["RunUsage"];
             version: number;
             workflow: components["schemas"]["PersonRef"];
         };
         RunTrigger: {
             id: string;
             name: string | null;
+        };
+        RunUsage: {
+            cost: number;
+            inputTokens: number;
+            outputTokens: number;
         };
         SaveWorkflowRequest: {
             baseVersion?: number;
@@ -1352,6 +1446,18 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             workflow: components["schemas"]["PersonRef"];
+        };
+        UsageDay: {
+            cost: number;
+            day: string;
+            inputTokens: number;
+            outputTokens: number;
+        };
+        UsageResponse: {
+            days: components["schemas"]["UsageDay"][];
+            limits: components["schemas"]["LimitsBody"];
+            month: components["schemas"]["UsageDay"];
+            today: components["schemas"]["UsageDay"];
         };
         ValidateRequest: {
             specYAML: string;
@@ -2369,6 +2475,123 @@ export interface operations {
             };
         };
     };
+    getPrices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                providerID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        prices: components["schemas"]["ModelPrice"][];
+                    };
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    setPrices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                providerID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        prices: components["schemas"]["ModelPrice"][];
+                    };
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     testProvider: {
         parameters: {
             query?: never;
@@ -2654,6 +2877,95 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LimitsBody"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    setLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LimitsBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LimitsBody"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description An error, in the one shape every endpoint uses. */
@@ -3470,6 +3782,75 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    myUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageResponse"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    peopleUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: components["schemas"]["PersonUsage"][];
+                    };
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

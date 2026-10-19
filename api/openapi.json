@@ -43,6 +43,9 @@
       "name": "triggers"
     },
     {
+      "name": "usage"
+    },
+    {
       "name": "workflows"
     }
   ],
@@ -1330,6 +1333,174 @@
         }
       }
     },
+    "/providers/{providerID}/prices": {
+      "get": {
+        "operationId": "getPrices",
+        "summary": "What each model of a provider costs per million tokens, in US dollars.",
+        "tags": [
+          "usage"
+        ],
+        "parameters": [
+          {
+            "name": "providerID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "prices": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ModelPrice"
+                      }
+                    }
+                  },
+                  "required": [
+                    "prices"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setPrices",
+        "summary": "Replace a provider's prices; a model left out counts tokens only from then on.",
+        "description": "A run keeps the prices its model had when it began.",
+        "tags": [
+          "usage"
+        ],
+        "parameters": [
+          {
+            "name": "providerID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {
+                  "description": "A JSON value."
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "prices": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ModelPrice"
+                      }
+                    }
+                  },
+                  "required": [
+                    "prices"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/providers/{providerID}/test": {
       "post": {
         "operationId": "testProvider",
@@ -1708,6 +1879,106 @@
                   "additionalProperties": {
                     "description": "A JSON value."
                   }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/limits": {
+      "get": {
+        "operationId": "getLimits",
+        "summary": "The limits on one person: tokens and money a day, and runs going at once.",
+        "tags": [
+          "usage"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LimitsBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setLimits",
+        "summary": "Change the limits on one person; null is no limit.",
+        "tags": [
+          "usage"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LimitsBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LimitsBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -2746,6 +3017,89 @@
           },
           "422": {
             "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/usage": {
+      "get": {
+        "operationId": "myUsage",
+        "summary": "What your runs used today, this month and in the last days, and the limits that bind you.",
+        "tags": [
+          "usage"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/usage/people": {
+      "get": {
+        "operationId": "peopleUsage",
+        "summary": "What each person's runs used today and this month, most first.",
+        "tags": [
+          "usage"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "people": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PersonUsage"
+                      }
+                    }
+                  },
+                  "required": [
+                    "people"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4475,6 +4829,34 @@
           "version"
         ]
       },
+      "LimitsBody": {
+        "type": "object",
+        "properties": {
+          "concurrentRuns": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "dailyCost": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "dailyTokens": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "dailyTokens",
+          "dailyCost",
+          "concurrentRuns"
+        ]
+      },
       "LogoutTokenForm": {
         "type": "object",
         "properties": {
@@ -4559,6 +4941,25 @@
           "build",
           "apiVersion",
           "capabilities"
+        ]
+      },
+      "ModelPrice": {
+        "type": "object",
+        "properties": {
+          "inputPerMillion": {
+            "type": "number"
+          },
+          "model": {
+            "type": "string"
+          },
+          "outputPerMillion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "model",
+          "inputPerMillion",
+          "outputPerMillion"
         ]
       },
       "ModelResponse": {
@@ -4683,6 +5084,25 @@
         "required": [
           "id",
           "name"
+        ]
+      },
+      "PersonUsage": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "$ref": "#/components/schemas/UsageDay"
+          },
+          "person": {
+            "$ref": "#/components/schemas/PersonRef"
+          },
+          "today": {
+            "$ref": "#/components/schemas/UsageDay"
+          }
+        },
+        "required": [
+          "person",
+          "today",
+          "month"
         ]
       },
       "PreviewWrite": {
@@ -4984,6 +5404,9 @@
             "type": "string",
             "format": "date-time"
           },
+          "usage": {
+            "$ref": "#/components/schemas/RunUsage"
+          },
           "version": {
             "type": "integer"
           },
@@ -5006,7 +5429,8 @@
           "finishedAt",
           "ended",
           "approvalId",
-          "trigger"
+          "trigger",
+          "usage"
         ]
       },
       "RunTrigger": {
@@ -5025,6 +5449,25 @@
         "required": [
           "id",
           "name"
+        ]
+      },
+      "RunUsage": {
+        "type": "object",
+        "properties": {
+          "cost": {
+            "type": "number"
+          },
+          "inputTokens": {
+            "type": "integer"
+          },
+          "outputTokens": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "inputTokens",
+          "outputTokens",
+          "cost"
         ]
       },
       "SaveWorkflowRequest": {
@@ -5544,6 +5987,55 @@
           "lastFire",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "UsageDay": {
+        "type": "object",
+        "properties": {
+          "cost": {
+            "type": "number"
+          },
+          "day": {
+            "type": "string"
+          },
+          "inputTokens": {
+            "type": "integer"
+          },
+          "outputTokens": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "day",
+          "inputTokens",
+          "outputTokens",
+          "cost"
+        ]
+      },
+      "UsageResponse": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsageDay"
+            }
+          },
+          "limits": {
+            "$ref": "#/components/schemas/LimitsBody"
+          },
+          "month": {
+            "$ref": "#/components/schemas/UsageDay"
+          },
+          "today": {
+            "$ref": "#/components/schemas/UsageDay"
+          }
+        },
+        "required": [
+          "today",
+          "month",
+          "days",
+          "limits"
         ]
       },
       "ValidateRequest": {

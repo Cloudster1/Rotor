@@ -53,6 +53,11 @@ func (s *Service) Start(ctx context.Context, req StartRequest) (Run, bool, error
 	if err := s.Connected(ctx, parsed); err != nil {
 		return Run{}, false, err
 	}
+	if s.Usage != nil {
+		if err := s.Usage.CheckStart(ctx, p.UserID, parsed); err != nil {
+			return Run{}, false, err
+		}
+	}
 	var r Run
 	created := true
 	err = s.db.Write(ctx, func(ctx context.Context, tx db.DBTX) error {
