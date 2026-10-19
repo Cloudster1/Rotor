@@ -106,7 +106,7 @@ listed.
 | D | Large bodies | Every body is capped, hooks at 256 KiB | Built |
 | D | Volume from signed-in people | Per-person concurrency and daily quotas bound runs; requests themselves are not rate-limited | Accepted: a self-hosted installation serves known people |
 | E | A member reaching administrator routes | Role from the realm group, checked by the router and by row-level security | Built (#6) |
-| E | Writes through a binding whose call a tool later marks as a write | `approval: beforeWrite` is checked when a workflow is saved, against the catalog the saver saw; a manual run does not check again | Open #90 |
+| E | Writes through a binding whose call a tool later marks as a write | Every start, by hand or by a trigger, checks the workflow again against the tools read afresh as the run's person, past the cache | Built (#90) |
 
 ### worker
 
@@ -131,7 +131,7 @@ listed.
 | | Threat | Mitigation | Status |
 |---|---|---|---|
 | T | Forged pub/sub messages | A message only wakes a replica; events and cancels are read from Postgres | Built (#24) |
-| T | A poisoned tool catalog cache, marking a writing call read-only | The runner checks `readOnlyHint` live for read bindings; saving trusts the cache (see #90) | Open #90 |
+| T | A poisoned tool catalog cache, marking a writing call read-only | The runner checks `readOnlyHint` live for read bindings, and a run's start reads the tools past the cache | Built (#90) |
 | I | Valkey reachable without a password or TLS | The chart and the api refuse a Valkey without a password outside development; `valkey.tls` connects over TLS | Built (#92) |
 | D | Losing Valkey | It holds nothing that is not elsewhere; losing it costs latency | Built (#24) |
 
@@ -303,5 +303,4 @@ new one ends that.
 
 | Id | Finding | Severity | Issue |
 |---|---|---|---|
-| F2 | `approval: beforeWrite` is checked on save against a cached catalog, never again when a run starts | Medium | #90 |
 | | A steered model's writes wait for nobody without an approval node | High | #32 |

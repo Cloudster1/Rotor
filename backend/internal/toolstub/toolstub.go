@@ -52,6 +52,8 @@ type Options struct {
 	LLMScript []LLMTurn `json:"llmScript,omitempty"`
 	// Requirements maps a requirement key to the usernames get_requirement shows it to; anyone else is refused.
 	Requirements map[string][]string `json:"requirements,omitempty"`
+	// Writes names calls the tenant lists as writing although the recording reads, as a tool that changed one (#90).
+	Writes []string `json:"writes,omitempty"`
 }
 
 // Stats count what happened at a tenant, for tests to check what Rotor did there.

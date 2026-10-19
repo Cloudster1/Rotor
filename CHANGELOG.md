@@ -230,6 +230,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- A workflow that writes through a binding asking for an approval cannot
+  start without one after a tool turned a call into a write (#90). Every
+  start, by hand or from a trigger, checks the workflow against the tools
+  read afresh as the run's person, and refuses with `tools_changed`.
 - OpenBao keeps a record of who read Rotor's secrets (#92): the
   development stack declares an audit device, and Rotor's init script
   refuses an OpenBao without one. The chart and the api refuse a Valkey

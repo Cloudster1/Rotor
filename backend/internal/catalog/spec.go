@@ -48,3 +48,12 @@ func (s *Service) For(ctx context.Context, sp *spec.Spec) (spec.Catalog, error) 
 	}
 	return out, nil
 }
+
+// freshKey marks a context whose catalog reads skip the cache (#90).
+type freshKey struct{}
+
+// Fresh is For read from the tools themselves, as a run starts: the cache may lag a tool that changed a call without
+// a new build, and Valkey is not trusted to say what writes.
+func (s *Service) Fresh(ctx context.Context, sp *spec.Spec) (spec.Catalog, error) {
+	return s.For(context.WithValue(ctx, freshKey{}, true), sp)
+}

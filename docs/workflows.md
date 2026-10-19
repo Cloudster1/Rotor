@@ -133,7 +133,9 @@ When a workflow is saved, and again when a run starts:
   - tool nodes call through bindings that allow the call
   - an approval's form names only its own fields, and no binding allows a
     call that decides a review, which a person does in the tool itself
-- **When saving, the tools as you see them:**
+- **The tools as you see them,** when saving, and when a run starts, read
+  afresh from the tools as the run's person, so a call a tool turned into a
+  write since is caught:
   - the tool exists and offers the scopes
   - a read binding allows only tools that only read
   - a binding with `approval: beforeWrite` cannot be written through on any way that skips an approval

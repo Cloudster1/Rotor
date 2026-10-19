@@ -6,6 +6,9 @@ const SCHEMES: ColourScheme[] = ["light", "dark"];
 // A budget no test reaches, so setting it holds no other test's runs back while the browsers run side by side.
 const HARMLESS_BUDGET = "999999";
 
+// Both copies set and clear the one installation-wide budget, so side by side one would read the other's.
+test.describe.configure({ mode: "serial" });
+
 for (const scheme of SCHEMES) {
   test(`an administrator sees the usage and sets the limits on everyone, in ${scheme} @desktop`, async ({ page }) => {
     await startInScheme(page, scheme);
