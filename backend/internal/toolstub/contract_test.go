@@ -323,3 +323,46 @@ func TestWhoamiAnswersInTheShapeExciterLists(t *testing.T) {
 		t.Errorf("whoami answered %s, which Exciter's output schema refuses: %v", encoded, err)
 	}
 }
+
+// get_requirement answers in the shape Exciter lists too, for a key the tenant lets the caller read, and refuses
+// any other as Exciter refuses one it does not show (#35).
+func TestGetRequirementAnswersInTheShapeExciterLists(t *testing.T) {
+	raw, _ := os.ReadFile(snapshotFile)
+	var listed struct {
+		Tools []map[string]any `json:"tools"`
+	}
+	if err := json.Unmarshal(raw, &listed); err != nil {
+		t.Fatal(err)
+	}
+	var schema any
+	for _, tool := range listed.Tools {
+		if tool["name"] == GetRequirementTool {
+			schema = tool["outputSchema"]
+		}
+	}
+	compiler := jsonschema.NewCompiler()
+	if err := compiler.AddResource("requirement.json", schema); err != nil {
+		t.Fatal(err)
+	}
+	compiled, err := compiler.Compile("requirement.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := newContract(t)
+	c.controlled("POST", "/control/tenants", map[string]any{"name": "reqs", "oauth": false,
+		"requirements": map[string]any{"RTR-7": []string{"erin"}}}, http.StatusCreated)
+	read := func(username, key string) map[string]any {
+		return c.mcp("reqs", PATPrefix+username, "tools/call", map[string]any{"name": GetRequirementTool, "arguments": map[string]any{"reqKey": key}})
+	}
+	answer := read("erin", "RTR-7")
+	encoded, _ := json.Marshal(answer["structuredContent"])
+	instance, _ := jsonschema.UnmarshalJSON(bytes.NewReader(encoded))
+	if err := compiled.Validate(instance); err != nil || answer["isError"] == true {
+		t.Errorf("get_requirement answered %s, which Exciter's output schema refuses: %v", encoded, err)
+	}
+	for _, refused := range []map[string]any{read("frank", "RTR-7"), read("erin", "RTR-8")} {
+		if refused["isError"] != true {
+			t.Errorf("a requirement the caller may not see was answered: %v", refused)
+		}
+	}
+}

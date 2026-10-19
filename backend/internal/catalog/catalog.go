@@ -28,6 +28,8 @@ var (
 	ErrNotConnected = errors.New("not connected to the tool")
 	// ErrUnreachable is a tool that did not answer.
 	ErrUnreachable = errors.New("the tool did not answer")
+	// ErrRefusedCall is a JSON-RPC error the tool answered a call with; it is ErrUnreachable too, for a list.
+	ErrRefusedCall = errors.New("the tool refused the call")
 )
 
 // Tool is one MCP tool, with the hints it gives about itself.
@@ -219,7 +221,7 @@ func (s *Service) call(ctx context.Context, tool tools.Tool, token, method strin
 		return fmt.Errorf("%w: %s answered %s with something other than JSON", ErrUnreachable, tool.Name, method)
 	}
 	if answer.Error != nil {
-		return fmt.Errorf("%w: %s refused %s: %s", ErrUnreachable, tool.Name, method, answer.Error.Message)
+		return fmt.Errorf("%w: %w: %s refused %s: %s", ErrUnreachable, ErrRefusedCall, tool.Name, method, answer.Error.Message)
 	}
 	return json.Unmarshal(answer.Result, into)
 }

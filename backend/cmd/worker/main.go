@@ -18,6 +18,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/hooks"
 	"github.com/cloudster1/rotor/backend/internal/metrics"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/runs"
@@ -105,11 +106,17 @@ func run() error {
 	workflowService := workflows.NewService(cluster, reader)
 	starter := runs.NewService(cluster, workflowService, registry, people, store)
 	scheduler := triggers.NewScheduler(cluster, log)
-	firer := triggers.NewFirer(triggers.NewService(cluster, workflowService, reader, starter), log)
+	// Event triggers (#35): checked as for schedules, and started only for an event whose subject the owner may read.
+	hookService := hooks.NewService(cluster, secrets)
+	triggerService := triggers.NewService(cluster, workflowService, reader, starter)
+	triggerService.CheckEvent = hookService.CheckEvent(people)
+	firer := triggers.NewFirer(triggerService, log)
+	firer.Probe = hooks.Probe(reader)
 	fired := counted.Counter("rotor_trigger_fires_total", "Firings of triggers that ended, by outcome.", "outcome")
 	firer.Fired = func(outcome string) { fired.Add(outcome, 1) }
 	worker.Also = func(ctx context.Context) error {
-		return errors.Join(scheduler.Sweep(ctx), scheduler.Schedule(ctx), firer.Fire(ctx))
+		_, purged := hookService.Purge(ctx)
+		return errors.Join(scheduler.Sweep(ctx), scheduler.Schedule(ctx), firer.Fire(ctx), purged)
 	}
 	build := version.Current()
 	log.Info("worker starting", "env", cfg.Env, "version", build.Version, "commit", build.Commit, "stack", cfg.Sandbox.Stack)
