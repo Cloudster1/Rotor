@@ -54,7 +54,7 @@
     },
     "triggers": {
       "type": "array",
-      "description": "Reserved for M6; a version 1 workflow is started by hand.",
+      "description": "Reserved and empty: triggers are records each person makes in Rotor, starting the workflow as them (docs/api-contract-m6.md).",
       "maxItems": 0
     },
     "entry": { "$ref": "#/$defs/id" },
