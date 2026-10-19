@@ -122,7 +122,7 @@ listed.
 |---|---|---|---|
 | T | Rewriting the audit log | `UPDATE`, `DELETE` and `TRUNCATE` refused to both roles | Built (#2, #36) |
 | I | A database dump or backup showing tool content | Each run's inputs, output, events, checkpoints and runner messages are sealed with a data key of its own, wrapped by OpenBao transit and bound to its row | Built (#41) |
-| I | Approval messages, previews and values in clear | Redacted and capped; deleted with their run | Open #91 |
+| I | Approval messages, previews and values in clear | Redacted, capped and sealed with their run's key, bound to the interrupt they answer | Built (#91) |
 | I | Run data kept forever | Finished runs are deleted after the installation's retention, 90 days by default, or a workflow's shorter one; the audit log records each deletion and is never deleted | Built (#41) |
 | E | The api running as a superuser | Refused at start-up outside development | Built (#3) |
 
@@ -304,5 +304,4 @@ new one ends that.
 | Id | Finding | Severity | Issue |
 |---|---|---|---|
 | F2 | `approval: beforeWrite` is checked on save against a cached catalog, never again when a run starts | Medium | #90 |
-| F3 | Approval content is stored in clear | Medium | #91 |
 | | A steered model's writes wait for nobody without an approval node | High | #32 |

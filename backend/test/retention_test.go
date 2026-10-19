@@ -62,8 +62,9 @@ func (h *harness) endedRun(t *testing.T, workflow, person uuid.UUID, agoDays int
 		t.Fatal(err)
 	}
 	if _, err := h.super.Exec(ctx, `INSERT INTO approval (run_id, starter_id, workflow_id, workflow_name, started_by_name, node,
-			interrupt_id, message, status, decided_at, expires_at)
-		VALUES ($1, $2, $3, 'kept', 'Starter', 'review', 'i-1', 'Go on?', 'approved', now(), now())`, id, person, workflow); err != nil {
+			interrupt_id, sealed_message, sealed_preview, sealed_form_values, status, decided_at, expires_at)
+		VALUES ($1, $2, $3, 'kept', 'Starter', 'review', 'i-1', $4, $4, $4, 'approved', now(), now())`,
+		id, person, workflow, placeholderSealed); err != nil {
 		t.Fatal(err)
 	}
 	return id

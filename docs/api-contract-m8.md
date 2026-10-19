@@ -18,6 +18,7 @@ the two operations of `backend/internal/httpapi/operations_m8_retention.go`.
   |---|---|
   | 00800 | runs kept so far are deleted; `run.data_key` and the sealed columns below replace the plaintext ones |
   | 00801 | `retention_setting`: one row, how many days a finished run's data is kept, 90 at first |
+  | 00810 | runs kept so far are deleted again; an approval's message, preview and values are sealed too (#91) |
 
 - Packages: Go `internal/envelope` (the format and the keys in memory), `internal/redact` (the patterns) and
   `internal/retention` (the setting and the sweep); Python `redact.py`.
@@ -47,6 +48,7 @@ each ended by a zero byte, so a value moved to another run, column or row does n
 | `run_control.sealed_message` (`run_control.message`) | the message's `seq` |
 | `run_checkpoint.sealed_checkpoint`, `.sealed_metadata` (`run_checkpoint.checkpoint`, `.metadata`) | `ns\|checkpoint_id` |
 | `run_checkpoint_write.sealed_value` (`run_checkpoint_write.value`) | `ns\|checkpoint_id\|task_id\|idx` |
+| `approval.sealed_message`, `.sealed_preview`, `.sealed_form_values`, `.sealed_approved_values` (`approval.message`, `.preview`, `.form_values`, `.approved_values`) | the approval's `interrupt_id` |
 
 The name in parentheses is the one bound into the additional data. A trigger's firing keeps the event it carried
 only until it ends; the run it started holds it sealed.

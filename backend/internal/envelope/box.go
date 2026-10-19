@@ -23,6 +23,11 @@ const (
 	ColumnCheckpoint = "run_checkpoint.checkpoint"
 	ColumnMetadata   = "run_checkpoint.metadata"
 	ColumnWrite      = "run_checkpoint_write.value"
+	// An approval's sealed values are each bound to its interrupt, which is unique within its run (#91).
+	ColumnApprovalMessage  = "approval.message"
+	ColumnApprovalPreview  = "approval.preview"
+	ColumnApprovalValues   = "approval.form_values"
+	ColumnApprovalApproved = "approval.approved_values"
 )
 
 const (
