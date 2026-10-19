@@ -381,7 +381,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Cancel a run that has not ended. */
+        /**
+         * Cancel a run that has not ended.
+         * @description Refused with 403 not_run_manager to a group approver, who stops a run by rejecting its approval.
+         */
         post: operations["cancelRun"];
         delete?: never;
         options?: never;
@@ -896,6 +899,7 @@ export interface components {
             calls?: string[];
             node: string;
             tool: string;
+            truncated?: boolean;
         };
         Problem: {
             code: string;
@@ -948,6 +952,7 @@ export interface components {
             description: string;
         };
         RunResponse: {
+            approvalId: string | null;
             /** Format: date-time */
             createdAt: string;
             ended: boolean;
@@ -1116,15 +1121,6 @@ export interface operations {
                     };
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
                 headers: {
@@ -1152,15 +1148,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApprovalCount"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description An error, in the one shape every endpoint uses. */
@@ -1196,15 +1183,6 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1276,15 +1254,6 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2030,6 +1999,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Not Found */

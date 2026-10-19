@@ -1,0 +1,11 @@
+# expect: /nodes/0/approvers/group schema
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+limits: {maxSteps: 5, timeout: 1m}
+entry: ask
+nodes:
+  - id: ask
+    type: approval
+    message: Go on?
+    approvers: {group: ''}

@@ -83,7 +83,10 @@ var m2Operations = []operation{
 	{method: "GET", path: "/runs/{runID}", handler: "handleGetRun", tag: "runs",
 		summary: "One run.", responses: map[int]any{http.StatusOK: runResponse{}, http.StatusNotFound: notFound}},
 	{method: "POST", path: "/runs/{runID}/cancel", handler: "handleCancelRun", tag: "runs",
-		summary: "Cancel a run that has not ended.", responses: map[int]any{http.StatusOK: runResponse{}, http.StatusNotFound: notFound, http.StatusConflict: errorEnvelope{}}},
+		summary:     "Cancel a run that has not ended.",
+		description: "Refused with 403 not_run_manager to a group approver, who stops a run by rejecting its approval.",
+		responses: map[int]any{http.StatusOK: runResponse{}, http.StatusForbidden: errorEnvelope{}, http.StatusNotFound: notFound,
+			http.StatusConflict: errorEnvelope{}}},
 	{method: "GET", path: "/runs/{runID}/events", handler: "handleRunEvents", tag: "runs",
 		summary: "A run's events as server-sent events, from the start or after Last-Event-ID, until the run ends.",
 		description: "Content type text/event-stream. Each event's id is its sequence number, its event name its type and its data the JSON " +

@@ -215,7 +215,7 @@ and a bootstrap token, and dials out.
 **As built** (#19):
 - `run_checkpoint` keeps `checkpoint_type` and `metadata_type` in clear (LangGraph's tags) beside the sealed values. `run_checkpoint_write` does the same for each write.
 - Putting a checkpoint again changes nothing. Ordinary writes are kept once, special ones (negative `idx`) replace the last.
-- `runnerctl.Resume(run, answer)` stores the answer and moves a waiting run to `starting`. The next sandbox's Hello then gets a fresh `StartRun` with `resume`. #22 calls it from the API.
+- `runnerctl.Resume(run, answer)` stores the answer and moves a waiting run to `starting`. The next sandbox's Hello then gets a fresh `StartRun` with `resume`. Since #31 a decision on an approval does this, and `StartRun` names the interrupt it answers (`docs/api-contract-m5.md`).
 - A sandbox numbers its messages on from the `ack` of its `HelloAck`, so a resumed run's numbering continues.
 - The runner's checkpointer loads with the serializer's safe types alone (`allowed_msgpack_modules=None`).
 

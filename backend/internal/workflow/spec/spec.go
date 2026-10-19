@@ -32,6 +32,10 @@ const (
 	CodeWritesOnRead  = "writes_on_read_binding"
 	CodeNeedsApproval = "approval_missing"
 	CodeCodeLimits    = "code_limits"
+	// Approval nodes (#31): a form an approver cannot fill, an expiry past the longest wait, a review decided by a tool.
+	CodeApprovalForm   = "approval_form"
+	CodeApprovalExpiry = "approval_expiry"
+	CodeDecidesReview  = "decides_review"
 )
 
 // Node types.
@@ -128,9 +132,23 @@ type Node struct {
 	Timeout   string            `json:"timeout,omitempty"`
 	Memory    string            `json:"memory,omitempty"`
 	Message   string            `json:"message,omitempty"`
+	Approvers *Approvers        `json:"approvers,omitempty"`
+	ExpiresIn string            `json:"expiresIn,omitempty"`
+	Form      *Form             `json:"form,omitempty"`
 	On        string            `json:"on,omitempty"`
 	Cases     map[string]string `json:"cases,omitempty"`
 	Default   string            `json:"default,omitempty"`
+}
+
+// Approvers names the group whose members decide an approval; without it the run's starter decides.
+type Approvers struct {
+	Group string `json:"group"`
+}
+
+// Form is what an approver may change: a JSON Schema object and the values the run proposes, as templates.
+type Form struct {
+	Schema json.RawMessage `json:"schema"`
+	Values json.RawMessage `json:"values,omitempty"`
 }
 
 // Output declares the shape of a node's output.

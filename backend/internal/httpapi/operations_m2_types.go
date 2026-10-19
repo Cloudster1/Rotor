@@ -221,6 +221,8 @@ type runResponse struct {
 	FinishedAt *time.Time      `json:"finishedAt"`
 	// Ended says the run reached a state it never leaves, so it can no longer be cancelled.
 	Ended bool `json:"ended"`
+	// ApprovalID is the approval the run waits for, while it waits for one (#31).
+	ApprovalID *string `json:"approvalId"`
 	// Graph is the pinned version's nodes and edges, for the run's page; one run alone carries it, not a list.
 	Graph *spec.Graph `json:"graph,omitempty"`
 }

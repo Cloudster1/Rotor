@@ -296,7 +296,13 @@ class Channel:
         inputs = json.loads(start.inputs_json or "{}")
         resume = json.loads(start.resume_json) if start.resume else None
         return await run_workflow(
-            ctx, inputs, thread_id=start.run_id, checkpointer=self.checkpointer, resuming=start.resume, resume=resume
+            ctx,
+            inputs,
+            thread_id=start.run_id,
+            checkpointer=self.checkpointer,
+            resuming=start.resume,
+            resume=resume,
+            resume_id=start.resume_interrupt_id,
         )
 
 

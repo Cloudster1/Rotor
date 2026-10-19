@@ -34,12 +34,14 @@ const (
 	ActionProviderChanged        = "provider.changed"
 	ActionRunStarted             = "run.started"
 	ActionRunCancelled           = "run.cancelled"
+	ActionApprovalDecided        = "approval.decided"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
 var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, ActionSwitchedOff, ActionSessionEndedByProvider,
 	ActionToolAdded, ActionToolRemoved, ActionConnectionGranted, ActionConnectionEnded, ActionTokenMinted, ActionTokenRevoked, ActionProviderChanged,
-	ActionWorkflowCreated, ActionWorkflowChanged, ActionWorkflowShared, ActionWorkflowArchived, ActionRunStarted, ActionRunCancelled}
+	ActionWorkflowCreated, ActionWorkflowChanged, ActionWorkflowShared, ActionWorkflowArchived, ActionRunStarted, ActionRunCancelled,
+	ActionApprovalDecided}
 
 // Redacted stands in the record for a value that looked like a credential.
 const Redacted = "[redacted]"

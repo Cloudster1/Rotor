@@ -68,6 +68,11 @@ type Run struct {
 	UpdatedAt     time.Time
 	StartedAt     *time.Time
 	FinishedAt    *time.Time
+	// ApprovalID is the pending approval the run waits for, if any.
+	ApprovalID *uuid.UUID
+	// Manages says the caller started the run, owns its workflow or administers Rotor, and so may cancel it; a group
+	// approver sees the run without managing it.
+	Manages bool
 }
 
 // Workflows is what starting a run reads of the workflow, as the caller sees it; *workflows.Service is the real one.
@@ -112,13 +117,14 @@ func NewService(cluster *db.Cluster, wf Workflows, finder ToolFinder, conns Conn
 }
 
 const runColumns = `r.id, r.workflow_id, r.workflow_name, r.version, r.user_id, r.started_by_name, r.status, r.reason,
-	r.inputs, r.output, r.created_at, r.updated_at, r.started_at, r.finished_at`
+	r.inputs, r.output, r.created_at, r.updated_at, r.started_at, r.finished_at,
+	(SELECT a.id FROM approval a WHERE a.run_id = r.id AND a.status = 'pending'), run_visible(r.user_id, r.workflow_id)`
 
 func scanRun(row pgx.Row) (Run, error) {
 	var r Run
 	var output []byte
 	err := row.Scan(&r.ID, &r.WorkflowID, &r.WorkflowName, &r.Version, &r.UserID, &r.StartedByName, &r.Status, &r.Reason,
-		&r.Inputs, &output, &r.CreatedAt, &r.UpdatedAt, &r.StartedAt, &r.FinishedAt)
+		&r.Inputs, &output, &r.CreatedAt, &r.UpdatedAt, &r.StartedAt, &r.FinishedAt, &r.ApprovalID, &r.Manages)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return r, ErrNotFound
 	}
@@ -126,7 +132,8 @@ func scanRun(row pgx.Row) (Run, error) {
 	return r, err
 }
 
-// Get is a run the caller may see: one they started, one of a workflow they own, or any for an administrator.
+// Get is a run the caller may see: one they started, one of a workflow they own, one whose approval their group
+// decides, or any for an administrator.
 func (s *Service) Get(ctx context.Context, id uuid.UUID) (Run, error) {
 	var r Run
 	err := s.db.Read(ctx, func(ctx context.Context, tx db.DBTX) error {
@@ -145,7 +152,8 @@ type Filter struct {
 	Mine bool
 }
 
-// List is the runs the caller may see, newest first, at most config.RunListLimit.
+// List is the runs the caller manages, newest first, at most config.RunListLimit; runs seen only as an approver are
+// in the approvals inbox instead.
 func (s *Service) List(ctx context.Context, f Filter) ([]Run, error) {
 	out, statuses := []Run{}, append([]string{}, f.Statuses...)
 	err := s.db.Read(ctx, func(ctx context.Context, tx db.DBTX) error {
@@ -153,6 +161,7 @@ func (s *Service) List(ctx context.Context, f Filter) ([]Run, error) {
 			WHERE ($1::uuid IS NULL OR r.workflow_id = $1)
 			  AND (cardinality($2::text[]) = 0 OR r.status = ANY($2))
 			  AND (NOT $3 OR r.user_id = current_actor_id())
+			  AND run_visible(r.user_id, r.workflow_id)
 			ORDER BY r.created_at DESC, r.id DESC LIMIT $4`, nullUUID(f.WorkflowID), statuses, f.Mine, config.RunListLimit)
 		if err != nil {
 			return err

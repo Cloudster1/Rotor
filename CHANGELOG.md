@@ -9,6 +9,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A person decides before a run goes on (#31). A run that reaches an
+  approval waits, keeping no sandbox and no token, and shows what it is
+  about to write. Its starter, or the group the step names, approves it,
+  changing the fields the step offers, or rejects it, with a comment; the
+  run goes on in a fresh sandbox or ends. An approval nobody decides in
+  time ends its run. The Approvals inbox lists what waits for you, with a
+  badge in the sidebar and a link to each approval. Decisions are in the
+  audit log, and no workflow may call a tool that decides a review.
 - The approvals API is agreed (#30): `docs/api-contract-m5.md` says who sees
   and decides an approval, what it shows of the writes to come, how a
   decision resumes a run, and how write confirmation will be held at the
@@ -135,6 +143,8 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- A run resumed after an approval answers only that approval: a sandbox
+  replaced later no longer replays the decision to the next one.
 - Rotor reads a workflow's YAML as YAML 1.2, as the runner does (#67): a
   scope such as `mcp:read` inside an inline mapping is text, not a nested
   mapping, and a golden example in flow style holds both sides to it. The

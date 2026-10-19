@@ -3,7 +3,8 @@ import { meQueryKey } from "@/api/auth";
 import { LOGIN_PATH } from "@/config";
 import { loginRoute } from "./login";
 import type { QueryClient } from "@tanstack/react-query";
-import { approvalsRoute, connectionsRoute, indexRoute, settingsRoute } from "./places";
+import { approvalRoute, approvalsRoute } from "./approvals";
+import { connectionsRoute, indexRoute, settingsRoute } from "./places";
 import { newWorkflowRoute, workflowRoute, workflowsRoute } from "./workflows";
 import { RouteError, rootRoute } from "./root";
 import { runRoute, runsRoute } from "./runs";
@@ -12,7 +13,18 @@ import { shellRoute } from "./shell";
 // Pages that stand without the shell, such as sign-in, are children of rootRoute beside shellRoute.
 const routeTree = rootRoute.addChildren([
   loginRoute,
-  shellRoute.addChildren([indexRoute, workflowsRoute, newWorkflowRoute, workflowRoute, runsRoute, runRoute, approvalsRoute, connectionsRoute, settingsRoute]),
+  shellRoute.addChildren([
+    indexRoute,
+    workflowsRoute,
+    newWorkflowRoute,
+    workflowRoute,
+    runsRoute,
+    runRoute,
+    approvalsRoute,
+    approvalRoute,
+    connectionsRoute,
+    settingsRoute,
+  ]),
 ]);
 
 /** The application's router; tests pass a memory history to start anywhere. */

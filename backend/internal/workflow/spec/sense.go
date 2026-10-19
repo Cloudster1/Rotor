@@ -71,6 +71,8 @@ func checkSense(s *Spec) []Problem {
 					add(ref.path, CodeUnknownNode, "The argument reads the output of %s, which is not a node.", ref.node)
 				}
 			}
+		case TypeApproval:
+			out = append(out, approvalSense(n, base, known)...)
 		case TypeAgent, TypeCode:
 			if n.Type == TypeCode {
 				out = append(out, codeLimits(n, base)...)
@@ -82,6 +84,7 @@ func checkSense(s *Spec) []Problem {
 			}
 		}
 	}
+	out = append(out, reviewDeciders(s)...)
 	if known(s.Entry) {
 		reached := reach(s, index, s.Entry, nil)
 		for i, n := range s.Nodes {

@@ -33,7 +33,9 @@ const idempotencyHeader = "Idempotency-Key"
 var (
 	errRunsUnavailable = &APIError{Status: http.StatusServiceUnavailable, Code: "runs_unavailable",
 		Message: "Runs are not set up on this installation. An operator connects Rotor to OpenBao and starts its worker."}
-	errRunNotFound      = ErrNotFound("There is no such run, or you may not see it.")
+	errRunNotFound   = ErrNotFound("There is no such run, or you may not see it.")
+	errNotRunManager = &APIError{Status: http.StatusForbidden, Code: "not_run_manager",
+		Message: "Only the person who started the run, its workflow's owner or an administrator may cancel it. To stop it, reject its approval."}
 	errRunEnded         = &APIError{Status: http.StatusConflict, Code: "run_ended", Message: "The run has already ended, so there is nothing to cancel."}
 	errKeyReused        = ErrValidation(map[string]string{idempotencyHeader: "This key already started a run of another workflow. Send a new key for each run."})
 	errNoRunsOfArchived = &APIError{Status: http.StatusConflict, Code: "workflow_archived",
@@ -75,6 +77,8 @@ func runError(err error) error {
 		return errRunNotFound
 	case errors.Is(err, runs.ErrEnded):
 		return errRunEnded
+	case errors.Is(err, runs.ErrNotManager):
+		return errNotRunManager
 	case errors.Is(err, runs.ErrKeyReused):
 		return errKeyReused
 	case errors.Is(err, runs.ErrArchived):
@@ -88,7 +92,12 @@ func toRunResponse(r runs.Run) runResponse {
 	if len(output) == 0 {
 		output = json.RawMessage("null")
 	}
-	return runResponse{ID: r.ID.String(), Workflow: personRef{ID: r.WorkflowID.String(), Name: r.WorkflowName}, Version: r.Version,
+	var approval *string
+	if r.ApprovalID != nil {
+		id := r.ApprovalID.String()
+		approval = &id
+	}
+	return runResponse{ID: r.ID.String(), ApprovalID: approval, Workflow: personRef{ID: r.WorkflowID.String(), Name: r.WorkflowName}, Version: r.Version,
 		Status: runStatus(r.Status), StartedBy: personRef{ID: r.UserID.String(), Name: r.StartedByName}, Reason: r.Reason,
 		Inputs: r.Inputs, Output: output, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, StartedAt: r.StartedAt,
 		FinishedAt: r.FinishedAt, Ended: runnerctl.Ended(r.Status)}

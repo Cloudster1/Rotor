@@ -16,19 +16,19 @@ func init() {
 
 var m5Operations = []operation{
 	// Approvals: a person decides before a run goes on (#31).
-	{method: "GET", path: "/approvals", handler: "handleListApprovals", tag: "approvals", pending: true,
+	{method: "GET", path: "/approvals", handler: "handleListApprovals", tag: "approvals",
 		summary: "Approvals you may see: those you may decide, and those of runs you may see; newest first.",
 		query: []param{
 			{name: "status", description: "pending (the default), decided or all."},
 			{name: "waitingOnMe", description: "true lists only the pending approvals you may decide."},
 		},
 		responses: ok(env{"approvals": []approvalSummary{}})},
-	{method: "GET", path: "/approvals/count", handler: "handleCountApprovals", tag: "approvals", pending: true,
+	{method: "GET", path: "/approvals/count", handler: "handleCountApprovals", tag: "approvals",
 		summary: "How many approvals wait for you to decide them, for the badge.", responses: ok(approvalCount{})},
-	{method: "GET", path: "/approvals/{approvalID}", handler: "handleGetApproval", tag: "approvals", pending: true,
+	{method: "GET", path: "/approvals/{approvalID}", handler: "handleGetApproval", tag: "approvals",
 		summary:   "One approval, with what the run is about to write and the fields an approver may change.",
 		responses: map[int]any{http.StatusOK: approvalResponse{}, http.StatusNotFound: notFound}},
-	{method: "POST", path: "/approvals/{approvalID}/decision", handler: "handleDecideApproval", tag: "approvals", pending: true,
+	{method: "POST", path: "/approvals/{approvalID}/decision", handler: "handleDecideApproval", tag: "approvals",
 		summary: "Approve or reject, with a comment and, when approving, changed values.",
 		description: "Refused with 403 not_approver when you may see the approval but not decide it, 409 approval_decided once it is decided " +
 			"or expired, and 422 with a field per value that does not fit the form.",
@@ -91,6 +91,8 @@ type previewWrite struct {
 	Call      string          `json:"call,omitempty"`
 	Calls     []string        `json:"calls,omitempty"`
 	Arguments json.RawMessage `json:"arguments"`
+	// Truncated marks the last entry of a preview cut to fit: more writes follow than are shown.
+	Truncated bool `json:"truncated,omitempty"`
 }
 
 // approvalForm is what an approver may change: a JSON Schema and the values the run proposes.

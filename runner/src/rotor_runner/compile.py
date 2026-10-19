@@ -6,7 +6,6 @@ from __future__ import annotations
 import asyncio
 import copy
 import json
-import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Protocol, TypedDict, cast
@@ -27,9 +26,10 @@ from rotor_runner.config import DURATION_UNITS, LLM_FLUSH_CHARS
 from rotor_runner.events import EventSink, summary
 from rotor_runner.limits import TokenBudget, TokenBudgetError
 from rotor_runner.mcp import ToolFailedError, ToolGateway, ToolRefusedError
+from rotor_runner.preview import preview
 from rotor_runner.spec import Spec
+from rotor_runner.templates import lookup, render
 
-TEMPLATE = re.compile(r"\{\{\s*((?:inputs|nodes)(?:\.[A-Za-z0-9_-]+)+)\s*\}\}")
 OUTPUT_TOOL = "submit_output"
 
 
@@ -79,35 +79,6 @@ class Outcome:
     reason: str = ""
     output: dict[str, Any] = field(default_factory=dict)
     interrupt: dict[str, Any] | None = None
-
-
-def lookup(state: dict[str, Any], path: str) -> Any:
-    """The value at a state path such as nodes.draft.title, or None where there is none."""
-    value: Any = state
-    for part in path.split("."):
-        if not isinstance(value, dict) or part not in value:
-            return None
-        value = value[part]
-    return value
-
-
-def render(value: Any, state: dict[str, Any]) -> Any:
-    """Fills {{ path }} templates in strings, nested anywhere; a string that is one template keeps the value's type."""
-    if isinstance(value, dict):
-        return {k: render(v, state) for k, v in value.items()}
-    if isinstance(value, list):
-        return [render(v, state) for v in value]
-    if not isinstance(value, str):
-        return value
-    whole = TEMPLATE.fullmatch(value.strip())
-    if whole:
-        return lookup(state, whole.group(1))
-
-    def text(match: re.Match[str]) -> str:
-        found = lookup(state, match.group(1))
-        return found if isinstance(found, str) else json.dumps(found, default=str)
-
-    return TEMPLATE.sub(text, value)
 
 
 def check_output(node: dict[str, Any], value: Any) -> Any:
@@ -166,12 +137,35 @@ def _code(node: dict[str, Any], ctx: RunContext) -> Callable[..., Any]:
     return run
 
 
-def _approval(node: dict[str, Any]) -> Callable[..., Any]:
+def _approval(node: dict[str, Any], spec: Spec) -> Callable[..., Any]:
+    """Waits for a person, showing the proposed values and the writes ahead; it outputs the approved values."""
+
     async def run(state: State) -> dict[str, Any]:
-        answer = interrupt({"node": node["id"], "message": render(node["message"], cast(dict[str, Any], state))})
-        if isinstance(answer, dict) and answer.get("approved") is False:
+        current = cast(dict[str, Any], state)
+        form = node.get("form") or {}
+        values = render(form.get("values") or {}, current)
+        ahead = {**current, "nodes": {**current.get("nodes", {}), node["id"]: values}}
+        answer = interrupt(
+            {
+                "node": node["id"],
+                "message": render(node["message"], current),
+                "values": values,
+                "preview": preview(spec, node["id"], ahead),
+            }
+        )
+        if not isinstance(answer, dict):
+            answer = {}
+        if answer.get("approved") is False:
             raise RunEnded("cancelled", "rejected", f"{node['id']} was not approved")
-        return {"nodes": {node["id"]: answer}}
+        sent = answer.get("values")
+        approved: dict[str, Any] = sent if isinstance(sent, dict) else values
+        output = {
+            **approved,
+            "approved": True,
+            "comment": str(answer.get("comment") or ""),
+            "decidedBy": str(answer.get("decidedBy") or ""),
+        }
+        return {"nodes": {node["id"]: output}}
 
     return run
 
@@ -201,7 +195,7 @@ def compile_workflow(ctx: RunContext, checkpointer: BaseCheckpointSaver[Any] | N
         "agent": lambda n: _agent(n, ctx),
         "tool": lambda n: _tool(n, ctx),
         "code": lambda n: _code(n, ctx),
-        "approval": _approval,
+        "approval": lambda n: _approval(n, ctx.spec),
         "router": lambda _n: _pass,
     }
     for node in ctx.spec.nodes.values():
@@ -232,17 +226,23 @@ async def run_workflow(
     checkpointer: BaseCheckpointSaver[Any] | None = None,
     resume: Any = None,
     resuming: bool = False,
+    resume_id: str = "",
 ) -> Outcome:
-    """Runs the workflow, or resumes it with the answer to the interrupt it waits at, emitting its events."""
+    """Runs the workflow, or resumes it with the answer to the interrupt resume_id names, emitting its events."""
     limits = ctx.spec.limits
     graph = compile_workflow(ctx, checkpointer)
     config: RunnableConfig = {"configurable": {"thread_id": thread_id}, "recursion_limit": int(limits["maxSteps"])}
     if limits.get("maxTokens"):
         config["callbacks"] = [TokenBudget(int(limits["maxTokens"]))]
     start: Any = {"inputs": inputs, "nodes": {}}
-    if resuming:
+    snapshot = await graph.aget_state(config) if checkpointer is not None else None
+    waiting_at = {i.id for task in snapshot.tasks for i in task.interrupts} if snapshot else set()
+    if resuming and resume_id in waiting_at:
+        # Keyed by the interrupt, an answer never answers a later approval the run reaches.
+        start = Command(resume={resume_id: resume})
+    elif resuming and not resume_id:
         start = Command(resume=resume)
-    elif checkpointer is not None and (await graph.aget_state(config)).next:
+    elif snapshot is not None and snapshot.next:
         # A sandbox that replaced a lost one carries on from the run's last checkpoint.
         start = None
     buffers: dict[str, str] = {}
@@ -292,7 +292,8 @@ async def run_workflow(
     snapshot = await graph.aget_state(config)
     waiting = [i for task in snapshot.tasks for i in task.interrupts]
     if waiting:
-        return Outcome("interrupted", "", interrupt=cast(dict[str, Any], waiting[0].value))
+        value = waiting[0].value if isinstance(waiting[0].value, dict) else {"message": str(waiting[0].value)}
+        return Outcome("interrupted", "", interrupt={**value, "id": waiting[0].id})
     return Outcome("succeeded", "", cast(dict[str, Any], snapshot.values.get("nodes", {})))
 
 

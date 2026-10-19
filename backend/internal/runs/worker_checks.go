@@ -108,7 +108,7 @@ func (w *Worker) markGone(ctx context.Context, present []string) error {
 }
 
 // expire acts on the runs whose time ran out: a sandbox that never said Hello, a runner that stopped answering, a
-// run past its deadline, the sandbox and tokens of a run that now waits, and a run that waited too long.
+// run past its deadline, the sandbox and tokens of a run that now waits, an approval nobody decided, a long wait.
 func (w *Worker) expire(ctx context.Context) error {
 	return errors.Join(
 		w.each(ctx, "unstarted", `r.status = 'starting' AND r.sandbox_id IS NOT NULL
@@ -127,6 +127,12 @@ func (w *Worker) expire(ctx context.Context) error {
 		// A waiting run keeps nothing alive: no sandbox and no token; a revocation that failed is tried again.
 		w.each(ctx, "waiting", `r.status = 'waiting' AND (r.sandbox_id IS NOT NULL
 			OR EXISTS (SELECT 1 FROM run_token t WHERE t.run_id = r.id AND t.revoked_at IS NULL))`, w.idle),
+		// An approval nobody decided in time ends its run; the approval expires with it.
+		w.each(ctx, "approval_expired", `r.status = 'waiting' AND EXISTS (SELECT 1 FROM approval a
+				WHERE a.run_id = r.id AND a.status = 'pending' AND a.expires_at <= now())`, func(ctx context.Context, c claimed) error {
+			return w.end(ctx, c.ID, runnerctl.StatusExpired, runnerctl.ReasonApprovalExpired,
+				"Nobody decided the approval in time, so the run expired. Start it again to ask once more.")
+		}),
 		w.each(ctx, "expired", `r.status = 'waiting' AND NOT EXISTS (SELECT 1 FROM run_event e
 				WHERE e.run_id = r.id AND e.at > now() - make_interval(secs => $3))`, func(ctx context.Context, c claimed) error {
 			return w.end(ctx, c.ID, runnerctl.StatusExpired, ReasonWaitedTooLong, "Nobody answered the run in time, so it expired.")

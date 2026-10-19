@@ -118,6 +118,8 @@ message StartRun {
   // resume continues from the last checkpoint, with resume_json the answer to the interrupt it stopped at.
   bool resume = 6;
   string resume_json = 7;
+  // resume_interrupt_id names the interrupt resume_json answers; a run no longer waiting there carries on without it.
+  string resume_interrupt_id = 8;
 }
 
 // ToolBinding is one of the spec's tool bindings, resolved to a tool Rotor knows.

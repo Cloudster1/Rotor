@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { s } from "@/strings";
 import { type Entry, linksIn } from "./timeline";
 
@@ -64,6 +65,28 @@ function Line({ entry }: { entry: Entry }) {
       );
     case "interrupt":
       return <p className="text-warning">{t.asks(entry.node, entry.message)}</p>;
+    case "requested": {
+      const a = s.approvals.live;
+      return (
+        <p className="text-warning">
+          {a.requested(entry.node, entry.group ? a.group(entry.group) : a.starter)}{" "}
+          {entry.approval && (
+            <Link to="/approvals/$approvalID" params={{ approvalID: entry.approval }} className="text-accent underline-offset-2 hover:underline">
+              {s.approvals.run.open}
+            </Link>
+          )}
+        </p>
+      );
+    }
+    case "decided": {
+      const status = entry.decision === "approve" ? "approved" : entry.decision === "reject" ? "rejected" : undefined;
+      return (
+        <div>
+          <p>{s.approvals.live.decided(status ? s.approvals.status[status] : entry.decision, entry.by)}</p>
+          {entry.comment && <p className="text-ink-muted">{entry.comment}</p>}
+        </div>
+      );
+    }
     case "run":
       return (
         <p className="font-medium">

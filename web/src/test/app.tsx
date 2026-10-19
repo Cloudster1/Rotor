@@ -61,6 +61,9 @@ export async function renderAt(path: string, { me = ME as Me | null, answers = {
     "/api/v1/providers": { providers: [] },
     "/api/v1/workflows": { workflows: [] },
     "/api/v1/runs": { runs: [] },
+    // The sidebar asks for the badge's number on every page.
+    "/api/v1/approvals/count": { waitingOnMe: 0 },
+    "/api/v1/approvals": { approvals: [] },
     "/api/v1/schemas/workflow.v1.json": { $id: "https://rotor.dev/schemas/workflow.v1.json", type: "object" },
     "POST /api/v1/workflows/validate": { valid: true, problems: [] },
     ...answers,

@@ -84,6 +84,11 @@ func endLocked(ctx context.Context, tx db.DBTX, runID uuid.UUID, status, reason 
 	if err := appendEvent(ctx, tx, runID, eventRunFinished, "", encoded); err != nil {
 		return err
 	}
+	if Ended(status) {
+		if err := closeApprovals(ctx, tx, runID, status); err != nil {
+			return err
+		}
+	}
 	return setStatus(ctx, tx, runID, status, reason, output)
 }
 

@@ -78,6 +78,8 @@ type Config struct {
 	Runner  Runner
 	Valkey  Valkey
 	Worker  Worker
+	// Approvals is how long an approval waits by default (#31).
+	Approvals Approvals
 }
 
 // Auth is how a signed-in browser is remembered.
@@ -148,12 +150,13 @@ func Load() (Config, error) {
 			RedirectURL:  l.str("ROTOR_OIDC_REDIRECT_URL", ""),
 			Backchannel:  l.str("ROTOR_OIDC_BACKCHANNEL", ""),
 		},
-		OpenBao: loadOpenBao(l),
-		Tools:   loadTools(l),
-		Sandbox: loadSandbox(l),
-		Runner:  loadRunner(l),
-		Valkey:  loadValkey(l),
-		Worker:  Worker{MetricsAddr: l.str("ROTOR_WORKER_METRICS_ADDR", DefaultWorkerMetricsAddr)},
+		OpenBao:   loadOpenBao(l),
+		Tools:     loadTools(l),
+		Sandbox:   loadSandbox(l),
+		Runner:    loadRunner(l),
+		Valkey:    loadValkey(l),
+		Worker:    Worker{MetricsAddr: l.str("ROTOR_WORKER_METRICS_ADDR", DefaultWorkerMetricsAddr)},
+		Approvals: loadApprovals(l),
 	}
 	if c.OIDC.RedirectURL == "" {
 		c.OIDC.RedirectURL = c.AppBaseURL + CallbackPath
@@ -190,6 +193,7 @@ func Load() (Config, error) {
 	checkOpenBao(l, c)
 	checkSandbox(l, c)
 	checkValkey(l, c)
+	checkApprovals(l, c)
 	if c.DB.AdminURL == "" {
 		c.DB.AdminURL = c.DB.URL
 	}

@@ -95,8 +95,10 @@ func TestARunnerInASandboxCarriesARunAsItsPerson(t *testing.T) {
 			t.Errorf("node %s is out of order: %+v", node, events)
 		}
 	}
-	if last := events[len(events)-1]; last.Type != "run.finished" || last.Payload["status"] != "waiting" {
-		t.Errorf("the last event = %+v, want run.finished waiting", last)
+	// The run waits, and then the approval it waits at opens (#31).
+	if len(events) < 2 || events[len(events)-2].Type != "run.finished" || events[len(events)-2].Payload["status"] != "waiting" ||
+		events[len(events)-1].Type != "approval.requested" || events[len(events)-1].Payload["message"] != "Go on as bob?" {
+		t.Errorf("the last events = %+v, want run.finished waiting, then approval.requested", events[max(0, len(events)-2):])
 	}
 	for _, e := range events {
 		switch {

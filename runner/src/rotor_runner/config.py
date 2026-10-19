@@ -44,3 +44,11 @@ EXIT_REFUSED = 2
 UNWRAP_TIMEOUT_S = 10
 REDACTED = "[redacted]"
 MIN_SECRET_CHARS = 8
+
+# Approvals (#31), as the control plane's config names them: the longest an approval may wait, the keys its output
+# keeps for itself, and the calls that would decide a review in a tool, which no workflow may bind (Exciter #182).
+APPROVAL_MAX_EXPIRY_S = 168 * 3600
+RESERVED_FORM_FIELDS = ("approved", "comment", "decidedBy")
+REVIEW_DECIDING_CALLS = r"(?i)^(approve|reject|decide|sign|submit)_?\w*review"
+# APPROVAL_PREVIEW_ENTRIES bounds the writes one approval lists; the control plane cuts by size too.
+APPROVAL_PREVIEW_ENTRIES = 50

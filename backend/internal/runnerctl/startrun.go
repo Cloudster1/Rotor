@@ -44,8 +44,10 @@ type run struct {
 	Status     string
 	SpecYAML   string
 	Inputs     []byte
-	Resume     []byte
-	spec       *spec.Spec
+	// Resume answers the interrupt ResumeID names: the latest approved approval's decision, if any.
+	Resume   []byte
+	ResumeID string
+	spec     *spec.Spec
 	// model is the provider and model the run's agents use; nil for a workflow without agents.
 	model *providers.Resolution
 }
@@ -59,9 +61,14 @@ type binding struct {
 func (s *Server) loadRun(ctx context.Context, runID uuid.UUID) (*run, error) {
 	r := &run{ID: runID}
 	err := s.DB.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		return tx.QueryRow(ctx, `SELECT r.user_id, r.status, v.spec_yaml, r.inputs, r.resume
+		err := tx.QueryRow(ctx, `SELECT r.user_id, r.status, v.spec_yaml, r.inputs
 			FROM run r JOIN workflow_version v ON v.workflow_id = r.workflow_id AND v.number = r.version
-			WHERE r.id = $1`, runID).Scan(&r.UserID, &r.Status, &r.SpecYAML, &r.Inputs, &r.Resume)
+			WHERE r.id = $1`, runID).Scan(&r.UserID, &r.Status, &r.SpecYAML, &r.Inputs)
+		if err != nil {
+			return err
+		}
+		r.ResumeID, r.Resume, err = resumeAnswer(ctx, tx, runID)
+		return err
 	})
 	if err != nil {
 		return nil, err
@@ -157,8 +164,8 @@ func (s *Server) secret(ctx context.Context, r *run) (*runnerpb.ConnectResponse,
 // startRun is the run's StartRun: its pinned spec, inputs, bindings and model, and the answer it resumes with, if any.
 func startRun(r *run, bindings []*runnerpb.ToolBinding, model *runnerpb.ModelConfig) *runnerpb.ConnectResponse {
 	start := &runnerpb.StartRun{RunId: r.ID.String(), SpecYaml: r.SpecYAML, InputsJson: string(r.Inputs), Tools: bindings, Model: model}
-	if len(r.Resume) > 0 {
-		start.Resume, start.ResumeJson = true, string(r.Resume)
+	if r.ResumeID != "" {
+		start.Resume, start.ResumeJson, start.ResumeInterruptId = true, string(r.Resume), r.ResumeID
 	}
 	return &runnerpb.ConnectResponse{Message: &runnerpb.ConnectResponse_StartRun{StartRun: start}}
 }
