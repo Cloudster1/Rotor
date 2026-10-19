@@ -91,6 +91,8 @@ func (h *harness) fires(t *testing.T, triggerID uuid.UUID) []string {
 
 func TestAToolsSignedEventsQueueTheTriggersTheyMatch(t *testing.T) {
 	h := newHarness(t)
+	// The test reads what deliveries queue; the worker would fire, and turn off, these bare triggers meanwhile.
+	stopWorker(t)
 	ctx := context.Background()
 	toolID := addTool(t, newToolStub(t, map[string]any{"product": "exciter"}))
 	alice, bob := signedIn(t, "alice"), signedIn(t, "bob")
@@ -205,6 +207,7 @@ func TestAToolsSignedEventsQueueTheTriggersTheyMatch(t *testing.T) {
 
 func TestArmatureAndStatorSignWithTheirOwnHeaders(t *testing.T) {
 	h := newHarness(t)
+	stopWorker(t)
 	alice := signedIn(t, "alice")
 	now := time.Now()
 	for _, c := range []struct{ product, word, topic, payload, project string }{

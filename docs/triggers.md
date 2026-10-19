@@ -114,6 +114,20 @@ A requirement approved in Exciter arrives as `review.decided` with
 `payload.review.decision` set to `approve`; a condition picks it out. The tools'
 own documents list every topic and payload.
 
+### Adding an event trigger
+
+On a workflow's page, under Triggers, add a trigger and choose **On a tool's
+event**:
+- **Tool:** Armature, Exciter or Stator. You need your own connection to it,
+  and an administrator must have set up its webhook.
+- **Topics:** tick the ones offered for the tool, or type others.
+- **Projects:** project keys, or leave it empty for every project.
+- **Conditions:** a dotted path into the event, such as
+  `payload.review.decision`, with `equals`, `is one of` or `exists`.
+
+The workflow's inputs must declare `event`; the form asks only for the other
+inputs, which each run starts with.
+
 ### What a run sees
 
 The run starts with the trigger's fixed inputs and `event`:

@@ -173,6 +173,25 @@ may not see is 404; refusals are sentences.
     - `hook_event` has `rotor_admin` access alone.
     - `tool.hook_secret_set_at` and `tool.hook_last_received_at` say when the secret was set and when the last event came.
     - Removing a tool removes its webhook secret from OpenBao too.
+  - **Making an event trigger:** the check is `hooks.CheckEvent`, which the triggers service runs as the owner at every make, change, enable and firing.
+    - Filters: field keys `event/topics/<n>`, `event/projects/<n>` and `event/conditions/<n>`.
+    - The tool: it must be Armature, Exciter or Stator and still known. A person making or turning on a trigger is also told when no administrator has given Rotor the tool's secret; a firing is not, since its event has arrived already.
+    - The owner's own live connection to the tool.
+
+    At a firing, a missing connection turns the trigger off as `connection_lost`, and a removed tool as `tool_removed`.
+  - **Reading the subject:** before a firing starts its run, the worker mints the owner a token asking `mcp:read`, calls the tool's MCP reading tool, then revokes the token (RFC 7009) at once:
+
+    | Tool | Call | Argument |
+    |---|---|---|
+    | Exciter | `get_requirement` | `reqKey` from `payload.requirement.key` |
+    | Armature | `get_issue` | `issueKey` from `payload.issue.key` or `payload.issueKey` |
+    | Stator | `get_page` | `pageID` from `payload.page.id` |
+
+    - The firing is `skipped`, with "the owner cannot read the event's subject", when the tool answers the call as an error, refuses it, or refuses the token.
+    - It is also skipped for an event with no such subject, such as Exciter's `baseline.taken`.
+    - A tool that does not answer is a passing failure, tried again.
+  - **The test double:** a tenant's `requirements` option maps requirement keys to the usernames `get_requirement` shows them to, in the shape of Exciter's output schema; a contract test holds it there.
+  - **Event ids:** the worker forgets ids older than `HookEventRetention` on every pass.
   - **The suite:**
     - The suite's Exciter runs its worker, which delivers webhooks, and lets `rotor-api` through its outbound guard.
     - `TestSuiteExciterDeliversItsEventsToRotorsHook` registers Rotor's webhook there in versions 2 and 1 and sees a created requirement queue the trigger.
