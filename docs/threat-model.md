@@ -99,7 +99,7 @@ listed.
 |---|---|---|---|
 | S | Signing in as someone else | OIDC code flow with PKCE and state against Keycloak; one subject per person | Built (#6) |
 | S | A forged back-channel logout | The logout token is verified against the realm's keys, its `jti` is kept to refuse a replay | Built (#6) |
-| S | Keycloak's "sign out" of a person leaves their other Rotor sessions alive | | Open #53 |
+| S | Keycloak's "sign out" of a person leaves their other Rotor sessions alive | After any logout token Rotor reads the person's sign-out time from Keycloak and ends every older session | Built (#53) |
 | T | Starting a run of a workflow one may not see, or with inputs that do not fit | Row-level security on `workflow`; inputs checked against the schema; the insert allowed only as `queued` | Built (#22) |
 | R | Denying an act | The audit log, written in the act's own transaction, append-only for both roles | Built (#2, #36) |
 | I | Reading another person's runs, approvals or connections | Row-level security as `rotor_app`; administrators see what the contracts say | Built (#14, #22, #31) |
@@ -150,6 +150,7 @@ listed.
 | | Threat | Mitigation | Status |
 |---|---|---|---|
 | S | Keycloak is the single source of identity for the suite | Shared with the siblings; operated by the installation | Accepted |
+| I | The `rotor` client's service account may read the realm's people (`view-users`), to see when a person was signed out | Its secret stays in the api; the control plane learns the same people as they sign in | Accepted (#53) |
 | E | Group changes not reaching Rotor | The role is read from the groups at every sign-in; switching a person off ends their sessions and triggers | Built (#6, #34) |
 
 ### Runner and sandbox
@@ -302,4 +303,3 @@ new one ends that.
 | | Tool content steers runs | High | #40, #32 |
 | | Run data unencrypted and kept forever | Medium | #41 |
 | | Images unsigned, dependencies unchecked | Medium | #42 |
-| | Sign-out of a person in Keycloak ends one Rotor session | Medium | #53 |

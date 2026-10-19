@@ -57,6 +57,10 @@ const (
 	MaxLogoutTokenBody = 64 << 10
 )
 
+// ProviderSignOutChecks are the pauses before each look at whether Keycloak signed a person out of every session,
+// after one of their logout tokens; the first lets Keycloak finish the sign-out, the second covers a slow one (#53).
+var ProviderSignOutChecks = []time.Duration{2 * time.Second, 10 * time.Second}
+
 // Config is the fully resolved configuration for every binary.
 type Config struct {
 	Env      string

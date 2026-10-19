@@ -64,8 +64,8 @@ func TestARoleFollowsTheRealmAtTheNextSignIn(t *testing.T) {
 	}
 }
 
-// Ending the session in Keycloak reaches the api through back-channel logout and ends Rotor's too; the test ends
-// it by the provider's session id Rotor keeps, as Keycloak's sign-out of all sessions names only one (#53).
+// Ending the session in Keycloak reaches the api through back-channel logout and ends Rotor's too, found by the
+// provider's session id Rotor keeps.
 func TestAKeycloakLogoutEndsTheSessionInRotor(t *testing.T) {
 	h := newHarness(t)
 	b := newBrowser(t)
@@ -181,6 +181,31 @@ func TestALogoutNamingOnlyThePersonEndsAllTheirSessions(t *testing.T) {
 	for i, b := range []*browser{first, second} {
 		if status, _ := b.me(); status != http.StatusUnauthorized {
 			t.Errorf("carol's session %d survived a logout naming her: %d", i+1, status)
+		}
+	}
+}
+
+// Signing a person out of Keycloak, as an administrator does when an account is compromised, ends every Rotor
+// session they have, not only the one Keycloak's logout token names (#53).
+func TestKeycloaksSignOutOfAPersonEndsAllTheirSessions(t *testing.T) {
+	newHarness(t)
+	first, second := newBrowser(t), newBrowser(t)
+	first.signIn("carol")
+	second.signIn("carol")
+	admin := newKeycloakAdmin(t)
+	admin.call(http.MethodPost, "/users/"+admin.id("users", "carol")+"/logout", nil)
+
+	deadline := time.Now().Add(backchannelWait)
+	for i, b := range []*browser{first, second} {
+		for {
+			status, _ := b.me()
+			if status == http.StatusUnauthorized {
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("carol's session %d survived Keycloak signing her out for %s (me answers %d)", i+1, backchannelWait, status)
+			}
+			time.Sleep(200 * time.Millisecond)
 		}
 	}
 }

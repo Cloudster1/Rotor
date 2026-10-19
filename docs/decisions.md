@@ -3,6 +3,24 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-19: Signing a person out everywhere (#53)
+
+- **Rotor asks Keycloak when the person was signed out.** Keycloak 26.2
+  answers an administrator's sign-out of a person with one logout token per
+  client, naming one of their sessions, so the token alone cannot tell it
+  from leaving one browser. Keycloak stamps the person's `notBefore` in the
+  same request, so Rotor reads it from the admin API and ends every session
+  made before it. Ending a single Keycloak session leaves the stamp alone and
+  so still ends one Rotor session.
+- **After the answer, not during it.** Keycloak saves the stamp only once its
+  sign-out request ends, and that request waits for Rotor's answer to the
+  token, so Rotor looks two and ten seconds later.
+- **The `rotor` client's service account with `view-users`.** The api holds
+  that client's secret in every installation, while `rotor-control-plane` is
+  used only by the development OpenBao. The role lets the control plane read
+  the realm's people, which it already learns as they sign in; an
+  installation that withholds it keeps the old behaviour, with a warning.
+
 ## 2026-10-19: Usage, cost and rate for M7 (#38)
 
 - **The control plane counts, the runner reports.** Only the control plane
