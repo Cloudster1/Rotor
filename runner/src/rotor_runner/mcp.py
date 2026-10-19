@@ -14,6 +14,7 @@ from langchain_mcp_adapters.interceptors import MCPToolCallRequest, ToolCallInte
 from langchain_mcp_adapters.tools import load_mcp_tools
 
 from rotor_runner.events import EventSink, summary
+from rotor_runner.limits import ToolRate
 from rotor_runner.spec import REVIEW_DECIDING
 
 
@@ -89,6 +90,8 @@ class McpGateway:
     bindings: dict[str, Binding]
     tokens: TokenProvider
     emit: EventSink
+    # rate ends the run on a call past its toolCallsPerMinute; None calls without a limit, as tests do.
+    rate: ToolRate | None = None
     _annotations: dict[str, dict[str, dict[str, Any] | None]] = field(default_factory=dict)
 
     async def _connection(self, binding: Binding) -> dict[str, Any]:
@@ -118,6 +121,8 @@ class McpGateway:
             raise ToolFailedError(f"{binding} cannot be reached at {b.mcp_url}: {leaf(err)}") from err
         if not allowed(b, name, hints.get(name)):
             raise ToolRefusedError(f"{binding} does not allow {name}")
+        if self.rate is not None:
+            self.rate.check()
         try:
             async with (await self._client(b)).session(binding) as session:
                 result = await session.call_tool(name, arguments)
@@ -159,6 +164,8 @@ class McpGateway:
         async def intercept(
             request: MCPToolCallRequest, handler: Callable[[MCPToolCallRequest], Awaitable[Any]]
         ) -> Any:
+            if self.rate is not None:
+                self.rate.check()
             token = await self.tokens.token(binding.name)
             result = await handler(request.override(headers={"Authorization": f"Bearer {token}"}))
             await self.emit(

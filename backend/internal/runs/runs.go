@@ -73,6 +73,9 @@ type Run struct {
 	// TriggerID and TriggerName name the trigger that started the run, if one did; the name only for its owner.
 	TriggerID   *uuid.UUID
 	TriggerName *string
+	// InputTokens, OutputTokens and Cost are what the run's model calls used so far (#38).
+	InputTokens, OutputTokens int64
+	Cost                      float64
 	// Manages says the caller started the run, owns its workflow or administers Rotor, and so may cancel it; a group
 	// approver sees the run without managing it.
 	Manages bool
@@ -112,6 +115,13 @@ type Service struct {
 	tools       ToolFinder
 	connections Connections
 	signals     Signals
+	// Usage refuses a run its person's quota or its model's prices do not allow (#38); nil allows every run.
+	Usage StartCheck
+}
+
+// StartCheck refuses a run its person may not start for usage; *usage.Service is the real one.
+type StartCheck interface {
+	CheckStart(ctx context.Context, userID uuid.UUID, sp *spec.Spec) error
 }
 
 // NewService returns the runs; signals may be nil, and streams then find a cancel or an event on their next beat.
@@ -122,13 +132,16 @@ func NewService(cluster *db.Cluster, wf Workflows, finder ToolFinder, conns Conn
 const runColumns = `r.id, r.workflow_id, r.workflow_name, r.version, r.user_id, r.started_by_name, r.status, r.reason,
 	r.inputs, r.output, r.created_at, r.updated_at, r.started_at, r.finished_at,
 	(SELECT a.id FROM approval a WHERE a.run_id = r.id AND a.status = 'pending'), run_visible(r.user_id, r.workflow_id),
-	r.trigger_id, (SELECT t.name FROM trigger t WHERE t.id = r.trigger_id)`
+	r.trigger_id, (SELECT t.name FROM trigger t WHERE t.id = r.trigger_id),
+	COALESCE((SELECT u.input_tokens FROM run_usage u WHERE u.run_id = r.id), 0),
+	COALESCE((SELECT u.output_tokens FROM run_usage u WHERE u.run_id = r.id), 0),
+	COALESCE((SELECT u.cost FROM run_usage u WHERE u.run_id = r.id), 0)::float8`
 
 func scanRun(row pgx.Row) (Run, error) {
 	var r Run
 	var output []byte
 	err := row.Scan(&r.ID, &r.WorkflowID, &r.WorkflowName, &r.Version, &r.UserID, &r.StartedByName, &r.Status, &r.Reason,
-		&r.Inputs, &output, &r.CreatedAt, &r.UpdatedAt, &r.StartedAt, &r.FinishedAt, &r.ApprovalID, &r.Manages, &r.TriggerID, &r.TriggerName)
+		&r.Inputs, &output, &r.CreatedAt, &r.UpdatedAt, &r.StartedAt, &r.FinishedAt, &r.ApprovalID, &r.Manages, &r.TriggerID, &r.TriggerName, &r.InputTokens, &r.OutputTokens, &r.Cost)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return r, ErrNotFound
 	}

@@ -63,6 +63,8 @@ function Line({ entry }: { entry: Entry }) {
           <p className="whitespace-pre-wrap">{entry.text}</p>
         </div>
       );
+    case "usage":
+      return <p className="text-xs text-ink-muted">{s.usage.timeline(entry.node, entry.input, entry.output)}</p>;
     case "interrupt":
       return <p className="text-warning">{t.asks(entry.node, entry.message)}</p>;
     case "requested": {

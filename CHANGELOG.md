@@ -15,6 +15,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
   cutting an export too large. The log now also records sandboxes started
   and removed, every run's end and each approval asked for, and each export
   of itself; nobody may change or empty it.
+- Runaway runs stop before they cost too much or flood a tool (#38). The
+  runner reports each model call's tokens, and Rotor totals them per run,
+  person and day, at prices administrators set per model. A workflow bounds
+  its tokens (now across every sandbox of a run), its cost, how many of its
+  runs go at once and its tool calls per minute; administrators bound each
+  person's day and concurrent runs. A run over a limit stops and says why,
+  one over a concurrency limit waits queued, and a usage page shows what you
+  used.
 - Armature, Exciter and Stator can deliver their events to Rotor (#35). An
   administrator adds Rotor's webhook address in the tool and pastes the
   secret it shows into Rotor, which keeps it in OpenBao. Rotor checks each

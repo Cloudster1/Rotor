@@ -10,6 +10,7 @@ import {
   removeProvider,
   testProvider,
 } from "@/api/providers";
+import { PricesPanel } from "@/features/usage/PricesPanel";
 import { s } from "@/strings";
 
 const card = "max-w-xl rounded-overlay border border-border bg-surface p-5 shadow-1";
@@ -61,6 +62,7 @@ export function ProvidersSection() {
 function ProviderRow({ provider, onEdit }: { provider: Provider; onEdit: () => void }) {
   const client = useQueryClient();
   const [confirming, setConfirming] = useState(false);
+  const [pricing, setPricing] = useState(false);
   const test = useMutation({ mutationFn: () => testProvider(provider.id) });
   const remove = useMutation({ mutationFn: () => removeProvider(provider.id), onSuccess: () => client.invalidateQueries({ queryKey: providersQueryKey }) });
   return (
@@ -83,6 +85,9 @@ function ProviderRow({ provider, onEdit }: { provider: Provider; onEdit: () => v
         </button>
         <button type="button" className={secondary} onClick={onEdit} data-action="edit-provider">
           {s.providers.edit}
+        </button>
+        <button type="button" className={secondary} onClick={() => setPricing(!pricing)} aria-expanded={pricing} data-action="price-provider">
+          {s.usage.prices}
         </button>
         {!confirming ? (
           <button type="button" className={secondary} onClick={() => setConfirming(true)} data-action="remove-provider">
@@ -116,6 +121,7 @@ function ProviderRow({ provider, onEdit }: { provider: Provider; onEdit: () => v
           {message(test.error ?? remove.error)}
         </p>
       )}
+      {pricing && <PricesPanel provider={provider} onClose={() => setPricing(false)} />}
     </li>
   );
 }

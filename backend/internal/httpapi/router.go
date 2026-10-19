@@ -46,6 +46,8 @@ type Server struct {
 	Triggers Triggers
 	// Audit reads the audit log for administrators (#36); nil answers 503.
 	Audit AuditLog
+	// Usage is nil where runs are not set up; its routes then answer 503.
+	Usage Usage
 	// Hooks is nil where OpenBao is not configured; its routes then answer 503.
 	Hooks Hooks
 	// Sessions and SignIn are nil only in tests that exercise neither.
@@ -137,6 +139,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Post("/triggers/{triggerID}/disable", s.handleDisableTrigger)
 			r.Get("/workflows/{workflowID}/triggers", s.handleListWorkflowTriggers)
 			r.Post("/workflows/{workflowID}/triggers", s.handleCreateTrigger)
+			r.Get("/usage", s.handleMyUsage)
 			mountPending(r, false, false)
 			r.Group(func(r chi.Router) {
 				r.Use(requireAdmin)
@@ -153,6 +156,11 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Get("/tools/{toolID}/hook", s.handleGetHook)
 				r.Put("/tools/{toolID}/hook", s.handleSetHookSecret)
 				r.Delete("/tools/{toolID}/hook", s.handleRemoveHookSecret)
+				r.Get("/usage/people", s.handlePeopleUsage)
+				r.Get("/settings/limits", s.handleGetLimits)
+				r.Put("/settings/limits", s.handleSetLimits)
+				r.Get("/providers/{providerID}/prices", s.handleGetPrices)
+				r.Put("/providers/{providerID}/prices", s.handleSetPrices)
 				mountPending(r, false, true)
 			})
 		})

@@ -21,7 +21,7 @@ metadata:
 inputs: {}                    # a JSON Schema for what the person gives at the start
 tools: {}                     # the tools a run may use, by a name the nodes refer to
 model: { name: claude-sonnet-5-5 }   # for agent nodes; must be one an administrator allows
-limits: { maxSteps: 40, timeout: 15m, maxTokens: 200000 }
+limits: { maxSteps: 40, timeout: 15m, maxTokens: 200000, maxCost: 2.5, maxConcurrent: 3 }
 entry: draft                  # the node a run starts at
 nodes: []                     # the steps
 edges: []                     # which step follows which
@@ -97,8 +97,21 @@ never from `edges`. A node with no edge after it ends the run.
 ### Limits
 
 `maxSteps` bounds how many steps a run takes, `timeout` how long it runs
-(`30s`, `15m`, `2h`), and `maxTokens` how much the model may read and write. A
-run that passes one ends and says which.
+(`30s`, `15m`, `2h`), and `maxTokens` how much the model may read and write,
+counted across every sandbox the run used. A run that passes one ends and says
+which. Three more keep a workflow from costing too much or flooding a tool:
+- `maxCost`: the most the run's model calls may cost, in US dollars, at the
+  prices an administrator set for the model. A model without prices cannot
+  carry a `maxCost`, and the run is refused when it starts.
+- `maxConcurrent`: how many runs of the workflow may be starting or running at
+  once. More wait, queued, and start as others end; a run waiting for an
+  approval holds no place.
+- `toolCallsPerMinute`: how many tool calls the run may make in any minute, 60
+  unless it says; one more ends the run.
+
+An administrator may also set, for everyone, how many tokens and how much
+money one person's runs may use in a day, and how many of their runs may run
+at once.
 
 ## What is checked
 

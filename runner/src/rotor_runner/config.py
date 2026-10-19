@@ -52,3 +52,7 @@ RESERVED_FORM_FIELDS = ("approved", "comment", "decidedBy")
 REVIEW_DECIDING_CALLS = r"(?i)^(approve|reject|decide|sign|submit)_?\w*review"
 # APPROVAL_PREVIEW_ENTRIES bounds the writes one approval lists; the control plane cuts by size too.
 APPROVAL_PREVIEW_ENTRIES = 50
+
+# Usage and rate (#38): the tool calls a run may make in a minute unless its limits say, and that minute.
+DEFAULT_TOOL_CALLS_PER_MINUTE = 60
+TOOL_RATE_WINDOW_S = 60

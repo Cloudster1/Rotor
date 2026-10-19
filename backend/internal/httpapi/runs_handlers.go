@@ -14,6 +14,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/runnerctl"
 	"github.com/cloudster1/rotor/backend/internal/runs"
+	"github.com/cloudster1/rotor/backend/internal/usage"
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 )
 
@@ -46,7 +47,10 @@ var (
 func runError(err error) error {
 	var refused *runs.InputsRefused
 	var needs *runs.NeedsConnections
+	var quota *usage.Refused
 	switch {
+	case errors.As(err, &quota):
+		return &APIError{Status: http.StatusUnprocessableEntity, Code: quota.Code, Message: quota.Message}
 	case errors.As(err, &refused):
 		fields := map[string]string{}
 		for _, p := range refused.Problems {
@@ -101,7 +105,8 @@ func toRunResponse(r runs.Run) runResponse {
 	if r.TriggerID != nil {
 		trigger = &runTrigger{ID: r.TriggerID.String(), Name: r.TriggerName}
 	}
-	return runResponse{ID: r.ID.String(), ApprovalID: approval, Trigger: trigger, Workflow: personRef{ID: r.WorkflowID.String(), Name: r.WorkflowName}, Version: r.Version,
+	return runResponse{ID: r.ID.String(), ApprovalID: approval, Trigger: trigger,
+		Usage: runUsage{InputTokens: r.InputTokens, OutputTokens: r.OutputTokens, Cost: r.Cost}, Workflow: personRef{ID: r.WorkflowID.String(), Name: r.WorkflowName}, Version: r.Version,
 		Status: runStatus(r.Status), StartedBy: personRef{ID: r.UserID.String(), Name: r.StartedByName}, Reason: r.Reason,
 		Inputs: r.Inputs, Output: output, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, StartedAt: r.StartedAt,
 		FinishedAt: r.FinishedAt, Ended: runnerctl.Ended(r.Status)}

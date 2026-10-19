@@ -225,6 +225,8 @@ type runResponse struct {
 	ApprovalID *string `json:"approvalId"`
 	// Trigger is the trigger that started the run (#34); its name is shown to its owner alone.
 	Trigger *runTrigger `json:"trigger"`
+	// Usage is what the run's model calls used so far (#38).
+	Usage runUsage `json:"usage"`
 	// Graph is the pinned version's nodes and edges, for the run's page; one run alone carries it, not a list.
 	Graph *spec.Graph `json:"graph,omitempty"`
 }
@@ -233,4 +235,11 @@ type runResponse struct {
 type runTrigger struct {
 	ID   string  `json:"id"`
 	Name *string `json:"name"`
+}
+
+// runUsage is what a run's model calls used, the cost in US dollars at the prices its model had when it began.
+type runUsage struct {
+	InputTokens  int64   `json:"inputTokens"`
+	OutputTokens int64   `json:"outputTokens"`
+	Cost         float64 `json:"cost"`
 }

@@ -23,12 +23,13 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
 from rotor_runner.config import DURATION_UNITS, LLM_FLUSH_CHARS
-from rotor_runner.events import EventSink, summary
-from rotor_runner.limits import TokenBudget, TokenBudgetError
+from rotor_runner.events import EventSink, summary, top_node
+from rotor_runner.limits import RunEnded, TokenBudget, TokenBudgetError, failed
 from rotor_runner.mcp import ToolFailedError, ToolGateway, ToolRefusedError
 from rotor_runner.preview import preview
 from rotor_runner.spec import Spec
 from rotor_runner.templates import lookup, render
+from rotor_runner.usage import UsageReporter
 
 OUTPUT_TOOL = "submit_output"
 
@@ -40,18 +41,6 @@ def _merge(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
 class State(TypedDict):
     inputs: dict[str, Any]
     nodes: Annotated[dict[str, Any], _merge]
-
-
-class RunEnded(Exception):  # noqa: N818 - it is how a run ends, not always an error
-    """A run that stops before its graph does, with the outcome and reason the control plane records."""
-
-    def __init__(self, status: str, reason: str, message: str) -> None:
-        super().__init__(message)
-        self.status, self.reason = status, reason
-
-
-def failed(reason: str, message: str) -> RunEnded:
-    return RunEnded("failed", reason, message)
 
 
 class CodeRunner(Protocol):
@@ -212,12 +201,6 @@ def compile_workflow(ctx: RunContext, checkpointer: BaseCheckpointSaver[Any] | N
     return graph.compile(checkpointer=checkpointer or InMemorySaver())
 
 
-def _top_node(metadata: dict[str, Any]) -> str:
-    namespace = str(metadata.get("langgraph_checkpoint_ns") or metadata.get("checkpoint_ns") or "")
-    top = namespace.split("|")[0].split(":")[0]
-    return top or str(metadata.get("langgraph_node", ""))
-
-
 async def run_workflow(
     ctx: RunContext,
     inputs: dict[str, Any],
@@ -232,8 +215,10 @@ async def run_workflow(
     limits = ctx.spec.limits
     graph = compile_workflow(ctx, checkpointer)
     config: RunnableConfig = {"configurable": {"thread_id": thread_id}, "recursion_limit": int(limits["maxSteps"])}
+    callbacks: list[Any] = [UsageReporter(ctx.emit)]
     if limits.get("maxTokens"):
-        config["callbacks"] = [TokenBudget(int(limits["maxTokens"]))]
+        callbacks.append(TokenBudget(int(limits["maxTokens"])))
+    config["callbacks"] = callbacks
     start: Any = {"inputs": inputs, "nodes": {}}
     snapshot = await graph.aget_state(config) if checkpointer is not None else None
     waiting_at = {i.id for task in snapshot.tasks for i in task.interrupts} if snapshot else set()
@@ -257,7 +242,7 @@ async def run_workflow(
                 if mode == "messages":
                     message, metadata = chunk
                     if isinstance(message, AIMessageChunk) and message.text:
-                        node = _top_node(metadata)
+                        node = top_node(metadata)
                         buffers[node] = buffers.get(node, "") + message.text
                         if len(buffers[node]) >= LLM_FLUSH_CHARS:
                             await flush(node)

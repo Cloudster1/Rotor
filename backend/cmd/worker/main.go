@@ -21,12 +21,14 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/hooks"
 	"github.com/cloudster1/rotor/backend/internal/metrics"
 	"github.com/cloudster1/rotor/backend/internal/observability"
+	"github.com/cloudster1/rotor/backend/internal/providers"
 	"github.com/cloudster1/rotor/backend/internal/runs"
 	"github.com/cloudster1/rotor/backend/internal/sandbox"
 	"github.com/cloudster1/rotor/backend/internal/sandbox/docker"
 	"github.com/cloudster1/rotor/backend/internal/sandbox/kube"
 	"github.com/cloudster1/rotor/backend/internal/tools"
 	"github.com/cloudster1/rotor/backend/internal/triggers"
+	"github.com/cloudster1/rotor/backend/internal/usage"
 	"github.com/cloudster1/rotor/backend/internal/version"
 	"github.com/cloudster1/rotor/backend/internal/workflows"
 )
@@ -105,6 +107,8 @@ func run() error {
 	reader := catalog.NewService(registry, people, boot.ToolClient(cfg), store, log)
 	workflowService := workflows.NewService(cluster, reader)
 	starter := runs.NewService(cluster, workflowService, registry, people, store)
+	// A trigger's run is held to its person's quota and its model's prices as one started by hand (#38).
+	starter.Usage = usage.NewService(cluster, providers.NewService(cluster, secrets, boot.ToolClient(cfg)))
 	scheduler := triggers.NewScheduler(cluster, log)
 	// Event triggers (#35): checked as for schedules, and started only for an event whose subject the owner may read.
 	hookService := hooks.NewService(cluster, secrets)

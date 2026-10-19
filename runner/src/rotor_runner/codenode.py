@@ -51,7 +51,7 @@ class CodeNodeRunner:
     """The CodeRunner a run's code nodes use."""
 
     async def run(self, node: dict[str, Any], state: dict[str, Any], ctx: RunContext) -> Any:
-        from rotor_runner.compile import failed
+        from rotor_runner.limits import failed
 
         memory, seconds = memory_limit(node), timeout_of(node)
         # The child lowers its own limits before it reads the code: Python between fork and exec is unsafe in a
@@ -81,7 +81,7 @@ class CodeNodeRunner:
             await child.wait()
 
     async def _converse(self, child: Process, node: dict[str, Any], state: dict[str, Any], ctx: RunContext) -> Any:
-        from rotor_runner.compile import failed
+        from rotor_runner.limits import failed
 
         assert child.stdin is not None and child.stdout is not None  # noqa: S101 - set by the PIPE arguments
         request = {

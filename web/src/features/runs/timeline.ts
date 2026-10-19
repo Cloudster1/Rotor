@@ -10,6 +10,7 @@ export type Entry =
   | { kind: "tool"; key: string; node: string; at: string; binding: string; tool: string; args: string; result: string; ok: boolean }
   | { kind: "log"; key: string; node: string; at: string; text: string }
   | { kind: "llm"; key: string; node: string; at: string; text: string }
+  | { kind: "usage"; key: string; node: string; at: string; input: number; output: number }
   | { kind: "interrupt"; key: string; node: string; at: string; message: string }
   | { kind: "requested"; key: string; node: string; at: string; approval: string; group: string }
   | { kind: "decided"; key: string; node: string; at: string; approval: string; decision: string; by: string; comment: string }
@@ -66,6 +67,9 @@ export function entries(events: RunEvent[]): Entry[] {
         }
         break;
       }
+      case "llm.usage":
+        out.push({ ...base, kind: "usage", input: Number(e.payload.inputTokens ?? 0), output: Number(e.payload.outputTokens ?? 0) });
+        break;
       case "interrupt":
         out.push({ ...base, kind: "interrupt", message: text(e.payload.message) });
         break;

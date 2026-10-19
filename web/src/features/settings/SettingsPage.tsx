@@ -36,6 +36,17 @@ export function SettingsPage() {
           </dl>
         </section>
       )}
+      {me.data && (
+        <section className="max-w-xl rounded-overlay border border-border bg-surface p-5 shadow-1" aria-labelledby="usage-title">
+          <h2 id="usage-title" className="mb-1 text-lg font-semibold text-ink">
+            {s.usage.title}
+          </h2>
+          <p className="mb-3 text-sm text-ink-muted">{s.usage.body}</p>
+          <Link to="/settings/usage" className="text-sm text-accent underline-offset-2 hover:underline" data-usage-link>
+            {s.usage.open}
+          </Link>
+        </section>
+      )}
       {me.data && <ToolsSection />}
       {me.data?.role === "admin" && <ProvidersSection />}
       {me.data?.role === "admin" && (

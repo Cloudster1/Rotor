@@ -3,6 +3,27 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-19: Usage, cost and rate for M7 (#38)
+
+- **The control plane counts, the runner reports.** Only the control plane
+  sees every sandbox of a run and every run of a person, so it totals usage
+  per run and per UTC day as each `llm.usage` event is stored, in the same
+  transaction, and stops the run there. The runner keeps its own token count
+  as a quick stop within one sandbox. Usage is as honest as the runner that
+  reports it; a sandbox runs the workflow's code, so the tools' and the
+  providers' own records stay the check.
+- **A run keeps the prices it began with.** Prices are copied into the run's
+  usage when its stream first opens, so changing a price never rewrites what
+  a run in flight costs. A model without prices counts tokens only, and a
+  workflow cannot bound the cost of what nobody priced.
+- **A waiting run holds no place.** Concurrency counts runs starting or
+  running; a run waiting for an approval has no sandbox, and holding a place
+  for it would let one slow approver block everyone else's runs.
+- **Tool calls are limited in the runner.** The rate is the run's own, and
+  the runner is where its calls happen; a call past it ends the run even
+  inside an agent, whose tool node re-raises it rather than handing it to the
+  model.
+
 ## 2026-10-19: Triggers for M6 (#33)
 
 - **Triggers are records each person makes, not part of the workflow's

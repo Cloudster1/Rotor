@@ -167,7 +167,7 @@ func (w *Worker) release(ctx context.Context, runID uuid.UUID) {
 
 // start gives each queued run, and each starting one without a sandbox, a sandbox with a fresh bootstrap token.
 func (w *Worker) start(ctx context.Context) error {
-	return w.each(ctx, "start", `r.status = 'queued' OR (r.status = 'starting' AND r.sandbox_id IS NULL)`, w.startOne)
+	return w.each(ctx, "start", `(r.status = 'queued' AND NOT `+atCapacity+`) OR (r.status = 'starting' AND r.sandbox_id IS NULL)`, w.startOne)
 }
 
 func (w *Worker) startOne(ctx context.Context, c claimed) error {
@@ -176,6 +176,11 @@ func (w *Worker) startOne(ctx context.Context, c claimed) error {
 			"The run's sandbox did not start after several attempts. Try again, or ask an administrator to look at the worker's log.")
 	}
 	err := w.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
+		if c.Status == runnerctl.StatusQueued {
+			if err := holdForCapacity(ctx, tx, c.ID); err != nil {
+				return err
+			}
+		}
 		tag, err := tx.Exec(ctx, `UPDATE run SET status = 'starting', attempts = attempts + 1
 			WHERE id = $1 AND claimed_by = $2 AND status = $3`, c.ID, w.id, c.Status)
 		if err != nil || tag.RowsAffected() == 0 {
@@ -184,6 +189,9 @@ func (w *Worker) startOne(ctx context.Context, c claimed) error {
 		_, err = tx.Exec(ctx, `DELETE FROM runner_credential WHERE run_id = $1`, c.ID)
 		return err
 	})
+	if errors.Is(err, errHeld) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
