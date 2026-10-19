@@ -38,6 +38,10 @@ Four things come from outside the chart.
     `system:auth-delegator` when it runs in the cluster; `scripts/kind/openbao.yaml` shows the binding.
 - **Keycloak**, the realm people sign in through: `oidc.issuer`, `oidc.clientId` and the Secret holding the client
   secret in `oidc.clientSecret`. Outside development the chart refuses to render without it.
+  - Turn on the client's service account and give it the `realm-management` role `view-users`. When an
+    administrator signs a person out of every session, Keycloak's single logout token names only one of them;
+    Rotor then reads the person's sign-out time from the admin API and ends their other sessions too. Without the
+    role Rotor ends only the named session and logs a warning saying so.
 
 ### Sandboxes
 

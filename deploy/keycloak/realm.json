@@ -138,6 +138,15 @@
       "enabled": true,
       "serviceAccountClientId": "rotor-control-plane",
       "groups": []
+    },
+    {
+      "username": "service-account-rotor",
+      "enabled": true,
+      "serviceAccountClientId": "rotor",
+      "groups": [],
+      "clientRoles": {
+        "realm-management": ["view-users"]
+      }
     }
   ],
   "clients": [
@@ -287,6 +296,7 @@
       "secret": "rotor-dev-secret",
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
       "redirectUris": [
         "http://localhost*",
         "http://127.0.0.1*",

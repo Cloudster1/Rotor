@@ -196,6 +196,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Signing a person out of every session in Keycloak ends all their Rotor
+  sessions, not only the one its logout token names (#53). Rotor reads the
+  time of that sign-out from Keycloak a moment after the token arrives, with
+  the `rotor` client's service account, which now holds `view-users`; ending
+  one Keycloak session still ends only the Rotor session it signed in.
 - A run resumed after an approval answers only that approval: a sandbox
   replaced later no longer replays the decision to the next one.
 - Rotor reads a workflow's YAML as YAML 1.2, as the runner does (#67): a
