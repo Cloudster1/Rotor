@@ -31,12 +31,13 @@ func TestTheDatabaseShowsAnApprovalToItsPeopleAndLetsNobodyWriteIt(t *testing.T)
 		VALUES ($1, 1, 'x', '{}', 'h', $2)`, workflowID, starter); err != nil {
 		t.Fatal(err)
 	}
-	if err := h.super.QueryRow(ctx, `INSERT INTO run (workflow_id, version, user_id) VALUES ($1, 1, $2) RETURNING id`,
-		workflowID, starter).Scan(&runID); err != nil {
+	if err := h.super.QueryRow(ctx, `INSERT INTO run (workflow_id, version, user_id, data_key, sealed_inputs)
+		VALUES ($1, 1, $2, $3, $4) RETURNING id`, workflowID, starter, placeholderKey, placeholderSealed).Scan(&runID); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _, _ = h.super.Exec(ctx, `DELETE FROM run WHERE id = $1`, runID) })
-	if _, err := h.super.Exec(ctx, `INSERT INTO run_event (run_id, seq, type) VALUES ($1, 1, 'interrupt')`, runID); err != nil {
+	if _, err := h.super.Exec(ctx, `INSERT INTO run_event (run_id, seq, type, sealed_payload) VALUES ($1, 1, 'interrupt', $2)`,
+		runID, placeholderSealed); err != nil {
 		t.Fatal(err)
 	}
 	if err := h.super.QueryRow(ctx, `INSERT INTO approval (run_id, starter_id, workflow_id, workflow_name, started_by_name, node,

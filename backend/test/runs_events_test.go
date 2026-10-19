@@ -188,7 +188,7 @@ func TestAnotherApiReplicaStreamsARunWhoseRunnerTalksToTheFirst(t *testing.T) {
 	t.Cleanup(func() { _ = signals.Close() })
 	// A second api, in this process, on the same database and Valkey, serving only what following a run needs.
 	replica := &httpapi.Server{DB: h.cluster, Log: slog.New(slog.DiscardHandler), Sessions: auth.NewService(h.cluster, h.cfg.Auth.SessionTTL),
-		CookieName: h.cfg.Auth.SessionCookie, Runs: runs.NewService(h.cluster, nil, nil, nil, signals)}
+		CookieName: h.cfg.Auth.SessionCookie, Runs: runs.NewService(h.cluster, runKeys(t), nil, nil, nil, signals)}
 	server := httptest.NewServer(replica.Routes(nil))
 	t.Cleanup(server.Close)
 

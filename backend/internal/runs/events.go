@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/envelope"
 	"github.com/cloudster1/rotor/backend/internal/runnerctl"
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 )
@@ -33,21 +34,42 @@ type Stream interface {
 // Events answers the run's events after the one numbered after, at most config.EventBatch, as the caller sees them.
 func (s *Service) Events(ctx context.Context, runID uuid.UUID, after int64) ([]Event, error) {
 	out := []Event{}
+	var sealed [][]byte
+	var wrapped string
 	err := s.db.Read(ctx, func(ctx context.Context, tx db.DBTX) error {
-		rows, err := tx.Query(ctx, `SELECT seq, type, node, payload, at FROM run_event WHERE run_id = $1 AND seq > $2
+		rows, err := tx.Query(ctx, `SELECT seq, type, node, sealed_payload, at FROM run_event WHERE run_id = $1 AND seq > $2
 			ORDER BY seq LIMIT $3`, runID, after, config.EventBatch)
 		if err != nil {
 			return err
 		}
-		events, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Event, error) {
+		for rows.Next() {
 			var e Event
-			err := row.Scan(&e.Seq, &e.Type, &e.Node, &e.Payload, &e.At)
-			return e, err
-		})
-		out = append(out, events...)
-		return err
+			var payload []byte
+			if err := rows.Scan(&e.Seq, &e.Type, &e.Node, &payload, &e.At); err != nil {
+				rows.Close()
+				return err
+			}
+			out, sealed = append(out, e), append(sealed, payload)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil || len(out) == 0 {
+			return err
+		}
+		return tx.QueryRow(ctx, `SELECT data_key FROM run WHERE id = $1`, runID).Scan(&wrapped)
 	})
-	return out, err
+	if err != nil || len(out) == 0 {
+		return out, err
+	}
+	box, err := s.keys.For(ctx, runID, wrapped)
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		if out[i].Payload, err = box.Open(envelope.ColumnEvent, strconv.FormatInt(out[i].Seq, 10), sealed[i]); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }
 
 // Follow sends a run's events after the one numbered after, then each new one as it is stored, until the run has

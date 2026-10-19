@@ -24,7 +24,9 @@ enabled secrets rotor || bao secrets enable -path=rotor -version=2 kv >/dev/null
 # Every write names the version it read, so two writers never overwrite each other unseen.
 bao write rotor/config cas_required=true max_versions=3 >/dev/null
 enabled secrets transit || bao secrets enable transit
-bao read transit/keys/rotor-checkpoints >/dev/null 2>&1 || bao write -f transit/keys/rotor-checkpoints >/dev/null
+# The installation's key for runs' data keys (#41), rotated every 90 days; older versions still open older runs.
+bao read transit/keys/rotor-run-data >/dev/null 2>&1 \
+  || bao write transit/keys/rotor-run-data auto_rotate_period=2160h >/dev/null
 
 # A CA for the runner protocol's TLS: the api is issued a certificate for the runner host, sandboxes trust the CA.
 enabled secrets pki || bao secrets enable pki >/dev/null

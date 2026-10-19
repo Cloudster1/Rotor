@@ -7,8 +7,8 @@ import os
 import httpx
 import pytest
 
-from rotor_runner.config import REDACTED
-from rotor_runner.tokens import Redactor, UnwrapError, Unwrapper
+from rotor_runner.redact import REDACTED, Redactor
+from rotor_runner.tokens import UnwrapError, Unwrapper
 
 # The stack's OpenBao, and the development root token that wraps a secret as the control plane would.
 OPENBAO, ROOT = os.environ.get("ROTOR_TEST_OPENBAO_URL", ""), os.environ.get("ROTOR_TEST_OPENBAO_ROOT_TOKEN", "")

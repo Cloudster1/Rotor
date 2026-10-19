@@ -15,6 +15,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/audit"
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/envelope"
 	"github.com/cloudster1/rotor/backend/internal/runnerctl"
 	"github.com/cloudster1/rotor/backend/internal/sandbox"
 )
@@ -46,6 +47,7 @@ type Teardown func(ctx context.Context, runID uuid.UUID) error
 // leased with SKIP LOCKED, so two workers never act on one run, and a dead worker's lease runs out.
 type Worker struct {
 	db        *db.Cluster
+	keys      *envelope.Keys
 	sandboxes sandbox.Backend
 	launch    Launch
 	log       *slog.Logger
@@ -73,11 +75,11 @@ func (w *Worker) announce(ctx context.Context, runID uuid.UUID) {
 }
 
 // NewWorker returns a worker that starts sandboxes on backend as launch says.
-func NewWorker(cluster *db.Cluster, backend sandbox.Backend, launch Launch, log *slog.Logger) *Worker {
+func NewWorker(cluster *db.Cluster, keys *envelope.Keys, backend sandbox.Backend, launch Launch, log *slog.Logger) *Worker {
 	host, _ := os.Hostname()
 	suffix := make([]byte, config.WorkerIDBytes)
 	_, _ = rand.Read(suffix)
-	return &Worker{db: cluster, sandboxes: backend, launch: launch, log: log, id: host + "-" + hex.EncodeToString(suffix)}
+	return &Worker{db: cluster, keys: keys, sandboxes: backend, launch: launch, log: log, id: host + "-" + hex.EncodeToString(suffix)}
 }
 
 // Run works every config.WorkerTick until ctx ends.
@@ -288,7 +290,7 @@ func (w *Worker) dropSandbox(ctx context.Context, c claimed, reason string) erro
 // end ends a run the worker gives up on, with a message the person reads.
 func (w *Worker) end(ctx context.Context, runID uuid.UUID, status, reason, message string) error {
 	err := w.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		return runnerctl.End(ctx, tx, runID, status, reason, map[string]any{"message": message})
+		return runnerctl.End(ctx, tx, w.keys, runID, status, reason, map[string]any{"message": message})
 	})
 	if err == nil {
 		w.announce(ctx, runID)

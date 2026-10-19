@@ -121,3 +121,8 @@ Adapted from Armature at f191fc9, its observe profile:
 
 Adapted from Armature at 6c46422, its security policy:
 - SECURITY.md: the in-scope table of each area and the claim to try to break, and what is not in scope
+
+Adapted from Armature at 711d94a, its sealed values:
+- backend/internal/envelope/box.go: the version byte leading every value, the random GCM nonce after it and the
+  additional data binding a value to where it is kept, of backend/internal/seal/seal.go, with a key per run that
+  OpenBao transit wraps instead of one key from the configuration

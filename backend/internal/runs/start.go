@@ -12,6 +12,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/envelope"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/tools"
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
@@ -64,17 +65,32 @@ func (s *Service) Start(ctx context.Context, req StartRequest) (Run, bool, error
 	ctx, endSpan := observability.StartSpan(ctx, "run.start", attribute.String("rotor.workflow", w.ID.String()))
 	defer endSpan(nil)
 	traceparent := observability.Inject(ctx)
+	// The run's id is made here, as its inputs are sealed for it before it is stored (#41).
+	id, err := uuid.NewV7()
+	if err != nil {
+		return Run{}, false, err
+	}
+	wrapped, box, err := s.keys.New(ctx, id)
+	if err != nil {
+		return Run{}, false, err
+	}
+	inputs := req.Inputs
+	if len(inputs) == 0 {
+		inputs = []byte("{}")
+	}
 	var r Run
 	created := true
 	err = s.db.Write(ctx, func(ctx context.Context, tx db.DBTX) error {
 		var err error
 		r, err = scanRun(tx.QueryRow(ctx, `WITH started AS (
-				INSERT INTO run (workflow_id, version, user_id, inputs, idempotency_key, workflow_name, started_by_name, trigger_id, traceparent)
-				VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6, $7, $8, $9)
+				INSERT INTO run (id, data_key, sealed_inputs, workflow_id, version, user_id, idempotency_key, workflow_name,
+					started_by_name, trigger_id, traceparent)
+				VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''), $8, $9, $10, $11)
 				ON CONFLICT (user_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
 				RETURNING *)
 			SELECT `+runColumns+` FROM started r`,
-			w.ID, version.Number, p.UserID, req.Inputs, req.IdempotencyKey, w.Name, p.Name, nullUUID(req.TriggerID), traceparent))
+			id, wrapped, box.Seal(envelope.ColumnInputs, "", inputs), w.ID, version.Number, p.UserID, req.IdempotencyKey,
+			w.Name, p.Name, nullUUID(req.TriggerID), traceparent))
 		if errors.Is(err, ErrNotFound) {
 			// Another request with the same key won the race; it answers instead.
 			created = false
@@ -86,8 +102,13 @@ func (s *Service) Start(ctx context.Context, req StartRequest) (Run, bool, error
 		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionRunStarted, TargetType: "run", TargetID: r.ID.String(), Actor: p.UserID,
 			Data: startedData(w, version.Number, req.TriggerID)})
 	})
-	if err != nil || created {
+	if err != nil {
 		return r, created, err
+	}
+	if created {
+		one := []Run{r}
+		err = s.open(ctx, one)
+		return one[0], true, err
 	}
 	r, err = s.byKey(ctx, req)
 	return r, false, err
@@ -105,7 +126,12 @@ func (s *Service) byKey(ctx context.Context, req StartRequest) (Run, error) {
 	if err == nil && r.WorkflowID != req.WorkflowID {
 		return Run{}, ErrKeyReused
 	}
-	return r, err
+	if err != nil {
+		return r, err
+	}
+	one := []Run{r}
+	err = s.open(ctx, one)
+	return one[0], err
 }
 
 // pinned is the workflow as the caller sees it and the version the run executes.

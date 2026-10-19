@@ -39,11 +39,12 @@ MAX_MESSAGE_BYTES = 8 << 20
 # EXIT_REFUSED is the exit code of a runner whose credential the control plane refused.
 EXIT_REFUSED = 2
 
-# Wrapped tokens and keys (#23): how long the runner waits for OpenBao, what stands in for a secret it cuts from
-# its events, and the shortest text it takes for a secret, so a stray short value never blanks ordinary text.
+# Wrapped tokens and keys (#23): how long the runner waits for OpenBao, and the shortest text it takes for a secret
+# it holds, so a stray short value never blanks ordinary text; what stands in for one is in secret-patterns.json.
 UNWRAP_TIMEOUT_S = 10
-REDACTED = "[redacted]"
 MIN_SECRET_CHARS = 8
+# How the runner's log lines read; each passes the redactor (#41).
+LOG_FORMAT = "%(asctime)s %(levelname)s %(message)s"
 
 # Approvals (#31), as the control plane's config names them: the longest an approval may wait, the keys its output
 # keeps for itself, and the calls that would decide a review in a tool, which no workflow may bind (Exciter #182).

@@ -27,8 +27,11 @@ Four things come from outside the chart.
   the api holding the run's stream through it. Losing it costs latency, never data, since every stream also looks
   on its own. It must want a password: set `valkey.auth` and name the Secret in `secrets.names.valkey`, which the
   chart and the api refuse to go without outside development (#92). `valkey.tls` connects over TLS (`rediss://`).
-- **OpenBao** at `openbao.addr`. It keeps every refresh token, provider key and run token, encrypts the checkpoints
-  and issues the runner protocol's certificate. The api and the worker sign in with their own ServiceAccount tokens
+- **OpenBao** at `openbao.addr`. It keeps every refresh token, provider key and run token, wraps every run's data
+  key with the transit key `rotor-run-data` (#41) and issues the runner protocol's certificate. Back OpenBao up with
+  the database: without the transit key no run's data opens again. The key rotates every 90 days and keeps its
+  older versions, so older runs still open; an installation upgraded from before #41 may delete the unused key
+  `rotor-checkpoints`. The api and the worker sign in with their own ServiceAccount tokens
   (`openbao.auth: kubernetes`); sandboxes hold no OpenBao credential at all, only the single-use wrapping tokens they
   are handed.
   - With `openbao.configure.enabled` a hook Job runs Rotor's init script (`deploy/openbao/init.sh`) against it with

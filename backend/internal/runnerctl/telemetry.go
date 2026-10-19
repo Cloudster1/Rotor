@@ -11,6 +11,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/observability"
+	"github.com/cloudster1/rotor/backend/internal/redact"
 	"github.com/cloudster1/rotor/backend/internal/runnerpb"
 )
 
@@ -77,11 +78,11 @@ func runnerSpan(sp *runnerpb.RunnerSpan, traceID trace.TraceID) (observability.R
 		if len(attrs) == config.MaxRunnerSpanAttributes {
 			break
 		}
-		attrs[cut(k, config.MaxSpanNameChars)] = cut(string(redactText(v)), config.MaxSpanAttrChars)
+		attrs[cut(k, config.MaxSpanNameChars)] = cut(redact.Text(v), config.MaxSpanAttrChars)
 	}
-	return observability.RunnerSpan{TraceID: got, SpanID: id, ParentID: parent, Name: cut(sp.Name, config.MaxSpanNameChars),
+	return observability.RunnerSpan{TraceID: got, SpanID: id, ParentID: parent, Name: cut(redact.Text(sp.Name), config.MaxSpanNameChars),
 		Start: sp.Start.AsTime(), End: sp.End.AsTime(), Attributes: attrs, Failed: sp.Error,
-		Message: cut(string(redactText(sp.StatusMessage)), config.MaxSpanAttrChars)}, true
+		Message: cut(redact.Text(sp.StatusMessage), config.MaxSpanAttrChars)}, true
 }
 
 // WithoutContent drops the attributes that carry a prompt or an answer, for a destination other than LangSmith.

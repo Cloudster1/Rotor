@@ -121,7 +121,7 @@ listed.
 | | Threat | Mitigation | Status |
 |---|---|---|---|
 | T | Rewriting the audit log | `UPDATE`, `DELETE` and `TRUNCATE` refused to both roles | Built (#2, #36) |
-| I | A database dump or backup showing tool content | Checkpoints are sealed with OpenBao transit; events, inputs and outputs are not yet | Open #41 |
+| I | A database dump or backup showing tool content | Each run's inputs, output, events, checkpoints and runner messages are sealed with a data key of its own, wrapped by OpenBao transit and bound to its row | Built (#41) |
 | I | Approval messages, previews and values in clear | Redacted and capped; deleted with their run once retention exists | Open #91 |
 | I | Run data kept forever | | Open #41 |
 | E | The api running as a superuser | Refused at start-up outside development | Built (#3) |
@@ -140,7 +140,7 @@ listed.
 | | Threat | Mitigation | Status |
 |---|---|---|---|
 | S | Another workload reading Rotor's secrets | JWT auth in development, Kubernetes auth in a cluster, one policy for the control plane | Built (#7, #26) |
-| T | Changing the transit key's settings | The policy grants encrypt and decrypt only | Built (#19) |
+| T | Changing the transit key's settings | The policy grants making data keys and decrypting them only | Built (#19, #41) |
 | R | No record of who read a secret | Rotor's init script refuses an OpenBao without an audit device; the development stack declares one | Built (#92) |
 | I | A sandbox reading other runs' tokens | A sandbox holds no OpenBao identity; it can only unwrap a wrapping token, once, within two minutes | Built (#23, #26) |
 | D | A sealed OpenBao | Readiness fails, so the api leaves rotation | Built (#7) |
@@ -161,7 +161,7 @@ listed.
 | T | A sandbox sending events, checkpoints or spans for another run | The stream is bound to its run; span trace ids must match the run's | Built (#18, #37) |
 | T | A sandbox under-reporting its tokens | Usage is as honest as the runner | Accepted (decisions.md, #38) |
 | T | A sandbox answering an approval it was not given | Who decides, the form and the expiry come from the pinned spec; the answer is keyed by the interrupt | Built (#31) |
-| I | Tokens and keys in events, logs or spans | The runner cuts the secrets it holds from events and spans; the control plane redacts again; logs are not scanned yet | Open #41 |
+| I | Tokens and keys in events, logs or spans | The runner cuts the secrets it holds and known credential shapes from events, output, spans and its log; the control plane does the same again and for its own log lines | Built (#41) |
 | I | Leaking data to a host of the content author's choice | Egress only to the runner endpoint, OpenBao, the tools and the provider | Built (#27) |
 | D | A run that never ends | Step, token, cost and time limits; `activeDeadlineSeconds`; up to three sandboxes per run | Built (#22, #26, #38) |
 | E | Escaping the sandbox | gVisor, non-root, read-only, no capabilities, no ServiceAccount token, restricted Pod Security | Built (#21, #26) |
@@ -301,4 +301,4 @@ new one ends that.
 | F2 | `approval: beforeWrite` is checked on save against a cached catalog, never again when a run starts | Medium | #90 |
 | F3 | Approval content is stored in clear | Medium | #91 |
 | | Tool content steers runs | High | #40, #32 |
-| | Run data unencrypted and kept forever | Medium | #41 |
+| | Run data kept forever | Medium | #41 |

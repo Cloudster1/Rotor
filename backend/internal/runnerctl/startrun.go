@@ -11,6 +11,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/envelope"
 	"github.com/cloudster1/rotor/backend/internal/providers"
 	"github.com/cloudster1/rotor/backend/internal/runnerpb"
 	"github.com/cloudster1/rotor/backend/internal/tools"
@@ -44,6 +45,8 @@ type run struct {
 	Status     string
 	SpecYAML   string
 	Inputs     []byte
+	// dataKey is the run's wrapped data key, which opens what is stored of it (#41).
+	dataKey string
 	// Resume answers the interrupt ResumeID names: the latest approved approval's decision, if any.
 	Resume   []byte
 	ResumeID string
@@ -63,10 +66,11 @@ type binding struct {
 
 func (s *Server) loadRun(ctx context.Context, runID uuid.UUID) (*run, error) {
 	r := &run{ID: runID}
+	var sealed []byte
 	err := s.DB.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		err := tx.QueryRow(ctx, `SELECT r.user_id, r.status, v.spec_yaml, r.inputs, r.traceparent
+		err := tx.QueryRow(ctx, `SELECT r.user_id, r.status, v.spec_yaml, r.data_key, r.sealed_inputs, r.traceparent
 			FROM run r JOIN workflow_version v ON v.workflow_id = r.workflow_id AND v.number = r.version
-			WHERE r.id = $1`, runID).Scan(&r.UserID, &r.Status, &r.SpecYAML, &r.Inputs, &r.Traceparent)
+			WHERE r.id = $1`, runID).Scan(&r.UserID, &r.Status, &r.SpecYAML, &r.dataKey, &sealed, &r.Traceparent)
 		if err != nil {
 			return err
 		}
@@ -74,6 +78,13 @@ func (s *Server) loadRun(ctx context.Context, runID uuid.UUID) (*run, error) {
 		return err
 	})
 	if err != nil {
+		return nil, err
+	}
+	box, err := s.Keys.For(ctx, runID, r.dataKey)
+	if err != nil {
+		return nil, err
+	}
+	if r.Inputs, err = box.Open(envelope.ColumnInputs, "", sealed); err != nil {
 		return nil, err
 	}
 	parsed, problems := spec.Parse([]byte(r.SpecYAML))

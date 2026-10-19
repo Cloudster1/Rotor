@@ -10,6 +10,7 @@ import (
 
 	"github.com/cloudster1/rotor/backend/internal/audit"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/envelope"
 	"github.com/cloudster1/rotor/backend/internal/runnerpb"
 )
 
@@ -52,8 +53,8 @@ type Publisher interface {
 const EventRunnerLost = eventRunnerLost
 
 // AppendEvent stores an event of the control plane's own for the run, numbered after the last.
-func AppendEvent(ctx context.Context, tx db.DBTX, runID uuid.UUID, kind, node string, payload []byte) error {
-	return appendEvent(ctx, tx, runID, kind, node, payload)
+func AppendEvent(ctx context.Context, tx db.DBTX, keys *envelope.Keys, runID uuid.UUID, kind, node string, payload []byte) error {
+	return appendEvent(ctx, tx, keys, runID, kind, node, payload)
 }
 
 // lockStatus reads a run's status and holds the row until the transaction ends.
@@ -68,21 +69,21 @@ func lockStatus(ctx context.Context, tx db.DBTX, runID uuid.UUID) (string, error
 
 // End ends a run the control plane gives up on, such as one whose sandbox never started, with a run.finished event;
 // a run that has already ended is left as it is.
-func End(ctx context.Context, tx db.DBTX, runID uuid.UUID, status, reason string, detail map[string]any) error {
+func End(ctx context.Context, tx db.DBTX, keys *envelope.Keys, runID uuid.UUID, status, reason string, detail map[string]any) error {
 	current, err := lockStatus(ctx, tx, runID)
 	if err != nil || Ended(current) {
 		return err
 	}
-	return endLocked(ctx, tx, runID, status, reason, detail, nil)
+	return endLocked(ctx, tx, keys, runID, status, reason, detail, nil)
 }
 
-func endLocked(ctx context.Context, tx db.DBTX, runID uuid.UUID, status, reason string, detail map[string]any, output []byte) error {
+func endLocked(ctx context.Context, tx db.DBTX, keys *envelope.Keys, runID uuid.UUID, status, reason string, detail map[string]any, output []byte) error {
 	payload := map[string]any{"status": status, "reason": reason, "output": json.RawMessage(validJSON(output))}
 	for k, v := range detail {
 		payload[k] = v
 	}
 	encoded, _ := json.Marshal(payload)
-	if err := appendEvent(ctx, tx, runID, eventRunFinished, "", encoded); err != nil {
+	if err := appendEvent(ctx, tx, keys, runID, eventRunFinished, "", encoded); err != nil {
 		return err
 	}
 	if Ended(status) {
@@ -94,12 +95,12 @@ func endLocked(ctx context.Context, tx db.DBTX, runID uuid.UUID, status, reason 
 			return err
 		}
 	}
-	return setStatus(ctx, tx, runID, status, reason, output)
+	return setStatus(ctx, tx, keys, runID, status, reason, output)
 }
 
 // Cancel cancels a run that has not ended and, when a sandbox may be running it, queues a Cancel for its runner;
 // the caller publishes ControlChannel once the transaction commits.
-func Cancel(ctx context.Context, tx db.DBTX, runID uuid.UUID, by uuid.UUID) error {
+func Cancel(ctx context.Context, tx db.DBTX, keys *envelope.Keys, runID uuid.UUID, by uuid.UUID) error {
 	current, err := lockStatus(ctx, tx, runID)
 	if err != nil {
 		return err
@@ -107,13 +108,13 @@ func Cancel(ctx context.Context, tx db.DBTX, runID uuid.UUID, by uuid.UUID) erro
 	if Ended(current) {
 		return ErrEnded
 	}
-	if err := endLocked(ctx, tx, runID, StatusCancelled, StatusCancelled, map[string]any{"by": by.String()}, nil); err != nil {
+	if err := endLocked(ctx, tx, keys, runID, StatusCancelled, StatusCancelled, map[string]any{"by": by.String()}, nil); err != nil {
 		return err
 	}
 	if current != StatusStarting && current != StatusRunning {
 		return nil
 	}
 	cancel := &runnerpb.ConnectResponse{Message: &runnerpb.ConnectResponse_Cancel{Cancel: &runnerpb.Cancel{Reason: "cancelled by a person"}}}
-	_, err = enqueueTx(ctx, tx, runID, cancel)
+	_, err = enqueueTx(ctx, tx, keys, runID, cancel)
 	return err
 }

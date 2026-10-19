@@ -6,33 +6,37 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/envelope"
 	"github.com/cloudster1/rotor/backend/internal/runnerpb"
 )
 
 // listLimit bounds the checkpoints one list answers, which the runner asks for newest first.
 const listLimit = 100
 
-// Sealer encrypts and decrypts checkpoint values with a key it never hands out; *vault.Client is the real one.
-type Sealer interface {
-	Encrypt(ctx context.Context, values [][]byte) ([]string, error)
-	Decrypt(ctx context.Context, ciphertexts []string) ([][]byte, error)
-}
-
-// Checkpoints answers a runner's checkpoint requests for the run its stream is bound to.
+// Checkpoints answers a runner's checkpoint requests for the run its stream is bound to, sealing what it keeps with
+// the run's own key (#41).
 type Checkpoints struct {
 	db   *db.Cluster
-	seal Sealer
+	keys *envelope.Keys
 }
 
 // NewCheckpoints returns the store.
-func NewCheckpoints(cluster *db.Cluster, sealer Sealer) *Checkpoints {
-	return &Checkpoints{db: cluster, seal: sealer}
+func NewCheckpoints(cluster *db.Cluster, keys *envelope.Keys) *Checkpoints {
+	return &Checkpoints{db: cluster, keys: keys}
+}
+
+// checkpointRow and writeRow name a sealed value's row, which its ciphertext is bound to.
+func checkpointRow(ns, id string) string { return ns + "|" + id }
+
+func writeRow(ns, id, task string, idx int64) string {
+	return ns + "|" + id + "|" + task + "|" + strconv.FormatInt(idx, 10)
 }
 
 // Handle answers one checkpoint request; a failure is said in the answer's error, never by ending the stream.
@@ -75,15 +79,18 @@ func (c *Checkpoints) put(ctx context.Context, runID uuid.UUID, cp *runnerpb.Che
 	if size := len(cp.Checkpoint.Data) + len(cp.Metadata.Data); size > config.MaxCheckpointBytes {
 		return fmt.Errorf("the checkpoint is %d bytes, over the %d a run may keep; keep less in the run's state", size, config.MaxCheckpointBytes)
 	}
-	sealed, err := c.seal.Encrypt(ctx, [][]byte{cp.Checkpoint.Data, cp.Metadata.Data})
-	if err != nil {
-		return err
-	}
 	return c.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		_, err := tx.Exec(ctx, `INSERT INTO run_checkpoint (run_id, checkpoint_ns, checkpoint_id, parent_checkpoint_id,
-				checkpoint_type, checkpoint, metadata_type, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		box, err := c.keys.Run(ctx, tx, runID)
+		if err != nil {
+			return err
+		}
+		row := checkpointRow(cp.CheckpointNs, cp.CheckpointId)
+		_, err = tx.Exec(ctx, `INSERT INTO run_checkpoint (run_id, checkpoint_ns, checkpoint_id, parent_checkpoint_id,
+				checkpoint_type, sealed_checkpoint, metadata_type, sealed_metadata) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT (run_id, checkpoint_ns, checkpoint_id) DO NOTHING`,
-			runID, cp.CheckpointNs, cp.CheckpointId, cp.ParentCheckpointId, cp.Checkpoint.Type, sealed[0], cp.Metadata.Type, sealed[1])
+			runID, cp.CheckpointNs, cp.CheckpointId, cp.ParentCheckpointId, cp.Checkpoint.Type,
+			box.Seal(envelope.ColumnCheckpoint, row, cp.Checkpoint.Data), cp.Metadata.Type,
+			box.Seal(envelope.ColumnMetadata, row, cp.Metadata.Data))
 		return err
 	})
 }
@@ -91,30 +98,31 @@ func (c *Checkpoints) put(ctx context.Context, runID uuid.UUID, cp *runnerpb.Che
 // writes stores a task's pending writes: an ordinary write once, a special one (negative idx) over the last, as
 // LangGraph's own savers do.
 func (c *Checkpoints) writes(ctx context.Context, runID uuid.UUID, ns, checkpointID string, writes []*runnerpb.PendingWrite) error {
-	values, size := make([][]byte, len(writes)), 0
-	for i, w := range writes {
+	size := 0
+	for _, w := range writes {
 		if w.Value == nil {
 			return errors.New("a pending write needs its value")
 		}
-		values[i], size = w.Value.Data, size+len(w.Value.Data)
+		size += len(w.Value.Data)
 	}
 	if size > config.MaxCheckpointBytes {
 		return fmt.Errorf("the writes are %d bytes, over the %d a run may keep", size, config.MaxCheckpointBytes)
 	}
-	sealed, err := c.seal.Encrypt(ctx, values)
-	if err != nil {
-		return err
-	}
 	return c.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		for i, w := range writes {
+		box, err := c.keys.Run(ctx, tx, runID)
+		if err != nil {
+			return err
+		}
+		for _, w := range writes {
 			conflict := "DO NOTHING"
 			if w.Idx < 0 {
-				conflict = "DO UPDATE SET channel = EXCLUDED.channel, value_type = EXCLUDED.value_type, value = EXCLUDED.value"
+				conflict = "DO UPDATE SET channel = EXCLUDED.channel, value_type = EXCLUDED.value_type, sealed_value = EXCLUDED.sealed_value"
 			}
+			sealed := box.Seal(envelope.ColumnWrite, writeRow(ns, checkpointID, w.TaskId, int64(w.Idx)), w.Value.Data)
 			if _, err := tx.Exec(ctx, `INSERT INTO run_checkpoint_write (run_id, checkpoint_ns, checkpoint_id, task_id, idx, channel,
-					value_type, value, task_path) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+					value_type, sealed_value, task_path) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 				ON CONFLICT (run_id, checkpoint_ns, checkpoint_id, task_id, idx) `+conflict,
-				runID, ns, checkpointID, w.TaskId, w.Idx, w.Channel, w.Value.Type, sealed[i], w.TaskPath); err != nil {
+				runID, ns, checkpointID, w.TaskId, w.Idx, w.Channel, w.Value.Type, sealed, w.TaskPath); err != nil {
 				return err
 			}
 		}
@@ -124,9 +132,10 @@ func (c *Checkpoints) writes(ctx context.Context, runID uuid.UUID, ns, checkpoin
 
 // stored is a checkpoint row and its writes as the database holds them, still sealed.
 type stored struct {
-	cp       *runnerpb.Checkpoint
-	sealed   []string
-	writeSet []*runnerpb.PendingWrite
+	cp               *runnerpb.Checkpoint
+	checkpoint, meta []byte
+	writeSet         []*runnerpb.PendingWrite
+	sealedWrites     [][]byte
 }
 
 // get answers one checkpoint, or the newest in its namespace; ids are uuid6 and sort by time.
@@ -150,10 +159,15 @@ func (c *Checkpoints) list(ctx context.Context, runID uuid.UUID, ns, before stri
 	return c.load(ctx, runID, ns, query, before)
 }
 
-// load reads the checkpoints whose ids query answers, with their writes, and opens them in one decryption.
+// load reads the checkpoints whose ids query answers, with their writes, and opens them with the run's key.
 func (c *Checkpoints) load(ctx context.Context, runID uuid.UUID, ns, query, arg string) ([]*runnerpb.Checkpoint, error) {
 	var rows []*stored
+	var box *envelope.Box
 	err := c.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
+		var err error
+		if box, err = c.keys.Run(ctx, tx, runID); err != nil {
+			return err
+		}
 		ids, err := tx.Query(ctx, query, runID, ns, arg)
 		if err != nil {
 			return err
@@ -164,25 +178,23 @@ func (c *Checkpoints) load(ctx context.Context, runID uuid.UUID, ns, query, arg 
 		}
 		for _, id := range names {
 			s := &stored{cp: &runnerpb.Checkpoint{CheckpointNs: ns, CheckpointId: id, Checkpoint: &runnerpb.TypedValue{}, Metadata: &runnerpb.TypedValue{}}}
-			var checkpoint, metadata string
-			if err := tx.QueryRow(ctx, `SELECT parent_checkpoint_id, checkpoint_type, checkpoint, metadata_type, metadata
+			if err := tx.QueryRow(ctx, `SELECT parent_checkpoint_id, checkpoint_type, sealed_checkpoint, metadata_type, sealed_metadata
 				FROM run_checkpoint WHERE run_id = $1 AND checkpoint_ns = $2 AND checkpoint_id = $3`, runID, ns, id).Scan(
-				&s.cp.ParentCheckpointId, &s.cp.Checkpoint.Type, &checkpoint, &s.cp.Metadata.Type, &metadata); err != nil {
+				&s.cp.ParentCheckpointId, &s.cp.Checkpoint.Type, &s.checkpoint, &s.cp.Metadata.Type, &s.meta); err != nil {
 				return err
 			}
-			s.sealed = []string{checkpoint, metadata}
-			writes, err := tx.Query(ctx, `SELECT task_id, idx, channel, value_type, value, task_path FROM run_checkpoint_write
+			writes, err := tx.Query(ctx, `SELECT task_id, idx, channel, value_type, sealed_value, task_path FROM run_checkpoint_write
 				WHERE run_id = $1 AND checkpoint_ns = $2 AND checkpoint_id = $3 ORDER BY task_path, task_id, idx`, runID, ns, id)
 			if err != nil {
 				return err
 			}
 			for writes.Next() {
-				w, value := &runnerpb.PendingWrite{Value: &runnerpb.TypedValue{}}, ""
+				w, value := &runnerpb.PendingWrite{Value: &runnerpb.TypedValue{}}, []byte(nil)
 				if err := writes.Scan(&w.TaskId, &w.Idx, &w.Channel, &w.Value.Type, &value, &w.TaskPath); err != nil {
 					writes.Close()
 					return err
 				}
-				s.writeSet, s.sealed = append(s.writeSet, w), append(s.sealed, value)
+				s.writeSet, s.sealedWrites = append(s.writeSet, w), append(s.sealedWrites, value)
 			}
 			writes.Close()
 			rows = append(rows, s)
@@ -192,21 +204,20 @@ func (c *Checkpoints) load(ctx context.Context, runID uuid.UUID, ns, query, arg 
 	if err != nil {
 		return nil, err
 	}
-	var sealed []string
+	out := make([]*runnerpb.Checkpoint, 0, len(rows))
 	for _, s := range rows {
-		sealed = append(sealed, s.sealed...)
-	}
-	opened, err := c.seal.Decrypt(ctx, sealed)
-	if err != nil {
-		return nil, err
-	}
-	out, at := make([]*runnerpb.Checkpoint, 0, len(rows)), 0
-	for _, s := range rows {
-		s.cp.Checkpoint.Data, s.cp.Metadata.Data = opened[at], opened[at+1]
-		at += 2
-		for _, w := range s.writeSet {
-			w.Value.Data = opened[at]
-			at++
+		row := checkpointRow(ns, s.cp.CheckpointId)
+		if s.cp.Checkpoint.Data, err = box.Open(envelope.ColumnCheckpoint, row, s.checkpoint); err != nil {
+			return nil, err
+		}
+		if s.cp.Metadata.Data, err = box.Open(envelope.ColumnMetadata, row, s.meta); err != nil {
+			return nil, err
+		}
+		for i, w := range s.writeSet {
+			sealed := s.sealedWrites[i]
+			if w.Value.Data, err = box.Open(envelope.ColumnWrite, writeRow(ns, s.cp.CheckpointId, w.TaskId, int64(w.Idx)), sealed); err != nil {
+				return nil, err
+			}
 		}
 		s.cp.PendingWrites = s.writeSet
 		out = append(out, s.cp)

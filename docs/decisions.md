@@ -3,6 +3,30 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-19: A run's data at rest for M8 (#41)
+
+- **Envelope encryption, one data key per run.** OpenBao transit makes each
+  run's key and wraps it with the installation's key; the control plane
+  seals with it locally. A run's stream, its followers and its pages then
+  cost one OpenBao call per run rather than one per value, and deleting a
+  run deletes its key. A key per time window would have bound less and made
+  deleting one run's data a matter of trust.
+- **Keys stay in each process.** An unwrapped key is kept in memory for five
+  minutes after its last use and never shared through Valkey, so a copy of
+  Valkey or the database holds no key that opens anything.
+- **Bound to the row.** The additional data names the run, the column and
+  the row, so a ciphertext copied to another run or row does not open.
+- **No conversion.** Nothing had been released, so the migration deletes the
+  runs kept in plaintext instead of keeping a second read path; the audit
+  log keeps their record.
+- **One list of credentials for both languages.** `api/secret-patterns.json`
+  holds the patterns, written in the syntax Go's RE2 and Python's re share,
+  and a test on each side refuses a copy that differs, as for the workflow
+  schema.
+- **Approvals are redacted, not sealed.** Their values are read in SQL to
+  build the answer a run resumes with; sealing them is left to #91,
+  which the threat model names.
+
 ## 2026-10-19: OpenBao's audit log and Valkey's password (#92)
 
 - **Refuse, rather than enable, an audit device.** OpenBao 2.7 takes audit

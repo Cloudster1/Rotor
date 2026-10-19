@@ -168,7 +168,7 @@ func (w *Worker) replace(ctx context.Context, c claimed) error {
 		if err != nil || tag.RowsAffected() == 0 {
 			return err
 		}
-		return runnerctl.AppendEvent(ctx, tx, c.ID, runnerctl.EventRunnerLost, "", payload)
+		return runnerctl.AppendEvent(ctx, tx, w.keys, c.ID, runnerctl.EventRunnerLost, "", payload)
 	})
 	if err == nil {
 		w.announce(ctx, c.ID)

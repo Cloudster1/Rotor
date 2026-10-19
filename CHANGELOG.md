@@ -9,6 +9,15 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- What a run read and wrote is ciphertext at rest (#41). Each run has a
+  data key of its own, which OpenBao makes and wraps with the
+  installation's key; its inputs, output, events, checkpoints and the
+  messages for its runner are sealed with it, so a copy of the database
+  shows nothing a tool returned. Credentials of known shapes, from GitHub,
+  GitLab, Slack, AWS, Google, Stripe and the model providers to JWTs and
+  private keys, are cut from every event, run output, span, audit record
+  and log line, by the control plane and the runner alike. Upgrading
+  deletes the runs kept so far; the audit log keeps their record.
 - Operators can tell what runs in a sandbox and that it is the image that
   was built (#42). `make sbom`, `sign`, `attest` and `verify` list an
   image's contents as an SPDX SBOM and sign the image and its SBOM with

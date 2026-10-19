@@ -18,6 +18,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/envelope"
 	"github.com/cloudster1/rotor/backend/internal/hooks"
 	"github.com/cloudster1/rotor/backend/internal/metrics"
 	"github.com/cloudster1/rotor/backend/internal/observability"
@@ -98,7 +99,9 @@ func run() error {
 	registry := tools.NewService(cluster, secrets, boot.ToolClient(cfg), cfg.ConnectionCallbackURL(), cfg.Env == config.EnvDevelopment)
 	people := connections.NewService(cluster, secrets, registry, boot.ToolClient(cfg), cfg.ConnectionCallbackURL(), log)
 	people.Runs = secrets
-	worker := runs.NewWorker(cluster, backend, runs.Launch{
+	// The worker writes runs' events too, sealed with each run's own key (#41).
+	keys := envelope.NewKeys(secrets)
+	worker := runs.NewWorker(cluster, keys, backend, runs.Launch{
 		Image: cfg.Sandbox.Image, Dial: cfg.Runner.Dial, Stack: cfg.Sandbox.Stack, CA: secrets.RunnerCA, OpenBao: cfg.OpenBao.Addr,
 		Limits: sandbox.Limits{MemoryBytes: config.DefaultSandboxMemory, MilliCPUs: config.DefaultSandboxMilliCPUs, PIDs: config.DefaultSandboxPIDs},
 	}, log)
@@ -117,7 +120,7 @@ func run() error {
 	// Triggers (#34): schedules queue firings, and each firing starts its run as the trigger's owner.
 	reader := catalog.NewService(registry, people, boot.ToolClient(cfg), store, log)
 	workflowService := workflows.NewService(cluster, reader)
-	starter := runs.NewService(cluster, workflowService, registry, people, store)
+	starter := runs.NewService(cluster, keys, workflowService, registry, people, store)
 	// A trigger's run is held to its person's quota and its model's prices as one started by hand (#38).
 	starter.Usage = usage.NewService(cluster, providers.NewService(cluster, secrets, boot.ToolClient(cfg)))
 	scheduler := triggers.NewScheduler(cluster, log)

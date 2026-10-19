@@ -13,6 +13,7 @@ import (
 
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/envelope"
 )
 
 // Approval states.
@@ -62,12 +63,13 @@ type Publisher interface {
 // Service reads and decides approvals as the person on the context.
 type Service struct {
 	db      *db.Cluster
+	keys    *envelope.Keys
 	signals Publisher
 }
 
 // NewService returns the approvals; signals may be nil, and a run's followers then see a decision on their next beat.
-func NewService(cluster *db.Cluster, signals Publisher) *Service {
-	return &Service{db: cluster, signals: signals}
+func NewService(cluster *db.Cluster, keys *envelope.Keys, signals Publisher) *Service {
+	return &Service{db: cluster, keys: keys, signals: signals}
 }
 
 // mayDecide says, in SQL, whether the caller decides a.

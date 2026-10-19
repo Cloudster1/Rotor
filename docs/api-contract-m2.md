@@ -52,7 +52,7 @@ sentences.
 - **Decided:**
   - gRPC with protobuf, generated with buf; the Docker sandbox backend comes in M2.
   - Templates are paths into the state, never code, and a router switches on a value.
-  - Checkpoints are encrypted with OpenBao transit.
+  - Checkpoints are encrypted with OpenBao transit; since #41 with the run's own data key, as `docs/api-contract-m8.md` says.
 
   `docs/decisions.md`, 2026-10-18, has the reasons.
 
@@ -209,7 +209,7 @@ and a bootstrap token, and dials out.
 - **Storage:**
   - The control plane keeps checkpoints in `run_checkpoint` and their pending writes in `run_checkpoint_write`, under the run the stream is bound to.
   - The sandbox has no database access.
-  - Each value is encrypted with the OpenBao transit key `rotor-checkpoints`. A checkpoint above `MaxCheckpointBytes` is refused and the run fails, saying so.
+  - Each value is sealed with the run's data key, which the OpenBao transit key `rotor-run-data` wraps (#41; until then the transit key `rotor-checkpoints` encrypted each value). A checkpoint above `MaxCheckpointBytes` is refused and the run fails, saying so.
 - **No tokens in checkpoints:** tokens and keys live in the runner's memory and are never in the state, so a checkpoint cannot hold one; a test proves it.
 
 **As built** (#19):

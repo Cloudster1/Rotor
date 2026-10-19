@@ -97,7 +97,7 @@ func (s *Service) Decide(ctx context.Context, id uuid.UUID, d Decision) (Approva
 		if tag.RowsAffected() == 0 {
 			return errRaced
 		}
-		err = runnerctl.Decide(ctx, tx, a.RunID, runnerctl.Decided{ApprovalID: id, Approve: d.Approve, By: p.UserID, ByName: p.Name, Comment: d.Comment})
+		err = runnerctl.Decide(ctx, tx, s.keys, a.RunID, runnerctl.Decided{ApprovalID: id, Approve: d.Approve, By: p.UserID, ByName: p.Name, Comment: d.Comment})
 		if errors.Is(err, runnerctl.ErrNotWaiting) {
 			return ErrRunNotWaiting
 		}

@@ -294,6 +294,26 @@ again. When the run ends the worker revokes each token at its tool and
 forgets it; ending a connection or switching a person off does the same at
 once.
 
+## A run's data at rest (#41)
+
+Every run has a data key of its own. When a run is started the control plane
+asks OpenBao for one (`transit/datakey/plaintext/rotor-run-data`), seals the
+run's inputs with it and stores it wrapped by the installation's transit key
+beside the run (`run.data_key`); only OpenBao opens it again. The run's
+inputs and output, its events, its checkpoints and their writes, and the
+control messages kept for its runner are sealed with AES-256-GCM, each bound
+to the run, its column and its row, so a value moved elsewhere does not open
+(`backend/internal/envelope`). The api and the worker keep an unwrapped key in
+memory for five minutes after its last use, never in Valkey or the database.
+Deleting a run deletes its wrapped key with it.
+
+Before anything is kept or said, credentials are cut from it: the patterns in
+`api/secret-patterns.json` (known token shapes, bearer values, private keys,
+passwords in URLs) and fields named like a secret, by the runner first, which
+also cuts every secret it holds, and again by the control plane for events,
+run output, spans, audit records and every log line (`backend/internal/redact`).
+Approvals keep their message, preview and values redacted but not sealed.
+
 ## Following a run (#24)
 
 Every event of a run is a row of `run_event`, numbered by the control plane.

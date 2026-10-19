@@ -6,8 +6,10 @@ import logging
 import os
 import sys
 
+from rotor_runner.config import LOG_FORMAT
 from rotor_runner.graph import SELF_CHECK_ANSWER, self_check
 from rotor_runner.guard import keep_out
+from rotor_runner.redact import RedactingFormatter, Redactor
 
 EXIT_USAGE = 2
 # What the sandbox is started with, read once and removed, so nothing the runner starts can find them.
@@ -36,10 +38,14 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return EXIT_USAGE
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    # One redactor holds every secret the run is handed, so neither its events nor its log lines carry one.
+    redactor = Redactor()
+    handler = logging.StreamHandler()
+    handler.setFormatter(RedactingFormatter(redactor, LOG_FORMAT))
+    logging.basicConfig(level=logging.INFO, handlers=[handler])
     from rotor_runner.control import Channel
 
-    return asyncio.run(Channel(address, ca.encode(), bootstrap, openbao).run())
+    return asyncio.run(Channel(address, ca.encode(), bootstrap, openbao, redactor).run())
 
 
 if __name__ == "__main__":

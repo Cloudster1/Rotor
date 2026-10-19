@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 
-from rotor_runner.config import MIN_SECRET_CHARS, REDACTED, UNWRAP_TIMEOUT_S
+from rotor_runner.config import UNWRAP_TIMEOUT_S
 
 UNWRAP_PATH = "/v1/sys/wrapping/unwrap"
 
@@ -41,19 +41,3 @@ class Unwrapper:
         if not isinstance(data, dict):
             raise UnwrapError("OpenBao unwrapped nothing")
         return data
-
-
-class Redactor:
-    """Every secret the runner holds, to cut out of each event before it leaves the sandbox."""
-
-    def __init__(self) -> None:
-        self._secrets: set[str] = set()
-
-    def hold(self, secret: str) -> None:
-        if len(secret) >= MIN_SECRET_CHARS:
-            self._secrets.add(secret)
-
-    def scrub(self, text: str) -> str:
-        for secret in self._secrets:
-            text = text.replace(secret, REDACTED)
-        return text
