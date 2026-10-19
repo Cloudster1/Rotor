@@ -93,3 +93,9 @@ Adapted from Exciter at 51c9127, its Helm chart and chart tests:
   S3 or the render service, and with the sandbox namespace, RBAC and OpenBao Job of Rotor's own
 - tests/test-helm.sh: lint, refusals and golden renders, as Exciter's
 - scripts/chart-install-test.sh: install into kind, check, upgrade, as Exciter's
+
+Adapted from Exciter at 6706bd8, its webhook signing and its receiver for Armature's and Stator's deliveries:
+- backend/internal/hooks/verify.go: Sign, SignTimestamped and VerifyTimestamped of
+  backend/internal/webhook/webhook.go, the timestamped HMAC all three tools send
+- backend/internal/hooks/decode.go: Decode of backend/internal/webhook/inbound.go, reading envelope v1 and
+  CloudEvents into one event, with string ids and each product's CloudEvents type prefix

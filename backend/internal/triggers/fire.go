@@ -126,7 +126,9 @@ func (f *Firer) one(ctx context.Context, fr fire) error {
 
 // start checks the firing as the owner on the context and starts the run of the version it checked.
 func (f *Firer) start(ctx context.Context, fr fire, t Trigger) (outcome, reason string, runID *uuid.UUID, err error) {
-	checked, err := f.triggers.check(ctx, t.WorkflowID, t.Input())
+	in := t.Input()
+	in.Firing = true
+	checked, err := f.triggers.check(ctx, t.WorkflowID, in)
 	if reason, ok := refusal(err); ok {
 		return OutcomeRefused, reason, nil, nil
 	}
@@ -165,9 +167,11 @@ func refusal(err error) (string, bool) {
 	case err == nil:
 		return "", false
 	case errors.As(err, &refused):
-		for _, p := range refused.Problems {
-			if p.Code == ReasonUnattendedWrite {
-				return ReasonUnattendedWrite, true
+		for _, reason := range []string{ReasonUnattendedWrite, ReasonConnectionLost, ReasonToolRemoved} {
+			for _, p := range refused.Problems {
+				if p.Code == reason {
+					return reason, true
+				}
 			}
 		}
 		return ReasonInputsRefused, true

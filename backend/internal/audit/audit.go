@@ -40,13 +40,15 @@ const (
 	ActionTriggerRemoved         = "trigger.removed"
 	ActionTriggerEnabled         = "trigger.enabled"
 	ActionTriggerDisabled        = "trigger.disabled"
+	ActionHookSecretChanged      = "hook.secret_changed"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
 var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, ActionSwitchedOff, ActionSessionEndedByProvider,
 	ActionToolAdded, ActionToolRemoved, ActionConnectionGranted, ActionConnectionEnded, ActionTokenMinted, ActionTokenRevoked, ActionProviderChanged,
 	ActionWorkflowCreated, ActionWorkflowChanged, ActionWorkflowShared, ActionWorkflowArchived, ActionRunStarted, ActionRunCancelled,
-	ActionApprovalDecided, ActionTriggerCreated, ActionTriggerChanged, ActionTriggerRemoved, ActionTriggerEnabled, ActionTriggerDisabled}
+	ActionApprovalDecided, ActionTriggerCreated, ActionTriggerChanged, ActionTriggerRemoved, ActionTriggerEnabled, ActionTriggerDisabled,
+	ActionHookSecretChanged}
 
 // Redacted stands in the record for a value that looked like a credential.
 const Redacted = "[redacted]"

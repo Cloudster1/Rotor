@@ -134,12 +134,13 @@ func (s *Stub) dispatch(c *call, who *caller, req rpcRequest) (any, *rpcError) {
 		return map[string]any{"tools": s.toolsFor(who)}, nil
 	case "tools/call":
 		var params struct {
-			Name string `json:"name"`
+			Name      string          `json:"name"`
+			Arguments json.RawMessage `json:"arguments"`
 		}
 		if err := json.Unmarshal(req.Params, &params); err != nil || params.Name == "" {
 			return nil, &rpcError{Code: rpcInvalidParams, Message: "A tool call names a tool and gives its arguments as an object."}
 		}
-		return s.callTool(c, who, params.Name)
+		return s.callTool(c, who, params.Name, params.Arguments)
 	}
 	return nil, &rpcError{Code: rpcMethodNotFound, Message: "There is no method " + req.Method + "."}
 }
@@ -171,7 +172,7 @@ func refusal(message string) map[string]any {
 	return map[string]any{"content": []toolContent{{Type: "text", Text: message}}, "isError": true}
 }
 
-func (s *Stub) callTool(c *call, who *caller, name string) (any, *rpcError) {
+func (s *Stub) callTool(c *call, who *caller, name string, arguments json.RawMessage) (any, *rpcError) {
 	var tool map[string]any
 	for _, t := range s.tools {
 		if t["name"] == name {
@@ -183,8 +184,10 @@ func (s *Stub) callTool(c *call, who *caller, name string) (any, *rpcError) {
 		return nil, &rpcError{Code: rpcInvalidParams, Message: "There is no tool " + name + ". Ask tools/list for the names."}
 	case who.readOnly && !readOnlyTool(tool):
 		return refusal("This connection may only read, so it cannot " + name + ". Connect again with writing allowed."), nil
+	case name == GetRequirementTool:
+		return getRequirement(c.t, who, arguments), nil
 	case name != WhoamiTool:
-		return refusal("The test double answers whoami alone; " + name + " is listed so clients see Exciter's tools."), nil
+		return refusal("The test double answers whoami and get_requirement alone; " + name + " is listed so clients see Exciter's tools."), nil
 	}
 	structured := whoami(c.t, who)
 	text, _ := json.Marshal(structured)

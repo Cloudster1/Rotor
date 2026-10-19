@@ -3,8 +3,9 @@ import { type FormEvent, useId, useState } from "react";
 import { meQuery } from "@/api/auth";
 import { ApiError } from "@/api/client";
 import { addTool, removeTool, type Tool, toolName, toolsQuery, toolsQueryKey } from "@/api/tools";
-import { CONNECTION_CALLBACK_PATH } from "@/config";
+import { CONNECTION_CALLBACK_PATH, HOOK_PRODUCTS } from "@/config";
 import { s } from "@/strings";
+import { HookPanel } from "./HookPanel";
 
 const card = "max-w-xl rounded-overlay border border-border bg-surface p-5 shadow-1";
 const input = "h-9 w-full rounded-control border border-border-strong bg-surface px-3 text-sm text-ink";
@@ -99,6 +100,7 @@ function ToolRow({ tool, admin }: { tool: Tool; admin: boolean }) {
           )}
         </div>
       )}
+      {admin && (HOOK_PRODUCTS as readonly string[]).includes(tool.name) && <HookPanel toolID={tool.id} name={name} />}
       {(remove.isError || again.isError) && (
         <p role="alert" className="mt-2 text-sm text-danger">
           {message(remove.error ?? again.error)}

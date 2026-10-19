@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useId, useState } from "react";
 import { meQuery } from "@/api/auth";
+import { toolName, toolsQuery } from "@/api/tools";
 import { removeTrigger, setTriggerEnabled, type Trigger, triggersQueryKey, workflowTriggersQuery } from "@/api/triggers";
 import { RunStatusBadge } from "@/features/runs/RunStatusBadge";
 import { s } from "@/strings";
@@ -80,10 +81,13 @@ function TriggerRow({ trigger, onChange }: { trigger: Trigger; onChange: () => v
         </label>
       </div>
       {trigger.schedule && <p className="mt-1 font-mono text-xs text-ink-muted">{s.triggers.schedule(trigger.schedule.cron, trigger.schedule.timeZone)}</p>}
+      {trigger.event && <EventSummary event={trigger.event} />}
       {!mine && <p className="mt-1 text-xs text-ink-muted">{s.triggers.owner(trigger.owner.name)}</p>}
-      <p className="mt-1 text-sm text-ink" data-next-run>
-        {trigger.nextRunAt ? s.triggers.next(when(trigger.nextRunAt)) : s.triggers.notScheduled}
-      </p>
+      {trigger.kind === "schedule" && (
+        <p className="mt-1 text-sm text-ink" data-next-run>
+          {trigger.nextRunAt ? s.triggers.next(when(trigger.nextRunAt)) : s.triggers.notScheduled}
+        </p>
+      )}
       {fire && (
         <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink" data-last-fire={fire.outcome}>
           {s.triggers.last(s.triggers.outcome[fire.outcome] ?? fire.outcome, when(fire.at))}
@@ -128,5 +132,16 @@ function TriggerRow({ trigger, onChange }: { trigger: Trigger; onChange: () => v
         </p>
       )}
     </li>
+  );
+}
+
+/** Which events of which tool start an event trigger. */
+function EventSummary({ event }: { event: NonNullable<Trigger["event"]> }) {
+  const tools = useQuery(toolsQuery);
+  const tool = tools.data?.find((t) => t.id === event.toolId);
+  return (
+    <p className="mt-1 font-mono text-xs text-ink-muted" data-trigger-events>
+      {s.triggers.events(event.topics.join(", "), tool ? toolName(tool) : event.toolId)}
+    </p>
   );
 }

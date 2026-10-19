@@ -50,6 +50,8 @@ type Options struct {
 	LLMKey string `json:"llmKey,omitempty"`
 	// LLMScript is what the tenant's stub model answers, one turn per chat call.
 	LLMScript []LLMTurn `json:"llmScript,omitempty"`
+	// Requirements maps a requirement key to the usernames get_requirement shows it to; anyone else is refused.
+	Requirements map[string][]string `json:"requirements,omitempty"`
 }
 
 // Stats count what happened at a tenant, for tests to check what Rotor did there.

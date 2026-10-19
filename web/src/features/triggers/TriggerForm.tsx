@@ -5,6 +5,7 @@ import { changeTrigger, createTrigger, previewSchedule, type Trigger, triggersQu
 import { HTTP_UNPROCESSABLE } from "@/config";
 import { fieldsOf, InputsForm, inputsOf, type Values, valuesOf } from "@/features/runs/InputsForm";
 import { s } from "@/strings";
+import { draftOf, EventFields, eventOf } from "./EventFields";
 
 const input = "h-9 w-full rounded-control border border-border-strong bg-surface px-3 text-sm text-ink";
 const primary = "h-9 rounded-control bg-accent px-4 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-60";
@@ -34,7 +35,10 @@ export function TriggerForm({
 }) {
   const id = useId();
   const client = useQueryClient();
-  const fields = fieldsOf(inputsSchema);
+  const [kind, setKind] = useState<"schedule" | "event">(existing?.kind ?? "schedule");
+  const [draft, setDraft] = useState(draftOf(existing?.event));
+  // An event trigger's runs get the event as their input event, so the form never asks for it.
+  const fields = kind === "event" ? (fieldsOf(inputsSchema)?.filter((f) => f.name !== "event") ?? null) : fieldsOf(inputsSchema);
   const [name, setName] = useState(existing?.name ?? "");
   const [cron, setCron] = useState(existing?.schedule?.cron ?? "0 8 * * 1");
   const [zone, setZone] = useState(existing?.schedule?.timeZone ?? localZone());
@@ -65,7 +69,10 @@ export function TriggerForm({
   });
   const save = useMutation({
     mutationFn: (inputs: Record<string, unknown>) => {
-      const body = { name, kind: "schedule" as const, schedule: { cron, timeZone: zone, noOverlap }, inputs };
+      const body =
+        kind === "event"
+          ? { name, kind: "event" as const, event: eventOf(draft), inputs }
+          : { name, kind: "schedule" as const, schedule: { cron, timeZone: zone, noOverlap }, inputs };
       return existing ? changeTrigger(existing.id, body) : createTrigger(workflowID, body);
     },
     onSuccess: async () => {
@@ -109,72 +116,90 @@ export function TriggerForm({
         />
         {error("name", "name")}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1">
-          <label htmlFor={field("cron")} className="text-sm font-medium text-ink">
-            {s.triggers.cron}
+      {!existing && (
+        <fieldset className="flex flex-wrap gap-4">
+          <legend className="mb-1 text-sm font-medium text-ink">{s.triggers.kind}</legend>
+          {(["schedule", "event"] as const).map((k) => (
+            <label key={k} className="flex items-center gap-2 text-sm text-ink">
+              <input type="radio" name={field("kind")} checked={kind === k} onChange={() => setKind(k)} data-trigger-kind={k} />
+              {s.triggers.kinds[k]}
+            </label>
+          ))}
+        </fieldset>
+      )}
+      {kind === "event" && <EventFields draft={draft} onChange={setDraft} errors={errors} />}
+      {kind === "schedule" && (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <label htmlFor={field("cron")} className="text-sm font-medium text-ink">
+                {s.triggers.cron}
+              </label>
+              <input
+                id={field("cron")}
+                className={`${input} font-mono`}
+                value={cron}
+                onChange={(e) => setCron(e.target.value)}
+                aria-invalid={errors["schedule/cron"] ? true : undefined}
+                aria-describedby={described("schedule/cron", field("cron-hint"))}
+                data-trigger-cron
+              />
+              <p id={field("cron-hint")} className="text-xs text-ink-muted">
+                {s.triggers.cronHint}
+              </p>
+              {error("schedule/cron", "schedule/cron")}
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor={field("zone")} className="text-sm font-medium text-ink">
+                {s.triggers.timeZone}
+              </label>
+              <select
+                id={field("zone")}
+                className={input}
+                value={zone}
+                onChange={(e) => setZone(e.target.value)}
+                aria-invalid={errors["schedule/timeZone"] ? true : undefined}
+                aria-describedby={described("schedule/timeZone")}
+                data-trigger-zone
+              >
+                {zones().map((z) => (
+                  <option key={z} value={z}>
+                    {z}
+                  </option>
+                ))}
+              </select>
+              {error("schedule/timeZone", "schedule/timeZone")}
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-ink">
+            <input type="checkbox" checked={noOverlap} onChange={(e) => setNoOverlap(e.target.checked)} data-trigger-no-overlap />
+            {s.triggers.noOverlap}
           </label>
-          <input
-            id={field("cron")}
-            className={`${input} font-mono`}
-            value={cron}
-            onChange={(e) => setCron(e.target.value)}
-            aria-invalid={errors["schedule/cron"] ? true : undefined}
-            aria-describedby={described("schedule/cron", field("cron-hint"))}
-            data-trigger-cron
-          />
-          <p id={field("cron-hint")} className="text-xs text-ink-muted">
-            {s.triggers.cronHint}
-          </p>
-          {error("schedule/cron", "schedule/cron")}
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor={field("zone")} className="text-sm font-medium text-ink">
-            {s.triggers.timeZone}
-          </label>
-          <select
-            id={field("zone")}
-            className={input}
-            value={zone}
-            onChange={(e) => setZone(e.target.value)}
-            aria-invalid={errors["schedule/timeZone"] ? true : undefined}
-            aria-describedby={described("schedule/timeZone")}
-            data-trigger-zone
-          >
-            {zones().map((z) => (
-              <option key={z} value={z}>
-                {z}
-              </option>
-            ))}
-          </select>
-          {error("schedule/timeZone", "schedule/timeZone")}
-        </div>
-      </div>
-      <label className="flex items-center gap-2 text-sm text-ink">
-        <input type="checkbox" checked={noOverlap} onChange={(e) => setNoOverlap(e.target.checked)} data-trigger-no-overlap />
-        {s.triggers.noOverlap}
-      </label>
+        </>
+      )}
       {(fields === null || fields.length > 0) && (
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-1 text-sm font-medium text-ink">{s.triggers.inputs}</legend>
           <InputsForm fields={fields} values={values} errors={errors} onChange={(key, value) => setValues({ ...values, [key]: value })} />
         </fieldset>
       )}
-      <div>
-        <button type="button" className={secondary} disabled={preview.isPending} onClick={() => preview.mutate()} data-action="preview-schedule">
-          {s.triggers.preview}
-        </button>
-        {nextRuns && (
-          <div className="mt-2">
-            <p className="text-sm font-medium text-ink">{s.triggers.nextRuns}</p>
-            <ul className="text-sm text-ink" data-next-runs>
-              {nextRuns.map((at) => (
-                <li key={at}>{new Date(at).toLocaleString(undefined, { dateStyle: "full", timeStyle: "short", timeZone: zone })}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+      {kind === "schedule" && (
+        <div>
+          <button type="button" className={secondary} disabled={preview.isPending} onClick={() => preview.mutate()} data-action="preview-schedule">
+            {s.triggers.preview}
+          </button>
+          {nextRuns && (
+            <div className="mt-2">
+              <p className="text-sm font-medium text-ink">{s.triggers.nextRuns}</p>
+              <ul className="text-sm text-ink" data-next-runs>
+                {nextRuns.map((at) => (
+                  <li key={at}>{new Date(at).toLocaleString(undefined, { dateStyle: "full", timeStyle: "short", timeZone: zone })}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
       {save.isError && (
         <p role="alert" className="rounded-control border border-danger bg-danger-subtle px-3 py-2 text-sm text-danger" data-trigger-error>
           {save.error.message}

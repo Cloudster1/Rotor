@@ -119,3 +119,64 @@ describe("the tools", () => {
     expect(await axeViolations()).toEqual([]);
   });
 });
+
+describe("a tool's events", () => {
+  const HOOK_PATH = `/api/v1/tools/${EXCITER.id}/hook`;
+  const unset = { url: `https://rotor.test/api/v1/hooks/${EXCITER.id}`, product: "Exciter", secretSet: false, secretSetAt: null, lastReceivedAt: null };
+
+  it("show the webhook address, copy it, and keep a pasted secret without showing it back", async () => {
+    let sent: unknown;
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    await renderAt("/settings", {
+      answers: {
+        "/api/v1/tools": { tools: [EXCITER] },
+        [HOOK_PATH]: unset,
+        [`PUT ${HOOK_PATH}`]: async (request: Request) => {
+          sent = await request.json();
+          return Response.json({ ...unset, secretSet: true, secretSetAt: "2026-10-19T08:00:00Z" });
+        },
+      },
+    });
+    const address = await screen.findByLabelText(s.tools.hook.address);
+    expect(address).toHaveValue(unset.url);
+    expect(screen.getByText(s.tools.hook.notSet, { exact: false })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: s.tools.hook.copy }));
+    expect(writeText).toHaveBeenCalledWith(unset.url);
+    expect(await screen.findByText(s.tools.hook.copied)).toBeInTheDocument();
+
+    const secret = screen.getByLabelText(s.tools.hook.secret);
+    expect(secret).toHaveAttribute("type", "password");
+    await userEvent.type(secret, "exciter_whs_abc");
+    await userEvent.click(screen.getByRole("button", { name: s.tools.hook.save }));
+    expect(await screen.findByText(s.tools.hook.saved)).toBeInTheDocument();
+    expect(sent).toEqual({ secret: "exciter_whs_abc" });
+    expect(screen.getByLabelText(s.tools.hook.secret)).toHaveValue("");
+    expect(screen.getByRole("button", { name: s.tools.hook.remove })).toBeInTheDocument();
+    expect(await axeViolations()).toEqual([]);
+  });
+
+  it("say why a secret was refused, as the server words it", async () => {
+    const refusal = "That is not this tool's webhook secret.";
+    await renderAt("/settings", {
+      answers: {
+        "/api/v1/tools": { tools: [EXCITER] },
+        [HOOK_PATH]: unset,
+        [`PUT ${HOOK_PATH}`]: () => Response.json({ error: { code: "validation_failed", message: refusal } }, { status: 422 }),
+      },
+    });
+    await userEvent.type(await screen.findByLabelText(s.tools.hook.secret), "nope");
+    await userEvent.click(screen.getByRole("button", { name: s.tools.hook.save }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(refusal);
+  });
+
+  it("are not offered to members, nor for a tool that sends none", async () => {
+    await renderAt("/settings", { me: MEMBER, answers: { "/api/v1/tools": { tools: [EXCITER] } } });
+    await screen.findByText("Exciter");
+    expect(screen.queryByLabelText(s.tools.hook.address)).not.toBeInTheDocument();
+    cleanup();
+    await renderAt("/settings", { answers: { "/api/v1/tools": { tools: [{ ...EXCITER, name: "jira" }] } } });
+    await screen.findByText("Jira");
+    expect(screen.queryByLabelText(s.tools.hook.address)).not.toBeInTheDocument();
+  });
+});

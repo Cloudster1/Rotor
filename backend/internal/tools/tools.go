@@ -71,6 +71,8 @@ type Secrets interface {
 	ToolClient(ctx context.Context, toolID uuid.UUID) (vault.ToolClient, int, error)
 	PutToolClient(ctx context.Context, toolID uuid.UUID, c vault.ToolClient, version int) (int, error)
 	DeleteToolClient(ctx context.Context, toolID uuid.UUID) error
+	// DeleteWebhookSecret forgets the secret the tool signs its webhook deliveries with (#35).
+	DeleteWebhookSecret(ctx context.Context, toolID uuid.UUID) error
 }
 
 // ConnectionEnder ends every connection to a tool before it goes, revoking them at the tool.

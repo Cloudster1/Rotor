@@ -21,6 +21,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/hooks"
 	"github.com/cloudster1/rotor/backend/internal/httpapi"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
@@ -106,12 +107,16 @@ func run() error {
 		registry.Connections = people
 		sessions.OnSwitchOff = people.EndPersonConnections
 		server.Tools, server.Connections = registry, people
+		hookService := hooks.NewService(cluster, secrets)
+		server.Hooks = hookService
 		reader := catalog.NewService(registry, people, boot.ToolClient(cfg), store, log)
 		server.Catalogs = reader
 		workflowService = workflows.NewService(cluster, reader)
 		runService := runs.NewService(cluster, workflowService, registry, people, store)
 		server.Runs = runService
-		server.Triggers = triggers.NewService(cluster, workflowService, reader, runService)
+		triggerService := triggers.NewService(cluster, workflowService, reader, runService)
+		triggerService.CheckEvent = hookService.CheckEvent(people)
+		server.Triggers = triggerService
 		server.Approvals = approvals.NewService(cluster, store)
 		runners := runnerctl.NewServer(cluster, registry, people, log)
 		reach := oidc.ParseRewrites(cfg.Tools.Backchannel)

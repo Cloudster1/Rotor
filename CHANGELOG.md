@@ -9,6 +9,18 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Armature, Exciter and Stator can deliver their events to Rotor (#35). An
+  administrator adds Rotor's webhook address in the tool and pastes the
+  secret it shows into Rotor, which keeps it in OpenBao. Rotor checks each
+  delivery's timestamped signature, refuses replays older than five minutes,
+  reads envelope v1 and Exciter's CloudEvents, ignores an event it already
+  received, and starts every event trigger whose topics, projects and
+  conditions match, as the trigger's owner with the event as the input
+  `event`. A run starts only if the tool shows the owner the event's
+  requirement, issue or page, since a payload is read with the rights of
+  whoever added the webhook. On a workflow's page, a person adds such a
+  trigger for any tool they are connected to; `docs/triggers.md` walks each
+  tool through.
 - A workflow runs on a schedule as the person who set it (#34). On a
   workflow's page, add a trigger with cron fields and a time zone, see its
   next runs, choose whether a time is skipped while the last run goes on,

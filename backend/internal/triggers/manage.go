@@ -197,7 +197,7 @@ func values(in Input, now time.Time) stored {
 		}
 	case KindEvent:
 		v.tool, v.topics, v.projects = in.ToolID, nonNil(in.Topics), nonNil(in.Projects)
-		if len(in.Conditions) > 0 && json.Valid(in.Conditions) {
+		if len(in.Conditions) > 0 && json.Valid(in.Conditions) && string(in.Conditions) != "null" {
 			v.conditions = in.Conditions
 		}
 	}

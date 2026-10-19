@@ -134,3 +134,94 @@ describe("a workflow's triggers", () => {
     expect(await screen.findByText(s.triggers.flagNamed(WORKFLOW.name))).toBeInTheDocument();
   });
 });
+
+describe("a workflow's event triggers", () => {
+  const EXCITER = {
+    id: "0190a5c4-0000-7000-8000-0000000000e1",
+    name: "exciter",
+    baseURL: "https://exciter.test",
+    resource: "https://exciter.test/api/v1/mcp",
+    issuer: "https://exciter.test",
+    capabilities: ["mcp@1"],
+    scopesSupported: ["mcp", "mcp:read"],
+    registration: "dynamic",
+    status: "ready",
+    addedAt: "2026-10-18T10:00:00Z",
+  };
+  const EVENTED = {
+    ...RESPONSE,
+    version: { ...RESPONSE.version, inputs: { type: "object", required: ["event"], properties: { event: { type: "object" }, project: { type: "string" } } } },
+  };
+
+  it(
+    "are added with a tool, its topics, projects and conditions, and never ask for the event itself",
+    async () => {
+      let posted: Record<string, unknown> | undefined;
+      const refusal = "Connect your own account to the tool first.";
+      let refuse = true;
+      await renderAt(`/workflows/${WORKFLOW.id}`, {
+        answers: pageAnswers({
+          [`/api/v1/workflows/${WORKFLOW.id}`]: EVENTED,
+          [`/api/v1/workflows/${WORKFLOW.id}/triggers`]: { triggers: [] },
+          "/api/v1/tools": { tools: [EXCITER, { ...EXCITER, id: "x", name: "jira" }] },
+          [`POST /api/v1/workflows/${WORKFLOW.id}/triggers`]: async (request: Request) => {
+            posted = (await request.json()) as Record<string, unknown>;
+            if (refuse) {
+              refuse = false;
+              return Response.json(
+                { error: { code: "validation_failed", message: "Some fields need attention.", fields: { "event/toolId": refusal } } },
+                { status: 422 },
+              );
+            }
+            return Response.json({ ...TRIGGER, kind: "event", schedule: null }, { status: 201 });
+          },
+        }),
+      });
+      const section = await screen.findByRole("region", { name: s.triggers.title });
+      await userEvent.click(within(section).getByRole("button", { name: s.triggers.add }));
+      await userEvent.type(within(section).getByLabelText(s.triggers.name), "On approvals");
+      await userEvent.click(within(section).getByRole("radio", { name: s.triggers.kinds.event }));
+      expect(within(section).queryByLabelText(s.triggers.cron)).not.toBeInTheDocument();
+      expect(within(section).queryByRole("textbox", { name: "event" })).not.toBeInTheDocument();
+      const tool = within(section).getByLabelText(s.triggers.event.tool);
+      expect(within(tool).queryByRole("option", { name: "Jira" })).not.toBeInTheDocument();
+      await userEvent.selectOptions(tool, EXCITER.id);
+      await userEvent.click(within(section).getByRole("checkbox", { name: "review.decided" }));
+      await userEvent.type(within(section).getByLabelText(s.triggers.event.projects), "RTR, DOC");
+      await userEvent.click(within(section).getByRole("button", { name: s.triggers.event.addCondition }));
+      const path = within(section).getByLabelText(s.triggers.event.path(1));
+      await userEvent.clear(path);
+      await userEvent.type(path, "payload.review.decision");
+      await userEvent.type(within(section).getByLabelText(s.triggers.event.value(1)), "approve");
+      expect(await axeViolations()).toEqual([]);
+
+      await userEvent.click(within(section).getByRole("button", { name: s.triggers.save }));
+      expect(await within(section).findByText(refusal)).toBeInTheDocument();
+      expect(posted).toMatchObject({
+        name: "On approvals",
+        kind: "event",
+        event: {
+          toolId: EXCITER.id,
+          topics: ["review.decided"],
+          projects: ["RTR", "DOC"],
+          conditions: [{ path: "payload.review.decision", op: "equals", value: "approve" }],
+        },
+      });
+      await userEvent.click(within(section).getByRole("button", { name: s.triggers.save }));
+      await waitFor(() => expect(within(section).queryByLabelText(s.triggers.event.tool)).not.toBeInTheDocument());
+    },
+    FORM_TEST_MS,
+  );
+
+  it("show which events of which tool start one", async () => {
+    const event = { toolId: EXCITER.id, topics: ["requirement.created"], projects: [], conditions: [] };
+    await renderAt(`/workflows/${WORKFLOW.id}`, {
+      answers: pageAnswers({
+        "/api/v1/tools": { tools: [EXCITER] },
+        [`/api/v1/workflows/${WORKFLOW.id}/triggers`]: { triggers: [{ ...TRIGGER, kind: "event", schedule: null, event, disabled: null, enabled: true }] },
+      }),
+    });
+    expect(await screen.findByText(s.triggers.events("requirement.created", "Exciter"))).toBeInTheDocument();
+    expect(screen.queryByText(s.triggers.notScheduled)).not.toBeInTheDocument();
+  });
+});

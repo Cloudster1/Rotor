@@ -44,6 +44,8 @@ type Server struct {
 	Approvals Approvals
 	// Triggers is nil where runs are not set up; its routes then answer 503.
 	Triggers Triggers
+	// Hooks is nil where OpenBao is not configured; its routes then answer 503.
+	Hooks Hooks
 	// Sessions and SignIn are nil only in tests that exercise neither.
 	Sessions Sessions
 	SignIn   SignIn
@@ -91,6 +93,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 		r.Get("/auth/oidc/callback", s.handleOIDCCallback)
 		r.Post("/auth/oidc/backchannel-logout", s.handleBackchannelLogout)
 		r.Get("/connections/callback", s.handleConnectionCallback)
+		r.Post("/hooks/{toolID}", s.handleReceiveHook)
 		mountPending(r, true, false)
 		r.Group(func(r chi.Router) {
 			r.Use(requireAuth)
@@ -142,6 +145,9 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Delete("/providers/{providerID}", s.handleRemoveProvider)
 				r.Post("/providers/{providerID}/test", s.handleTestProvider)
 				r.Delete("/tools/{toolID}", s.handleRemoveTool)
+				r.Get("/tools/{toolID}/hook", s.handleGetHook)
+				r.Put("/tools/{toolID}/hook", s.handleSetHookSecret)
+				r.Delete("/tools/{toolID}/hook", s.handleRemoveHookSecret)
 				mountPending(r, false, true)
 			})
 		})
