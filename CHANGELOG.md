@@ -9,6 +9,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The threat model (#39): `docs/threat-model.md` names what Rotor protects
+  and from whom, goes through each component by STRIDE across its trust
+  boundaries, works through untrusted content reaching private data, code
+  nodes escaping, token replay and spoofed webhooks, and tracks every open
+  finding as an issue. `SECURITY.md` says what is in scope for a report.
 - Administrators read and export the audit log (#36): a page under
   Settings filters it by action, person, target and dates, walks it window
   by window, and exports what it shows as CSV or JSON, refusing rather than

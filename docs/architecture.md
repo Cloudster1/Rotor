@@ -10,7 +10,8 @@ finds their way around Rotor.
 
 This document describes the architecture as it is built, and marks what is
 planned with the issue that brings it. [`decisions.md`](decisions.md) says
-why it is built this way.
+why it is built this way, and [`threat-model.md`](threat-model.md) what it
+protects and from whom.
 
 ## Overview
 

@@ -118,3 +118,6 @@ Adapted from Armature at 8dc710d, its tracing:
 
 Adapted from Armature at f191fc9, its observe profile:
 - deploy/docker-compose.yml: the observe profile with Jaeger and Prometheus, here behind an OpenTelemetry collector
+
+Adapted from Armature at 6c46422, its security policy:
+- SECURITY.md: the in-scope table of each area and the claim to try to break, and what is not in scope
