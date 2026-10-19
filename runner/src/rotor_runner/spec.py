@@ -18,6 +18,7 @@ from rotor_runner.config import (
     CODE_MAX_MEMORY,
     CODE_MAX_TIMEOUT_S,
     DURATION_UNITS,
+    MAX_RETENTION_DAYS,
     MAX_SPEC_BYTES,
     MEBIBYTE,
     RESERVED_FORM_FIELDS,
@@ -179,6 +180,11 @@ def check_sense(document: dict[str, Any]) -> list[Problem]:
             out.append(Problem(f"/nodes/{i}/id", "duplicate_id", f"Another node is already called {node['id']}."))
             continue
         index[node["id"]] = i
+    retention = str(document.get("retention") or "")
+    if retention and int(retention[:-1]) > MAX_RETENTION_DAYS:
+        out.append(
+            Problem("/retention", "retention_too_long", f"Keep a run's data for at most {MAX_RETENTION_DAYS} days.")
+        )
     entry = document["entry"]
     if entry not in index:
         out.append(Problem("/entry", "unknown_node", f"The entry {entry} is not a node of this workflow."))

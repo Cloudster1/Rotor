@@ -1,0 +1,14 @@
+# expect: /retention retention_too_long
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: hoarder}
+limits: {maxSteps: 5, timeout: 1m}
+retention: 4000d
+entry: a
+nodes:
+  - id: a
+    type: code
+    output: {schema: {type: object}}
+    source: |
+      def run(state, ctx):
+          return {}

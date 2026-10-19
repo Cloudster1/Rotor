@@ -23,6 +23,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/metrics"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/providers"
+	"github.com/cloudster1/rotor/backend/internal/retention"
 	"github.com/cloudster1/rotor/backend/internal/runs"
 	"github.com/cloudster1/rotor/backend/internal/sandbox"
 	"github.com/cloudster1/rotor/backend/internal/sandbox/docker"
@@ -132,9 +133,11 @@ func run() error {
 	firer.Probe = hooks.Probe(reader)
 	fired := counted.Counter("rotor_trigger_fires_total", "Firings of triggers that ended, by outcome.", "outcome")
 	firer.Fired = func(outcome string) { fired.Add(outcome, 1) }
+	// Retention (#41): a finished run's data is deleted once kept as long as the installation or its workflow says.
+	kept := retention.NewService(cluster, log)
 	worker.Also = func(ctx context.Context) error {
 		_, purged := hookService.Purge(ctx)
-		return errors.Join(scheduler.Sweep(ctx), scheduler.Schedule(ctx), firer.Fire(ctx), purged)
+		return errors.Join(scheduler.Sweep(ctx), scheduler.Schedule(ctx), firer.Fire(ctx), purged, kept.Sweep(ctx))
 	}
 	build := version.Current()
 	log.Info("worker starting", "env", cfg.Env, "version", build.Version, "commit", build.Commit, "stack", cfg.Sandbox.Stack)

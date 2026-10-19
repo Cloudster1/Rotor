@@ -36,6 +36,8 @@ const (
 	CodeApprovalForm   = "approval_form"
 	CodeApprovalExpiry = "approval_expiry"
 	CodeDecidesReview  = "decides_review"
+	// CodeRetention is a retention longer than any installation keeps a run's data (#41).
+	CodeRetention = "retention_too_long"
 )
 
 // Node types.
@@ -73,9 +75,11 @@ type Spec struct {
 	Tools      map[string]Binding `json:"tools,omitempty"`
 	Model      *Model             `json:"model,omitempty"`
 	Limits     Limits             `json:"limits"`
-	Entry      string             `json:"entry"`
-	Nodes      []Node             `json:"nodes"`
-	Edges      []Edge             `json:"edges,omitempty"`
+	// Retention is how long a finished run's data is kept, such as 30d; empty keeps it as long as the installation.
+	Retention string `json:"retention,omitempty"`
+	Entry     string `json:"entry"`
+	Nodes     []Node `json:"nodes"`
+	Edges     []Edge `json:"edges,omitempty"`
 
 	// places finds where a problem is written, for the checks that run after parsing.
 	places *places
@@ -227,4 +231,13 @@ func sentence(s string) string {
 		s += "."
 	}
 	return s
+}
+
+// RetentionDays is the workflow's retention in days, or 0 when it sets none.
+func (s *Spec) RetentionDays() int {
+	days, err := strconv.Atoi(strings.TrimSuffix(s.Retention, "d"))
+	if err != nil || days < 0 {
+		return 0
+	}
+	return days
 }

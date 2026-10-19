@@ -22,6 +22,9 @@ export const ME: Me = {
   groups: ["rotor-administrators", "engineering"],
 };
 
+/** Retention as a fresh installation has it: 90 days, set by nobody (#41). */
+export const RETENTION_DEFAULT = { runDataDays: 90, maxDays: 3650, changedBy: null, updatedAt: "2026-10-19T08:00:00Z" };
+
 /** LangSmith as a fresh installation has it: off, with no key. */
 export const LANGSMITH_OFF = {
   enabled: false,
@@ -80,6 +83,7 @@ export async function renderAt(path: string, { me = ME as Me | null, answers = {
     "/api/v1/triggers": { triggers: [] },
     // An administrator's settings show whether runs go to LangSmith (#37); off unless a test says otherwise.
     "/api/v1/settings/langsmith": LANGSMITH_OFF,
+    "/api/v1/settings/retention": RETENTION_DEFAULT,
     "/api/v1/schemas/workflow.v1.json": { $id: "https://rotor.dev/schemas/workflow.v1.json", type: "object" },
     "POST /api/v1/workflows/validate": { valid: true, problems: [] },
     ...answers,

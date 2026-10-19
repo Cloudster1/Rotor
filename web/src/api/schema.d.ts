@@ -580,6 +580,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings/retention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How many days a finished run's data is kept before Rotor deletes it. */
+        get: operations["getRetention"];
+        /**
+         * Change how many days a finished run's data is kept, from 1 to 3650.
+         * @description A workflow may keep its runs for fewer days with its own retention, never for more. The audit log is never deleted.
+         */
+        put: operations["setRetention"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tools": {
         parameters: {
             query?: never;
@@ -1337,6 +1358,16 @@ export interface components {
                 [key: string]: components["schemas"]["MediaType"];
             };
             description: string;
+        };
+        RetentionRequest: {
+            runDataDays: number;
+        };
+        RetentionResponse: {
+            changedBy: string | null;
+            maxDays: number;
+            runDataDays: number;
+            /** Format: date-time */
+            updatedAt: string;
         };
         RunResponse: {
             approvalId: string | null;
@@ -3130,6 +3161,95 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LimitsBody"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getRetention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    setRetention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetentionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionResponse"];
                 };
             };
             /** @description Forbidden: for administrators of Rotor alone. */

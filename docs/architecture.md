@@ -314,6 +314,16 @@ also cuts every secret it holds, and again by the control plane for events,
 run output, spans, audit records and every log line (`backend/internal/redact`).
 Approvals keep their message, preview and values redacted but not sealed.
 
+A finished run's data is deleted once kept long enough: the installation's
+days (`retention_setting`, 90 unless an administrator changes them), or a
+workflow's own `retention` when that is shorter. Every hour one worker, under
+an advisory lock, deletes the runs that ended and were torn down before then,
+in batches; the cascade takes their events, checkpoints, control messages,
+approvals and usage, and one `run.data_deleted` entry per workflow records it
+(`backend/internal/retention`). Daily usage totals and the audit log stay.
+What went to LangSmith or an OpenTelemetry collector is kept by them, not
+Rotor.
+
 ## Following a run (#24)
 
 Every event of a run is a row of `run_event`, numbered by the control plane.

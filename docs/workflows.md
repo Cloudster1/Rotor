@@ -113,6 +113,14 @@ An administrator may also set, for everyone, how many tokens and how much
 money one person's runs may use in a day, and how many of their runs may run
 at once.
 
+### Retention
+
+`retention`, beside `limits`, says how long a finished run's inputs, output,
+events and checkpoints are kept before Rotor deletes them, in whole days such
+as `30d`. The installation keeps them 90 days unless an administrator says
+otherwise; a workflow may keep its runs for fewer days than the installation,
+never for more, and at most 3650. The audit log keeps its record of every run.
+
 ## What is checked
 
 When a workflow is saved, and again when a run starts:
@@ -121,6 +129,7 @@ When a workflow is saved, and again when a run starts:
   - node ids unique
   - edges, cases and templates name nodes that exist
   - every node reachable from the entry
+  - a retention of at most 3650 days
   - tool nodes call through bindings that allow the call
   - an approval's form names only its own fields, and no binding allows a
     call that decides a review, which a person does in the tool itself

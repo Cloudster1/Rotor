@@ -18,6 +18,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
   private keys, are cut from every event, run output, span, audit record
   and log line, by the control plane and the runner alike. Upgrading
   deletes the runs kept so far; the audit log keeps their record.
+- Finished runs are deleted once kept long enough (#41): 90 days unless an
+  administrator sets another number under Settings, or fewer when a
+  workflow says so with `retention: 30d`. The worker deletes a run with its
+  events, checkpoints, approvals and usage, and records in the audit log how
+  many runs of which workflow went; the audit log itself is never deleted.
 - Operators can tell what runs in a sandbox and that it is the image that
   was built (#42). `make sbom`, `sign`, `attest` and `verify` list an
   image's contents as an SPDX SBOM and sign the image and its SBOM with

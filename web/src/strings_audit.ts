@@ -67,5 +67,7 @@ export const audit = {
     "trigger.disabled": "Trigger turned off",
     "hook.secret_changed": "Webhook secret changed",
     "audit.exported": "Audit log exported",
+    "retention.changed": "Retention changed",
+    "run.data_deleted": "Run data deleted",
   } as Record<string, string>,
 } as const;

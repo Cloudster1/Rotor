@@ -1,0 +1,14 @@
+# expect: /retention schema
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: vague}
+limits: {maxSteps: 5, timeout: 1m}
+retention: 3 months
+entry: a
+nodes:
+  - id: a
+    type: code
+    output: {schema: {type: object}}
+    source: |
+      def run(state, ctx):
+          return {}
