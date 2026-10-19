@@ -21,6 +21,7 @@ from rotor_runner.checkpoint import CheckpointRefusedError, RemoteSaver
 from rotor_runner.codenode import CodeNodeRunner
 from rotor_runner.compile import Outcome, RunContext, run_workflow
 from rotor_runner.config import (
+    DEFAULT_TOOL_CALLS_PER_MINUTE,
     EXIT_REFUSED,
     HEARTBEAT_INTERVAL_S,
     MAX_MESSAGE_BYTES,
@@ -29,6 +30,7 @@ from rotor_runner.config import (
     TOKEN_REFRESH_BEFORE_S,
     TOKEN_WAIT_S,
 )
+from rotor_runner.limits import ToolRate
 from rotor_runner.mcp import Binding, McpGateway, ToolFailedError
 from rotor_runner.models import build_model
 from rotor_runner.pb.rotor.runner.v1 import runner_pb2 as pb
@@ -288,7 +290,12 @@ class Channel:
 
         ctx = RunContext(
             spec=spec,
-            tools=McpGateway(bindings=bindings, tokens=self.tokens, emit=self.emit),
+            tools=McpGateway(
+                bindings=bindings,
+                tokens=self.tokens,
+                emit=self.emit,
+                rate=ToolRate(int(spec.limits.get("toolCallsPerMinute") or DEFAULT_TOOL_CALLS_PER_MINUTE)),
+            ),
             emit=self.emit,
             model=model,
             code=CodeNodeRunner(),

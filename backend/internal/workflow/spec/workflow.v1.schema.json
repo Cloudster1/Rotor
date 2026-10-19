@@ -49,7 +49,25 @@
       "properties": {
         "maxSteps": { "type": "integer", "minimum": 1, "maximum": 500 },
         "timeout": { "$ref": "#/$defs/duration" },
-        "maxTokens": { "type": "integer", "minimum": 1, "maximum": 10000000 }
+        "maxTokens": { "type": "integer", "minimum": 1, "maximum": 10000000 },
+        "maxCost": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 100000,
+          "description": "The most the run's model calls may cost, in US dollars, at the prices an administrator set for the model."
+        },
+        "maxConcurrent": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "How many runs of this workflow may be starting or running at once; more wait, queued."
+        },
+        "toolCallsPerMinute": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600,
+          "description": "How many tool calls the run may make in any minute; 60 when unset."
+        }
       }
     },
     "triggers": {

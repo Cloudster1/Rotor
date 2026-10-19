@@ -110,6 +110,10 @@ type Limits struct {
 	MaxSteps  int    `json:"maxSteps"`
 	Timeout   string `json:"timeout"`
 	MaxTokens int    `json:"maxTokens,omitempty"`
+	// MaxCost is in US dollars, at the model's prices (#38); zero is no limit.
+	MaxCost            float64 `json:"maxCost,omitempty"`
+	MaxConcurrent      int     `json:"maxConcurrent,omitempty"`
+	ToolCallsPerMinute int     `json:"toolCallsPerMinute,omitempty"`
 }
 
 // TimeoutDuration is Timeout as a duration; the schema has checked its shape.

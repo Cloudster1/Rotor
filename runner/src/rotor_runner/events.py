@@ -21,5 +21,12 @@ def summary(value: Any, limit: int = SUMMARY_CHARS) -> str:
     return text if len(text) <= limit else text[: limit - 3] + "..."
 
 
+def top_node(metadata: dict[str, Any]) -> str:
+    """The workflow node a LangChain callback or stream chunk belongs to, past the agent's own inner nodes."""
+    namespace = str(metadata.get("langgraph_checkpoint_ns") or metadata.get("checkpoint_ns") or "")
+    top = namespace.split("|")[0].split(":")[0]
+    return top or str(metadata.get("langgraph_node", ""))
+
+
 async def discard(_type: str, _node: str, _payload: dict[str, Any]) -> None:
     """An EventSink for runs nobody watches, such as the self-check."""
