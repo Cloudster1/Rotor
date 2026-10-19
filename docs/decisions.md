@@ -3,6 +3,30 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-19: Approvals for M5 (#30)
+
+- **Approvers are set per approval node, and a group decides alone.** Each
+  step names who should judge it: a write to a shared tool may need a
+  reviewing group, a personal summary only its starter. With a group named,
+  the starter decides only as one of its members, so a person cannot wave
+  their own run's write past the people asked to review it. Administrators
+  and workflow owners see approvals but do not decide them.
+- **An approver lends judgement, never access.** The run goes on with the
+  tokens of the person who started it. A group approver sees the run they
+  decide on, but cannot cancel it, since rejecting is how they stop it.
+- **The runner computes the preview.** Only the runner holds the run's
+  state; the control plane cannot read checkpoints it keeps sealed. The
+  control plane still takes the approver group, the form and the expiry
+  from the pinned spec, never from what the sandbox sends.
+- **A run resumes by interrupt id.** A plain resume value answers whatever
+  interrupt comes next, so a sandbox replaced after an approval would have
+  answered the following approval with the earlier decision. Keyed by the
+  interrupt's id, a decision answers only the step it was taken for.
+- **Write confirmation waits for token exchange (#32).** Holding a write
+  back from a sandbox needs a token that cannot write; until the tools
+  issue narrower tokens without narrowing the person's grant
+  (Cloudster1/Exciter#235), the policy is agreed and not built.
+
 ## 2026-10-18: Sandbox egress for M4 (#27)
 
 - **Cilium for hostnames, NetworkPolicy beneath it.** The tools and the

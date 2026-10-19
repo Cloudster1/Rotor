@@ -13,6 +13,9 @@
   ],
   "tags": [
     {
+      "name": "approvals"
+    },
+    {
       "name": "auth"
     },
     {
@@ -35,6 +38,282 @@
     }
   ],
   "paths": {
+    "/approvals": {
+      "get": {
+        "operationId": "listApprovals",
+        "summary": "Approvals you may see: those you may decide, and those of runs you may see; newest first.",
+        "tags": [
+          "approvals"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "pending (the default), decided or all.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "waitingOnMe",
+            "in": "query",
+            "description": "true lists only the pending approvals you may decide.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approvals": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ApprovalSummary"
+                      }
+                    }
+                  },
+                  "required": [
+                    "approvals"
+                  ]
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/approvals/count": {
+      "get": {
+        "operationId": "countApprovals",
+        "summary": "How many approvals wait for you to decide them, for the badge.",
+        "tags": [
+          "approvals"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalCount"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/approvals/{approvalID}": {
+      "get": {
+        "operationId": "getApproval",
+        "summary": "One approval, with what the run is about to write and the fields an approver may change.",
+        "tags": [
+          "approvals"
+        ],
+        "parameters": [
+          {
+            "name": "approvalID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/approvals/{approvalID}/decision": {
+      "post": {
+        "operationId": "decideApproval",
+        "summary": "Approve or reject, with a comment and, when approving, changed values.",
+        "description": "Refused with 403 not_approver when you may see the approval but not decide it, 409 approval_decided once it is decided or expired, and 422 with a field per value that does not fit the form.",
+        "tags": [
+          "approvals"
+        ],
+        "parameters": [
+          {
+            "name": "approvalID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/logout": {
       "post": {
         "operationId": "logout",
@@ -2285,6 +2564,246 @@
           "baseURL"
         ]
       },
+      "ApprovalCount": {
+        "type": "object",
+        "properties": {
+          "waitingOnMe": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "waitingOnMe"
+        ]
+      },
+      "ApprovalDecided": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "by": {
+            "$ref": "#/components/schemas/PersonRef"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "reject"
+            ]
+          },
+          "values": {
+            "description": "A JSON value."
+          }
+        },
+        "required": [
+          "decision",
+          "by",
+          "comment",
+          "values",
+          "at"
+        ]
+      },
+      "ApprovalForm": {
+        "type": "object",
+        "properties": {
+          "schema": {
+            "description": "A JSON value."
+          },
+          "values": {
+            "description": "A JSON value."
+          }
+        },
+        "required": [
+          "schema",
+          "values"
+        ]
+      },
+      "ApprovalResponse": {
+        "type": "object",
+        "properties": {
+          "approvers": {
+            "$ref": "#/components/schemas/Approvers"
+          },
+          "canDecide": {
+            "type": "boolean"
+          },
+          "decidedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "decision": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApprovalDecided"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "form": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApprovalForm"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "node": {
+            "type": "string"
+          },
+          "preview": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PreviewWrite"
+            }
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "run": {
+            "$ref": "#/components/schemas/ApprovalRun"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected",
+              "expired",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "run",
+          "node",
+          "message",
+          "status",
+          "approvers",
+          "canDecide",
+          "requestedAt",
+          "expiresAt",
+          "decidedAt",
+          "preview",
+          "form",
+          "decision"
+        ]
+      },
+      "ApprovalRun": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "startedBy": {
+            "$ref": "#/components/schemas/PersonRef"
+          },
+          "workflow": {
+            "$ref": "#/components/schemas/PersonRef"
+          }
+        },
+        "required": [
+          "id",
+          "workflow",
+          "startedBy"
+        ]
+      },
+      "ApprovalSummary": {
+        "type": "object",
+        "properties": {
+          "approvers": {
+            "$ref": "#/components/schemas/Approvers"
+          },
+          "canDecide": {
+            "type": "boolean"
+          },
+          "decidedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "node": {
+            "type": "string"
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "run": {
+            "$ref": "#/components/schemas/ApprovalRun"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected",
+              "expired",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "run",
+          "node",
+          "message",
+          "status",
+          "approvers",
+          "canDecide",
+          "requestedAt",
+          "expiresAt",
+          "decidedAt"
+        ]
+      },
+      "Approvers": {
+        "type": "object",
+        "properties": {
+          "group": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "group"
+        ]
+      },
       "BindingRef": {
         "type": "object",
         "properties": {
@@ -2471,6 +2990,27 @@
           "id",
           "name",
           "baseURL"
+        ]
+      },
+      "DecisionRequest": {
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": "string"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "reject"
+            ]
+          },
+          "values": {
+            "description": "A JSON value."
+          }
+        },
+        "required": [
+          "decision"
         ]
       },
       "DiffHunk": {
@@ -2892,6 +3432,38 @@
         "required": [
           "id",
           "name"
+        ]
+      },
+      "PreviewWrite": {
+        "type": "object",
+        "properties": {
+          "arguments": {
+            "description": "A JSON value."
+          },
+          "binding": {
+            "type": "string"
+          },
+          "call": {
+            "type": "string"
+          },
+          "calls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "node": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "node",
+          "binding",
+          "tool",
+          "arguments"
         ]
       },
       "Problem": {
