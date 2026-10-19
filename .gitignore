@@ -21,6 +21,11 @@ node_modules/
 # What the last gate run left: timings as JSON and its summary
 /reports/
 
+# What a release leaves (#44): the packed chart and its digest, the notes release.sh writes, the release job's SBOMs
+/dist/
+release-notes-*.md
+/release/
+
 # Playwright
 /e2e/test-results/
 /e2e/playwright-report/

@@ -1,0 +1,286 @@
+# Releases a version (#44, docs/releasing.md): tags the merged release pull request, then builds, signs and pushes
+# the images and the chart from the tag, publishes the GitHub release and tells Dynamo; every step survives a re-run.
+name: Release
+
+on:
+  # A merged release/vX.Y.Z pull request. A tag pushed with the workflow's own token starts no workflow, so the jobs
+  # after the tag job run in this same run.
+  pull_request:
+    types: [closed]
+    branches: [main]
+  push:
+    tags: ["v*"]
+  # For a tag whose run failed or was deleted: gh workflow run release.yml -f tag=v1.2.3
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The tag to publish, for example v1.2.3
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  # ghcr takes only lower case names; values.yaml names the same repositories, which tests/test-release-workflow.sh
+  # holds it to.
+  IMAGE_PREFIX: ghcr.io/cloudster1/rotor
+  CHART_REPOSITORY: oci://ghcr.io/cloudster1/charts
+  DYNAMO_REPOSITORY: praetorianer777/Dynamo
+
+jobs:
+  tag:
+    if: >-
+      github.event_name == 'pull_request'
+      && github.event.pull_request.merged
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && startsWith(github.event.pull_request.head.ref, 'release/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Tag the merge commit
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          MERGE_COMMIT: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          scripts/release-tag.sh "$BRANCH" "$MERGE_COMMIT"
+
+  resolve:
+    needs: tag
+    # After the tag job for a merged release, and on its own for a tag push or a run by hand; any other closed pull
+    # request stops here.
+    if: >-
+      !cancelled() && needs.tag.result != 'failure'
+      && (github.event_name != 'pull_request' || needs.tag.result == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+      commit: ${{ steps.resolve.outputs.commit }}
+    steps:
+      - name: Name the tag
+        id: name
+        env:
+          REF: ${{ inputs.tag || github.event.pull_request.head.ref || github.ref_name }}
+        run: |
+          tag="${REF#release/}"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::$tag is no release tag; releases are tagged vX.Y.Z."
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: refs/tags/${{ steps.name.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Check the tag against the version files
+        id: resolve
+        env:
+          TAG: ${{ steps.name.outputs.tag }}
+        run: |
+          version="${TAG#v}"
+          scripts/version-files.sh check "$version"
+          stamped=$(scripts/build-stamp.sh version)
+          if [[ "$stamped" != "$version" ]]; then
+            echo "::error::The checkout of $TAG describes itself as $stamped, not $version."
+            exit 1
+          fi
+          {
+            echo "tag=$TAG"
+            echo "version=$version"
+            echo "commit=$(scripts/build-stamp.sh commit)"
+          } >> "$GITHUB_OUTPUT"
+
+  # The default condition would skip these whenever the tag job was skipped, as it is for a tag push, because it
+  # looks at every job upstream.
+  images:
+    needs: resolve
+    if: ${{ !cancelled() && needs.resolve.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+      # The job's identity is what signs, keyless: no key to keep, and the certificate names this workflow and tag.
+      id-token: write
+    strategy:
+      fail-fast: false
+      # Every image the chart runs at its appVersion; the Go services all run the backend image, the sandboxes the
+      # runner. amd64 only, as gVisor's nodes are.
+      matrix:
+        include:
+          - image: backend
+            dockerfile: deploy/Dockerfile.backend
+          - image: web
+            dockerfile: deploy/Dockerfile.web
+          - image: runner
+            dockerfile: deploy/Dockerfile.runner
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        id: build
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            VERSION=${{ needs.resolve.outputs.version }}
+            COMMIT=${{ needs.resolve.outputs.commit }}
+          tags: |
+            ${{ env.IMAGE_PREFIX }}-${{ matrix.image }}:${{ needs.resolve.outputs.version }}
+            ${{ env.IMAGE_PREFIX }}-${{ matrix.image }}:${{ needs.resolve.outputs.commit }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.resolve.outputs.version }}
+            org.opencontainers.image.revision=${{ needs.resolve.outputs.commit }}
+            org.opencontainers.image.licenses=Apache-2.0
+
+      # The same targets that sign in the kind test (#42), here keyless; verify checks what a cluster will check.
+      - name: Sign the image and attest its SBOM
+        env:
+          IMAGE: ${{ env.IMAGE_PREFIX }}-${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          make sbom sign attest verify IMAGES="$IMAGE" COSIGN_KEYLESS=1 SBOM_DIR=release
+          echo "$IMAGE" > "release/${{ matrix.image }}.digest"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: image-${{ matrix.image }}
+          path: release/
+          if-no-files-found: error
+
+  chart:
+    needs: [resolve, images]
+    if: ${{ !cancelled() && needs.images.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      REGISTRY_USER: ${{ github.actor }}
+      REGISTRY_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+
+      - name: Package the chart
+        run: make chart-package
+
+      - name: Push the chart
+        run: make chart-push
+
+      - name: Sign the chart
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          chart="${CHART_REPOSITORY#oci://}/rotor@$(cat "dist/rotor-$VERSION.digest")"
+          make sign IMAGES="$chart" COSIGN_KEYLESS=1
+          echo "$chart" > "dist/chart.digest"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: chart
+          path: |
+            dist/rotor-${{ needs.resolve.outputs.version }}.tgz
+            dist/chart.digest
+          if-no-files-found: error
+
+  publish:
+    needs: [resolve, images, chart]
+    if: ${{ !cancelled() && needs.chart.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.resolve.outputs.tag }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: dist
+          merge-multiple: true
+
+      # A checkout of a tag can leave it lightweight, without its message, so the tag object is fetched as it is on
+      # the remote. The digests follow the notes: a tag can be moved, a digest cannot.
+      - name: Write the release notes
+        run: |
+          git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+          git tag -l --format='%(contents)' "$TAG" > notes.md
+          if [[ ! -s notes.md ]]; then
+            scripts/release-notes.sh "$VERSION" > notes.md || echo "Release $TAG" > notes.md
+          fi
+          {
+            echo
+            echo "### Images and chart"
+            echo
+            echo "Signed keyless by this workflow, each image with its SPDX SBOM attested (docs/releasing.md says how to check)."
+            echo
+            for image in backend web runner; do
+              echo "- \`$(cat "dist/$image.digest")\`"
+            done
+            echo "- chart \`$(cat dist/chart.digest)\`, version \`$VERSION\`"
+          } > digests.md
+          cat digests.md >> notes.md
+
+      - name: Publish the GitHub release
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TAG" --notes-file notes.md
+          else
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes-file notes.md
+          fi
+          gh release upload "$TAG" "dist/rotor-$VERSION.tgz" dist/*.spdx.json --clobber
+          {
+            echo "## Rotor $TAG"
+            cat digests.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Dynamo runs the tools together and releases the combinations that pass. Without the secret the release still
+      # stands; Dynamo then has to be told by hand.
+      - name: Tell Dynamo
+        env:
+          DYNAMO_TOKEN: ${{ secrets.DYNAMO_DISPATCH_TOKEN }}
+        run: |
+          if [[ -z "$DYNAMO_TOKEN" ]]; then
+            echo "::notice::DYNAMO_DISPATCH_TOKEN is not set, so Dynamo was not told about Rotor $VERSION. Add the secret to send it with every release."
+            exit 0
+          fi
+          jq -n --arg version "$VERSION" \
+            '{event_type: "tool-released", client_payload: {tool: "rotor", version: $version}}' \
+            | GH_TOKEN="$DYNAMO_TOKEN" gh api "repos/$DYNAMO_REPOSITORY/dispatches" --input -
+          echo "Dynamo was told about Rotor $VERSION."

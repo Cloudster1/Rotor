@@ -24,6 +24,31 @@ tell whether the reason still holds.
   turns an unrelated pull request red; the nightly's main leg says what will
   break before the sibling tags it.
 
+## 2026-10-19: Releases for M9 (#44)
+
+- **Exciter's flow, as the suite releases.** `release.sh` opens a pull
+  request, the merge commit is the tag, and the workflow publishes from the
+  tag, so a release is reviewed like any change and Dynamo hears of it the
+  same way from every tool (`tool-released`).
+- **Keyless signing with the workflow's identity.** The release signs every
+  image, its SBOM and the chart with a short-lived certificate for
+  `release.yml` at the release's tag, recorded in sigstore's public
+  transparency log. No key has to be kept, rotated or leaked, and a
+  signature names the workflow and tag that made it; the images are public
+  anyway. Images built elsewhere keep signing with a key and no public log
+  (#42).
+- **Signatures stay in the format policy-controller reads**, tags beside the
+  image rather than cosign 3's new bundles, so the chart's admission checks
+  a released runner image without a key: keyless is its default, a
+  `publicKey` replaces it for images an operator signs.
+- **The chart is the tagged source.** Digests exist only once the images are
+  pushed, so the published chart keeps empty digests and runs the release's
+  tags; the release notes list every digest for operators who pin them.
+- **amd64 only**, like the siblings, since gVisor's nodes are what runs the
+  sandboxes; another platform waits for somebody who needs it.
+- **Actions pinned to commits** in the one workflow that holds write and
+  signing tokens, ahead of Renovate pinning the rest.
+
 ## 2026-10-19: A run's writes checked as it starts (#90)
 
 - **Every start reads the tools afresh.** Saving checks a workflow against
@@ -131,7 +156,7 @@ tell whether the reason still holds.
   workflow (#44) calls the same targets, so nothing is published before
   releases are cut. Locally a key pair signs and nothing goes to a public
   transparency log, since a private registry's images have no place there;
-  the release can sign keyless with GitHub's identity instead.
+  the release signs keyless with GitHub's identity instead (#44, above).
 - **The SBOM is an attestation, not a file beside the image.** Signed with
   the same key and stored with the image, it travels to every registry the
   image is copied to, and admission can require it.

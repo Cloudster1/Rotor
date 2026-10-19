@@ -25,6 +25,8 @@ make help        # every target
 [`CONTRIBUTING.md`](CONTRIBUTING.md) explains how to work on Rotor and
 [`SECURITY.md`](SECURITY.md) how to report a vulnerability and which
 development credentials the stack ships with.
+[`docs/deployment.md`](docs/deployment.md) installs a release with Helm, and
+[`docs/releasing.md`](docs/releasing.md) says how one is cut.
 
 ## License
 
