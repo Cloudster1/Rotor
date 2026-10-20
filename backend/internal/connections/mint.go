@@ -59,25 +59,19 @@ func (s *Service) Mint(ctx context.Context, req MintRequest) (Token, error) {
 	if status == StatusReconnect {
 		return Token{}, ErrReconnect
 	}
-	asked := req.Scopes
-	if len(asked) == 0 {
-		asked = consented
-	}
-	var missing []string
-	for _, scope := range asked {
-		if !covers(consented, scope) {
-			missing = append(missing, scope)
-		}
-	}
-	if len(missing) > 0 {
-		return Token{}, &ScopeError{Missing: missing}
-	}
 	tool, err := s.tools.Lookup(ctx, req.ToolID)
 	if err != nil {
 		return Token{}, err
 	}
 	if tool.Status == tools.StatusNeedsRegistration {
 		return Token{}, ErrNeedsRegistration
+	}
+	asked := req.Scopes
+	if len(asked) == 0 {
+		asked = consented
+	}
+	if missing := tool.Profile().Uncovered(consented, asked); len(missing) > 0 {
+		return Token{}, &ScopeError{Missing: missing}
 	}
 	client, err := s.tools.Client(ctx, req.ToolID)
 	if err != nil {
@@ -145,6 +139,27 @@ func (s *Service) mintOnce(ctx context.Context, req MintRequest, tool tools.Tool
 		if fields := strings.Fields(granted.Scope); len(fields) > 0 {
 			carried = fields
 		}
+		if tool.OffersExchange() {
+			// The grant's own token stays here: a refresh would replace it under another run, and revoking it ends the grant.
+			wanted := tool.Profile().WithImplied(asked)
+			exchanged, err := s.exchangeToken(ctx, tool, client, granted.Access, wanted)
+			var refused *oauthError
+			switch {
+			case errors.As(err, &refused) && refused.Code == codeInvalidScope:
+				outcome = &ScopeError{Missing: wanted}
+				return nil
+			case errors.As(err, &refused) && refused.Code == codeUnauthorizedClient:
+				outcome = ErrNeedsRegistration
+				_, err := tx.Exec(ctx, `UPDATE tool SET status = $2 WHERE id = $1`, tool.ID, tools.StatusNeedsRegistration)
+				return err
+			case err != nil:
+				return err
+			}
+			granted.Access, granted.Expiry, carried, asked = exchanged.Access, exchanged.Expiry, wanted, wanted
+			if fields := strings.Fields(exchanged.Scope); len(fields) > 0 {
+				carried = fields
+			}
+		}
 		token = Token{Value: granted.Access, ExpiresAt: granted.Expiry, Scopes: carried, NarrowedAtTool: sameScopes(asked, carried)}
 		if _, err := tx.Exec(ctx, `UPDATE connection SET last_used_at = now(), last_refreshed_at = now() WHERE user_id = $1 AND tool_id = $2`,
 			req.UserID, req.ToolID); err != nil {
@@ -161,24 +176,6 @@ func (s *Service) mintOnce(ctx context.Context, req MintRequest, tool tools.Tool
 		return Token{}, outcome
 	}
 	return token, nil
-}
-
-// readSuffix marks the reading half of a scope: consenting to mcp consents to mcp:read, as at Exciter.
-const readSuffix = ":read"
-
-// Covers says whether the consent includes every scope asked for, as minting will check it.
-func Covers(consented []string, asked []string) bool {
-	for _, scope := range asked {
-		if !covers(consented, scope) {
-			return false
-		}
-	}
-	return true
-}
-
-// covers says whether the consent includes scope, itself or as the reading half of a broader scope.
-func covers(consented []string, scope string) bool {
-	return slices.Contains(consented, scope) || (strings.HasSuffix(scope, readSuffix) && slices.Contains(consented, strings.TrimSuffix(scope, readSuffix)))
 }
 
 // sameScopes says whether the token carries exactly what the run asked for, so the runner has nothing to narrow.

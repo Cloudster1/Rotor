@@ -48,6 +48,17 @@ tools:
 Give each binding the least it needs. An agent with a read binding cannot
 write, however its prompt or the content it reads is worded.
 
+Each tool names its scopes its own way:
+
+| Tool | Reading | Writing |
+|---|---|---|
+| Exciter | `mcp:read` | `mcp` |
+| Armature | `read` | `issue.write`, `issue.transition`, `comment.write`; `read` goes along with each |
+
+At Armature a run's token carries only what its binding asks for: a read
+binding without scopes asks for `read`, and the token cannot write even where
+the person could.
+
 ### Nodes
 
 | Type | What it does | Fields |

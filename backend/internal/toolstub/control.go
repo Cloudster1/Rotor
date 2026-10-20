@@ -26,6 +26,7 @@ func (s *Stub) Control() http.Handler {
 	r.Delete("/control/tenants/{tenant}/clients", s.controlled(s.handleForgetClients))
 	r.Put("/control/tenants/{tenant}/writes", s.controlled(s.handleSetWrites))
 	r.Put("/control/tenants/{tenant}/capabilities", s.controlled(s.handleSetCapabilities))
+	r.Post("/control/tenants/{tenant}/clients/approve", s.controlled(s.handleApproveClients))
 	r.Delete("/control/tenants/{tenant}", s.controlled(s.handleForgetTenant))
 	r.Get("/control/langsmith", s.handleLangSmithCalls)
 	r.Delete("/control/langsmith", s.handleForgetLangSmith)

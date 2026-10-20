@@ -7770,6 +7770,9 @@
           "issuer": {
             "type": "string"
           },
+          "mcpURL": {
+            "type": "string"
+          },
           "missing": {
             "type": "array",
             "items": {
@@ -7799,7 +7802,8 @@
             "type": "string",
             "enum": [
               "ready",
-              "needs_registration"
+              "needs_registration",
+              "awaiting_approval"
             ]
           }
         },
@@ -7808,6 +7812,7 @@
           "name",
           "baseURL",
           "resource",
+          "mcpURL",
           "issuer",
           "capabilities",
           "missing",

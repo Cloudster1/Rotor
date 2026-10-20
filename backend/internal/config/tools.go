@@ -14,6 +14,9 @@ const (
 	StateBytes = 32
 	// ConnectionLoginTTL is how long a person may take at a tool's consent page before the attempt is forgotten.
 	ConnectionLoginTTL = 10 * time.Minute
+	// ExchangedTokenLifetime is how long a run's token lives where it is exchanged from the grant's (#45); the
+	// runner asks for another before it ends.
+	ExchangedTokenLifetime = 15 * time.Minute
 	// ConnectionCallbackPath is where a tool returns the browser after consent, under the web client's origin.
 	ConnectionCallbackPath = "/api/v1/connections/callback"
 )

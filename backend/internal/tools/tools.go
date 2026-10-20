@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/tools/profiles"
 	"github.com/cloudster1/rotor/backend/internal/vault"
 )
 
@@ -49,16 +50,20 @@ func title(name string) string {
 const (
 	StatusReady             = "ready"
 	StatusNeedsRegistration = "needs_registration"
-	RegistrationDynamic     = "dynamic"
-	RegistrationManual      = "manual"
+	// StatusAwaitingApproval is a client the tool holds pending until its administrator allows Rotor (#45).
+	StatusAwaitingApproval = "awaiting_approval"
+	RegistrationDynamic    = "dynamic"
+	RegistrationManual     = "manual"
 )
 
 // Tool is a tool Rotor knows.
 type Tool struct {
-	ID                    uuid.UUID
-	Name                  string
-	BaseURL               string
-	Resource              string
+	ID       uuid.UUID
+	Name     string
+	BaseURL  string
+	Resource string
+	// MCPURL is where Rotor calls MCP: the resource itself at Exciter, under it at Armature.
+	MCPURL                string
 	Issuer                string
 	AuthorizationEndpoint string
 	TokenEndpoint         string
@@ -66,18 +71,20 @@ type Tool struct {
 	RegistrationEndpoint  string
 	ScopesSupported       []string
 	Capabilities          []string
-	ClientID              string
-	ClientAuthMethod      string
-	Registration          string
-	Status                string
-	AddedAt               time.Time
+	// GrantTypes are what the tool's authorization server offers (RFC 8414).
+	GrantTypes       []string
+	ClientID         string
+	ClientAuthMethod string
+	Registration     string
+	Status           string
+	AddedAt          time.Time
 }
 
 // LinkHosts are the hosts a person reaches the tool at, from its address and its MCP resource: the only ones a run's
 // agent may write links to (#40).
 func (t Tool) LinkHosts() []string {
 	var out []string
-	for _, address := range []string{t.BaseURL, t.Resource} {
+	for _, address := range []string{t.BaseURL, t.MCPURL} {
 		u, err := url.Parse(address)
 		if err != nil || u.Hostname() == "" {
 			continue
@@ -88,6 +95,12 @@ func (t Tool) LinkHosts() []string {
 	}
 	return out
 }
+
+// Profile is how the tool names its scopes and hands out tokens, by the product it is.
+func (t Tool) Profile() profiles.Profile { return profiles.For(t.Name) }
+
+// OffersExchange says whether a run's token is minted by token exchange (RFC 8693) rather than handed out from a refresh.
+func (t Tool) OffersExchange() bool { return slices.Contains(t.GrantTypes, GrantTokenExchange) }
 
 // Secrets is what the registry keeps in OpenBao; *vault.Client is the real one.
 type Secrets interface {
@@ -121,14 +134,14 @@ func NewService(cluster *db.Cluster, secrets Secrets, client *http.Client, redir
 	return &Service{db: cluster, vault: secrets, http: client, redirectURL: redirectURL, allowHTTP: allowHTTP}
 }
 
-const toolColumns = `id, name, base_url, resource, issuer, authorization_endpoint, token_endpoint,
-	COALESCE(revocation_endpoint, ''), COALESCE(registration_endpoint, ''), scopes_supported, capabilities,
+const toolColumns = `id, name, base_url, resource, mcp_url, issuer, authorization_endpoint, token_endpoint,
+	COALESCE(revocation_endpoint, ''), COALESCE(registration_endpoint, ''), scopes_supported, capabilities, grant_types,
 	client_id, client_auth_method, registration, status, created_at`
 
 func scanTool(row pgx.Row) (Tool, error) {
 	var t Tool
-	err := row.Scan(&t.ID, &t.Name, &t.BaseURL, &t.Resource, &t.Issuer, &t.AuthorizationEndpoint, &t.TokenEndpoint,
-		&t.RevocationEndpoint, &t.RegistrationEndpoint, &t.ScopesSupported, &t.Capabilities,
+	err := row.Scan(&t.ID, &t.Name, &t.BaseURL, &t.Resource, &t.MCPURL, &t.Issuer, &t.AuthorizationEndpoint, &t.TokenEndpoint,
+		&t.RevocationEndpoint, &t.RegistrationEndpoint, &t.ScopesSupported, &t.Capabilities, &t.GrantTypes,
 		&t.ClientID, &t.ClientAuthMethod, &t.Registration, &t.Status, &t.AddedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return t, ErrNotFound

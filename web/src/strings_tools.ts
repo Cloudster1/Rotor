@@ -14,4 +14,6 @@ export const capabilityStrings = {
   checking: "Checking...",
   checked: (tool: string) => `${tool} is read again.`,
   outdated: "Needs updating",
+  awaitingStatus: "Waiting to be allowed",
+  awaiting: (tool: string) => `${tool} holds Rotor until one of its administrators allows it, under Settings, Connected apps there, or by connecting first.`,
 } as const;

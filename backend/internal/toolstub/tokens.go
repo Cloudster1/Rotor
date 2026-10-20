@@ -126,7 +126,11 @@ func (s *Stub) handleConsent(c *call) {
 		}
 	}
 	readOnly := (req.readOnly || c.r.PostForm.Get(FieldReadOnly) != "") && !req.evid
-	g := &grant{id: secret(""), clientID: req.client.id, username: username, readOnly: readOnly, evidence: req.evid}
+	named := req.scopes
+	if c.t.armature() && readOnly {
+		named = []string{ArmatureRead}
+	}
+	g := &grant{id: secret(""), clientID: req.client.id, username: username, readOnly: readOnly, evidence: req.evid, scopes: named}
 	c.t.grants[g.id] = g
 	plain := secret(codePrefix)
 	c.t.codes[string(digest(plain))] = &code{grant: g, redirect: req.redirect, challenge: req.challenge, expires: s.now().Add(CodeTTL)}
@@ -201,6 +205,14 @@ func (s *Stub) handleToken(c *call) {
 	}
 	f := c.r.PostForm
 	kind := f.Get("grant_type")
+	if cl.pending {
+		refuse(c.w, http.StatusUnauthorized, errInvalidClient, cl.name+" is not connected to Armature yet. An Armature administrator connects it first.", basic)
+		return
+	}
+	if kind == grantExchange && c.t.armature() {
+		s.handleExchange(c, cl, basic)
+		return
+	}
 	switch {
 	case kind != "authorization_code" && kind != "refresh_token":
 		refuse(c.w, http.StatusBadRequest, errUnsupportedGrantType, "The grants offered are authorization_code and refresh_token.", basic)
@@ -208,7 +220,7 @@ func (s *Stub) handleToken(c *call) {
 	case !slices.Contains(cl.grantTypes, kind):
 		refuse(c.w, http.StatusBadRequest, errUnauthorizedClient, "The client did not register for "+kind+".", basic)
 		return
-	case f.Get("resource") != "" && strings.TrimRight(f.Get("resource"), "/") != c.resource():
+	case f.Get("resource") != "" && !c.resourceAccepted(f.Get("resource")):
 		refuse(c.w, http.StatusBadRequest, errInvalidTarget, "The one resource is the MCP endpoint, "+c.resource()+".", basic)
 		return
 	}
@@ -230,12 +242,17 @@ func (s *Stub) handleToken(c *call) {
 		refuse(c.w, http.StatusBadRequest, code, why, basic)
 		return
 	}
+	scope := scopeName(readOnly, g.evidence)
+	if c.t.armature() {
+		c.t.replaceAccess(g)
+		scope = strings.Join(g.scopes, " ")
+	}
 	access, refresh := secret(accessPrefix), secret(refreshPrefix)
-	c.t.tokens[string(digest(access))] = &token{grant: g, readOnly: readOnly, expires: s.now().Add(c.t.accessTTL())}
-	c.t.tokens[string(digest(refresh))] = &token{grant: g, refresh: true, readOnly: readOnly, expires: s.now().Add(RefreshTTL)}
+	c.t.tokens[string(digest(access))] = &token{grant: g, readOnly: readOnly, scopes: g.scopes, expires: s.now().Add(c.t.accessTTL())}
+	c.t.tokens[string(digest(refresh))] = &token{grant: g, refresh: true, readOnly: readOnly, scopes: g.scopes, expires: s.now().Add(RefreshTTL)}
 	c.w.Header().Set("Pragma", "no-cache")
 	writeJSON(c.w, http.StatusOK, map[string]any{"access_token": access, "token_type": "Bearer",
-		"expires_in": int(c.t.accessTTL().Seconds()), "refresh_token": refresh, "scope": scopeName(readOnly, g.evidence)})
+		"expires_in": int(c.t.accessTTL().Seconds()), "refresh_token": refresh, "scope": scope})
 }
 
 func (s *Stub) redeemCode(t *tenant, cl *client, f url.Values) (*grant, bool, string) {
@@ -300,7 +317,8 @@ func (s *Stub) handleRevoke(c *call) {
 	}
 	if tk, ok := c.t.tokens[string(digest(plain))]; ok && tk.grant.clientID == cl.id {
 		c.t.stats.Revocations++
-		if tk.refresh {
+		// At Armature a grant's access token ends the grant too; an exchanged one ends only itself.
+		if tk.refresh || (c.t.armature() && !tk.exchanged) {
 			c.t.endGrant(tk.grant.id)
 		} else {
 			delete(c.t.tokens, string(digest(plain)))

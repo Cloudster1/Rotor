@@ -47,7 +47,7 @@ func toToolResponse(t tools.Tool) toolResponse {
 	for _, m := range t.Missing() {
 		missing = append(missing, missingCapability{Capability: m.Capability, Message: m.Message})
 	}
-	return toolResponse{ID: t.ID.String(), Name: t.Name, BaseURL: t.BaseURL, Resource: t.Resource, Issuer: t.Issuer,
+	return toolResponse{ID: t.ID.String(), Name: t.Name, BaseURL: t.BaseURL, Resource: t.Resource, MCPURL: t.MCPURL, Issuer: t.Issuer,
 		Capabilities: t.Capabilities, Missing: missing, ScopesSupported: t.ScopesSupported, Registration: toolRegistration(t.Registration),
 		Status: toolStatus(t.Status), AddedAt: t.AddedAt}
 }

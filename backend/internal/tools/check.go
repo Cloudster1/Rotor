@@ -26,7 +26,8 @@ func (s *Service) Check(ctx context.Context, id uuid.UUID) (Tool, error) {
 	case err != nil:
 		return Tool{}, err
 	default:
-		tool.Name, tool.Resource, tool.Issuer, tool.Capabilities = d.Name, d.Resource, d.Issuer, d.Capabilities
+		tool.Name, tool.Resource, tool.MCPURL, tool.Issuer, tool.Capabilities = d.Name, d.Resource, d.MCPURL, d.Issuer, d.Capabilities
+		tool.GrantTypes = d.GrantTypes
 		tool.AuthorizationEndpoint, tool.TokenEndpoint = d.AuthorizationEndpoint, d.TokenEndpoint
 		tool.RevocationEndpoint, tool.RegistrationEndpoint, tool.ScopesSupported = d.RevocationEndpoint, d.RegistrationEndpoint, d.ScopesSupported
 	}
@@ -34,10 +35,11 @@ func (s *Service) Check(ctx context.Context, id uuid.UUID) (Tool, error) {
 	err = s.db.Write(ctx, func(ctx context.Context, tx db.DBTX) error {
 		tag, err := tx.Exec(ctx, `
 			UPDATE tool SET name = $2, resource = $3, issuer = $4, authorization_endpoint = $5, token_endpoint = $6,
-				revocation_endpoint = NULLIF($7, ''), registration_endpoint = NULLIF($8, ''), scopes_supported = $9, capabilities = $10
+				revocation_endpoint = NULLIF($7, ''), registration_endpoint = NULLIF($8, ''), scopes_supported = $9, capabilities = $10,
+				mcp_url = $11, grant_types = $12
 			WHERE id = $1`,
 			tool.ID, tool.Name, tool.Resource, tool.Issuer, tool.AuthorizationEndpoint, tool.TokenEndpoint,
-			tool.RevocationEndpoint, tool.RegistrationEndpoint, tool.ScopesSupported, tool.Capabilities)
+			tool.RevocationEndpoint, tool.RegistrationEndpoint, tool.ScopesSupported, tool.Capabilities, tool.MCPURL, tool.GrantTypes)
 		if err != nil {
 			return err
 		}

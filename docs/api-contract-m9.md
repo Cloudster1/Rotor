@@ -1,4 +1,4 @@
-# API contract for M9: Rotor in the suite (#43)
+# API contract for M9: Rotor in the suite (#43, #45)
 
 Rotor says what it offers and reads what each tool offers, by the capability
 names of [`docs/integration.md`](integration.md):
@@ -6,8 +6,8 @@ names of [`docs/integration.md`](integration.md):
 - a tool answers what Rotor needs and the tool does not list, under `missing`
 - an administrator asks Rotor to read a tool again, for a tool that was updated
 
-No migration: the capabilities a tool listed are kept in `tool.capabilities`
-since M1.
+#43 needs no migration: the capabilities a tool listed are kept in
+`tool.capabilities` since M1. #45 adds migration 01020 for Armature.
 
 ## `GET /meta`
 
@@ -52,3 +52,26 @@ person's connection stays.
 
 The audit log records `tool.checked` with the tool's name, its capabilities and
 what is missing.
+
+## Armature (#45)
+
+Migration 01020 adds `tool.mcp_url`, filled from `resource` for the tools kept
+so far, `tool.grant_types` and the status `awaiting_approval`.
+
+- **Every tool answer** carries `mcpURL`, where workflows call MCP, beside
+  `resource`, what tokens are asked for: the same at Exciter, the API holding
+  MCP (`{base}/api/v1`) at Armature.
+- **`status: awaiting_approval`**: a client the tool holds pending until its
+  administrator allows Rotor. People may connect, and the first connection
+  makes it `ready`; the audit log records `tool.allowed`.
+- **Adding a tool** finds the resource metadata where the MCP endpoint's 401
+  points, else at the well-known path, else at the host's root. A tool whose
+  grant holds one access token (Armature) and which offers no token exchange is
+  refused (422 `tool_refused`).
+- **Run tokens.** Where the authorization server lists
+  `urn:ietf:params:oauth:grant-type:token-exchange`, Rotor registers for it,
+  and each run's token is exchanged from the grant's for the binding's scopes,
+  with the tool's own required scopes beside them, for
+  `config.ExchangedTokenLifetime` (15 minutes). An exchange refused with
+  `invalid_scope` is the run's scopes not consented; `unauthorized_client` marks
+  the tool for registering again.

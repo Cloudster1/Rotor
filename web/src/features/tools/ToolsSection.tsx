@@ -64,6 +64,7 @@ function ToolRow({ tool, admin }: { tool: Tool; admin: boolean }) {
         </span>
       </div>
       <p className="break-all text-sm text-ink-muted">{tool.baseURL}</p>
+      {tool.status === "awaiting_approval" && <p className="mt-1 text-sm text-ink-muted">{s.capabilities.awaiting(name)}</p>}
       <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs">
         <dt className="text-ink-muted">{s.tools.capabilities}</dt>
         <dd className="break-words text-ink">{tool.capabilities.join(", ")}</dd>
@@ -84,7 +85,7 @@ function ToolRow({ tool, admin }: { tool: Tool; admin: boolean }) {
       </dl>
       {admin && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {!ready && (
+          {tool.status === "needs_registration" && (
             <button type="button" className={secondary} disabled={again.isPending} onClick={() => again.mutate()} data-action="register-again">
               {s.tools.registerAgain}
             </button>

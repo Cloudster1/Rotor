@@ -120,13 +120,18 @@ func (s *Server) resolve(ctx context.Context, r *run) ([]*runnerpb.ToolBinding, 
 		if access == "" {
 			access = spec.AccessRead
 		}
-		mcpURL := tool.Resource
+		scopes := b.Scopes
+		if access == spec.AccessRead && len(scopes) == 0 && tool.OffersExchange() {
+			// An exchanged token carries only what is asked, so a reading binding asks for reading alone.
+			scopes = tool.Profile().ReadScopes
+		}
+		mcpURL := tool.MCPURL
 		if s.Reach != nil {
 			mcpURL = s.Reach(mcpURL)
 		}
 		out = append(out, &runnerpb.ToolBinding{Binding: name, ToolId: tool.ID.String(), McpUrl: mcpURL,
-			Scopes: b.Scopes, Access: access, AllowTools: b.AllowTools, LinkHosts: tool.LinkHosts()})
-		resolved[name] = binding{toolID: tool.ID, scopes: b.Scopes}
+			Scopes: scopes, Access: access, AllowTools: b.AllowTools, LinkHosts: tool.LinkHosts()})
+		resolved[name] = binding{toolID: tool.ID, scopes: scopes}
 	}
 	return out, resolved, nil
 }

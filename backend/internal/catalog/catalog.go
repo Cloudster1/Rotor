@@ -192,7 +192,7 @@ func (s *Service) call(ctx context.Context, tool tools.Tool, token, method strin
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tool.Resource, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tool.MCPURL, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}

@@ -68,6 +68,9 @@ func (s *Stub) callerOf(c *call) (*caller, bool) {
 	if !ok || tk.refresh || !s.now().Before(tk.expires) || tk.grant.evidence {
 		return nil, true
 	}
+	if c.t.armature() {
+		return &caller{username: tk.grant.username, readOnly: tk.readOnly, scopes: tk.scopes}, true
+	}
 	return &caller{username: tk.grant.username, readOnly: tk.readOnly, scopes: []string{scopeName(tk.readOnly, false)}}, true
 }
 
@@ -76,6 +79,9 @@ func (s *Stub) handleMCP(c *call) {
 	if who == nil {
 		if c.t.oauth() {
 			challenge := `Bearer resource_metadata="` + c.issuer + "/.well-known/oauth-protected-resource" + mcpPath + `", scope="mcp"`
+			if c.t.armature() {
+				challenge = `Bearer resource_metadata="` + c.issuer + `/.well-known/oauth-protected-resource"`
+			}
 			if sent {
 				challenge += `, error="invalid_token"`
 			}

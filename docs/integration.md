@@ -87,9 +87,14 @@ Checking again never registers again, so nobody's connection is lost.
 **Partner OAuth is read from the tool's metadata, not by name.** Connecting a
 person needs the tool's protected resource metadata (RFC 9728) naming an
 authorization server, whose metadata (RFC 8414) offers the authorization code
-flow with PKCE S256. A tool without them is refused when it is added, in a
-sentence that says which is missing. Token exchange (RFC 8693) is read the
-same way, from the server's `grant_types_supported`.
+flow with PKCE S256. Rotor finds the resource metadata as an MCP client does:
+where the MCP endpoint's 401 points (`resource_metadata`, on the tool's own
+origin), else at the well-known path with the endpoint's path, else at the
+host's root, and takes a resource that is the MCP endpoint or holds it. A tool
+without them is refused when it is added, in a sentence that says which is
+missing. Token exchange (RFC 8693) is read the same way, from the server's
+`grant_types_supported`: where it is offered, Rotor registers for it and
+every run's token is exchanged from the grant's.
 
 ### Exciter
 
@@ -98,8 +103,21 @@ server registers Rotor by RFC 7591. Everything Rotor does works with it.
 
 ### Armature
 
-Armature offers `webhooks@1` and partner OAuth (Armature#280), but not yet
-`mcp@1` (Armature#305), so Rotor cannot add it until then (#45).
+Armature offers `webhooks@1`, partner OAuth (Armature#280) and token
+exchange, and `mcp@1` once Armature#305 ships (#45).
+
+- **Allowing Rotor.** Rotor registers itself, and Armature holds the client
+  until one of its administrators allows it: on the consent page, by
+  connecting first, or under Settings, Connected apps. Until then the tool
+  reads `awaiting_approval`; the first connection makes it `ready`. A client
+  nobody allows within 24 hours is deleted, and the tool then needs
+  registering again.
+- **One token per grant.** A refresh replaces the grant's access token and
+  revoking it ends the grant, so each run's token is exchanged from it, with
+  the binding's scopes and `armature_expires_in`; revoking that ends only it.
+  Without the exchange Rotor refuses to add Armature.
+- **Scopes.** `read` with every other; `issue.write`, `issue.transition` and
+  `comment.write` write; Rotor never asks for `webhooks.partner`.
 
 ### Stator
 

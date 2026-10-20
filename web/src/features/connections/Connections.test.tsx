@@ -17,6 +17,7 @@ const EXCITER: Tool = {
   name: "exciter",
   baseURL: "https://exciter.test",
   resource: "https://exciter.test/api/v1/mcp",
+  mcpURL: "https://exciter.test/api/v1/mcp",
   issuer: "https://exciter.test",
   capabilities: ["mcp@1"],
   missing: [],
@@ -103,6 +104,14 @@ describe("the connections", () => {
     expect(within(stator).getByText(s.connections.status.outdated)).toBeInTheDocument();
     expect(within(stator).getByText(s.capabilities.lacks("Stator", "mcp@1"))).toBeInTheDocument();
     expect(within(stator).queryByRole("button", { name: s.connections.connect("Stator") })).not.toBeInTheDocument();
+  });
+
+  it("offer to connect a tool still waiting to allow Rotor, saying how it is allowed", async () => {
+    const armature: Tool = { ...STATOR, name: "armature", status: "awaiting_approval" };
+    await renderAt("/connections", { answers: { "/api/v1/tools": { tools: [armature] }, "/api/v1/connections": { connections: [] } } });
+    const row = await screen.findByRole("listitem", { name: "Armature" });
+    expect(within(row).getByText(s.capabilities.awaiting("Armature"))).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: s.connections.connect("Armature") })).toBeInTheDocument();
   });
 
   it("pass axe", async () => {

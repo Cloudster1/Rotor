@@ -89,7 +89,7 @@ func TestDiscoveryRefusesWhatIsMissingInASentence(t *testing.T) {
 		"no meta":                 {func(f *fakeTool) { f.meta = nil }, "does not answer /api/v1/meta"},
 		"no mcp":                  {func(f *fakeTool) { f.meta["capabilities"] = []any{"webhooks@2"} }, "does not offer mcp@1"},
 		"no resource metadata":    {func(f *fakeTool) { f.resource = nil }, "protected resource metadata"},
-		"another resource":        {func(f *fakeTool) { f.resource["resource"] = "https://elsewhere.test/api/v1/mcp" }, "describes its MCP endpoint"},
+		"another resource":        {func(f *fakeTool) { f.resource["resource"] = "https://elsewhere.test/api/v1/mcp" }, "does not hold its MCP endpoint"},
 		"no authorization server": {func(f *fakeTool) { f.resource["authorization_servers"] = []string{} }, "names no authorization server"},
 		"no server metadata":      {func(f *fakeTool) { f.server = nil }, "authorization server metadata"},
 		"another issuer":          {func(f *fakeTool) { f.server["issuer"] = "https://evil.test" }, "calls itself"},

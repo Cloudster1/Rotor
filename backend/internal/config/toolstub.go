@@ -11,6 +11,8 @@ const (
 	// ToolStubCodeTTL and ToolStubRequestTTL bound the redirect and the consent page.
 	ToolStubCodeTTL    = time.Minute
 	ToolStubRequestTTL = 10 * time.Minute
+	// ToolStubMaxExchangedTTL is the longest an Armature tenant's exchanged token lives, as at Armature (#45).
+	ToolStubMaxExchangedTTL = time.Hour
 	// ToolStubMaxTenants bounds what callers can make the stub remember, as tenants are made on first use.
 	ToolStubMaxTenants = 1000
 	// ToolStubMaxFormBytes bounds a token, revocation, registration or consent request.

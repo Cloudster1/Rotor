@@ -22,6 +22,9 @@ const (
 	codeInvalidGrant  = "invalid_grant"
 	codeInvalidClient = "invalid_client"
 	codeAccessDenied  = "access_denied"
+	codeInvalidScope  = "invalid_scope"
+	// codeUnauthorizedClient is a client not registered for the exchange, which registering again asks for.
+	codeUnauthorizedClient = "unauthorized_client"
 )
 
 // tokens is what a token endpoint answers; the access token is never stored.
@@ -51,7 +54,7 @@ func oauthConfig(tool tools.Tool, client vault.ToolClient, redirectURL string) *
 	return &oauth2.Config{
 		ClientID: client.ClientID, ClientSecret: client.ClientSecret, RedirectURL: redirectURL,
 		Endpoint: oauth2.Endpoint{AuthURL: tool.AuthorizationEndpoint, TokenURL: tool.TokenEndpoint, AuthStyle: style},
-		Scopes:   tools.RequestedScopes(tool.ScopesSupported),
+		Scopes:   tool.RequestedScopes(),
 	}
 }
 

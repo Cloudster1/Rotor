@@ -173,13 +173,24 @@ func (s *Service) keep(ctx context.Context, userID uuid.UUID, tool tools.Tool, c
 	scopes := strings.Fields(granted.Scope)
 	if len(scopes) == 0 {
 		// RFC 6749 section 5.1: a token answer without scope grants what was asked.
-		scopes = tools.RequestedScopes(tool.ScopesSupported)
+		scopes = tool.RequestedScopes()
 	}
 	return s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		if _, err := tx.Exec(ctx, `INSERT INTO connection (user_id, tool_id, scopes) VALUES ($1, $2, $3)
 			ON CONFLICT (user_id, tool_id) DO UPDATE SET scopes = EXCLUDED.scopes, status = 'connected', connected_at = now(),
 				last_refreshed_at = NULL`, userID, tool.ID, scopes); err != nil {
 			return err
+		}
+		// A tool that held Rotor's client pending has allowed it once somebody connected (#45).
+		allowed, err := tx.Exec(ctx, `UPDATE tool SET status = $2 WHERE id = $1 AND status = $3`, tool.ID, tools.StatusReady, tools.StatusAwaitingApproval)
+		if err != nil {
+			return err
+		}
+		if allowed.RowsAffected() > 0 {
+			if err := audit.Write(ctx, tx, audit.Entry{Action: audit.ActionToolAllowed, TargetType: "tool", TargetID: tool.ID.String(),
+				Actor: userID, Data: map[string]any{"tool": tool.Name}}); err != nil {
+				return err
+			}
 		}
 		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionConnectionGranted, TargetType: "tool", TargetID: tool.ID.String(),
 			Actor: userID, Data: map[string]any{"tool": tool.Name, "scopes": scopes}})

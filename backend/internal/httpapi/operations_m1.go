@@ -58,6 +58,8 @@ type toolStatus string
 const (
 	toolReady             toolStatus = "ready"
 	toolNeedsRegistration toolStatus = "needs_registration"
+	// toolAwaitingApproval is a client the tool holds until its administrator allows Rotor, as Armature does (#45).
+	toolAwaitingApproval toolStatus = "awaiting_approval"
 )
 
 // toolRegistration says how Rotor became the tool's client.
@@ -78,7 +80,7 @@ const (
 
 // m1Enums gives the builder the values each M1 string type takes.
 var m1Enums = map[reflect.Type][]string{
-	reflect.TypeOf(toolStatus("")):       {string(toolReady), string(toolNeedsRegistration)},
+	reflect.TypeOf(toolStatus("")):       {string(toolReady), string(toolNeedsRegistration), string(toolAwaitingApproval)},
 	reflect.TypeOf(toolRegistration("")): {string(registrationDynamic), string(registrationManual)},
 	reflect.TypeOf(connectionStatus("")): {string(connectionConnected), string(connectionReconnect)},
 }
@@ -89,8 +91,10 @@ type toolResponse struct {
 	// Name is the product the tool's /api/v1/meta names, such as exciter.
 	Name    string `json:"name"`
 	BaseURL string `json:"baseURL"`
-	// Resource is the MCP endpoint tokens are asked for (RFC 8707).
-	Resource     string   `json:"resource"`
+	// Resource is what tokens are asked for (RFC 8707): the MCP endpoint, or the API holding it.
+	Resource string `json:"resource"`
+	// MCPURL is where workflows call the tool's MCP server.
+	MCPURL       string   `json:"mcpURL"`
 	Issuer       string   `json:"issuer"`
 	Capabilities []string `json:"capabilities"`
 	// Missing is what Rotor needs that the tool does not offer; empty for a tool that offers it all.
