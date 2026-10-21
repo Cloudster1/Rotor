@@ -180,6 +180,9 @@ func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 func toAuditEntry(e audit.Record) auditEntry {
 	out := auditEntry{ID: e.ID.String(), Action: e.Action, TargetType: e.TargetType, TargetID: e.TargetID, Data: e.Data,
 		IP: e.IP, RequestID: e.RequestID, At: e.CreatedAt}
+	if e.Via != "" {
+		out.Via = &e.Via
+	}
 	if e.ActorID != nil {
 		out.Actor = &personRef{ID: e.ActorID.String(), Name: e.ActorName}
 	}

@@ -5,6 +5,7 @@ import { loginRoute } from "./login";
 import type { QueryClient } from "@tanstack/react-query";
 import { approvalRoute, approvalsRoute } from "./approvals";
 import { auditRoute } from "./audit";
+import { consentRoute } from "./consent";
 import { connectionsRoute, indexRoute, settingsRoute } from "./places";
 import { newWorkflowRoute, workflowRoute, workflowsRoute } from "./workflows";
 import { RouteError, rootRoute } from "./root";
@@ -28,6 +29,7 @@ const routeTree = rootRoute.addChildren([
     settingsRoute,
     auditRoute,
     usageRoute,
+    consentRoute,
   ]),
 ]);
 

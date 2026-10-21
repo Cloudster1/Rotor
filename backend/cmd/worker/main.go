@@ -21,6 +21,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/envelope"
 	"github.com/cloudster1/rotor/backend/internal/hooks"
 	"github.com/cloudster1/rotor/backend/internal/metrics"
+	"github.com/cloudster1/rotor/backend/internal/oauth"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/providers"
 	"github.com/cloudster1/rotor/backend/internal/retention"
@@ -137,9 +138,11 @@ func run() error {
 	firer.Fired = func(outcome string) { fired.Add(outcome, 1) }
 	// Retention (#41): a finished run's data is deleted once kept as long as the installation or its workflow says.
 	kept := retention.NewService(cluster, log)
+	// Assistants (#47): requests, codes and tokens that ran out go, and clients nobody holds.
+	swept := oauth.NewSweeper(cluster)
 	worker.Also = func(ctx context.Context) error {
 		_, purged := hookService.Purge(ctx)
-		return errors.Join(scheduler.Sweep(ctx), scheduler.Schedule(ctx), firer.Fire(ctx), purged, kept.Sweep(ctx))
+		return errors.Join(scheduler.Sweep(ctx), scheduler.Schedule(ctx), firer.Fire(ctx), purged, kept.Sweep(ctx), swept.Sweep(ctx))
 	}
 	build := version.Current()
 	log.Info("worker starting", "env", cfg.Env, "version", build.Version, "commit", build.Commit, "stack", cfg.Sandbox.Stack)

@@ -60,7 +60,10 @@ func (s *Server) sameSite(allowed []string) func(http.Handler) http.Handler {
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if safeMethod(r.Method) || !carriesCookie(r, s.CookieName) {
+			// MCP is held to the origin with a bearer too: a page of another site that reached a local Rotor by
+			// rebinding its name would otherwise call it with whatever token an assistant was given. The client
+			// endpoints take forms and never read the session.
+			if safeMethod(r.Method) || isClientEndpoint(r.URL.Path) || (!carriesCookie(r, s.CookieName) && r.URL.Path != mcpPath) {
 				next.ServeHTTP(w, r)
 				return
 			}

@@ -35,6 +35,8 @@ type Record struct {
 	IP         string          `json:"ip"`
 	RequestID  string          `json:"requestId"`
 	CreatedAt  time.Time       `json:"createdAt"`
+	// Via names the assistant the actor acted through, empty when they acted in the browser (#47).
+	Via string `json:"via"`
 }
 
 // Actor is somebody who acted, by id and name.
@@ -125,12 +127,13 @@ type Service struct {
 func NewService(cluster *db.Cluster) *Service { return &Service{db: cluster} }
 
 const selectRow = `SELECT a.id, a.action, a.target_type, COALESCE(a.target_id, ''), a.actor_user_id, COALESCE(u.name, ''),
-	COALESCE(a.data, '{}'::jsonb), COALESCE(host(a.ip), ''), COALESCE(a.request_id, ''), a.created_at
+	COALESCE(a.data, '{}'::jsonb), COALESCE(host(a.ip), ''), COALESCE(a.request_id, ''), a.created_at,
+	COALESCE(a.via_client, '')
 FROM audit_log a LEFT JOIN app_user u ON u.id = a.actor_user_id`
 
 func scanRow(row pgx.Row) (Record, error) {
 	var r Record
-	err := row.Scan(&r.ID, &r.Action, &r.TargetType, &r.TargetID, &r.ActorID, &r.ActorName, &r.Data, &r.IP, &r.RequestID, &r.CreatedAt)
+	err := row.Scan(&r.ID, &r.Action, &r.TargetType, &r.TargetID, &r.ActorID, &r.ActorName, &r.Data, &r.IP, &r.RequestID, &r.CreatedAt, &r.Via)
 	return r, err
 }
 
@@ -229,7 +232,7 @@ const (
 )
 
 // CSVHeader is the first line of a CSV export.
-var CSVHeader = []string{"time", "action", "actor_id", "actor", "target_type", "target_id", "ip", "request_id", "data"}
+var CSVHeader = []string{"time", "action", "actor_id", "actor", "target_type", "target_id", "ip", "request_id", "data", "via"}
 
 // Export writes the filtered log, newest first, as CSV or as a JSON array, and refuses more than
 // config.AuditMaxExport entries: a record cut short reads as complete.
@@ -264,7 +267,7 @@ func CSVLine(r Record) []string {
 		actor = r.ActorID.String()
 	}
 	return []string{r.CreatedAt.UTC().Format(time.RFC3339Nano), r.Action, actor, Cell(r.ActorName), Cell(r.TargetType),
-		Cell(r.TargetID), r.IP, Cell(r.RequestID), Cell(string(r.Data))}
+		Cell(r.TargetID), r.IP, Cell(r.RequestID), Cell(string(r.Data)), Cell(r.Via)}
 }
 
 // Cell keeps a spreadsheet from reading a value as a formula, as Exciter's and Armature's exports do.

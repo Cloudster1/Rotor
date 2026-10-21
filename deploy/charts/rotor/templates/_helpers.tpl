@@ -159,6 +159,9 @@ ROTOR_LOG_LEVEL: {{ .Values.logLevel | quote }}
 ROTOR_APP_URL: {{ include "rotor.appURL" . | quote }}
 ROTOR_HTTP_ADDR: {{ printf ":%d" (int .Values.api.port) | quote }}
 ROTOR_SECURE_COOKIES: {{ .Values.ingress.tls.enabled | quote }}
+{{- with .Values.api.trustedProxies }}
+ROTOR_TRUSTED_PROXIES: {{ join "," . | quote }}
+{{- end }}
 {{- with .Values.oidc.issuer }}
 ROTOR_OIDC_ISSUER: {{ . | quote }}
 ROTOR_OIDC_CLIENT_ID: {{ $.Values.oidc.clientId | quote }}

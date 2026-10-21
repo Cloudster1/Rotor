@@ -39,7 +39,7 @@ table's own policy.
 - **Filters,** on all three: `action` (one the log records, else 422), `actor` (a person's id), `targetType`, `target`, `from` and `to`. A day `YYYY-MM-DD` is the whole day in UTC; a time with its zone is that instant; `to` must come after `from`.
 - **Windows** are keyset pages over `(created_at, id)`, so entries arriving meanwhile neither repeat nor go missing. A cursor not written by the server is a 422.
 - **Exports:**
-  - CSV has the columns `time, action, actor_id, actor, target_type, target_id, ip, request_id, data`; a cell starting with `= + - @`, a tab or a carriage return is prefixed with `'`, so a spreadsheet never runs it.
+  - CSV has the columns `time, action, actor_id, actor, target_type, target_id, ip, request_id, data, via` (`via` since #47: the assistant an entry was made through); a cell starting with `= + - @`, a tab or a carriage return is prefixed with `'`, so a spreadsheet never runs it.
   - JSON is an array of the entries as `GET /audit` answers them.
   - An export holds at most 50000 entries; a filter matching more is refused with 422 `export_too_large` rather than cut short.
   - The export is recorded as `audit.exported` before the file leaves; if that fails, nothing leaves.

@@ -36,6 +36,7 @@ export const audit = {
   newer: "Newer",
   older: "Older",
   fromAddress: (ip: string) => `from ${ip}`,
+  through: (client: string) => `through ${client}`,
   actions: {
     "user.signed_in": "Signed in",
     "user.signed_out": "Signed out",
@@ -70,5 +71,8 @@ export const audit = {
     "audit.exported": "Audit log exported",
     "retention.changed": "Retention changed",
     "run.data_deleted": "Run data deleted",
+    "oauth.granted": "Assistant connected",
+    "oauth.revoked": "Assistant disconnected",
+    "oauth.switched": "Assistants switched on or off",
   } as Record<string, string>,
 } as const;

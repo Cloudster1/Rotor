@@ -198,6 +198,15 @@ data:
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
+        # The OAuth metadata sits where RFC 8414 and RFC 9728 put it, at the root, and the api answers it (#47).
+        location ^~ /.well-known/oauth- {
+            proxy_pass http://rotor_api;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
         location = /healthz {
             proxy_pass http://rotor_api;
         }
@@ -443,7 +452,7 @@ spec:
         app.kubernetes.io/instance: r
         app.kubernetes.io/component: web
       annotations:
-        checksum/nginx: 2bae1ed73adcd93293703bdf4b03331431b1d6830eb7afb29edd166490c5b1c9
+        checksum/nginx: 79cb452827b22aa2fb96b9ef98a149314e5a15876e7a1e4266dd655071433e80
     spec:
       automountServiceAccountToken: false
       # Stock nginx as its own user rather than root, which is why it listens above 1024 and why its writable paths

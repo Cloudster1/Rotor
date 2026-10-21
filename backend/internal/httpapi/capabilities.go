@@ -50,6 +50,12 @@ var rotorCapabilities = []capability{
 			"DELETE /tools/{toolID}/hook",
 		},
 	},
+	{
+		name: "mcp@1",
+		promise: "An assistant works with workflows, runs and approvals over MCP 2025-11-25 or 2025-06-18, as the person who " +
+			"connected it through Rotor's own OAuth; approvals are decided in Rotor's pages alone.",
+		operations: []string{"POST /mcp"},
+	},
 }
 
 // capabilities is what this build announces beyond its API version; a partner checks for a name here rather than

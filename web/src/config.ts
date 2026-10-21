@@ -20,6 +20,8 @@ export const HOME_PATH = "/workflows";
 
 /** Where the sign-in page lives, which a returning visitor must never be sent back to. */
 export const LOGIN_PATH = "/login";
+/** Where a person lets an assistant connect as them (#47); the api's authorization server sends the browser here. */
+export const OAUTH_CONSENT_PATH = "/oauth/consent";
 
 /** How long a query's answer stays fresh before a refetch. */
 export const QUERY_STALE_MS = 10_000;

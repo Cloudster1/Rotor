@@ -18,7 +18,7 @@ import (
 // Disconnect ends the signed-in person's connection to a tool: revoked at the tool where it answers, then forgotten.
 func (s *Service) Disconnect(ctx context.Context, toolID uuid.UUID) error {
 	p := auth.PrincipalFrom(ctx)
-	if p == nil {
+	if p == nil || p.ThroughAssistant() {
 		return ErrNoSession
 	}
 	var exists bool

@@ -41,7 +41,7 @@ for (const scheme of SCHEMES) {
     const [csv] = await Promise.all([page.waitForEvent("download"), page.locator('[data-action="export-audit-csv"]').click()]);
     const csvText = await readFile((await csv.path()) as string, "utf8");
     const lines = csvText.trim().split("\n");
-    expect(lines[0]).toBe("time,action,actor_id,actor,target_type,target_id,ip,request_id,data");
+    expect(lines[0]).toBe("time,action,actor_id,actor,target_type,target_id,ip,request_id,data,via");
     expect(lines).toHaveLength(2);
     expect(lines[1]).toContain(workflowID);
 

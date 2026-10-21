@@ -3,7 +3,6 @@
 package test
 
 import (
-	"encoding/json"
 	"net/http"
 	"os"
 	"slices"
@@ -27,20 +26,6 @@ func exciter(t *testing.T) (base string, client *http.Client) {
 		t.Skipf("%s and %s are not set; run make suite-up, then make test-suite", envExciter, envExciterInternal)
 	}
 	return base, oidc.HTTPClient(map[string]string{base: os.Getenv(envExciterInternal)})
-}
-
-func getJSON(t *testing.T, client *http.Client, address string) map[string]any {
-	t.Helper()
-	resp, err := client.Get(address)
-	if err != nil {
-		t.Fatalf("GET %s: %v", address, err)
-	}
-	defer resp.Body.Close()
-	out := map[string]any{}
-	if err := json.NewDecoder(resp.Body).Decode(&out); resp.StatusCode != http.StatusOK || err != nil {
-		t.Fatalf("GET %s = %d (%v)", address, resp.StatusCode, err)
-	}
-	return out
 }
 
 // Exciter is discovered the way docs/api-contract-m1.md says Rotor discovers a tool, from its address alone.

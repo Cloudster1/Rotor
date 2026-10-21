@@ -37,6 +37,9 @@ func approvalError(err error) error {
 	switch {
 	case errors.Is(err, approvals.ErrNotFound):
 		return errApprovalNotFound
+	case errors.Is(err, approvals.ErrInPerson):
+		return &APIError{Status: http.StatusForbidden, Code: "decided_in_person",
+			Message: "An assistant cannot decide an approval. Open it in Rotor in your browser and decide it there."}
 	case errors.As(err, &notApprover):
 		return &APIError{Status: http.StatusForbidden, Code: "not_approver", Message: notApprover.Error()}
 	case errors.As(err, &decided):

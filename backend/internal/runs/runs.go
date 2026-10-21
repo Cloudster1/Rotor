@@ -215,19 +215,25 @@ type Filter struct {
 	Statuses   []string
 	// Mine keeps the runs the caller started, leaving out those of workflows they own.
 	Mine bool
+	// Limit bounds the list below config.RunListLimit; zero is that bound.
+	Limit int
 }
 
 // List is the runs the caller manages, newest first, at most config.RunListLimit; runs seen only as an approver are
 // in the approvals inbox instead.
 func (s *Service) List(ctx context.Context, f Filter) ([]Run, error) {
 	out, statuses := []Run{}, append([]string{}, f.Statuses...)
+	limit := config.RunListLimit
+	if f.Limit > 0 && f.Limit < limit {
+		limit = f.Limit
+	}
 	err := s.db.Read(ctx, func(ctx context.Context, tx db.DBTX) error {
 		rows, err := tx.Query(ctx, `SELECT `+runColumns+` FROM run r
 			WHERE ($1::uuid IS NULL OR r.workflow_id = $1)
 			  AND (cardinality($2::text[]) = 0 OR r.status = ANY($2))
 			  AND (NOT $3 OR r.user_id = current_actor_id())
 			  AND run_visible(r.user_id, r.workflow_id)
-			ORDER BY r.created_at DESC, r.id DESC LIMIT $4`, nullUUID(f.WorkflowID), statuses, f.Mine, config.RunListLimit)
+			ORDER BY r.created_at DESC, r.id DESC LIMIT $4`, nullUUID(f.WorkflowID), statuses, f.Mine, limit)
 		if err != nil {
 			return err
 		}

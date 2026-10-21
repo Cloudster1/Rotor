@@ -13,7 +13,7 @@ import (
 func clean(t *testing.T) {
 	t.Helper()
 	for _, key := range []string{
-		"ROTOR_ENV", "ROTOR_HTTP_ADDR", "ROTOR_LOG_LEVEL", "ROTOR_APP_URL", "ROTOR_CORS_ORIGINS",
+		"ROTOR_ENV", "ROTOR_HTTP_ADDR", "ROTOR_LOG_LEVEL", "ROTOR_APP_URL", "ROTOR_CORS_ORIGINS", "ROTOR_TRUSTED_PROXIES",
 		"ROTOR_REQUEST_TIMEOUT", "ROTOR_DB_ADMIN_URL", "ROTOR_DB_MAX_CONNS", "ROTOR_DB_MIN_CONNS",
 		"ROTOR_DB_CONN_MAX_LIFETIME", "ROTOR_OIDC_ISSUER", "ROTOR_OIDC_CLIENT_ID", "ROTOR_OIDC_CLIENT_SECRET",
 		"ROTOR_OIDC_REDIRECT_URL", "ROTOR_SESSION_TTL", "ROTOR_SECURE_COOKIES", "ROTOR_OPENBAO_ADDR",
@@ -274,5 +274,28 @@ func TestTheRunnerHostNamesTheAddressSandboxesDial(t *testing.T) {
 	t.Setenv("ROTOR_RUNNER_HOST", "rotor-api.rotor.svc")
 	if c, err := Load(); err != nil || c.Runner.Host != "rotor-api.rotor.svc" || c.Runner.Dial != "rotor-api.rotor.svc"+DefaultRunnerAddr {
 		t.Fatalf("runner = %+v, %v", c.Runner, err)
+	}
+}
+
+// Adapted from Exciter at d6dd00c: a proxy's word on the caller's address is taken only from the ranges named.
+func TestTrustedProxiesAreAddressRanges(t *testing.T) {
+	clean(t)
+	t.Setenv("ROTOR_TRUSTED_PROXIES", " 172.16.0.0/12, 10.1.2.3/8 ,fd00::/8")
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, p := range c.TrustedProxies {
+		got = append(got, p.String())
+	}
+	if strings.Join(got, " ") != "172.16.0.0/12 10.0.0.0/8 fd00::/8" {
+		t.Fatalf("trusted proxies = %v", got)
+	}
+	for _, bad := range []string{"172.16.0.1", "nginx", "10.0.0.0/33"} {
+		t.Setenv("ROTOR_TRUSTED_PROXIES", bad)
+		if _, err := Load(); err == nil || !strings.Contains(err.Error(), "ROTOR_TRUSTED_PROXIES") {
+			t.Errorf("%q should be refused: %v", bad, err)
+		}
 	}
 }

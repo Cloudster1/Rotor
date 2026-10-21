@@ -25,16 +25,31 @@ var (
 
 // Principal is the person a request acts for.
 type Principal struct {
-	UserID    uuid.UUID
+	UserID uuid.UUID
+	// SessionID is the browser's session; it is uuid.Nil when an assistant acts for the person.
 	SessionID uuid.UUID
 	Email     string
 	Name      string
 	Role      string
 	Groups    []string
+	// Assistant is the grant an assistant acts through (#47), nil when the person acts in the browser.
+	Assistant *Assistant
+}
+
+// Assistant is the grant a person gave an assistant at Rotor's consent page.
+type Assistant struct {
+	GrantID uuid.UUID
+	// Client is the assistant's name, as it registered.
+	Client string
+	// ReadOnly is a grant of reading alone, which the person chose or the assistant asked for.
+	ReadOnly bool
 }
 
 // IsAdmin says whether the person administers Rotor.
 func (p *Principal) IsAdmin() bool { return p != nil && p.Role == RoleAdmin }
+
+// ThroughAssistant says whether an assistant acts for the person rather than the person in their browser.
+func (p *Principal) ThroughAssistant() bool { return p != nil && p.Assistant != nil }
 
 type principalKey struct{}
 

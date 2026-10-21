@@ -20,6 +20,7 @@ const ENTRY = (n: number, action = "run.started"): AuditEntry => ({
   data: { workflow: "wf-1", name: "weekly" },
   ip: "192.0.2.1",
   requestId: "",
+  via: null,
   at: "2026-10-19T08:00:00Z",
 });
 

@@ -52,6 +52,11 @@ func inTx(ctx context.Context, pool *pgxpool.Pool, opts pgx.TxOptions, fn func(c
 			return fmt.Errorf("apply the acting person: %w", err)
 		}
 	}
+	if grant, ok := ViaFrom(ctx); ok {
+		if _, err := tx.Exec(ctx, setLocalSQL, ViaVar, grant.String()); err != nil {
+			return fmt.Errorf("apply the acting assistant: %w", err)
+		}
+	}
 	if err := fn(ctx, tx); err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@ package config
 
 import (
 	"fmt"
+	"net/netip"
 	"strings"
 	"time"
 )
@@ -70,6 +71,8 @@ type Config struct {
 	AppBaseURL string
 	// CORSOrigins may call the API with credentials from another origin.
 	CORSOrigins []string
+	// TrustedProxies are the peers whose X-Real-IP header names the client, such as the stack's nginx (#47).
+	TrustedProxies []netip.Prefix
 	// RequestTimeout bounds every request's handler.
 	RequestTimeout time.Duration
 
@@ -136,6 +139,7 @@ func Load() (Config, error) {
 		LogLevel:       l.str("ROTOR_LOG_LEVEL", "info"),
 		AppBaseURL:     strings.TrimSuffix(l.str("ROTOR_APP_URL", DefaultAppBaseURL), "/"),
 		CORSOrigins:    splitList(l.str("ROTOR_CORS_ORIGINS", "")),
+		TrustedProxies: l.prefixes("ROTOR_TRUSTED_PROXIES"),
 		RequestTimeout: l.duration("ROTOR_REQUEST_TIMEOUT", DefaultRequestTimeout),
 		DB: DB{
 			URL:             l.str("ROTOR_DB_URL", ""),

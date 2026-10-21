@@ -18,6 +18,8 @@ type param struct {
 	name, description string
 	schema            *openapi.Schema
 	repeated          bool
+	// arg names a header as an MCP tool's argument; a header without one is never set by a tool.
+	arg string
 }
 
 // operation is one row of the table.
@@ -45,6 +47,13 @@ type operation struct {
 	pending bool
 	// admin routes are for administrators of Rotor alone; anyone else is refused with 403.
 	admin bool
+	// tool names the row as an MCP tool an assistant may call (#47), with toolHelp to tell the model when; a row
+	// without one is offered to no assistant.
+	tool, toolHelp string
+	// destructive and openWorld are the protocol's hints: a write that can undo or act beyond Rotor.
+	destructive, openWorld bool
+	// reads marks a POST that changes nothing, such as a check, so a grant made to read may call it.
+	reads bool
 }
 
 // operations is the table, by area, then by path.
@@ -74,7 +83,8 @@ var operations = []operation{
 		responses:   map[int]any{http.StatusOK: nil, http.StatusBadRequest: errorEnvelope{}}},
 	{method: "POST", path: "/auth/logout", handler: "handleLogout", tag: "auth",
 		summary: "Ends this session.", responses: map[int]any{http.StatusNoContent: nil}},
-	{method: "GET", path: "/auth/me", handler: "handleMe", tag: "auth",
+	{method: "GET", path: "/auth/me", handler: "handleMe", tool: "whoami",
+		toolHelp: "Who you act for in Rotor: the person, their role and groups, and the assistant connected for them.", tag: "auth",
 		summary: "Who is signed in, with their role and groups.", responses: ok(meResponse{})},
 }
 
@@ -88,6 +98,14 @@ type meResponse struct {
 	User   meUser   `json:"user"`
 	Role   string   `json:"role"`
 	Groups []string `json:"groups"`
+	// Assistant is the assistant that asks for the person, null in the browser (#47).
+	Assistant *meAssistant `json:"assistant"`
+}
+
+// meAssistant is the assistant a person connected, as it asks for them.
+type meAssistant struct {
+	Client   string `json:"client"`
+	ReadOnly bool   `json:"readOnly"`
 }
 
 // meUser is a person's identity, as the realm names them.

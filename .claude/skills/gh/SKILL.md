@@ -17,7 +17,8 @@ Repo: `Cloudster1/Rotor`, default branch: `main`
 - `.claude/hooks/branch-guard.sh` enforces this; a violation is blocked, not commented on.
 - Issues carry a milestone (`M0 Foundation`, `M1 Tool connections`, `M2 Workflow engine`,
   `M3 First run (MVP)`, `M4 Sandboxes on Kubernetes`, `M5 Approvals`, `M6 Triggers`,
-  `M7 Observability and audit`, `M8 Security hardening`, `M9 Suite and release` or `Backlog`),
+  `M7 Observability and audit`, `M8 Security hardening`, `M9 Suite and release`, `M10 Assistants and editor`
+  or `Backlog`),
   an `area/*` label, a `type/*` label and `mvp` or `backlog`. `blocked` marks an issue waiting on
   work outside this repository.
 - Areas: `backend`, `web`, `auth`, `integration`, `infra`, `runner`, `workflows`, `connections`,

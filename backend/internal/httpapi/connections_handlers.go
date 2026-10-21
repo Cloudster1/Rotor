@@ -37,6 +37,8 @@ func connectionError(err error) error {
 		return errNotConnected
 	case errors.Is(err, connections.ErrUnreachable):
 		return errToolUnreachable
+	case errors.Is(err, connections.ErrNoSession):
+		return errSessionOnly
 	}
 	return toolError(err)
 }

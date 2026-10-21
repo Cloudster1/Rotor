@@ -3,13 +3,15 @@ package httpapi
 import (
 	"context"
 	"errors"
-	"net"
 	"net/http"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/cloudster1/rotor/backend/internal/audit"
 	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/oauth"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
 )
 
@@ -29,31 +31,62 @@ type SignIn interface {
 var errSwitchedOff = &APIError{Status: http.StatusForbidden, Code: "account_switched_off",
 	Message: "Your account is switched off. Ask an administrator of Rotor to switch it on again."}
 
-// authenticate puts the person a session cookie names on the request; it never refuses an anonymous one,
-// which requireAuth does where it matters. A switched-off person is refused rather than made anonymous.
+// authenticate puts the person a session cookie, or an assistant's access token, names on the request; it never
+// refuses an anonymous one, which requireAuth does where it matters. A switched-off person is refused rather than
+// made anonymous.
 func (s *Server) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := audit.WithIP(r.Context(), clientIP(r))
-		cookie, err := r.Cookie(s.CookieName)
-		if err != nil || cookie.Value == "" || s.Sessions == nil {
+		// A call MCP makes in this process starts from the outer request's context, whose caller is checked again.
+		ctx := audit.WithIP(forgetCaller(r.Context()), s.clientIP(r))
+		credential, bearer := credentialFrom(r, s.CookieName)
+		if credential == "" || (!bearer && s.Sessions == nil) {
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
-		p, err := s.Sessions.Authenticate(ctx, cookie.Value)
+		var (
+			p   *auth.Principal
+			err error
+		)
+		if bearer {
+			p, err = s.assistantOf(r.WithContext(ctx), credential)
+		} else {
+			p, err = s.Sessions.Authenticate(ctx, credential)
+		}
+		var refused *APIError
 		switch {
-		case errors.Is(err, auth.ErrNoSession):
-			s.clearSessionCookie(w)
+		case errors.Is(err, auth.ErrNoSession), errors.Is(err, oauth.ErrInvalidToken):
+			if !bearer {
+				s.clearSessionCookie(w)
+			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		case errors.Is(err, auth.ErrSwitchedOff):
-			s.clearSessionCookie(w)
+			if !bearer {
+				s.clearSessionCookie(w)
+			}
 			respondError(w, r, errSwitchedOff)
+		case errors.As(err, &refused):
+			respondError(w, r, refused)
 		case err != nil:
 			respondError(w, r, ErrInternal(err))
 		default:
 			ctx = db.WithUser(auth.WithPrincipal(ctx, p), p.UserID)
+			// What is done through an assistant is marked so for the database, which refuses what only a person
+			// may do and names the assistant in the audit log (#47).
+			if p.Assistant != nil {
+				ctx = db.WithVia(ctx, p.Assistant.GrantID)
+			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		}
 	})
+}
+
+// forgetCaller clears whoever an outer request acted for, so a call made in this process is held to its own
+// credential alone.
+func forgetCaller(ctx context.Context) context.Context {
+	if !inProcessCall(ctx) {
+		return ctx
+	}
+	return db.WithVia(db.WithUser(auth.WithPrincipal(ctx, nil), uuid.Nil), uuid.Nil)
 }
 
 // requireAuth refuses a request nobody is signed in for.
@@ -93,14 +126,4 @@ func (s *Server) clearSessionCookie(w http.ResponseWriter) {
 		Name: s.CookieName, Value: "", Path: "/", MaxAge: -1,
 		HttpOnly: true, Secure: s.Secure, SameSite: http.SameSiteLaxMode,
 	})
-}
-
-// clientIP is the address the request came from, for the audit log. Behind the stack's nginx it is the proxy's;
-// trusting forwarded headers waits for a list of trusted proxies.
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return ""
-	}
-	return host
 }

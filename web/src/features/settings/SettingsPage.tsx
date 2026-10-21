@@ -6,6 +6,8 @@ import { APP_VERSION } from "@/config";
 import { PageHeader } from "@/features/shell/EmptyState";
 import { ProvidersSection } from "@/features/providers/ProvidersSection";
 import { ToolsSection } from "@/features/tools/ToolsSection";
+import { AllAssistantsSection } from "@/features/oauth/AllAssistantsSection";
+import { AssistantsSection } from "@/features/oauth/AssistantsSection";
 import { LangSmithSection } from "./LangSmithSection";
 import { RetentionSection } from "./RetentionSection";
 import { s } from "@/strings";
@@ -50,6 +52,7 @@ export function SettingsPage() {
         </section>
       )}
       {me.data && <ToolsSection />}
+      {me.data && <AssistantsSection />}
       {me.data?.role === "admin" && <ProvidersSection />}
       {me.data?.role === "admin" && (
         <section className="max-w-xl rounded-overlay border border-border bg-surface p-5 shadow-1" aria-labelledby="audit-title" data-audit-link>
@@ -62,6 +65,7 @@ export function SettingsPage() {
           </Link>
         </section>
       )}
+      {me.data?.role === "admin" && <AllAssistantsSection />}
       {me.data?.role === "admin" && <RetentionSection />}
       {me.data?.role === "admin" && <LangSmithSection />}
       <section className="max-w-xl rounded-overlay border border-border bg-surface p-5 shadow-1" aria-labelledby="build-title">

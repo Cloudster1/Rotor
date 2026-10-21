@@ -3,6 +3,34 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-21: Assistants over MCP, for M10 (#47)
+
+- **Rotor is its own authorization server, as Exciter is.** An assistant
+  connects with Rotor's address alone, the way MCP clients expect, and a
+  person consents in Rotor; Keycloak is how people sign in, not what
+  assistants hold. The code is Exciter #188's, without projects, which Rotor
+  does not have.
+- **Registration only, for now.** Client ID metadata documents would have
+  Rotor fetch an address an anonymous caller names, which needs a guard
+  against private addresses that Rotor does not have yet. Claude Code and
+  the Go SDK register (RFC 7591), so nothing waits on it.
+- **Tools only.** Rotor's reads are short and structured, so the tools carry
+  them; resources and prompts would add surface for nothing yet.
+- **The tools are rows of the table, run through the whole router.** A tool
+  can do exactly what its HTTP call can, as the person, so row level
+  security, quotas, the start checks and the audit log hold for it without a
+  second implementation.
+- **An assistant never decides an approval.** An approval is a person's own
+  judgement about what a run is about to write; an assistant reading a
+  run's output may have been steered by it. Four layers hold this: no tool,
+  a session-only route, the service, and the database through `app.via`.
+- **What an assistant did is marked by the database.** `app.via` names the
+  grant for the transaction, and a trigger stamps the assistant on every
+  audit entry, so no code path can forget it.
+- **The caller's address from trusted proxies.** Registering needs nobody
+  signed in, so it is counted by address; behind nginx that is the address
+  nginx names, taken only from the ranges `ROTOR_TRUSTED_PROXIES` lists.
+
 ## 2026-10-21: A canvas over the spec, for M10 (#46)
 
 - **The YAML text stays the source.** The canvas is a second view of the
