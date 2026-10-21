@@ -6381,6 +6381,13 @@
           "id": {
             "type": "string"
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "registered",
+              "metadata"
+            ]
+          },
           "name": {
             "type": "string"
           },
@@ -6391,7 +6398,8 @@
         "required": [
           "id",
           "name",
-          "uri"
+          "uri",
+          "kind"
         ]
       },
       "OAuthClientMetadata": {
@@ -6701,6 +6709,9 @@
           "authorization_response_iss_parameter_supported": {
             "type": "boolean"
           },
+          "client_id_metadata_document_supported": {
+            "type": "boolean"
+          },
           "code_challenge_methods_supported": {
             "type": "array",
             "items": {
@@ -6762,6 +6773,7 @@
           "code_challenge_methods_supported",
           "token_endpoint_auth_methods_supported",
           "revocation_endpoint_auth_methods_supported",
+          "client_id_metadata_document_supported",
           "authorization_response_iss_parameter_supported"
         ]
       },

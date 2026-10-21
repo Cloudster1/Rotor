@@ -27,6 +27,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/httpapi"
 	"github.com/cloudster1/rotor/backend/internal/langsmith"
 	"github.com/cloudster1/rotor/backend/internal/metrics"
+	"github.com/cloudster1/rotor/backend/internal/netguard"
 	"github.com/cloudster1/rotor/backend/internal/oauth"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
@@ -105,8 +106,10 @@ func run() error {
 		CheckOrigin:    cfg.IsProduction(),
 		RequestTimeout: cfg.RequestTimeout,
 		TrustedProxies: cfg.TrustedProxies,
-		// Assistants connect through Rotor's own authorization server, which needs only the database (#47).
-		OAuth: oauth.NewService(cluster, cfg.AppBaseURL, httpapi.APIPrefix),
+		// Assistants connect through Rotor's own authorization server (#47); a client's metadata document is fetched
+		// through a client that refuses Rotor's own network, beyond what the operator allows (#114).
+		OAuth: oauth.NewService(cluster, cfg.AppBaseURL, httpapi.APIPrefix,
+			oauth.HTTPFetcher(netguard.Client(config.OAuthMetadataFetchTimeout, netguard.ParseAllow(cfg.OAuthFetchAllow)))),
 	}
 	secrets, err := boot.Secrets(ctx, cfg, log)
 	if err != nil {

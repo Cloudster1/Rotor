@@ -22,7 +22,7 @@ const (
 // ErrNoSuchGrant is a grant that is not the caller's to end, or is gone already.
 var ErrNoSuchGrant = errors.New("that assistant was not found")
 
-const grantColumns = `g.id, c.id, c.name, c.uri, g.redirect_uri, g.read_only, g.created_at, g.last_used_at`
+const grantColumns = `g.id, c.id, c.name, c.uri, c.kind, g.redirect_uri, g.read_only, g.created_at, g.last_used_at`
 
 // The lists are by last use, newest first, then those never used by when they were made.
 const grantOrder = ` ORDER BY g.last_used_at DESC NULLS LAST, g.created_at DESC, g.id`
@@ -32,7 +32,7 @@ func scanGrant(row pgx.Row, extra ...any) (Grant, error) {
 		g        Grant
 		redirect string
 	)
-	err := row.Scan(append([]any{&g.ID, &g.Client.ID, &g.Client.Name, &g.Client.URI, &redirect, &g.ReadOnly, &g.CreatedAt,
+	err := row.Scan(append([]any{&g.ID, &g.Client.ID, &g.Client.Name, &g.Client.URI, &g.Client.Kind, &redirect, &g.ReadOnly, &g.CreatedAt,
 		&g.LastUsedAt}, extra...)...)
 	g.RedirectHost = RedirectHost(redirect)
 	return g, err

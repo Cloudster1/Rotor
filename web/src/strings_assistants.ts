@@ -5,6 +5,8 @@ export const assistantStrings = {
   mayDo:
     "It may list and read your workflows and runs, start and cancel runs, and read approvals, with your own permissions. It can never decide an approval: you decide those here.",
   address: "Its address",
+  knownRegistered: "It registered itself with Rotor.",
+  knownByDocument: (address: string) => `Rotor knows it by its document at ${address}.`,
   goesBack: (host: string) => `After you answer, your browser goes back to ${host}.`,
   askedToRead: "It asked only to read.",
   readOnly: "Only read",

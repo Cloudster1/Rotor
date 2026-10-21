@@ -9,6 +9,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- An assistant can connect by the address of its client ID metadata document
+  instead of registering (#114). Rotor fetches the document from the public
+  internet alone, through a guard that never reaches Rotor's own network
+  unless `ROTOR_OAUTH_FETCH_ALLOW` names a host or range, and the consent page
+  says how Rotor knows the assistant.
 - Workflows can be drawn on a canvas (#46). The editor has a Canvas tab beside
   the YAML: add, remove and rename nodes, draw the ways between them, set a
   router's cases and the node a workflow starts at, and write each node's

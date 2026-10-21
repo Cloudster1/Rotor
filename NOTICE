@@ -163,3 +163,12 @@ Adapted from Exciter at d6dd00c, its MCP endpoint:
   session-only routes, of middleware.go, oauth_handlers.go and token_handlers.go
 - backend/internal/httpapi/clientip.go and backend/internal/openapi/standalone.go
 - backend/internal/httpapi/mcp_test.go
+
+Adapted from Exciter at d6dd00c, its outbound guard, itself Armature's internal/netguard:
+- backend/internal/netguard: Reserved, the allow list and the dialer that checks the address it dials, without
+  Rewriting and without a proxy, with the timeouts in backend/internal/config/oauth.go
+
+Adapted from Exciter at 3b340ca, its client ID metadata documents (#114):
+- backend/internal/oauth/documents.go: HTTPFetcher, keepFor, IsMetadataClientID and fetchClient of clients.go
+- backend/migrations/01010_oauth_client_documents.sql: kind and fresh_until of 00800_oauth.sql, added to Rotor's table
+- backend/test/oauth_documents_test.go: TestAClientIsKnownByItsMetadataDocument, against an api in the test's process

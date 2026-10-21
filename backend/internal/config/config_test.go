@@ -13,7 +13,7 @@ import (
 func clean(t *testing.T) {
 	t.Helper()
 	for _, key := range []string{
-		"ROTOR_ENV", "ROTOR_HTTP_ADDR", "ROTOR_LOG_LEVEL", "ROTOR_APP_URL", "ROTOR_CORS_ORIGINS", "ROTOR_TRUSTED_PROXIES",
+		"ROTOR_ENV", "ROTOR_HTTP_ADDR", "ROTOR_LOG_LEVEL", "ROTOR_APP_URL", "ROTOR_CORS_ORIGINS", "ROTOR_TRUSTED_PROXIES", "ROTOR_OAUTH_FETCH_ALLOW",
 		"ROTOR_REQUEST_TIMEOUT", "ROTOR_DB_ADMIN_URL", "ROTOR_DB_MAX_CONNS", "ROTOR_DB_MIN_CONNS",
 		"ROTOR_DB_CONN_MAX_LIFETIME", "ROTOR_OIDC_ISSUER", "ROTOR_OIDC_CLIENT_ID", "ROTOR_OIDC_CLIENT_SECRET",
 		"ROTOR_OIDC_REDIRECT_URL", "ROTOR_SESSION_TTL", "ROTOR_SECURE_COOKIES", "ROTOR_OPENBAO_ADDR",
@@ -297,5 +297,17 @@ func TestTrustedProxiesAreAddressRanges(t *testing.T) {
 		if _, err := Load(); err == nil || !strings.Contains(err.Error(), "ROTOR_TRUSTED_PROXIES") {
 			t.Errorf("%q should be refused: %v", bad, err)
 		}
+	}
+}
+
+// Documents are fetched from the public internet alone unless an operator names more.
+func TestTheOAuthFetchAllowListIsReadAsGiven(t *testing.T) {
+	clean(t)
+	if c, err := Load(); err != nil || c.OAuthFetchAllow != "" {
+		t.Fatalf("by default the allow list is %q, %v", c.OAuthFetchAllow, err)
+	}
+	t.Setenv("ROTOR_OAUTH_FETCH_ALLOW", " assistants.corp, 10.20.0.0/16 ")
+	if c, err := Load(); err != nil || c.OAuthFetchAllow != "assistants.corp, 10.20.0.0/16" {
+		t.Fatalf("the allow list is %q, %v", c.OAuthFetchAllow, err)
 	}
 }

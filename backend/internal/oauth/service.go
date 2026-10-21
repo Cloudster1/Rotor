@@ -29,13 +29,16 @@ type Service struct {
 	db *db.Cluster
 	// issuer is ROTOR_APP_URL, the address everything is named from; api is it with the API's prefix.
 	issuer, api string
-	now         func() time.Time
+	// fetch reads clients' metadata documents; nil offers none, and every client registers.
+	fetch Fetcher
+	now   func() time.Time
 }
 
-// NewService names the server from the web client's address and the API's prefix under it.
-func NewService(cluster *db.Cluster, appURL, apiPrefix string) *Service {
+// NewService names the server from the web client's address and the API's prefix under it; fetch reads clients'
+// metadata documents, through a client that refuses Rotor's own network.
+func NewService(cluster *db.Cluster, appURL, apiPrefix string, fetch Fetcher) *Service {
 	issuer := strings.TrimRight(appURL, "/")
-	return &Service{db: cluster, issuer: issuer, api: issuer + apiPrefix, now: time.Now}
+	return &Service{db: cluster, issuer: issuer, api: issuer + apiPrefix, fetch: fetch, now: time.Now}
 }
 
 // Issuer is the server's own name, which a client compares and the redirect carries (RFC 9207).
@@ -58,15 +61,15 @@ func (s *Service) ProtectedResource() ProtectedResource {
 		BearerMethodsSupported: []string{"header"}, ResourceName: "Rotor"}
 }
 
-// Metadata describes the server (RFC 8414). Client ID metadata documents are not offered: fetching one would need
-// a guard against private addresses Rotor does not have yet.
+// Metadata describes the server (RFC 8414); client ID metadata documents are offered while a fetcher reads them.
 func (s *Service) Metadata() ServerMetadata {
 	return ServerMetadata{
 		Issuer: s.issuer, AuthorizationEndpoint: s.api + "/oauth/authorize", TokenEndpoint: s.api + "/oauth/token",
 		RegistrationEndpoint: s.api + "/oauth/register", RevocationEndpoint: s.api + "/oauth/revoke",
 		ScopesSupported: Scopes, ResponseTypesSupported: []string{ResponseCode}, GrantTypesSupported: GrantTypes,
 		CodeChallengeMethodsSupported: []string{ChallengeS256}, TokenEndpointAuthMethodsSupported: AuthMethods,
-		RevocationEndpointAuthMethodsSupported: AuthMethods, AuthorizationResponseIssParameterSupported: true,
+		RevocationEndpointAuthMethodsSupported: AuthMethods, ClientIDMetadataDocumentSupported: s.fetch != nil,
+		AuthorizationResponseIssParameterSupported: true,
 	}
 }
 

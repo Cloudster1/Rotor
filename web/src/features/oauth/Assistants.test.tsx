@@ -12,7 +12,7 @@ afterEach(() => {
 
 const REQUEST = {
   id: "0190a5c4-0000-7000-8000-0000000000aa",
-  client: { id: "client-1", name: "Claude Code", uri: "" },
+  client: { id: "client-1", name: "Claude Code", uri: "", kind: "registered" as const },
   redirectHost: "127.0.0.1:33418",
   readOnly: false,
   expiresAt: "2026-10-21T09:00:00Z",
@@ -20,7 +20,7 @@ const REQUEST = {
 
 const GRANT = {
   id: "0190a5c4-0000-7000-8000-0000000000bb",
-  client: { id: "client-1", name: "Claude Code", uri: "" },
+  client: { id: "client-1", name: "Claude Code", uri: "", kind: "registered" as const },
   redirectHost: "127.0.0.1:33418",
   readOnly: true,
   createdAt: "2026-10-21T08:00:00Z",
@@ -67,6 +67,19 @@ describe("the consent page", () => {
     expect(box).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: s.assistants.deny }));
     await waitFor(() => expect(sent).toEqual([{ allow: false, readOnly: false }]));
+  });
+
+  it("says how Rotor knows an assistant known by its metadata document", async () => {
+    const address = "https://assistant.example/oauth/client.json";
+    await renderAt(`/oauth/consent?request=${REQUEST.id}`, {
+      answers: {
+        [`/api/v1/oauth/requests/${REQUEST.id}`]: { request: { ...REQUEST, client: { id: address, name: "Docs assistant", uri: "", kind: "metadata" } } },
+      },
+    });
+    await screen.findByRole("region", { name: s.assistants.asks("Docs assistant") });
+    expect(screen.getByText(s.assistants.knownByDocument(address))).toBeInTheDocument();
+    expect(screen.queryByText(s.assistants.knownRegistered)).toBeNull();
+    expect(await axeViolations()).toEqual([]);
   });
 
   it("says why an assistant was refused, and when a request ran out", async () => {

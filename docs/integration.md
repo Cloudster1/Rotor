@@ -61,7 +61,8 @@ administrator keeps the secret the tool made for Rotor.
 
 An assistant works with workflows, runs and approvals over MCP 2025-11-25 or
 2025-06-18, as the person who connected it through Rotor's own OAuth
-authorization server (RFC 9728, RFC 8414, RFC 7591, PKCE S256). Its tools are
+authorization server (RFC 9728, RFC 8414, PKCE S256); an assistant registers
+(RFC 7591) or names its client ID metadata document (#114). Its tools are
 `whoami`, `list_workflows`, `get_workflow`, `validate_workflow`, `start_run`,
 `list_runs`, `get_run`, `cancel_run`, `list_approvals` and `get_approval`;
 approvals are decided in Rotor's pages alone.

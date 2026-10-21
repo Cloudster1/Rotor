@@ -123,10 +123,10 @@ func (s *Service) pending(ctx context.Context, id uuid.UUID) (*pending, error) {
 	var p pending
 	err := s.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		return tx.QueryRow(ctx, `
-			SELECT r.id, r.redirect_uri, r.state, r.read_only, r.expires_at, c.id, c.name, c.uri
+			SELECT r.id, r.redirect_uri, r.state, r.read_only, r.expires_at, c.id, c.name, c.uri, c.kind
 			FROM oauth_request r JOIN oauth_client c ON c.id = r.client_id
 			WHERE r.id = $1 AND r.expires_at > now()`, id).Scan(&p.ID, &p.redirect, &p.state, &p.ReadOnly, &p.ExpiresAt,
-			&p.Client.ID, &p.Client.Name, &p.Client.URI)
+			&p.Client.ID, &p.Client.Name, &p.Client.URI, &p.Client.Kind)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNoRequest

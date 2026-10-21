@@ -3,6 +3,25 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-21: Assistants by their metadata documents, for M10 (#114)
+
+This supersedes "Registration only, for now" of #47 below.
+
+- **Documents are offered, behind a guard of their own.** A client ID
+  metadata document is fetched from an address an anonymous caller names, so
+  the fetch goes through `netguard`, Exciter's and Armature's guard. It
+  resolves the name, refuses any address inside the network, and dials the
+  address it checked, so a name cannot be rebound between the two.
+- **A client of its own.** `boot.ToolClient` reaches the stack's tools on
+  private addresses on purpose; the documents' client never does, unless
+  `ROTOR_OAUTH_FETCH_ALLOW` names a host or range. It follows no redirect and
+  uses no proxy, as either would reach an address it did not check.
+- **What a document is held to.** A document is a registration somebody else
+  wrote, so it meets the same rules, keeps no secret, must name its own
+  address, and is read again after at most a day. A grant keeps the redirect
+  it was made with, so a document changed later never redirects a code
+  already handed out.
+
 ## 2026-10-21: Assistants over MCP, for M10 (#47)
 
 - **Rotor is its own authorization server, as Exciter is.** An assistant
@@ -10,10 +29,11 @@ tell whether the reason still holds.
   person consents in Rotor; Keycloak is how people sign in, not what
   assistants hold. The code is Exciter #188's, without projects, which Rotor
   does not have.
-- **Registration only, for now.** Client ID metadata documents would have
-  Rotor fetch an address an anonymous caller names, which needs a guard
-  against private addresses that Rotor does not have yet. Claude Code and
-  the Go SDK register (RFC 7591), so nothing waits on it.
+- **Registration only, for now** (superseded by #114, above). Client ID
+  metadata documents would have Rotor fetch an address an anonymous caller
+  names, which needs a guard against private addresses that Rotor does not
+  have yet. Claude Code and the Go SDK register (RFC 7591), so nothing waits
+  on it.
 - **Tools only.** Rotor's reads are short and structured, so the tools carry
   them; resources and prompts would add surface for nothing yet.
 - **The tools are rows of the table, run through the whole router.** A tool

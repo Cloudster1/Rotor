@@ -32,4 +32,22 @@ const (
 	MCPMaxToolResultBytes = 64 << 10
 	// MCPMaxRequestBytes bounds one JSON-RPC message.
 	MCPMaxRequestBytes = 1 << 20
+	// OAuthMaxClientMetadataBytes bounds a client ID metadata document fetched from its address (#114).
+	OAuthMaxClientMetadataBytes = 5 << 10
+	// OAuthMetadataFetchTimeout bounds fetching a document, which a person waits for at the consent page.
+	OAuthMetadataFetchTimeout = 5 * time.Second
+	// OAuthMaxMetadataAge is the longest a document is used without fetching it again, whatever its cache headers.
+	OAuthMaxMetadataAge = 24 * time.Hour
+)
+
+// The outbound guard of netguard, for addresses somebody else chose (#114).
+const (
+	// GuardDialTimeout bounds one connection attempt and its TLS handshake; the client's own timeout bounds the call.
+	GuardDialTimeout = 5 * time.Second
+	GuardKeepAlive   = 30 * time.Second
+	GuardIdleTimeout = 30 * time.Second
+	// GuardMaxIdleConns keeps a few connections for documents fetched again.
+	GuardMaxIdleConns = 20
+	// GuardMaxRedirects bounds the walk; each redirect is checked like the first address.
+	GuardMaxRedirects = 3
 )
