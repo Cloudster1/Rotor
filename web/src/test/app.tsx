@@ -20,7 +20,11 @@ export const ME: Me = {
   user: { id: "0190a5c4-0000-7000-8000-000000000001", email: "ada@suite.test", name: "Ada Admin" },
   role: "admin",
   groups: ["rotor-administrators", "engineering"],
+  assistant: null,
 };
+
+/** Assistants as a fresh installation has them: free to connect (#47). */
+export const ASSISTANTS_ON = { connectionsOn: true, updatedAt: "2026-10-21T08:00:00Z" };
 
 /** Retention as a fresh installation has it: 90 days, set by nobody (#41). */
 export const RETENTION_DEFAULT = { runDataDays: 90, maxDays: 3650, changedBy: null, updatedAt: "2026-10-19T08:00:00Z" };
@@ -84,6 +88,9 @@ export async function renderAt(path: string, { me = ME as Me | null, answers = {
     // An administrator's settings show whether runs go to LangSmith (#37); off unless a test says otherwise.
     "/api/v1/settings/langsmith": LANGSMITH_OFF,
     "/api/v1/settings/retention": RETENTION_DEFAULT,
+    "/api/v1/oauth/grants": { grants: [] },
+    "/api/v1/oauth/grants/everyone": { grants: [] },
+    "/api/v1/settings/assistants": ASSISTANTS_ON,
     "/api/v1/schemas/workflow.v1.json": { $id: "https://rotor.dev/schemas/workflow.v1.json", type: "object" },
     "POST /api/v1/workflows/validate": { valid: true, problems: [], warnings: [] },
     ...answers,

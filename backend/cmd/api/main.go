@@ -27,6 +27,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/httpapi"
 	"github.com/cloudster1/rotor/backend/internal/langsmith"
 	"github.com/cloudster1/rotor/backend/internal/metrics"
+	"github.com/cloudster1/rotor/backend/internal/oauth"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
 	"github.com/cloudster1/rotor/backend/internal/providers"
@@ -103,6 +104,9 @@ func run() error {
 		AppBaseURL:     cfg.AppBaseURL,
 		CheckOrigin:    cfg.IsProduction(),
 		RequestTimeout: cfg.RequestTimeout,
+		TrustedProxies: cfg.TrustedProxies,
+		// Assistants connect through Rotor's own authorization server, which needs only the database (#47).
+		OAuth: oauth.NewService(cluster, cfg.AppBaseURL, httpapi.APIPrefix),
 	}
 	secrets, err := boot.Secrets(ctx, cfg, log)
 	if err != nil {

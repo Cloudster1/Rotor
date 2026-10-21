@@ -49,6 +49,8 @@ type auditEntry struct {
 	IP         string          `json:"ip"`
 	RequestID  string          `json:"requestId"`
 	At         time.Time       `json:"at"`
+	// Via names the assistant the actor acted through, null when they acted in the browser (#47).
+	Via *string `json:"via"`
 }
 
 // auditWindow is one window of the log and the cursor of the next, null at the end.

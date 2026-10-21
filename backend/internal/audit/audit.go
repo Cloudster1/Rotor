@@ -51,6 +51,9 @@ const (
 	ActionLangSmithChanged       = "langsmith.changed"
 	ActionRetentionChanged       = "retention.changed"
 	ActionRunDataDeleted         = "run.data_deleted"
+	ActionOAuthGranted           = "oauth.granted"
+	ActionOAuthRevoked           = "oauth.revoked"
+	ActionOAuthSwitched          = "oauth.switched"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
@@ -60,7 +63,7 @@ var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, Actio
 	ActionApprovalDecided, ActionTriggerCreated, ActionTriggerChanged, ActionTriggerRemoved, ActionTriggerEnabled, ActionTriggerDisabled,
 	ActionHookSecretChanged, ActionLimitsChanged, ActionLangSmithChanged,
 	ActionSandboxSpawned, ActionSandboxDestroyed, ActionRunEnded, ActionApprovalRequested, ActionAuditExported,
-	ActionRetentionChanged, ActionRunDataDeleted}
+	ActionRetentionChanged, ActionRunDataDeleted, ActionOAuthGranted, ActionOAuthRevoked, ActionOAuthSwitched}
 
 // Redacted stands in the record for a value that looked like a credential.
 var Redacted = redact.Redacted

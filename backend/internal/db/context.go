@@ -22,3 +22,20 @@ func UserFrom(ctx context.Context) (uuid.UUID, bool) {
 	id, ok := ctx.Value(userKey{}).(uuid.UUID)
 	return id, ok && id != uuid.Nil
 }
+
+type viaKey struct{}
+
+// ViaVar is the setting current_actor_via() reads: the grant an assistant acts through.
+const ViaVar = "app.via"
+
+// WithVia names the grant an assistant acts through, so the database refuses what
+// only a person may do and the audit log names the assistant.
+func WithVia(ctx context.Context, grant uuid.UUID) context.Context {
+	return context.WithValue(ctx, viaKey{}, grant)
+}
+
+// ViaFrom is the grant WithVia named, if any.
+func ViaFrom(ctx context.Context) (uuid.UUID, bool) {
+	id, ok := ctx.Value(viaKey{}).(uuid.UUID)
+	return id, ok && id != uuid.Nil
+}

@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"net/http"
+
+	"github.com/cloudster1/rotor/backend/internal/openapi"
 )
 
 // The rows of M2 and M3, workflows and runs; docs/api-contract-m2.md says what they mean.
@@ -13,14 +15,16 @@ var notFound = errorEnvelope{}
 
 var m2Operations = []operation{
 	// Workflows: versioned specs, shared by group (#15).
-	{method: "GET", path: "/workflows", handler: "handleListWorkflows", tag: "workflows",
+	{method: "GET", path: "/workflows", handler: "handleListWorkflows", tool: "list_workflows",
+		toolHelp: "List the workflows you may see and start, with their ids, names and current versions.", tag: "workflows",
 		summary:   "The workflows you may see: yours, those shared with a group of yours, and those shared with everyone.",
 		query:     []param{{name: "archived", description: "true lists archived workflows instead."}},
 		responses: ok(env{"workflows": []workflowSummary{}})},
 	{method: "POST", path: "/workflows", handler: "handleCreateWorkflow", tag: "workflows",
 		summary: "Create a workflow from its YAML; the first save is version 1.", request: saveWorkflowRequest{},
 		responses: map[int]any{http.StatusCreated: workflowResponse{}, http.StatusUnprocessableEntity: errorEnvelope{}}},
-	{method: "GET", path: "/workflows/{workflowID}", handler: "handleGetWorkflow", tag: "workflows",
+	{method: "GET", path: "/workflows/{workflowID}", handler: "handleGetWorkflow", tool: "get_workflow",
+		toolHelp: "Read one workflow by its id, with its YAML spec, inputs and the tools it binds.", tag: "workflows",
 		summary: "A workflow with its current version.", responses: map[int]any{http.StatusOK: workflowResponse{}, http.StatusNotFound: notFound}},
 	{method: "PUT", path: "/workflows/{workflowID}", handler: "handleSaveWorkflow", tag: "workflows",
 		summary:     "Save a new version; versions are never changed, so runs that pinned one keep it.",
@@ -41,7 +45,8 @@ var m2Operations = []operation{
 	{method: "PUT", path: "/workflows/{workflowID}/sharing", handler: "handleShareWorkflow", tag: "workflows",
 		summary: "Share a workflow privately, with groups of the realm, or with everyone; runs still act as whoever starts them.",
 		request: sharingRequest{}, responses: map[int]any{http.StatusOK: workflowResponse{}, http.StatusNotFound: notFound, http.StatusForbidden: errorEnvelope{}}},
-	{method: "POST", path: "/workflows/validate", handler: "handleValidateWorkflow", tag: "workflows",
+	{method: "POST", path: "/workflows/validate", handler: "handleValidateWorkflow", tool: "validate_workflow",
+		toolHelp: "Check a workflow YAML spec without saving it; problems name their line and column.", reads: true, tag: "workflows",
 		summary: "Check a workflow's YAML against the schema, its own sense, and the tools you can use, without saving it.",
 		request: validateRequest{}, responses: ok(validateResponse{})},
 	{method: "GET", path: "/schemas/workflow.v1.json", handler: "handleWorkflowSchema", tag: "workflows",
@@ -68,21 +73,27 @@ var m2Operations = []operation{
 		summary: "The models a workflow may name, and the default.", responses: ok(env{"models": []modelResponse{}})},
 
 	// Runs (M3: #22 starts and carries them, #24 streams their events).
-	{method: "POST", path: "/workflows/{workflowID}/runs", handler: "handleStartRun", tag: "runs",
+	{method: "POST", path: "/workflows/{workflowID}/runs", handler: "handleStartRun", tool: "start_run",
+		toolHelp: "Start a run of a workflow as the person you act for, with its inputs. Runs act in the tools with the person's own permissions and may write to them; one waits at an approval until a person decides it in Rotor. Send a new idempotencyKey for each run, and the same one to retry.", destructive: true, openWorld: true, tag: "runs",
 		summary:     "Start a run of a workflow as yourself.",
 		description: "An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have).",
 		request:     startRunRequest{},
-		headers:     []param{{name: idempotencyHeader, description: "Any text of at most 200 characters, new for each run; a retry sends the same."}},
+		headers: []param{{name: idempotencyHeader, arg: "idempotencyKey",
+			description: "Any text of at most 200 characters, new for each run; a retry sends the same."}},
 		responses: map[int]any{http.StatusCreated: runResponse{}, http.StatusOK: runResponse{}, http.StatusNotFound: notFound,
 			http.StatusConflict: errorEnvelope{}, http.StatusUnprocessableEntity: errorEnvelope{}}},
-	{method: "GET", path: "/runs", handler: "handleListRuns", tag: "runs",
+	{method: "GET", path: "/runs", handler: "handleListRuns", tool: "list_runs",
+		toolHelp: "List runs you may see, newest first; narrow them by workflow, status, mine or limit.", tag: "runs",
 		summary: "Runs you may see: your own and those of workflows you own; administrators see all.",
 		query: []param{{name: "workflow", description: "Only runs of this workflow."}, {name: "status", description: "Only runs in this state.", repeated: true},
-			{name: "mine", description: "true lists only the runs you started."}},
+			{name: "mine", description: "true lists only the runs you started."},
+			{name: "limit", description: "At most this many runs, newest first; 200 when left out.", schema: &openapi.Schema{Type: "integer"}}},
 		responses: ok(env{"runs": []runResponse{}})},
-	{method: "GET", path: "/runs/{runID}", handler: "handleGetRun", tag: "runs",
+	{method: "GET", path: "/runs/{runID}", handler: "handleGetRun", tool: "get_run",
+		toolHelp: "Read one run by its id: its state, outputs, and the approval it waits at.", tag: "runs",
 		summary: "One run.", responses: map[int]any{http.StatusOK: runResponse{}, http.StatusNotFound: notFound}},
-	{method: "POST", path: "/runs/{runID}/cancel", handler: "handleCancelRun", tag: "runs",
+	{method: "POST", path: "/runs/{runID}/cancel", handler: "handleCancelRun", tool: "cancel_run",
+		toolHelp: "Cancel a run that has not ended.", destructive: true, tag: "runs",
 		summary:     "Cancel a run that has not ended.",
 		description: "Refused with 403 not_run_manager to a group approver, who stops a run by rejecting its approval.",
 		responses: map[int]any{http.StatusOK: runResponse{}, http.StatusForbidden: errorEnvelope{}, http.StatusNotFound: notFound,

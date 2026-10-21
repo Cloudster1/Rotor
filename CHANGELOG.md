@@ -17,6 +17,15 @@ and the versioning [Semantic Versioning](https://semver.org/).
   shows what you could have written yourself. Nodes the checks found
   something wrong with are marked, and each problem opens the YAML at its
   line.
+- Assistants work with Rotor over MCP as the person who connected them (#47).
+  `POST /api/v1/mcp` offers workflows and runs, read, checked, started and
+  cancelled, and approvals to read, never to decide. An assistant connects
+  with Rotor's address alone: it registers, its person allows it on Rotor's
+  consent page, to act or only to read, and Settings lists the assistants
+  each person connected, to disconnect any. Administrators see everybody's
+  and can switch assistants off. The audit log names the assistant beside
+  the person, its CSV export in a last column, `via`, and `GET /runs` takes a
+  `limit`. `/meta` lists `mcp@1`.
 - Rotor joins the suite's capability names (#43). `GET /api/v1/meta` lists
   `workflows@1`, `runs@1` and `hooks@1`, each held by a test to what the build
   serves, and `docs/integration.md` says what each promises. Rotor reads what

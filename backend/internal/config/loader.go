@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -73,6 +74,21 @@ func (l *loader) duration(key string, def time.Duration) time.Duration {
 		return def
 	}
 	return d
+}
+
+// prefixes parses a comma separated list of CIDRs, refusing one it cannot read
+// rather than trusting less, or more, than the operator meant.
+func (l *loader) prefixes(key string) []netip.Prefix {
+	var out []netip.Prefix
+	for _, each := range splitList(l.str(key, "")) {
+		prefix, err := netip.ParsePrefix(each)
+		if err != nil {
+			l.problem(fmt.Sprintf("%s has %q; write each entry as an address range in CIDR notation, such as 172.16.0.0/12.", key, each))
+			continue
+		}
+		out = append(out, prefix.Masked())
+	}
+	return out
 }
 
 // splitList parses a comma separated list, trimming blanks.

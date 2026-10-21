@@ -11,7 +11,7 @@ an account; the names promise features, not data.
   "product": "rotor",
   "build": { "version": "0.1.0", "commit": "abc1234", "builtAt": "2026-10-19T09:00:00Z" },
   "apiVersion": "1",
-  "capabilities": ["hooks@1", "runs@1", "workflows@1"]
+  "capabilities": ["hooks@1", "mcp@1", "runs@1", "workflows@1"]
 }
 ```
 
@@ -56,6 +56,19 @@ administrator keeps the secret the tool made for Rotor.
 - `POST /hooks/{toolID}`, public, checked by the tool's timestamped signature
 - `GET /tools/{toolID}/hook`, `PUT /tools/{toolID}/hook`,
   `DELETE /tools/{toolID}/hook`
+
+### `mcp@1`
+
+An assistant works with workflows, runs and approvals over MCP 2025-11-25 or
+2025-06-18, as the person who connected it through Rotor's own OAuth
+authorization server (RFC 9728, RFC 8414, RFC 7591, PKCE S256). Its tools are
+`whoami`, `list_workflows`, `get_workflow`, `validate_workflow`, `start_run`,
+`list_runs`, `get_run`, `cancel_run`, `list_approvals` and `get_approval`;
+approvals are decided in Rotor's pages alone.
+[`docs/api-contract-m10.md`](api-contract-m10.md) has the whole contract and
+[`docs/assistants.md`](assistants.md) how to connect one.
+
+- `POST /mcp`, whose 401 names the protected resource metadata
 
 ## What Rotor checks of the tools
 

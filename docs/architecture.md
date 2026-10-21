@@ -119,8 +119,21 @@ the realm client `rotor-control-plane`.
 Rotor reads which capabilities a tool lists at its `/meta` when it is added
 or checked again, and offers only what the tool can carry: no connecting
 without `mcp@1`, no event triggers without `webhooks@1`. Rotor lists its own,
-`workflows@1`, `runs@1` and `hooks@1`, for the suite
+`workflows@1`, `runs@1`, `hooks@1` and `mcp@1`, for the suite
 ([`docs/integration.md`](integration.md), #43).
+
+## Assistants (#47, `docs/api-contract-m10.md`)
+
+Rotor is also an OAuth authorization server, for its own MCP endpoint at
+`/api/v1/mcp` (`internal/oauth`, adapted from Exciter's). An assistant
+registers, its person consents at `/oauth/consent`, and it gets a token for
+MCP alone; Postgres keeps only digests of codes and tokens. Each MCP tool is
+a row of the operations table, run in process through the whole router with
+the assistant's token, so a tool does what its HTTP call does as the person.
+`authenticate` takes a bearer token only at MCP and for those calls, marks
+the transaction's `app.via` with the grant, and the database stamps the
+assistant on every audit entry and refuses an approval decided through one.
+The worker's sweep removes what ran out.
 
 ## Workflows (#14, #15)
 

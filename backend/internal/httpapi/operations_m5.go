@@ -16,7 +16,8 @@ func init() {
 
 var m5Operations = []operation{
 	// Approvals: a person decides before a run goes on (#31).
-	{method: "GET", path: "/approvals", handler: "handleListApprovals", tag: "approvals",
+	{method: "GET", path: "/approvals", handler: "handleListApprovals", tool: "list_approvals",
+		toolHelp: "List approvals: pending ones you may decide and those of runs you may see. Approvals are decided by a person in Rotor's pages, never by a tool.", tag: "approvals",
 		summary: "Approvals you may see: those you may decide, and those of runs you may see; newest first.",
 		query: []param{
 			{name: "status", description: "pending (the default), decided or all."},
@@ -25,7 +26,8 @@ var m5Operations = []operation{
 		responses: ok(env{"approvals": []approvalSummary{}})},
 	{method: "GET", path: "/approvals/count", handler: "handleCountApprovals", tag: "approvals",
 		summary: "How many approvals wait for you to decide them, for the badge.", responses: ok(approvalCount{})},
-	{method: "GET", path: "/approvals/{approvalID}", handler: "handleGetApproval", tag: "approvals",
+	{method: "GET", path: "/approvals/{approvalID}", handler: "handleGetApproval", tool: "get_approval",
+		toolHelp: "Read one approval: what the run is about to write and the fields an approver may change. Tell the person to decide it in Rotor.", tag: "approvals",
 		summary:   "One approval, with what the run is about to write and the fields an approver may change.",
 		responses: map[int]any{http.StatusOK: approvalResponse{}, http.StatusNotFound: notFound}},
 	{method: "POST", path: "/approvals/{approvalID}/decision", handler: "handleDecideApproval", tag: "approvals",

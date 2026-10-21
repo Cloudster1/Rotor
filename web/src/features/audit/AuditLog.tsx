@@ -247,6 +247,11 @@ function AuditRow({ entry, onActor, onTarget }: { entry: AuditEntry; onActor: (a
         ) : (
           <span className="text-ink-muted">{s.audit.rotor}</span>
         )}
+        {entry.via && (
+          <span className="block text-xs text-ink-muted" data-audit-via>
+            {s.audit.through(entry.via)}
+          </span>
+        )}
       </td>
       <td className="px-3 py-2">
         <span className="block text-xs text-ink-muted">{entry.targetType}</span>

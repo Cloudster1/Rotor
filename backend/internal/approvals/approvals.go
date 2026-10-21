@@ -28,6 +28,9 @@ const (
 // ErrNotFound is an approval that does not exist or that the caller may not see.
 var ErrNotFound = errors.New("no such approval")
 
+// ErrInPerson is a decision an assistant tried to make for its person.
+var ErrInPerson = errors.New("an assistant cannot decide an approval")
+
 // Approval is an approval as the people who may see it see it.
 type Approval struct {
 	ID            uuid.UUID

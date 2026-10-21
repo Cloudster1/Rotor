@@ -39,6 +39,11 @@ export default defineConfig({
         target: process.env.VITE_API_PROXY || "http://localhost:8080",
         changeOrigin: true,
       },
+      // The OAuth metadata sits at the root, where assistants look for it (#47).
+      "/.well-known/oauth-": {
+        target: process.env.VITE_API_PROXY || "http://localhost:8080",
+        changeOrigin: true,
+      },
     },
   },
   test: {

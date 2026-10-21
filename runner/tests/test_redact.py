@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
         "sk-ant-api03-xyz",
         "sk_live_" + "0123456789abcdefgh",
         "exciter_oat_9z",
+        "rotor_oat_0123456789",
         "hvs.CAESIJ0123456789",
         "eyJhbGciOiJSUzI1NiJ9.e30.c2lnbmF0dXJl",
         "-----BEGIN PRIVATE KEY-----\nMIIEow\n-----END PRIVATE KEY-----",

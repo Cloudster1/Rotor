@@ -22,6 +22,7 @@ finding updates this document in the same pull request.
 | LangSmith key, webhook secrets | OpenBao | Send data out; start workflows |
 | Run data: inputs, events, checkpoints, outputs, approvals | Postgres | Hold what a run read from the tools, which may be confidential |
 | Sessions | Postgres (SHA-256 of the cookie) | Act as a person in Rotor |
+| Assistants' tokens and codes | Postgres (SHA-256 of each), the assistant | Act as a person over MCP for an hour, or refresh for 30 days |
 | Workflow definitions and triggers | Postgres | Decide what runs as whom, and when |
 | The audit log | Postgres, append-only | Proves who did what |
 | The tools' own data | Exciter, Armature, Stator | What a hostile run would read or change |
@@ -106,6 +107,11 @@ listed.
 | D | Large bodies | Every body is capped, hooks at 256 KiB | Built |
 | D | Volume from signed-in people | Per-person concurrency and daily quotas bound runs; requests themselves are not rate-limited | Accepted: a self-hosted installation serves known people |
 | E | A member reaching administrator routes | Role from the realm group, checked by the router and by row-level security | Built (#6) |
+| S | An assistant's token used outside MCP, or replayed | Accepted at MCP and its in-process calls alone; access tokens last an hour; a reused code or refresh token ends the grant | Built (#47) |
+| S | A page of another site calling a local Rotor's MCP after rebinding its name | `/mcp` is held to the origin whatever the credential | Built (#47) |
+| E | An assistant deciding an approval, connecting a tool, consenting or administering | No tool for them; session-only routes; `Decide` refuses an assistant; the database refuses an approval decided while `app.via` is set | Built (#47) |
+| E | An assistant granted to read writing | Read grants are offered read tools alone, and `readOnlyGrant` refuses a write before any handler | Built (#47) |
+| D | Registrations flooding the client table | 10 an hour per caller's address, from trusted proxies' `X-Real-IP`; unused clients swept after a day | Built (#47) |
 | E | Writes through a binding whose call a tool later marks as a write | Every start, by hand or by a trigger, checks the workflow again against the tools read afresh as the run's person, past the cache | Built (#90) |
 
 ### worker
@@ -246,6 +252,17 @@ What stands in the way, from the outside in:
 Fencing lowers the chance a model follows planted text; it does not prevent
 it. The guarantees are the bindings, the approvals and the egress policy.
 
+### Assistants reading what runs read
+
+An assistant reads runs' outputs and approvals' previews, which carry what
+the tools answered, so text in a tool can try to steer the assistant. What
+the assistant can then do is what its person allowed: start and cancel runs
+of workflows they may see, which act with their own permissions, and never
+decide an approval. A workflow that writes after reading untrusted text has
+an approval node, which a person decides in Rotor (#40), so an assistant
+cannot carry a steered write through by itself. A person who wants an
+assistant to only look connects it to read.
+
 ### Code-node escape
 
 A code node is the workflow author's Python. Authors are trusted to write
@@ -280,6 +297,8 @@ make hard.
 | Back-channel logout tokens | Their `jti` is kept; `iat` must be within 5 minutes |
 | Webhook deliveries | The signed timestamp must be within 5 minutes and the event id unseen in 7 days |
 | Session cookies | Only the hash is stored; ending a session at Keycloak or in Rotor deletes the row |
+| Assistants' codes and refresh tokens | A code is used once and a refresh token turns over; either used twice ends the whole grant (#47) |
+| Assistants' access tokens | Only the hash is stored; they last an hour, work at MCP alone, and end with their grant or when assistants are switched off |
 
 ### Webhook spoofing
 

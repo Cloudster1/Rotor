@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -56,6 +57,10 @@ type Server struct {
 	LangSmithEndpoint string
 	// Retention is how long a finished run's data is kept (#41); nil answers 503.
 	Retention Retention
+	// OAuth is Rotor as the authorization server of its MCP endpoint (#47); nil answers 503 and refuses every token.
+	OAuth OAuthServer
+	// TrustedProxies are the peers whose X-Real-IP header names the caller.
+	TrustedProxies []netip.Prefix
 	// Sessions and SignIn are nil only in tests that exercise neither.
 	Sessions Sessions
 	SignIn   SignIn
@@ -72,6 +77,9 @@ type Server struct {
 	CheckOrigin bool
 	// RequestTimeout bounds each handler; zero means the configured default.
 	RequestTimeout time.Duration
+
+	// handler is the whole router, which MCP sends the calls of its tools through; Routes sets it.
+	handler http.Handler
 }
 
 // Routes builds the HTTP surface. The order matters: an id first so every later
@@ -92,10 +100,12 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 	r.Use(s.sameSite(allowedOrigins))
 	r.Use(timeoutExceptStreams(timeout))
 	r.Use(s.authenticate)
+	r.Use(readOnlyGrant)
 
 	// Liveness and readiness are deliberately outside the API and authentication.
 	r.Get("/healthz", s.handleLiveness)
 	r.Get("/readyz", s.handleReadiness)
+	s.mountOAuthDiscovery(r)
 
 	r.Route(APIPrefix, func(r chi.Router) {
 		r.Get("/openapi.json", s.handleOpenAPI)
@@ -105,17 +115,19 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 		r.Post("/auth/oidc/backchannel-logout", s.handleBackchannelLogout)
 		r.Get("/connections/callback", s.handleConnectionCallback)
 		r.Post("/hooks/{toolID}", s.handleReceiveHook)
+		s.mountOAuth(r)
+		r.With(s.requireMCPAuth).Post("/mcp", s.handleMCP)
 		mountPending(r, true, false)
 		r.Group(func(r chi.Router) {
 			r.Use(requireAuth)
 			r.Get("/auth/me", s.handleMe)
-			r.Post("/auth/logout", s.handleLogout)
+			r.With(requireSession).Post("/auth/logout", s.handleLogout)
 			r.Get("/tools", s.handleListTools)
 			r.Get("/tools/{toolID}", s.handleGetTool)
 			r.Get("/connections", s.handleListConnections)
 			r.Get("/models", s.handleListModels)
-			r.Post("/tools/{toolID}/connection", s.handleConnect)
-			r.Delete("/tools/{toolID}/connection", s.handleDisconnect)
+			r.With(requireSession).Post("/tools/{toolID}/connection", s.handleConnect)
+			r.With(requireSession).Delete("/tools/{toolID}/connection", s.handleDisconnect)
 			r.Get("/tools/{toolID}/catalog", s.handleToolCatalog)
 			r.Get("/workflows", s.handleListWorkflows)
 			r.Post("/workflows", s.handleCreateWorkflow)
@@ -136,7 +148,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Get("/approvals", s.handleListApprovals)
 			r.Get("/approvals/count", s.handleCountApprovals)
 			r.Get("/approvals/{approvalID}", s.handleGetApproval)
-			r.Post("/approvals/{approvalID}/decision", s.handleDecideApproval)
+			r.With(requireSession).Post("/approvals/{approvalID}/decision", s.handleDecideApproval)
 			r.Get("/triggers", s.handleListTriggers)
 			r.Post("/triggers/schedule", s.handlePreviewSchedule)
 			r.Get("/triggers/{triggerID}", s.handleGetTrigger)
@@ -150,6 +162,8 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			mountPending(r, false, false)
 			r.Group(func(r chi.Router) {
 				r.Use(requireAdmin)
+				// An assistant never administers Rotor, whoever it acts for.
+				r.Use(requireSession)
 				r.Post("/tools", s.handleAddTool)
 				r.Get("/providers", s.handleListProviders)
 				r.Post("/providers", s.handleAddProvider)
@@ -189,6 +203,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			Message: "That method is not allowed here.",
 		})
 	})
+	s.handler = r
 	return r
 }
 

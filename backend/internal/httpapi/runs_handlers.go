@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"reflect"
 	"slices"
+	"strconv"
 
 	"github.com/google/uuid"
 
@@ -176,6 +177,14 @@ func (s *Server) handleListRuns(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		f.WorkflowID = id
+	}
+	if raw := q.Get("limit"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 || n > config.RunListLimit {
+			respondError(w, r, ErrBadRequest(fmt.Sprintf("The limit is a whole number from 1 to %d. Leave it out for the most.", config.RunListLimit)))
+			return
+		}
+		f.Limit = n
 	}
 	for _, status := range f.Statuses {
 		if !validRunStatus(status) {

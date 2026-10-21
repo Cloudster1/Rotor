@@ -60,7 +60,7 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	token, next, err := s.SignIn.Finish(r.Context(), q.Get("state"), q.Get("code"),
-		oidc.Browser{UserAgent: r.UserAgent(), IP: clientIP(r)})
+		oidc.Browser{UserAgent: r.UserAgent(), IP: s.clientIP(r)})
 	switch {
 	case errors.Is(err, auth.ErrSwitchedOff):
 		s.failSignIn(w, r, "switched_off", err)
@@ -94,9 +94,11 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	p := auth.PrincipalFrom(r.Context())
-	respondJSON(w, r, http.StatusOK, meResponse{
-		User: meUser{ID: p.UserID.String(), Email: p.Email, Name: p.Name}, Role: p.Role, Groups: p.Groups,
-	})
+	out := meResponse{User: meUser{ID: p.UserID.String(), Email: p.Email, Name: p.Name}, Role: p.Role, Groups: p.Groups}
+	if a := p.Assistant; a != nil {
+		out.Assistant = &meAssistant{Client: a.Client, ReadOnly: a.ReadOnly}
+	}
+	respondJSON(w, r, http.StatusOK, out)
 }
 
 // handleBackchannelLogout answers the provider as the specification asks: 200 when the sessions are ended,

@@ -67,6 +67,10 @@ func (s *Service) Decide(ctx context.Context, id uuid.UUID, d Decision) (Approva
 	if p == nil {
 		return Approval{}, auth.ErrNoSession
 	}
+	// A person decides in Rotor's pages, never an assistant acting for them; the database holds the same (#47).
+	if p.ThroughAssistant() {
+		return Approval{}, ErrInPerson
+	}
 	a, err := s.Get(ctx, id)
 	if err != nil {
 		return Approval{}, err

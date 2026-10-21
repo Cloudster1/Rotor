@@ -145,3 +145,21 @@ Adapted from Exciter at a74de66, its releases:
 - tests/test-release.sh, test-release-refusals.sh, release-fixture.sh and test-release-workflow.sh: split in three to
   stay under 500 lines, with the runner's version files and the images the chart runs
 - docs/releasing.md: cutting a release, installing it, when something fails and the setup
+
+Adapted from Exciter at 3b340ca and ee72629, its authorization server for assistants (#188, #189):
+- backend/internal/oauth: rules, registration, authorization, tokens, grants and the sweep, without projects, the
+  evidence scope or client ID metadata documents, with the constants in backend/internal/config/oauth.go and an
+  installation-wide switch of its own table
+- backend/migrations/01000_oauth.sql: the tables, triggers and policies of 00800_oauth.sql in Rotor's style, with
+  app.via refusing an approval decided through an assistant and naming the assistant in the audit log
+- backend/internal/httpapi/oauth_handlers.go: discovery, the protocol's endpoints and the consent and grants routes
+- web/src/features/oauth/ConsentPage.tsx and e2e/tests/assistants.spec.ts: the consent page and its browser test
+- backend/test/oauth_harness_test.go, oauth_test.go and oauth_grants_test.go: against the stack's api
+
+Adapted from Exciter at d6dd00c, its MCP endpoint:
+- backend/internal/httpapi/mcp.go and mcp_tools.go: tools alone, from rows of the operations table, the inner call
+  carrying only the caller's headers, and headers as arguments
+- backend/internal/httpapi/assistant_auth.go: the bearer at MCP alone, the 401's challenge, read-only grants and
+  session-only routes, of middleware.go, oauth_handlers.go and token_handlers.go
+- backend/internal/httpapi/clientip.go and backend/internal/openapi/standalone.go
+- backend/internal/httpapi/mcp_test.go

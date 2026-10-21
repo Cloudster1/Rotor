@@ -58,7 +58,8 @@ func randomState() (string, error) {
 // page of Rotor's the browser returns to once connected, empty for the Connections page.
 func (s *Service) Start(ctx context.Context, toolID uuid.UUID, next string) (string, error) {
 	p := auth.PrincipalFrom(ctx)
-	if p == nil {
+	// Connecting is bound to the browser's session, which an assistant acting for the person has none of (#47).
+	if p == nil || p.SessionID == uuid.Nil {
 		return "", ErrNoSession
 	}
 	tool, err := s.tools.Lookup(ctx, toolID)

@@ -43,6 +43,9 @@ api:
   runnerPort: 9443
   # The api's /metrics, in Prometheus's format: token mint failures and the process's own (#37).
   metricsPort: 9465
+  # CIDRs of the web pods' network, whose X-Real-IP header the api takes as the caller's address; the limit on
+  # assistants registering from one address counts by it (#47). Empty takes the peer's address.
+  trustedProxies: []
   terminationGracePeriodSeconds: 40
   resources:
     requests: { cpu: 100m, memory: 128Mi }

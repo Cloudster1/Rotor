@@ -29,6 +29,7 @@ func specBuilder() *openapi.Builder {
 	registerM2Schemas(b)
 	registerM5Schemas(b)
 	registerM6Schemas(b)
+	registerM10Schemas(b)
 	return b
 }
 
