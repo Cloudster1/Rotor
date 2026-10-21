@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The README shows what Rotor does, the way Armature's does (#116): how to
+  run it, what it does with pictures of it, how it is put together,
+  deployed, tested and operated, every environment variable with its
+  default, and where everything lives. `make screenshots` takes the pictures
+  in `docs/screenshots.md` from a fresh development stack, as a person would
+  use it.
 - An assistant can connect by the address of its client ID metadata document
   instead of registering (#114). Rotor fetches the document from the public
   internet alone, through a guard that never reaches Rotor's own network

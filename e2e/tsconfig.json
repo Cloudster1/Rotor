@@ -17,5 +17,5 @@
     "resolveJsonModule": true,
     "noEmit": true
   },
-  "include": ["playwright.config.ts", "merge.config.ts", "fixtures", "tests"]
+  "include": ["playwright.config.ts", "merge.config.ts", "screenshots.config.ts", "fixtures", "tests", "screenshots"]
 }
