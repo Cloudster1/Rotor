@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 import { expectAccessible, openShell, PLACES, startInScheme, type ColourScheme } from "../fixtures/shell";
 
 // Contrast needs real layout and real colours, which is why these run here and not in the jsdom suite.
-const PATHS = [...PLACES.map((place) => place.path), "/no-such-page"];
+// The workflow editor is no sidebar place, but its canvas and inspector are pages of their own to check (#46).
+const PATHS = [...PLACES.map((place) => place.path), "/workflows/new", "/no-such-page"];
 const SCHEMES: ColourScheme[] = ["light", "dark"];
 
 for (const scheme of SCHEMES) {

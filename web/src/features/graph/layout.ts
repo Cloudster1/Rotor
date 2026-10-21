@@ -1,5 +1,11 @@
-import type { RunGraph } from "@/api/runs";
 import { GRAPH_COLUMN_PX, GRAPH_ROW_PX } from "@/config";
+
+/** A workflow's nodes and the ways between them, entry first, as the server's Spec.Graph() draws it. */
+export interface Graph {
+  entry: string;
+  nodes: { id: string; type: string }[];
+  edges: { from: string; to: string; label?: string }[];
+}
 
 /** Where a node sits in the drawn graph, in pixels, and the layer it is in. */
 export interface Placed {
@@ -11,7 +17,7 @@ export interface Placed {
 }
 
 /** Lays the graph out in layers from its entry, top to bottom: each node one layer below the nearest node leading to it. */
-export function layered(graph: RunGraph): Placed[] {
+export function layered(graph: Graph): Placed[] {
   const next = new Map<string, string[]>();
   for (const e of graph.edges) next.set(e.from, [...(next.get(e.from) ?? []), e.to]);
   const layer = new Map<string, number>();

@@ -348,6 +348,12 @@ out in layers from the entry and coloured by the events. Beside the graph, a
 timeline gives the same events in words, with tool calls folded open on
 request and links to what they created.
 
+The workflow editor draws the same graph view on its Canvas tab (#46),
+`web/src/features/graph`. The editor's text stays the one source: the canvas
+reads it with the `yaml` package and makes each change as a splice of that
+text (`features/workflows/canvas/edits.ts`), so the server checks and saves the
+YAML exactly as before.
+
 ## The chart (#29)
 
 `deploy/charts/rotor` installs the api, the worker and the web, runs the roles and migrate Jobs before every

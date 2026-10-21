@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { type ChangeEvent, useEffect, useId, useRef, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   createWorkflow,
   type Problem,
@@ -16,7 +16,9 @@ import { RunDialog } from "@/features/runs/RunDialog";
 import { PageHeader } from "@/features/shell/EmptyState";
 import { TriggersSection } from "@/features/triggers/TriggersSection";
 import { s } from "@/strings";
+import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { CheckList } from "./CheckList";
+import { EditorTabs, useEditorView } from "./EditorTabs";
 import { SharePanel } from "./SharePanel";
 import { ToolPicker } from "./ToolPicker";
 import { NEW_WORKFLOW, fileName } from "./template";
@@ -57,8 +59,25 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
   const [checking, setChecking] = useState(false);
   const [comment, setComment] = useState("");
   const [running, setRunning] = useState(false);
+  const [view, setView] = useEditorView();
+  const [jump, setJump] = useState<{ line: number; column: number }>();
   const summary = existing?.workflow;
   const readOnly = summary ? !summary.canEdit || summary.archived : false;
+
+  // A place in the text is opened in the YAML tab, once it shows: a hidden editor cannot take the focus.
+  const focusAt = useCallback(
+    (line: number, column: number) => {
+      setView("yaml");
+      setJump({ line, column });
+    },
+    [setView],
+  );
+  useEffect(() => {
+    if (view === "yaml" && jump) {
+      editor.current?.focusAt(jump.line, jump.column);
+      setJump(undefined);
+    }
+  }, [view, jump]);
 
   // The server checks what the schema cannot, against the tools as you see them; a pause in typing asks it.
   useEffect(() => {
@@ -126,22 +145,31 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
           <h2 id={`${id}-label`} className="text-lg font-semibold text-ink">
             {s.workflows.editor.label}
           </h2>
-          <p id={hintID} className="text-xs text-ink-muted">
-            {s.workflows.editor.hint}
-          </p>
-          <YamlEditor
-            value={text}
-            onChange={setText}
-            problems={problems}
-            warnings={warnings}
-            readOnly={readOnly}
-            label={s.workflows.editor.label}
-            describedBy={hintID}
-            schema={schema.data}
-            handle={editor}
+          <EditorTabs
+            view={view}
+            onView={setView}
+            yaml={
+              <>
+                <p id={hintID} className="text-xs text-ink-muted">
+                  {s.workflows.editor.hint}
+                </p>
+                <YamlEditor
+                  value={text}
+                  onChange={setText}
+                  problems={problems}
+                  warnings={warnings}
+                  readOnly={readOnly}
+                  label={s.workflows.editor.label}
+                  describedBy={hintID}
+                  schema={schema.data}
+                  handle={editor}
+                />
+              </>
+            }
+            canvas={<WorkflowCanvas text={text} onChange={setText} problems={problems} readOnly={readOnly} focusAt={focusAt} />}
           />
           <div aria-live="polite" data-problems>
-            <CheckList checking={checking} problems={problems} warnings={warnings} focusAt={(line, column) => editor.current?.focusAt(line, column)} />
+            <CheckList checking={checking} problems={problems} warnings={warnings} focusAt={focusAt} />
           </div>
           {!readOnly && (
             <div className="flex flex-col gap-3">

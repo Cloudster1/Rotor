@@ -4,6 +4,7 @@ import { langSmithStrings } from "./strings_telemetry";
 import { retentionStrings } from "./strings_retention";
 import { capabilityStrings } from "./strings_tools";
 import { untrustedStrings } from "./strings_untrusted";
+import { canvasStrings } from "./strings_canvas";
 
 /** Every word the interface shows, in one place, so a second language is a second copy of this object. */
 export const s = {
@@ -464,4 +465,5 @@ export const s = {
   retention: retentionStrings,
   capabilities: capabilityStrings,
   untrusted: untrustedStrings,
+  canvas: canvasStrings,
 } as const;

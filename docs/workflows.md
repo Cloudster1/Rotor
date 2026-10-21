@@ -148,6 +148,41 @@ When saving, a workflow can also get **warnings**, which never stop a save:
   may write in one step. Text in what was read could steer the write; read in
   one node, put an approval node after it, and write in the next.
 
+## Drawing a workflow (#46)
+
+The editor has two tabs over the same YAML: **YAML** and **Canvas**. The canvas
+draws the workflow as the run page does, and every change made on it is written
+into the YAML text, so switching tabs shows the YAML you could have written
+yourself. The browser remembers which tab you used last.
+
+- **What the canvas edits.**
+  - Adding a node of any kind with an id. A new node starts with its required
+    fields empty, so the checks say what it still needs.
+  - Removing a node, with its edges and the router cases and default that lead
+    to it. The entry is left as it was; the checks say when it names no node.
+  - Renaming a node, which also renames it in edges, the entry, router cases,
+    the default, a router's `on` and `{{ nodes.<id>... }}` templates. Python in
+    a code node is your own and keeps the old name.
+  - The edges out of a node, and a router's cases and its default (a router
+    takes no edges).
+  - Which node the workflow starts at.
+  - Each kind's main field: an agent's `prompt`, a tool node's binding and
+    `call`, a code node's `source`, an approval's `message` and a router's `on`.
+- **What stays in the YAML.** Output schemas, a tool call's `arguments`, an
+  approval's form and approvers, limits, bindings and the rest. **Edit in
+  YAML** on a node opens the YAML tab at it.
+- **Your text stays yours.** An edit changes only the lines it is about:
+  comments, quoting, flow or block style and the order of everything else stay
+  as you wrote them. A new item follows the style of the items beside it.
+- **No layout is stored.** The canvas lays the graph out in layers from the
+  entry every time, so the YAML holds nothing but the workflow.
+- **Problems on the nodes.** A node the checks found something wrong with is
+  marked with how many problems it has; choosing it lists them, and each opens
+  the YAML at its line. A YAML that does not parse is not drawn: the canvas
+  says so and offers the YAML tab.
+- **Without a pointer.** The tabs take the arrow keys, and every change has a
+  form beside the graph: choose a node from the list, then edit it.
+
 ## Content a run reads (#40)
 
 Anyone who can write an issue, a requirement, a wiki page or a tool event can
