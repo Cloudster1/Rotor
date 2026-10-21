@@ -248,6 +248,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The development realm carries the token-exchange audience mappers Dynamo's
+  canonical realm added to Armature, Exciter and Stator, and `make
+  realm-check` compares the realm Dynamo holds, leaving Rotor's own clients
+  and group aside until Dynamo carries them (#109).
 - A workflow that writes through a binding asking for an approval cannot
   start without one after a tool turned a call into a write (#90). Every
   start, by hand or from a trigger, checks the workflow against the tools
