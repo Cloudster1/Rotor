@@ -3,6 +3,111 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-21: No OpenShell sandboxes for now (#118)
+
+NVIDIA OpenShell 0.1.5 was tried on this checkout's kind cluster as a third
+sandbox backend, beside the gVisor pods. Rotor keeps the gVisor pods, and
+#119 to #122 are closed. The trial's code is commit 4551fb0, reverted after
+it.
+
+- **The trial.** On kind v1.34 with Cilium:
+  - gVisor release-20260928.0 in the node;
+  - Agent Sandbox v1.0.3, the version OpenShell's own CI tests with;
+  - OpenShell's chart 0.1.5, plaintext and without user authentication,
+    inside the cluster only;
+  - Rotor's chart from `make test-chart-install KEEP=1`.
+
+  A rough backend on the Go SDK at v0.1.5 started each run as an OpenShell
+  sandbox. Its steps are `scripts/kind/openshell-trial.sh` in that commit:
+  `install`, `rotor`, `run`, and the probes. v0.1.5 was a week old, against
+  the two-week rule, because only it has stable credential placeholders and
+  MCP inspection. Code that ships pins a release at least two weeks old.
+- **Q1, gVisor: no.** OpenShell refuses the workload before it starts:
+  "Landlock ABI v3 or newer (Linux 6.2+) is required, but Landlock is not
+  implemented (kernel lacks CONFIG_SECURITY_LANDLOCK)". gVisor's kernel has
+  no Landlock, and OpenShell fails closed, as its docs promise.
+  - **Kata** is OpenShell's documented VM option. It was not tried: the host
+    has `/dev/kvm` with nested virtualisation, but not the `vhost_vsock` and
+    `vhost_net` modules Kata needs, and loading them takes root.
+  - **runc** is what remains. Under runc, OpenShell's Landlock and seccomp
+    are the only boundary, which is weaker than the gVisor kernel #26 chose.
+- **Q2, the runner protocol: no, on 0.1.5.** The runner never reached the
+  control plane. Four things stood in the way, each found in turn:
+  1. **DNS search domains.** OpenShell applies none, so `rotor-api.<ns>.svc`
+     does not resolve. The runner host must be fully qualified
+     (`.svc.cluster.local`), and the api's certificate with it.
+  2. **Private addresses.** OpenShell refuses a ClusterIP that no endpoint's
+     `allowed_ips` names.
+  3. **#89.** OpenShell's broker reads a connecting thread's memory to
+     mediate each `connect` (`process_vm_readv`). The runner makes itself
+     not dumpable, so code nodes cannot read its tokens (#89). Every
+     connection was then denied with "task-memory read unavailable".
+  4. **IPv4-mapped addresses.** With the runner dumpable for the trial, gRPC
+     dials OpenShell's placeholder address from a dual-stack socket, as
+     `::ffff:198.18.0.2`. OpenShell 0.1.5 does not map that form back to the
+     host its policy names (`resolve_transparent_target` looks the address
+     up as given, while `procfs.rs` canonicalises it). The policy check
+     fails (`transparent_tcp_policy_denied`), and a hostless endpoint fails
+     on the placeholder address instead (`transparent_tcp_destination_denied`).
+     OpenShell also strips `grpc_proxy` and the other proxy variables from
+     the processes it starts, so the runner cannot route through the
+     supervisor's CONNECT proxy instead.
+- **Q3, code nodes: they cannot be told apart from the runner.** OpenShell
+  matches a network rule by the real path of the binary, or of any of its
+  ancestors. A code node is the runner's Python, started by the runner, so
+  it gets every network right the runner has.
+  - Worse, item 3 above means OpenShell needs the runner readable. Under
+    OpenShell a code node could then read the runner's tokens: the
+    protection #89 added would have to go.
+- **Q4, rotation: a running process keeps its value.** A long-running Python
+  in an OpenShell sandbox called an echo service every second, with a
+  provider's placeholder (`openshell:resolve:env:v<revision>_TRIAL_TOKEN`)
+  as its bearer token. The service received the real value, so injection
+  works.
+  - After `openshell provider update ... --wait`, which reported
+    "future process environment=true", the long-running process kept sending
+    the old value. So did every child it started afterwards, two minutes
+    later and more: a child inherits its parent's placeholder revision.
+  - Rotor mints a run's tokens while the run goes on, inside one runner
+    process, so a rotated token would never reach it.
+- **Q5, cost.** One sandbox is:
+  - two pods: the workload, with two init containers, and a supervisor of
+    its own;
+  - a Service, an Agent Sandbox resource, and a 2Gi workspace
+    PersistentVolumeClaim, which Rotor's runs do not need.
+
+  Neither pod set requests or limits unless asked. A sandbox took about 7
+  seconds from creation to its agent running, against 3 to 5 seconds from a
+  run's start to its first event on today's backend.
+- **Q6, secrets at rest: kept encrypted, and could live in OpenBao.**
+  - The gateway encrypts provider credentials in its SQLite database
+    (AES-256-GCM, under a key the chart keeps in a Kubernetes Secret). Both
+    test values were absent in clear from the database, its write-ahead log
+    and the sandbox's workspace volume.
+  - OpenShell also has a Vault credential driver (KV v2, Kubernetes auth),
+    which its CI runs against OpenBao. Rotor could keep provider values in
+    its own OpenBao, so this question would not have stood in the way.
+- **Smaller findings, for whoever tries again:**
+  - Sandbox names are at most 19 characters.
+  - Environment values may not contain a line break, so the runner's CA
+    would have to come as a provider file.
+  - The baseline filesystem paths leave out `/opt`, where the runner image
+    keeps Python.
+  - A RuntimeClass must carry the `openshell.ai/sandbox-attachable` labels
+    before a sandbox may name it.
+  - The SDK dials TLS unless the address starts with `http://`.
+  - The Go SDK's profile type cannot say `access` or
+    `allow_uninspected_credentials`, so profiles are imported as YAML.
+- **What would change this.**
+  - OpenShell maps IPv4-mapped destinations back to their policy host.
+  - Code nodes run where they cannot read the runner's memory, even with the
+    runner readable: a separate user, or a sandbox of their own.
+  - Rotor accepts Kata, or runc, in place of gVisor.
+
+  Even then, the policy and provider ideas of #120 and #121 stand on their
+  own. The binding's `allowTools` could be enforced outside the sandbox by
+  another proxy.
+
 ## 2026-10-21: Assistants by their metadata documents, for M10 (#114)
 
 This supersedes "Registration only, for now" of #47 below.
