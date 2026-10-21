@@ -45,6 +45,13 @@ test-e2e: ## Run the browser suite against this checkout's running stack: ONLY=<
 	@mkdir -p $(E2E_NPM_CACHE)
 	$(DOCKER_PLAYWRIGHT) sh -c '$(E2E_INSTALL) && npx tsc --noEmit && npx playwright test --workers=$(WORKERS) $${ONLY:+--grep "$$ONLY"} $${REPEAT:+--repeat-each "$$REPEAT"} $${SHARD:+--shard "$$SHARD"}'
 
+.PHONY: screenshots
+screenshots: ## Take the pictures in docs/screenshots from this checkout's running stack; make clean up first for a fresh one
+	@[ -f $(STACK_ENV_FILE) ] && docker compose ps --status running --services 2>/dev/null | grep -qx web \
+		|| { echo "The stack for this checkout is not running. Start it with make up, then run this again."; exit 1; }
+	@mkdir -p $(E2E_NPM_CACHE) $(ROOT)/docs/screenshots
+	$(DOCKER_PLAYWRIGHT) sh -c '$(E2E_INSTALL) && npx tsc --noEmit && npx playwright test --config screenshots.config.ts'
+
 .PHONY: e2e-report
 e2e-report: ## Serve the last browser run's HTML report, traces included
 	@echo "Report on http://localhost:$(E2E_REPORT_PORT)"
