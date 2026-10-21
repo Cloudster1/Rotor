@@ -10,9 +10,7 @@ const (
 	// SandboxDocker is the development backend, which drives the host's Docker daemon.
 	SandboxDocker = "docker"
 	// SandboxKubernetes runs each sandbox as a hardened pod, under gVisor unless explicitly overridden (#26).
-	SandboxKubernetes = "kubernetes"
-	// SandboxOpenShell runs each sandbox through an OpenShell gateway; the trial backend of #118.
-	SandboxOpenShell     = "openshell"
+	SandboxKubernetes    = "kubernetes"
 	DefaultSandboxImage  = "rotor-runner:dev"
 	DefaultDockerSocket  = "/var/run/docker.sock"
 	DefaultSandboxMemory = 1536 << 20
@@ -62,25 +60,20 @@ type Sandbox struct {
 	Kubeconfig     string
 	// AllowRunc lets a Kubernetes sandbox run without gVisor, for a test cluster that has none; never in production.
 	AllowRunc bool
-	// OpenShellAddr and OpenShellWorkspace are the gateway the openshell backend drives (#118).
-	OpenShellAddr      string
-	OpenShellWorkspace string
 }
 
 func loadSandbox(l *loader) Sandbox {
 	return Sandbox{
-		Backend:            l.str("ROTOR_SANDBOX_BACKEND", ""),
-		Image:              l.str("ROTOR_SANDBOX_IMAGE", DefaultSandboxImage),
-		Socket:             l.str("ROTOR_SANDBOX_DOCKER_SOCKET", DefaultDockerSocket),
-		Network:            l.str("ROTOR_SANDBOX_NETWORK", ""),
-		Stack:              l.str("ROTOR_SANDBOX_STACK", ""),
-		Namespace:          l.str("ROTOR_SANDBOX_NAMESPACE", DefaultSandboxNamespace),
-		RuntimeClass:       l.orEmpty("ROTOR_SANDBOX_RUNTIME_CLASS", DefaultRuntimeClass),
-		ServiceAccount:     l.str("ROTOR_SANDBOX_SERVICE_ACCOUNT", DefaultSandboxServiceAccount),
-		Kubeconfig:         l.str("ROTOR_SANDBOX_KUBECONFIG", ""),
-		AllowRunc:          l.boolean("ROTOR_SANDBOX_ALLOW_RUNC", false),
-		OpenShellAddr:      l.str("ROTOR_OPENSHELL_ADDR", ""),
-		OpenShellWorkspace: l.str("ROTOR_OPENSHELL_WORKSPACE", ""),
+		Backend:        l.str("ROTOR_SANDBOX_BACKEND", ""),
+		Image:          l.str("ROTOR_SANDBOX_IMAGE", DefaultSandboxImage),
+		Socket:         l.str("ROTOR_SANDBOX_DOCKER_SOCKET", DefaultDockerSocket),
+		Network:        l.str("ROTOR_SANDBOX_NETWORK", ""),
+		Stack:          l.str("ROTOR_SANDBOX_STACK", ""),
+		Namespace:      l.str("ROTOR_SANDBOX_NAMESPACE", DefaultSandboxNamespace),
+		RuntimeClass:   l.orEmpty("ROTOR_SANDBOX_RUNTIME_CLASS", DefaultRuntimeClass),
+		ServiceAccount: l.str("ROTOR_SANDBOX_SERVICE_ACCOUNT", DefaultSandboxServiceAccount),
+		Kubeconfig:     l.str("ROTOR_SANDBOX_KUBECONFIG", ""),
+		AllowRunc:      l.boolean("ROTOR_SANDBOX_ALLOW_RUNC", false),
 	}
 }
 
@@ -103,10 +96,6 @@ func checkSandbox(l *loader, c Config) {
 		}
 		if c.Sandbox.AllowRunc && c.Env == EnvProduction {
 			l.problem("ROTOR_SANDBOX_ALLOW_RUNC is true in production, which would run hostile code without gVisor. Unset it and name the cluster's gVisor RuntimeClass.")
-		}
-	case SandboxOpenShell:
-		if c.Sandbox.OpenShellAddr == "" {
-			l.problem("ROTOR_SANDBOX_BACKEND is openshell, so set ROTOR_OPENSHELL_ADDR to the gateway's address.")
 		}
 	default:
 		l.problem(fmt.Sprintf("ROTOR_SANDBOX_BACKEND is %q; set it to kubernetes, docker in development, or leave it empty for a process that starts no sandboxes.", c.Sandbox.Backend))

@@ -47,7 +47,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- define "rotor.runnerHost" -}}
-{{- printf "%s-api.%s.svc.cluster.local" (include "rotor.fullname" .) .Release.Namespace -}}
+{{- printf "%s-api.%s.svc" (include "rotor.fullname" .) .Release.Namespace -}}
 {{- end -}}
 
 {{- define "rotor.apiAccount" -}}{{ include "rotor.fullname" . }}-api{{- end -}}
@@ -179,10 +179,7 @@ ROTOR_OPENBAO_MOUNT: {{ .Values.openbao.mount | quote }}
 {{- with include "rotor.rewrites" .Values.tools.backchannel }}
 ROTOR_TOOLS_BACKCHANNEL: {{ . | quote }}
 {{- end }}
-ROTOR_SANDBOX_BACKEND: {{ .Values.sandbox.backend | default "kubernetes" | quote }}
-{{- with .Values.sandbox.openshell }}
-ROTOR_OPENSHELL_ADDR: {{ .addr | quote }}
-{{- end }}
+ROTOR_SANDBOX_BACKEND: kubernetes
 ROTOR_SANDBOX_IMAGE: {{ include "rotor.image" (dict "root" . "name" "runner") | quote }}
 ROTOR_SANDBOX_STACK: {{ .Release.Name | quote }}
 ROTOR_SANDBOX_NAMESPACE: {{ include "rotor.sandboxNamespace" . | quote }}

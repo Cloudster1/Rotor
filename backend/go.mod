@@ -3,7 +3,6 @@ module github.com/cloudster1/rotor/backend
 go 1.26.0
 
 require (
-	github.com/NVIDIA/OpenShell/sdk/go v0.0.0-20261020123705-bdb956f2cd65
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/go-chi/chi/v5 v5.3.2
 	github.com/go-jose/go-jose/v4 v4.1.4
