@@ -67,6 +67,9 @@ function Consent({ request }: { request: AuthorizationRequest }) {
           {address}
         </dd>
       </dl>
+      <p className="text-sm text-ink-muted" data-consent-kind={request.client.kind}>
+        {request.client.kind === "metadata" ? s.assistants.knownByDocument(request.client.id) : s.assistants.knownRegistered}
+      </p>
       <p className="text-sm text-ink-muted" data-consent-host>
         {s.assistants.goesBack(request.redirectHost)}
       </p>

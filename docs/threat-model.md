@@ -111,6 +111,8 @@ listed.
 | S | A page of another site calling a local Rotor's MCP after rebinding its name | `/mcp` is held to the origin whatever the credential | Built (#47) |
 | E | An assistant deciding an approval, connecting a tool, consenting or administering | No tool for them; session-only routes; `Decide` refuses an assistant; the database refuses an approval decided while `app.via` is set | Built (#47) |
 | E | An assistant granted to read writing | Read grants are offered read tools alone, and `readOnlyGrant` refuses a write before any handler | Built (#47) |
+| T | A client ID metadata document's address reaching inside Rotor's network, the cloud's metadata service or the stack's services | The fetch goes through `netguard`: the name is resolved, reserved addresses refused unless `ROTOR_OAUTH_FETCH_ALLOW` names them, the checked address dialled, no redirect and no proxy followed, 5 KiB in 5 seconds at most | Built (#114) |
+| T | A document changed after a person consented | A document is read again after at most a day; a grant keeps the redirect it was made with, and a code is only ever sent there | Built (#114) |
 | D | Registrations flooding the client table | 10 an hour per caller's address, from trusted proxies' `X-Real-IP`; unused clients swept after a day | Built (#47) |
 | E | Writes through a binding whose call a tool later marks as a write | Every start, by hand or by a trigger, checks the workflow again against the tools read afresh as the run's person, past the cache | Built (#90) |
 

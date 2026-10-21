@@ -14,8 +14,9 @@ Give it Rotor's MCP endpoint, under the address you open Rotor at:
 claude mcp add --transport http rotor https://rotor.example.com/api/v1/mcp
 ```
 
-The first time it calls Rotor, it registers itself and opens Rotor's consent
-page in your browser. Sign in if asked, then allow it. Tick **Only read** to
+The first time it calls Rotor, it introduces itself, by registering or by the
+address of its client ID metadata document, and opens Rotor's consent page in
+your browser; the page says which. Sign in if asked, then allow it. Tick **Only read** to
 let it list and read without starting or cancelling runs.
 
 Against the development stack the address is
@@ -41,6 +42,10 @@ through one.
   address people and assistants use, https in production.
 - The web client's nginx serves `/.well-known/oauth-*` from the api; an
   ingress in front of it needs nothing more.
+- An assistant's metadata document is fetched from the public internet alone.
+  A document inside your network, such as one of an assistant your company
+  runs, needs its host or range in `ROTOR_OAUTH_FETCH_ALLOW` (chart:
+  `api.oauthFetchAllow`).
 - Registering is limited to 10 an hour per caller's address. Behind a proxy,
   list the proxy's network in `ROTOR_TRUSTED_PROXIES` (chart:
   `api.trustedProxies`) so the address counted is the caller's.

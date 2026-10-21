@@ -25,6 +25,19 @@ const (
 // Scopes lists every scope, for the metadata documents.
 var Scopes = []string{ScopeMCP, ScopeMCPRead}
 
+// ClientKind is how Rotor came to know an assistant.
+type ClientKind string
+
+const (
+	// ClientRegistered registered itself at POST /oauth/register (RFC 7591).
+	ClientRegistered ClientKind = "registered"
+	// ClientMetadata is known by the address of its client ID metadata document, which is its client_id (#114).
+	ClientMetadata ClientKind = "metadata"
+)
+
+// ClientKinds lists every ClientKind, for the API document.
+var ClientKinds = []ClientKind{ClientRegistered, ClientMetadata}
+
 // ProtectedResource is the MCP endpoint described for a client that met a 401 there (RFC 9728).
 type ProtectedResource struct {
 	Resource               string   `json:"resource"`
@@ -47,11 +60,13 @@ type ServerMetadata struct {
 	CodeChallengeMethodsSupported          []string `json:"code_challenge_methods_supported"`
 	TokenEndpointAuthMethodsSupported      []string `json:"token_endpoint_auth_methods_supported"`
 	RevocationEndpointAuthMethodsSupported []string `json:"revocation_endpoint_auth_methods_supported"`
+	// ClientIDMetadataDocumentSupported says a client_id may be the address of the client's metadata document.
+	ClientIDMetadataDocumentSupported bool `json:"client_id_metadata_document_supported"`
 	// AuthorizationResponseIssParameterSupported says the redirect names the issuer (RFC 9207).
 	AuthorizationResponseIssParameterSupported bool `json:"authorization_response_iss_parameter_supported"`
 }
 
-// ClientMetadataInput is what a client registers itself with (RFC 7591).
+// ClientMetadataInput is what a client registers itself with (RFC 7591), and what its metadata document holds.
 type ClientMetadataInput struct {
 	RedirectURIs []string `json:"redirect_uris"`
 	ClientName   string   `json:"client_name,omitempty"`
@@ -113,9 +128,11 @@ type Error struct {
 
 // ClientRef is a client as a person sees it at the consent page and in the list of connected assistants.
 type ClientRef struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	URI  string `json:"uri"`
+	// ID is the client_id: an id Rotor gave, or the address of the client's metadata document.
+	ID   string     `json:"id"`
+	Name string     `json:"name"`
+	URI  string     `json:"uri"`
+	Kind ClientKind `json:"kind"`
 }
 
 // AuthorizationRequest is an authorization waiting for its person's consent.

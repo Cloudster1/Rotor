@@ -104,4 +104,9 @@ func registerM10Schemas(b *openapi.Builder) {
 	} {
 		b.Names[t] = name
 	}
+	kinds := make([]string, len(oauth.ClientKinds))
+	for i, k := range oauth.ClientKinds {
+		kinds[i] = string(k)
+	}
+	b.Enums[reflect.TypeOf(oauth.ClientKind(""))] = kinds
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -17,13 +18,14 @@ import (
 // client is a client as the server knows it.
 type client struct {
 	ID, Name, URI string
+	Kind          ClientKind
 	RedirectURIs  []string
 	AuthMethod    string
 	SecretHash    []byte
 	GrantTypes    []string
 }
 
-func (c *client) ref() ClientRef { return ClientRef{ID: c.ID, Name: c.Name, URI: c.URI} }
+func (c *client) ref() ClientRef { return ClientRef{ID: c.ID, Name: c.Name, URI: c.URI, Kind: c.Kind} }
 
 // grants says whether the client registered for a grant.
 func (c *client) grants(grant string) bool { return slices.Contains(c.GrantTypes, grant) }
@@ -52,22 +54,28 @@ func (c *client) authenticate(secret string, basic bool) *Refusal {
 	return nil
 }
 
-var errUnknownClient = refuse(ErrInvalidClient, "Rotor does not know this client. Register it at the registration endpoint first.")
+var errUnknownClient = refuse(ErrInvalidClient, "Rotor does not know this client. Register it, or give the address of its metadata document as its client_id.")
 
-// clientOf finds a registered client.
+// clientOf finds a client, fetching its metadata document again when it is one and the kept copy went stale.
 func (s *Service) clientOf(ctx context.Context, id string) (*client, error) {
-	var c client
+	var (
+		c     client
+		fresh *time.Time
+	)
 	err := s.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		return tx.QueryRow(ctx, `SELECT id, name, uri, redirect_uris, auth_method, secret_hash, grant_types
-			FROM oauth_client WHERE id = $1`, id).Scan(&c.ID, &c.Name, &c.URI, &c.RedirectURIs, &c.AuthMethod, &c.SecretHash, &c.GrantTypes)
+		return tx.QueryRow(ctx, `SELECT id, name, uri, kind, redirect_uris, auth_method, secret_hash, grant_types, fresh_until
+			FROM oauth_client WHERE id = $1`, id).Scan(&c.ID, &c.Name, &c.URI, &c.Kind, &c.RedirectURIs, &c.AuthMethod, &c.SecretHash,
+			&c.GrantTypes, &fresh)
 	})
-	if errors.Is(err, pgx.ErrNoRows) {
+	switch {
+	case err == nil && (c.Kind == ClientRegistered || fresh.After(s.now())):
+		return &c, nil
+	case err != nil && !errors.Is(err, pgx.ErrNoRows):
+		return nil, err
+	case !IsMetadataClientID(id):
 		return nil, errUnknownClient
 	}
-	if err != nil {
-		return nil, err
-	}
-	return &c, nil
+	return s.fetchClient(ctx, id)
 }
 
 var errSwitchedOffRefusal = refuse(ErrTemporarilyUnavailable, "Assistants are switched off on this Rotor. Ask its administrators to switch them on.")
@@ -95,7 +103,7 @@ func (s *Service) Register(ctx context.Context, in ClientMetadataInput, from str
 	tooMany := false
 	err = s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		var recent int
-		if err := tx.QueryRow(ctx, `SELECT count(*) FROM oauth_client WHERE registered_from = $1
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM oauth_client WHERE kind = 'registered' AND registered_from = $1
 			AND created_at > now() - interval '1 hour'`, from).Scan(&recent); err != nil {
 			return err
 		}

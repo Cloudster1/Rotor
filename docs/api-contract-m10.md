@@ -94,6 +94,38 @@ Deciding an approval is no tool, and four layers hold it:
 Connecting or disconnecting a tool, consenting, ending a grant, signing out
 and every administrator's operation take a session too.
 
+## Client ID metadata documents (#114)
+
+An assistant may name itself by the https address of its client ID metadata
+document instead of registering. `/.well-known/oauth-authorization-server`
+says `client_id_metadata_document_supported: true`. Migration 01010 adds
+`oauth_client.kind` (`registered` or `metadata`) and `fresh_until`.
+
+- **Which ids are documents.** A `client_id` that is an https address with a
+  path, no fragment and no userinfo is fetched when Rotor does not know it,
+  or when its kept copy went stale.
+- **The fetch.** A GET with `Accept: application/json`, within 5 seconds, of
+  at most 5 KiB, answering 200, with no redirect followed. It is kept as long
+  as `Cache-Control: max-age` says, at most a day; `no-store` and `no-cache`
+  keep it not at all.
+- **The guard.** The fetch never reaches Rotor's own network:
+  - loopback, private, link-local, carrier-grade NAT, the cloud metadata
+    ranges, unspecified and multicast addresses are refused after the name
+    is resolved, and the address checked is the one dialled;
+  - `ROTOR_OAUTH_FETCH_ALLOW` (chart: `api.oauthFetchAllow`) names host
+    names and CIDRs inside the network that may still be reached.
+- **What a document must hold:**
+  - its own address as `client_id`;
+  - `token_endpoint_auth_method` absent or `none`, since a document keeps no
+    secret;
+  - the rules a registration is held to: redirects, grants, response types
+    and name.
+- **Refusals.** A document that cannot be fetched or is refused sends the
+  browser to `/oauth/consent?error=invalid_client`, never to the assistant's
+  redirect.
+- **What the person sees.** The consent request and the grant lists carry
+  `client.kind`, and the consent page says how Rotor knows the assistant.
+
 ## The audit log
 
 Every entry written while an assistant acts carries `via`, the assistant's

@@ -73,6 +73,9 @@ type Config struct {
 	CORSOrigins []string
 	// TrustedProxies are the peers whose X-Real-IP header names the client, such as the stack's nginx (#47).
 	TrustedProxies []netip.Prefix
+	// OAuthFetchAllow names the hosts and CIDRs inside the network a client's metadata document may be fetched
+	// from; empty is the public internet alone (#114).
+	OAuthFetchAllow string
 	// RequestTimeout bounds every request's handler.
 	RequestTimeout time.Duration
 
@@ -134,13 +137,14 @@ func (e *Error) Error() string {
 func Load() (Config, error) {
 	l := &loader{}
 	c := Config{
-		Env:            l.str("ROTOR_ENV", EnvDevelopment),
-		HTTPAddr:       l.str("ROTOR_HTTP_ADDR", DefaultHTTPAddr),
-		LogLevel:       l.str("ROTOR_LOG_LEVEL", "info"),
-		AppBaseURL:     strings.TrimSuffix(l.str("ROTOR_APP_URL", DefaultAppBaseURL), "/"),
-		CORSOrigins:    splitList(l.str("ROTOR_CORS_ORIGINS", "")),
-		TrustedProxies: l.prefixes("ROTOR_TRUSTED_PROXIES"),
-		RequestTimeout: l.duration("ROTOR_REQUEST_TIMEOUT", DefaultRequestTimeout),
+		Env:             l.str("ROTOR_ENV", EnvDevelopment),
+		HTTPAddr:        l.str("ROTOR_HTTP_ADDR", DefaultHTTPAddr),
+		LogLevel:        l.str("ROTOR_LOG_LEVEL", "info"),
+		AppBaseURL:      strings.TrimSuffix(l.str("ROTOR_APP_URL", DefaultAppBaseURL), "/"),
+		CORSOrigins:     splitList(l.str("ROTOR_CORS_ORIGINS", "")),
+		TrustedProxies:  l.prefixes("ROTOR_TRUSTED_PROXIES"),
+		OAuthFetchAllow: l.str("ROTOR_OAUTH_FETCH_ALLOW", ""),
+		RequestTimeout:  l.duration("ROTOR_REQUEST_TIMEOUT", DefaultRequestTimeout),
 		DB: DB{
 			URL:             l.str("ROTOR_DB_URL", ""),
 			AdminURL:        l.str("ROTOR_DB_ADMIN_URL", ""),

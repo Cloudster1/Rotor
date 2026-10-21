@@ -1573,6 +1573,8 @@ export interface components {
         };
         OAuthClient: {
             id: string;
+            /** @enum {string} */
+            kind: "registered" | "metadata";
             name: string;
             uri: string;
         };
@@ -1658,6 +1660,7 @@ export interface components {
         OAuthServerMetadata: {
             authorization_endpoint: string;
             authorization_response_iss_parameter_supported: boolean;
+            client_id_metadata_document_supported: boolean;
             code_challenge_methods_supported: string[];
             grant_types_supported: string[];
             issuer: string;

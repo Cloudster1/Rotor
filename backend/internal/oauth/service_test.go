@@ -1,12 +1,14 @@
 package oauth
 
 import (
+	"context"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestTheMetadataNamesEverythingFromTheAppsAddress(t *testing.T) {
-	s := NewService(nil, "https://rotor.example/", "/api/v1")
+	s := NewService(nil, "https://rotor.example/", "/api/v1", nil)
 	if s.Resource() != "https://rotor.example/api/v1/mcp" || s.Issuer() != "https://rotor.example" ||
 		s.ResourceMetadata() != "https://rotor.example/.well-known/oauth-protected-resource/api/v1/mcp" ||
 		s.ConsentPage() != "https://rotor.example/oauth/consent" {
@@ -17,6 +19,13 @@ func TestTheMetadataNamesEverythingFromTheAppsAddress(t *testing.T) {
 		m.RegistrationEndpoint != "https://rotor.example/api/v1/oauth/register" || len(m.CodeChallengeMethodsSupported) != 1 ||
 		m.CodeChallengeMethodsSupported[0] != ChallengeS256 || !m.AuthorizationResponseIssParameterSupported {
 		t.Errorf("the server reads %+v", m)
+	}
+	if m.ClientIDMetadataDocumentSupported {
+		t.Error("documents are offered with nothing to fetch them")
+	}
+	fetching := NewService(nil, "https://rotor.example", "/api/v1", func(context.Context, string) ([]byte, time.Duration, error) { return nil, 0, nil })
+	if !fetching.Metadata().ClientIDMetadataDocumentSupported {
+		t.Error("documents are not offered though a fetcher reads them")
 	}
 	if r := s.ProtectedResource(); r.Resource != s.Resource() || len(r.AuthorizationServers) != 1 || r.AuthorizationServers[0] != s.Issuer() {
 		t.Errorf("the resource reads %+v", r)

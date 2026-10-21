@@ -162,6 +162,9 @@ ROTOR_SECURE_COOKIES: {{ .Values.ingress.tls.enabled | quote }}
 {{- with .Values.api.trustedProxies }}
 ROTOR_TRUSTED_PROXIES: {{ join "," . | quote }}
 {{- end }}
+{{- with .Values.api.oauthFetchAllow }}
+ROTOR_OAUTH_FETCH_ALLOW: {{ join "," . | quote }}
+{{- end }}
 {{- with .Values.oidc.issuer }}
 ROTOR_OIDC_ISSUER: {{ . | quote }}
 ROTOR_OIDC_CLIENT_ID: {{ $.Values.oidc.clientId | quote }}
