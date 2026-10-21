@@ -126,5 +126,20 @@ jq -e '.users[] | select(.username == "alice") | .groups | index("/rotor-adminis
 unknown="$(jq -r '[.groups[].path] as $g | .users[] | (.groups // [])[] | select(. as $x | $g | index($x) | not)' "$REALM")"
 [[ -z "$unknown" ]] && pass "every user's groups exist" || fail "users name groups that do not exist: $unknown"
 
+echo "== the realm check against Dynamo's"
+# Data URLs stand in for Dynamo, so the check is tested offline: the shared realm must match, Rotor's part may differ.
+NODE_IMAGE="${NODE_IMAGE:-node:26-alpine}"
+check() { # url, as Dynamo's
+  docker run --rm -v "$SRC/deploy/keycloak:/realm:ro" "$NODE_IMAGE" node /realm/realm-check.mjs "$1" /realm/realm.json >/dev/null 2>&1
+}
+as_url() { echo "data:application/json;base64,$(base64 -w0)"; }
+shared="$(jq '.clients |= map(select(.clientId != "rotor" and .clientId != "rotor-control-plane"))
+  | .groups |= map(select(.name != "rotor-administrators"))
+  | .users |= map(select((.serviceAccountClientId // "") | startswith("rotor") | not) | (.groups //= []) | .groups -= ["/rotor-administrators"])' "$REALM")"
+check "$(as_url <<< "$shared")" && pass "a Dynamo realm without Rotor's part matches" || fail "the shared realm does not match itself"
+check "$(as_url < "$REALM")" && pass "a Dynamo realm with Rotor's part matches too" || fail "Rotor's part in Dynamo's realm makes a difference"
+changed="$(jq '.clients |= map(if .clientId == "exciter" then .protocolMappers = [] else . end)' <<< "$shared")"
+check "$(as_url <<< "$changed")" && fail "a changed shared client passes the check" || pass "a changed shared client fails the check"
+
 if (( FAILED )); then echo "FAIL: stack tests"; exit 1; fi
 echo "PASS: stack tests"
