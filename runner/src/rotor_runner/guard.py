@@ -14,6 +14,9 @@ class GuardError(RuntimeError):
 
 def keep_out() -> None:
     """Makes this process not dumpable before it holds any token; a code node it starts then cannot read it."""
+    # The trial of #118: OpenShell's broker must read the runner's memory to mediate its connections.
+    if __import__("os").environ.get("ROTOR_TRIAL_DUMPABLE") == "1":
+        return
     libc = ctypes.CDLL(None, use_errno=True)
     if libc.prctl(PR_SET_DUMPABLE, 0, 0, 0, 0) != 0 or libc.prctl(PR_GET_DUMPABLE, 0, 0, 0, 0) != 0:
         raise GuardError(

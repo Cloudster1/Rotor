@@ -1,0 +1,19 @@
+# OpenShell's chart for the trial of #118, reverted with it: plaintext and no user authentication inside the kind
+# cluster only, sandboxes as the runner image's nonroot user, and callers may name a RuntimeClass.
+server:
+  sandboxNamespace: openshell-sandboxes
+  sandboxUid: "65532"
+  disableTls: true
+  auth:
+    allowUnauthenticatedUsers: true
+  drivers:
+    kubernetes:
+      allowDriverConfig: true
+gatewayConfig:
+  openshell.gateway.auth:
+    allow_unauthenticated_users: true
+  openshell.drivers.kubernetes:
+    image_pull_policy: if_not_present
+supervisor:
+  sandboxRuntime:
+    networkPolicyEnforced: true

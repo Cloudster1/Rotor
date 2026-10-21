@@ -45,7 +45,9 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, handlers=[handler])
     from rotor_runner.control import Channel
 
-    return asyncio.run(Channel(address, ca.encode(), bootstrap, openbao, redactor).run())
+    # The trial of #118: OpenShell refuses an environment value with a line break, so the CA may come base64-encoded.
+    ca_pem = ca.encode() if ca.startswith("-----") else __import__("base64").b64decode(ca)
+    return asyncio.run(Channel(address, ca_pem, bootstrap, openbao, redactor).run())
 
 
 if __name__ == "__main__":

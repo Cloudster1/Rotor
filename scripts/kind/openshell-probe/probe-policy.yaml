@@ -1,0 +1,6 @@
+version: 1
+filesystem_policy:
+  include_workdir: true
+  read_only: [/opt]
+  read_write: [/tmp]
+network_policies: {}

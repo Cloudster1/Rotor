@@ -29,6 +29,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/sandbox"
 	"github.com/cloudster1/rotor/backend/internal/sandbox/docker"
 	"github.com/cloudster1/rotor/backend/internal/sandbox/kube"
+	"github.com/cloudster1/rotor/backend/internal/sandbox/openshell"
 	"github.com/cloudster1/rotor/backend/internal/tools"
 	"github.com/cloudster1/rotor/backend/internal/triggers"
 	"github.com/cloudster1/rotor/backend/internal/usage"
@@ -158,6 +159,9 @@ func sandboxes(cfg config.Config) (sandbox.Backend, error) {
 			ServiceAccount: cfg.Sandbox.ServiceAccount, Kubeconfig: cfg.Sandbox.Kubeconfig})
 	case config.SandboxDocker:
 		return docker.New(cfg.Sandbox.Socket, cfg.Sandbox.Network), nil
+	case config.SandboxOpenShell:
+		return openshell.New(openshell.Config{Addr: cfg.Sandbox.OpenShellAddr, Workspace: cfg.Sandbox.OpenShellWorkspace,
+			RuntimeClass: cfg.Sandbox.RuntimeClass})
 	}
 	return nil, errors.New("ROTOR_SANDBOX_BACKEND is not set, so the worker has nowhere to start sandboxes; set it to kubernetes, or docker in development")
 }
