@@ -3,6 +3,37 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-21: A canvas over the spec, for M10 (#46)
+
+- **The YAML text stays the source.** The canvas is a second view of the
+  editor's text, not a model of its own: each change splices the text where the
+  `yaml` package's parse places the node it is about, and the text is read
+  again before the next step. Printing the whole document anew would lose
+  comments and respace every flow collection (`[a, b]` and `{ a: b }` cannot
+  both survive one printer setting), so it is never done.
+- **One way to write a value.** A value the canvas writes is bare when YAML 1.2
+  reads it back as the same text, a `|` block when it has lines, and
+  double-quoted otherwise, whatever it was before. So undoing an edit gives the
+  text back byte for byte, which property tests hold over every golden spec.
+  Renaming is the exception: it swaps the id inside each scalar's own text, so
+  quoting the person chose stays.
+- **No layout in the spec.** The schema is closed, and the issue asks for "the
+  same YAML I could have written", so node positions are laid out in layers
+  from the entry every time, as the run page lays them out. The two pages share
+  one graph view.
+- **The canvas edits structure, the YAML the rest.** Nodes, edges, router
+  cases and default, the entry and each kind's main field cover drawing a
+  workflow; schemas, arguments and forms are better written as YAML than as
+  forms, and a node opens the YAML at itself.
+
+### Alternatives considered
+
+- **A JSON model edited by the canvas and printed to YAML** is simpler to
+  build, but drops comments and the person's style on every edit.
+- **Positions kept in YAML comments** would keep a drawn layout, but makes
+  comments carry data the checks cannot see, and a layout that drifts from the
+  graph once the YAML is edited by hand.
+
 ## 2026-10-19: Rotor in the suite, for M9 (#43)
 
 - **Rotor's names are what it offers partners.** `workflows@1`, `runs@1` and

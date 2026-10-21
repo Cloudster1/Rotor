@@ -65,6 +65,19 @@ export const GRAPH_ROW_PX = 100;
 /** How tall the run graph is drawn, in pixels; it fits the graph inside. */
 export const GRAPH_HEIGHT_PX = 360;
 
+/** How tall the workflow editor draws its canvas, in pixels; taller than a run's, since it is worked in. */
+export const EDITOR_GRAPH_HEIGHT_PX = 420;
+
+/** How many lines the canvas shows of a prompt or source, and of an approval's message, before it scrolls. */
+export const CANVAS_TEXT_ROWS = 5;
+export const CANVAS_MESSAGE_ROWS = 2;
+
+/** The most problems a node's badge counts before it says more; the inspector lists them all. */
+export const MAX_BADGE_PROBLEMS = 9;
+
+/** Where this browser remembers whether the person edits workflows as YAML or on the canvas. */
+export const EDITOR_VIEW_STORAGE_KEY = "rotor.workflowEditorView";
+
 /** The products whose webhook deliveries start event triggers (#35), as the server names them. */
 export const HOOK_PRODUCTS = ["armature", "exciter", "stator"] as const;
 /** What Rotor needs of a tool to act in it and to take its events, as backend/internal/tools/needs.go names them (#43). */

@@ -9,6 +9,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Workflows can be drawn on a canvas (#46). The editor has a Canvas tab beside
+  the YAML: add, remove and rename nodes, draw the ways between them, set a
+  router's cases and the node a workflow starts at, and write each node's
+  prompt, call, source or message, all with the keyboard too. Every change is
+  written into the YAML, keeping your comments and style, so the YAML tab
+  shows what you could have written yourself. Nodes the checks found
+  something wrong with are marked, and each problem opens the YAML at its
+  line.
 - Rotor joins the suite's capability names (#43). `GET /api/v1/meta` lists
   `workflows@1`, `runs@1` and `hooks@1`, each held by a test to what the build
   serves, and `docs/integration.md` says what each promises. Rotor reads what

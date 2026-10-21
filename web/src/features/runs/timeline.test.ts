@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RunEvent } from "@/api/runs";
 import { GRAPH_COLUMN_PX, GRAPH_ROW_PX } from "@/config";
-import { layered } from "./layout";
+import { layered } from "@/features/graph/layout";
 import { entries, linksIn, nodeStates } from "./timeline";
 
 let seq = 0;
