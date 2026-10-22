@@ -11,12 +11,24 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/oidc"
 )
 
-// The tests against the real Exciter (#8), run by make test-suite on the suite's network; each name starts with
-// Suite, which is how the target picks them. Later issues add theirs here.
+// The tests against the real Exciter (#8) and Armature (#130), run by make test-suite on the suite's network; each
+// name starts with Suite, which is how the target picks them. Later issues add theirs here.
 const (
-	envExciter         = "ROTOR_TEST_EXCITER_URL"
-	envExciterInternal = "ROTOR_TEST_EXCITER_INTERNAL_URL"
+	envExciter          = "ROTOR_TEST_EXCITER_URL"
+	envExciterInternal  = "ROTOR_TEST_EXCITER_INTERNAL_URL"
+	envArmature         = "ROTOR_TEST_ARMATURE_URL"
+	envArmatureInternal = "ROTOR_TEST_ARMATURE_INTERNAL_URL"
 )
+
+// armature reaches the suite's Armature at the address a browser opens, through the suite's network.
+func armature(t *testing.T) (base string, client *http.Client) {
+	t.Helper()
+	base = os.Getenv(envArmature)
+	if base == "" || os.Getenv(envArmatureInternal) == "" {
+		t.Skipf("%s and %s are not set; run make suite-up, then make test-suite", envArmature, envArmatureInternal)
+	}
+	return base, oidc.HTTPClient(map[string]string{base: os.Getenv(envArmatureInternal)})
+}
 
 // exciter reaches the suite's Exciter at the address a browser opens, through the suite's network.
 func exciter(t *testing.T) (base string, client *http.Client) {

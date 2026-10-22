@@ -55,8 +55,7 @@ tool-snapshot-exciter:
 
 # Armature's list is built from its code alone, so a throwaway installation at ARMATURE_REF records it: its own
 # compose with deploy/suite/armature-snapshot.yml over it, its first sign-up the owner, and gone again afterwards.
-ARMATURE_REPO ?= https://github.com/Cloudster1/Armature.git
-ARMATURE_REF := $(shell cat $(ROOT)/deploy/suite/ARMATURE_REF 2>/dev/null)
+# ARMATURE_REPO and ARMATURE_REF are the suite's, mk/suite.mk.
 SNAPSHOT_ARMATURE_DIR := $(ROOT)/.cache/tools/armature
 SNAPSHOT_ARMATURE = docker compose -p $(STACK_PROJECT)-armature-snapshot \
 	-f $(SNAPSHOT_ARMATURE_DIR)/deploy/docker-compose.yml -f $(ROOT)/deploy/suite/armature-snapshot.yml

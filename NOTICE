@@ -137,7 +137,16 @@ Adapted from Armature at 1a97811, its MCP tools and the operations they stand fo
   oauth.MissingScope), a comment's body from a document, Markdown or text (httpapi/issue_handlers.go commentRequest),
   and a remote link put or retitled by its address (issue/remotelinks.go checkRemoteLink and PutRemoteLink)
 - deploy/suite/armature-snapshot.yml over Armature's deploy/docker-compose.yml, its api, database, Valkey and migration
-- api/tools/armature/tools-list.json is Armature's own tools/list, recorded from that commit
+- api/tools/armature/tools-list.json is Armature's own tools/list, recorded from that commit and again, unchanged,
+  from 01f8d07, the commit deploy/suite/ARMATURE_REF names since (#130)
+
+Adapted from Exciter at 6706bd8, its suite's Armature (#130):
+- deploy/suite/armature.yml from deploy/suite/armature.yml: Armature on the suite's Keycloak with what the suite
+  does not use switched off, here Rotor's Keycloak and only the api, worker, web, one database and Valkey
+- backend/cmd/suite-seed from cmd/suite-seed: the session, its refusals and the idempotent calls through Armature's
+  and Exciter's APIs, here setting Armature up itself instead of running Armature's demo seed, letting alice, bob
+  and dave in, making the project CP, and connecting Exciter to Armature
+- mk/suite.mk's Armature, from mk/suite.mk's: the compose with its override and its own project name
 
 Adapted from Exciter at a74de66, its checks of a partner:
 - backend/internal/tools/needs.go: the needs table, Offered with nil as never asked, and Lacks and Missing saying what

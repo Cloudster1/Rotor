@@ -88,6 +88,10 @@ if [[ -n "${config:-}" ]] && jq -e .services <<< "$config" > /dev/null 2>&1; the
   [[ ",$(jq -r '.services.api.environment.ROTOR_TOOLS_BACKCHANNEL // ""' <<< "$config")," == *",http://localhost:$stub_port=http://tool-stub:8080,"* ]] \
     && pass "the api reaches the tool-stub's published address on the stack's network" \
     || fail "ROTOR_TOOLS_BACKCHANNEL does not rewrite the tool-stub's address $stub_port"
+  # The suite's Armature is reached past its web, at the api the suite's network and the sandboxes know (#130).
+  [[ ",$(jq -r '.services.api.environment.ROTOR_TOOLS_BACKCHANNEL // ""' <<< "$config")," =~ ,http://localhost:[0-9]+=http://suite-armature-api:8080, ]] \
+    && pass "the api reaches the suite's Armature at its api" \
+    || fail "ROTOR_TOOLS_BACKCHANNEL does not rewrite the suite's Armature to suite-armature-api:8080"
 fi
 [[ "$(tr -d '[:space:]' < "$SRC/deploy/suite/EXCITER_REF")" =~ ^[0-9a-f]{40}$ ]] \
   && pass "the suite pins Exciter to a commit" || fail "deploy/suite/EXCITER_REF is not a full commit hash"

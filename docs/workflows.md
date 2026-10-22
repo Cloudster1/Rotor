@@ -264,7 +264,9 @@ run's own comments do not start it again. To use it, add the workflow, then a
 trigger on Armature's events with the topics `issue.created` and
 `comment.added`, your projects, the condition `payload.internal` does not
 equal `true`, and `exciterProject` set to the Exciter project; agree to the
-calls the form lists.
+calls the form lists. [`triggers.md`](triggers.md#the-story-workflow-against-armature)
+walks through it, Armature's webhook included. The suite runs it against the
+real Armature and Exciter (`TestSuiteAStoryInArmatureBecomesRequirementsInExciter`).
 
 The examples below are the golden fixtures, which show more of the spec.
 

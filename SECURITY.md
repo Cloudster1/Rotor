@@ -73,7 +73,12 @@ vulnerability, and an installation never uses them:
   nothing but the test double, and its personal tokens `stub_pat_<name>`
 - the suite's Exciter and its bootstrap administrator `admin@exciter.test` /
   `exciter admin password`, Exciter's own development account, which
-  `make tool-snapshots` signs in with
+  `make tool-snapshots` signs in with, and which the suite's seed connects to
+  the suite's Armature
+- the suite's Armature and its administrator `admin@armature.test` /
+  `armature admin password`, whom `make suite-up`'s seed sets it up as; the
+  seed also lets alice, bob and dave in with their realm passwords, and points
+  Armature at the realm's `armature` client and its development secret
 - `snapshot@armature.test` / `armature snapshot password`, the first account
   of the throwaway Armature `make tool-snapshots TOOL=armature` starts on
   ports nobody else reaches and removes with its data once it has recorded

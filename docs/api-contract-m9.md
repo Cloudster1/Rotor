@@ -75,3 +75,11 @@ so far, `tool.grant_types` and the status `awaiting_approval`.
   `config.ExchangedTokenLifetime` (15 minutes). An exchange refused with
   `invalid_scope` is the run's scopes not consented; `unauthorized_client` marks
   the tool for registering again.
+- **Against the real Armature (#130):** the suite runs Armature at
+  `deploy/suite/ARMATURE_REF` (01f8d07, the first with `mcp@1`).
+  `backend/test/suite_armature_test.go` adds it, has its administrator allow
+  Rotor, connects alice and dave, and runs a comment as each: alice's is
+  hers, its token answers `/auth/me` as her through Rotor until the run ends
+  and then 401, her grant still mints, and dave's is refused.
+  `suite_story_test.go` runs `examples/story-to-requirements.yaml` from
+  Armature's own webhook to Exciter's requirements.

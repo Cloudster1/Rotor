@@ -23,13 +23,15 @@ import (
 // thinkingDelay holds the first draft back, long enough for the test to stop the worker while the run thinks.
 const thinkingDelay = 8 * time.Second
 
-// suiteBrowser signs username in to Rotor and to the suite's Exciter, both through Rotor's Keycloak.
+// suiteBrowser signs username in to Rotor and to the suite's Exciter, both through Rotor's Keycloak; it reaches the
+// suite's Armature too, where signInToArmature signs them in.
 func suiteBrowser(t *testing.T, username, base string) *browser {
 	t.Helper()
 	b := newBrowser(t)
 	b.signIn(username)
 	b.client.Transport = oidc.HTTPClient(map[string]string{
 		os.Getenv(envKeycloakPublic): os.Getenv(envKeycloak), os.Getenv(envApp): apiURL(t), base: os.Getenv(envExciterInternal),
+		os.Getenv(envArmature): os.Getenv(envArmatureInternal),
 	}).Transport
 	b.follow(t, base+"/api/v1/auth/oidc/start?next=/", username)
 	return b

@@ -171,6 +171,40 @@ this one when a person changes the same thing later. Rotor does not rely on
 the tools to say who wrote something, since a tool names a connected app by
 the name the app chose (#127).
 
+### The story workflow against Armature
+
+[`story-to-requirements.yaml`](../examples/story-to-requirements.yaml)
+(`docs/workflows.md`) holds a conversation on an Armature story and files its
+requirements in Exciter (#130). Setting it up takes an administrator of each
+tool once, and the trigger's owner after that:
+1. **Connect Armature.** An administrator of Rotor adds Armature by its
+   address under **Settings**, **Tools**; it reads **Awaiting approval** until
+   an Armature administrator allows Rotor under **Settings**, **Connected
+   apps**, or by connecting first.
+2. **Connect Exciter to Armature.** In Exciter, an administrator connects the
+   installation to Armature, and the trigger's owner stores their own Armature
+   token there, since Exciter traces each requirement to the story with it.
+3. **Armature's webhook.** An Armature administrator adds a webhook at Rotor's
+   **Webhook address** for Armature, version 1, with the topics
+   `issue.created` and `comment.added`, and pastes its secret into Rotor, as
+   above.
+4. **The trigger's owner** connects to both tools, adds the workflow, and adds
+   a trigger **On a tool's event**: Armature, the topics `issue.created` and
+   `comment.added`, the Armature projects whose stories it reads, the
+   condition `payload.internal` `does not equal` `true`, and `exciterProject`
+   set to the Exciter project the requirements go to. The form lists the five
+   calls the workflow makes without an approval (Armature's `add_comment`,
+   Exciter's `create_requirement`, `update_requirement`, `link_armature_issue`
+   and `request_reviews`); agree to them.
+
+The owner needs to read the stories in Armature, to comment there, and to
+edit requirements in the Exciter project; the comments and requirements are
+theirs, written through Rotor. Exciter asks for a review only in a project
+with an approval rule, so give the project one; without it the requirements
+are filed and linked, and nobody is asked. A story then gets Rotor's questions as a
+comment; the answer of anyone who may comment starts the next run, and Rotor's
+own comments start none.
+
 ### Later
 
 Armature lets a connected app register its own webhook (Armature #281); Rotor
