@@ -61,8 +61,11 @@ echo "== suite.yml tests the pinned siblings and their main (#43)"
 SUITE="$SRC/.github/workflows/suite.yml"
 grep -q "'\[\"pinned\", \"main\"\]'" "$SUITE" && pass "the nightly runs a pinned and a main leg" \
   || fail "suite.yml's matrix lacks the pinned and main legs"
-grep -q "matrix.against == 'main' && 'EXCITER_REF=main'" "$SUITE" && pass "only the main leg overrides the pinned commit" \
-  || fail "suite.yml does not override EXCITER_REF on the main leg alone"
+grep -q "matrix.against == 'main' && 'EXCITER_REF=main ARMATURE_REF=main'" "$SUITE" && pass "only the main leg overrides the pinned commits" \
+  || fail "suite.yml does not override EXCITER_REF and ARMATURE_REF on the main leg alone"
+# Unquoted, so each assignment reaches make as an argument of its own.
+grep -qF 'make suite-up "${refs[@]}"' "$SUITE" && grep -qF 'make test-suite "${refs[@]}"' "$SUITE" \
+  && pass "the suite's targets take each override as an argument" || fail "suite.yml passes SUITE_REFS to make as one argument"
 grep -q 'run: make tool-contracts-main test-contracts' "$SUITE" && pass "the main leg tests the contracts at main" \
   || fail "suite.yml's main leg does not run make tool-contracts-main test-contracts"
 for tool in $(sed -n 's/^TOOL_REPO_\([a-z]*\) .*/\1/p' "$SRC/mk/tools.mk"); do

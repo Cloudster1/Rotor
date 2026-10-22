@@ -69,9 +69,10 @@ The tools are not mocked either: the stack's `tool-stub` behaves as Exciter
 or Armature does and a contract test holds it to the documents vendored in
 `api/tools/` and the `tools/list` recorded beside them.
 Each test makes a tenant of its own (`/t/<name>`), so tests never share a
-tool. What only the real Exciter can settle runs in the suite, outside the
-gate: `make up`, `make suite-up`, then `make test-suite`; CI runs it nightly
-and on a pull request labelled `suite`.
+tool. What only the real Exciter and Armature can settle runs in the suite,
+outside the gate: `make up`, `make suite-up`, then `make test-suite`; CI runs
+it nightly and on a pull request labelled `suite`. The suite builds both
+siblings beside the stack, so it wants a few gigabytes of memory to spare.
 
 ## The API
 

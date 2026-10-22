@@ -103,8 +103,11 @@ server registers Rotor by RFC 7591. Everything Rotor does works with it.
 
 ### Armature
 
-Armature offers `webhooks@1`, partner OAuth (Armature#280) and token
-exchange, and `mcp@1` once Armature#305 ships (#45).
+Armature offers `webhooks@1`, partner OAuth (Armature#280), token exchange
+and, since Armature#305 (Armature at 01f8d07), `mcp@1`, so an administrator
+adds it by its address like Exciter (#45). Its issues, comments, transitions
+and remote links are its MCP tools; `deploy/suite/ARMATURE_REF` names the
+commit Rotor is tested against.
 
 - **Allowing Rotor.** Rotor registers itself, and Armature holds the client
   until one of its administrators allows it: on the consent page, by
@@ -118,6 +121,13 @@ exchange, and `mcp@1` once Armature#305 ships (#45).
   Without the exchange Rotor refuses to add Armature.
 - **Scopes.** `read` with every other; `issue.write`, `issue.transition` and
   `comment.write` write; Rotor never asks for `webhooks.partner`.
+- **As the person.** A run's write is the person's in Armature: a comment's
+  author is them, and Armature refuses what their role does not allow, so a
+  reader's run fails with Armature's refusal. A run's token answers
+  `/auth/me` with the person and Rotor as its app; Armature does not mark the
+  write itself with the app yet.
+- **Events.** An Armature administrator adds a webhook at Rotor's hook for the
+  tool (version 1); `docs/triggers.md` sets the story workflow up with it.
 
 ### Stator
 
@@ -132,10 +142,16 @@ Stator offers `webhooks@1`, but neither `mcp@1` nor partner OAuth yet
   their `tools/list` recorded at the same commits (`make tool-snapshots`;
   Armature's at `deploy/suite/ARMATURE_REF`, from a throwaway installation),
   and a unit test holds what Rotor reads of each tool to all three.
+- **The real ones, in the suite.** `make suite-up` runs Exciter and Armature
+  at their pinned commits beside the stack, on Rotor's Keycloak, and `make
+  test-suite` connects them as a person would: Exciter's runs and events, and
+  Armature's approval, its runs as alice and dave, and the story workflow
+  from an Armature story to reviewed Exciter requirements (#45, #130). CI runs
+  it nightly and on a pull request labelled `suite`.
 - **Their main, every night.** `suite.yml` vendors each sibling's `main` into
   the working copy (`make tool-contracts-main`), runs the same tests (`make
-  test-contracts`), then runs the suite against Exciter's `main`
-  (`EXCITER_REF=main`) beside the pinned leg. A change that would break Rotor
+  test-contracts`), then runs the suite against Exciter's and Armature's
+  `main` (`EXCITER_REF=main ARMATURE_REF=main`) beside the pinned leg. A change that would break Rotor
   shows before it is tagged. Nothing it fetches is committed.
 
 ## The rules

@@ -16,7 +16,8 @@ services:
   render:
     profiles: ["off"]
 
-  # The worker delivers Exciter's webhooks, which start Rotor's event triggers (#35); it sends no mail here.
+  # The worker delivers Exciter's webhooks, which start Rotor's event triggers (#35), and puts a requirement's link
+  # on the suite's Armature issue it traces to (#130); it sends no mail here.
   worker:
     depends_on: !override
       migrate:
@@ -25,8 +26,12 @@ services:
         condition: service_healthy
       seaweedfs:
         condition: service_healthy
-    environment:
-      EXCITER_OUTBOUND_ALLOW: armature-stub,stator-stub,rotor-api
+    environment: &partners
+      EXCITER_OUTBOUND_ALLOW: armature-stub,stator-stub,rotor-api,suite-armature-api
+      # The suite's Armature is connected at the address a browser opens, and reached past its web on the suite's
+      # network, as Exciter's own suite does.
+      EXCITER_ARMATURE_BACKCHANNEL: >-
+        http://localhost:${ARMATURE_STUB_PORT}=http://armature-stub:8080,http://localhost:${SUITE_ARMATURE_WEB_PORT}=http://suite-armature-api:8080
 
   # dave is let in too, so the end-to-end run (#25) shows Exciter refusing a viewer's write; the seed ensures
   # members on every start, so a running suite takes him in at its next make suite-up.
@@ -34,8 +39,8 @@ services:
     environment:
       EXCITER_BOOTSTRAP_MEMBERS: alice@suite.test=admin,bob@suite.test=member,dave@suite.test=member
 
+  # A webhook's address is checked when it is saved, so Rotor's api is let through here too.
   api:
     environment:
-      # A webhook's address is checked when it is saved, so Rotor's api is let through here too.
-      EXCITER_OUTBOUND_ALLOW: armature-stub,stator-stub,rotor-api
+      <<: *partners
       EXCITER_OIDC_BACKCHANNEL: http://localhost:${KEYCLOAK_PORT}=http://rotor-keycloak:8080

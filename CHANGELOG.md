@@ -14,6 +14,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
   what is unclear, starts again when someone answers, then writes or updates
   the requirements in Exciter, links them to the story, asks for their
   review, and says so on the ticket. Its own comments never start it again.
+  `docs/triggers.md` says how to set its trigger up against Armature.
+- Rotor is tested against the real Armature (#45, #130): `make suite-up`
+  starts Armature beside Exciter, signing in through Rotor's Keycloak, with a
+  project `CP` and Exciter connected to it. The suite shows Rotor held until
+  an Armature administrator allows it, alice's run commenting as alice with a
+  token revoked at the run's end while her grant lives on, Armature refusing
+  dave's run, and a story filed in Armature turned into reviewed Exciter
+  requirements by Armature's own webhook.
 - A trigger condition can say what an event must not be (#126): `does not
   equal`, `is none of` and `is missing` beside `equals`, `is one of` and
   `exists`, so a trigger can leave out, for example, internal comments or a

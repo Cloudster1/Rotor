@@ -1,0 +1,59 @@
+# The real Armature beside Rotor's stack (#45, #130), over Armature's own deploy/docker-compose.yml at the commit in
+# ARMATURE_REF; mk/suite.mk applies it and seeds it. Armature signs people in through Rotor's Keycloak, so alice is one
+# subject in all three, and only what partner OAuth, MCP and webhooks need runs: the api, the worker that delivers
+# webhooks, one database, Valkey, and the web for a person to look at it. Adapted from Exciter's
+# deploy/suite/armature.yml.
+#
+# Like Exciter, it meets Rotor on the suite's network under suite-armature-* names alone, which mk/suite.mk connects
+# by hand: a service's own name there would let Rotor's or Exciter's "api" answer for Armature's.
+services:
+  # Rotor's Keycloak serves the realm; Git hosting, PDF export, mail and attachments are not part of connecting.
+  keycloak:
+    profiles: ["off"]
+  gitea:
+    profiles: ["off"]
+  gitea-init:
+    profiles: ["off"]
+  render:
+    profiles: ["off"]
+  mailpit:
+    profiles: ["off"]
+  mailpit-tls:
+    profiles: ["off"]
+  seaweedfs:
+    profiles: ["off"]
+  # One database is enough for a test, and the replica is the slowest part of Armature to start.
+  postgres-replica:
+    profiles: ["off"]
+
+  # The web alone is published, so the suite keeps to the two ports its checkout's block leaves Armature.
+  postgres-primary:
+    ports: !reset []
+  redis:
+    ports: !reset []
+
+  api:
+    depends_on: !override
+      postgres-primary:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment: &armature-env
+      # The issuer partners discover, and where the browser lands after signing in, is the web's published address.
+      ARMATURE_APP_URL: http://localhost:${WEB_PORT}
+      ARMATURE_OIDC_REDIRECT_URL: http://localhost:${WEB_PORT}/api/v1/auth/oidc/callback
+      ARMATURE_OIDC_BACKCHANNEL: http://localhost:${KEYCLOAK_PORT}=http://rotor-keycloak:8080
+      # Webhooks go to Rotor's api on the suite's network, and nowhere else inside it.
+      ARMATURE_OUTBOUND_ALLOW: rotor-api
+      ARMATURE_DB_REPLICA_URLS: ""
+      ARMATURE_S3_ENDPOINT: ""
+      ARMATURE_SMTP_ADDR: ""
+      ARMATURE_POP3_ADDR: ""
+      ARMATURE_RENDER_URL: ""
+    ports: !reset []
+
+  # The worker delivers Armature's webhooks, which start Rotor's event triggers.
+  worker:
+    environment: *armature-env

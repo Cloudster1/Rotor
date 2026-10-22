@@ -410,6 +410,10 @@ on a port the stack never publishes, lets tests shape a tenant, count what
 Rotor did there, read back what was written (`GET
 /control/tenants/<name>/records`), and end grants or forget clients as a tool
 would. `make suite-up` runs the real
-Exciter, from the commit in `deploy/suite/EXCITER_REF`, beside the stack: it
-signs people in through Rotor's Keycloak, and the two meet on a network of
-their own under `rotor-*` and `suite-exciter-*` names.
+Exciter and Armature, from the commits in `deploy/suite/EXCITER_REF` and
+`ARMATURE_REF`, beside the stack: they sign people in through Rotor's
+Keycloak, and meet Rotor on a network of their own under `rotor-*`,
+`suite-exciter-*` and `suite-armature-*` names. Armature publishes its web
+alone; the api, the worker, the sandboxes and Exciter reach its api on the
+suite's network, and `backend/cmd/suite-seed` sets it up: an administrator,
+alice, bob and dave, the project `CP`, and Exciter connected to it.

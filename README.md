@@ -71,9 +71,10 @@ For something to look at, `make screenshots` against a fresh stack does what a
 first afternoon would: it adds the tool stub as Exciter and its stub model,
 connects alice, saves two workflows and carries runs through an approval,
 taking the pictures in [`docs/screenshots.md`](docs/screenshots.md) as it
-goes. To try the real thing, `make suite-up` starts Exciter, from the commit
-in `deploy/suite/EXCITER_REF`, beside the stack, signing in through the same
-Keycloak.
+goes. To try the real thing, `make suite-up` starts Exciter and Armature, from
+the commits in `deploy/suite/EXCITER_REF` and `ARMATURE_REF`, beside the
+stack, signing in through the same Keycloak; Armature comes with a project
+`CP` in which alice and bob work and dave only reads.
 
 ```sh
 make help              # every target
@@ -270,12 +271,12 @@ them. Each test makes a tenant of its own,
 `/t/<name>`, so tests never share a tool.
 
 What only a real sibling or a cluster can settle runs outside the gate:
-`make test-suite` against the real Exciter (`make suite-up` first),
+`make test-suite` against the real Exciter and Armature (`make suite-up` first),
 `make test-kube` and `make test-chart-install` against a kind cluster
 (`make kind-up` first). GitHub runs them all: the CI workflow runs every layer
 on every pull request, on main and nightly; Kube runs the cluster tests
 nightly and on a pull request that changes what a cluster runs or is labelled
-`kube`; Suite runs against the real Exciter nightly and on a pull request
+`kube`; Suite runs against the real Exciter and Armature nightly and on a pull request
 labelled `suite`; Deps runs `make audit-deps` (govulncheck, pip-audit and npm
 audit) nightly and when a dependency changes.
 
@@ -407,7 +408,7 @@ with every problem it found listed, so an operator fixes them in one go.
 | `web/src/` | the SPA |
 | `e2e/` | the browser suite under `tests/`, and the pictures' spec under `screenshots/` |
 | `api/` | the generated OpenAPI document, the workflow schema, secret patterns and the tools' vendored contracts |
-| `deploy/` | compose stack, Dockerfiles, realm, OpenBao setup, the suite's Exciter, and the Helm chart |
+| `deploy/` | compose stack, Dockerfiles, realm, OpenBao setup, the suite's Exciter and Armature, and the Helm chart |
 | `mk/`, `run-tests.sh`, `tests/`, `scripts/` | the toolchains in containers, the gate and its own tests |
 | `examples/` | workflows to start from |
 

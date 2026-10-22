@@ -1,7 +1,7 @@
-# The tests against the real Exciter (#8): nightly, by hand, and on a pull request labelled suite. Building Exciter
-# adds minutes, so this is no required check; the gate in ci.yml tests against the tool-stub instead. Besides the
-# pinned commits, the nightly tests the siblings' main, so a change that would break Rotor shows before it is
-# tagged (#43); a pull request tests the pinned ones only.
+# The tests against the real Exciter (#8) and Armature (#130): nightly, by hand, and on a pull request labelled
+# suite. Building them adds minutes, so this is no required check; the gate in ci.yml tests against the tool-stub
+# instead. Besides the pinned commits, the nightly tests the siblings' main, so a change that would break Rotor shows
+# before it is tagged (#43); a pull request tests the pinned ones only.
 name: Suite
 
 on:
@@ -30,7 +30,7 @@ jobs:
         against: ${{ fromJSON(github.event_name == 'pull_request' && '["pinned"]' || '["pinned", "main"]') }}
     env:
       # Only the main leg overrides the pinned commit; the vendored documents it fetches are never committed.
-      SUITE_REFS: ${{ matrix.against == 'main' && 'EXCITER_REF=main' || '' }}
+      SUITE_REFS: ${{ matrix.against == 'main' && 'EXCITER_REF=main ARMATURE_REF=main' || '' }}
     steps:
       # The build stamp reads tags, which a shallow checkout does not carry.
       - uses: actions/checkout@v4
@@ -53,11 +53,12 @@ jobs:
       - name: Start Rotor's stack
         run: make stack-up
 
-      - name: Start the suite's Exciter
-        run: make suite-up ${SUITE_REFS:+"$SUITE_REFS"}
+      # SUITE_REFS is split into its assignments, one argument each.
+      - name: Start the suite's Exciter and Armature
+        run: read -ra refs <<< "$SUITE_REFS"; make suite-up "${refs[@]}"
 
-      - name: Run the tests against Exciter
-        run: make test-suite ${SUITE_REFS:+"$SUITE_REFS"}
+      - name: Run the tests against Exciter and Armature
+        run: read -ra refs <<< "$SUITE_REFS"; make test-suite "${refs[@]}"
 
       - name: Say what the stacks logged
         if: failure()

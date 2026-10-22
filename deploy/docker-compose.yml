@@ -46,9 +46,10 @@ x-control-plane-env: &control-plane-env
   # The tools' catalogs are cached here; losing them costs a fetch.
   ROTOR_VALKEY_URL: redis://:${VALKEY_PASSWORD:-rotor_valkey}@valkey:6379/0
   # An administrator adds a tool by the address a browser opens; the api reaches the tool-stub, and the suite's
-  # Exciter once make suite-up runs it, on a network of the stack's.
+  # Exciter and Armature once make suite-up runs them, on a network of the stack's. Armature's api serves all a
+  # partner calls, the metadata included, so it is reached past the web.
   ROTOR_TOOLS_BACKCHANNEL: >-
-    http://localhost:${TOOLSTUB_PORT:-8306}=http://tool-stub:8080,http://localhost:${SUITE_EXCITER_WEB_PORT:-8307}=http://suite-exciter-web:80
+    http://localhost:${TOOLSTUB_PORT:-8306}=http://tool-stub:8080,http://localhost:${SUITE_EXCITER_WEB_PORT:-8307}=http://suite-exciter-web:80,http://localhost:${SUITE_ARMATURE_WEB_PORT:-8318}=http://suite-armature-api:8080
   # Traces go to the observe profile's collector (#37); without it running they are dropped, quietly.
   ROTOR_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
   # LangSmith, once an administrator turns it on, is the tool double's stand-in, which records what reaches it.
