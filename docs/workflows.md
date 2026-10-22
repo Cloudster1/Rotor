@@ -114,6 +114,7 @@ each of them, and an administrator can forbid them for everyone;
 | `code` | a Python function | `source`, `output.schema`, `tools`, `timeout`, `memory` |
 | `approval` | waits until a person decides | `message`, `approvers`, `form`, `expiresIn` |
 | `router` | chooses the next node by a value | `on`, `cases`, `default` |
+| `test` | runs the project's tests in a workspace and reports each case | `workspace`, `command`, `reports`, `timeout` |
 
 A node's output is kept under its id: `nodes.draft.title` is the `title` the node
 `draft` returned, and `inputs.project` is what the person gave. A string in a
@@ -277,6 +278,70 @@ branch of a repository binding, in a toolchain image an administrator allows:
   administrator sets (an hour unless they say), and its work tree at most the
   size they set (1 GiB unless they say).
 
+#### A test step (#138)
+
+A `test` node runs the project's tests on a checkout of the run's branch and
+reports each test case:
+
+```yaml
+- id: test
+  type: test
+  workspace: {repository: repo, branch: "{{ nodes.branch.branch.name }}", image: golang-1.26, access: read}
+  command: [gotestsum, --junitfile, junit.xml, --, ./...]
+  reports: [junit.xml]
+  timeout: 20m
+```
+
+- `workspace` is a [workspace](#workspaces-136) that only reads: a test step
+  never pushes, and `access: write` is refused (`test_node`).
+- `command` is a list of arguments run in the toolchain without a shell, so
+  it cannot redirect: the test tool writes the report itself, such as
+  `gotestsum --junitfile junit.xml -- ./...` for Go, `pytest
+  --junitxml=junit.xml` or `vitest run --reporter=junit
+  --outputFile=junit.xml`, or `node --test --test-reporter=junit
+  --test-reporter-destination=junit.xml`; node's reporter does not make the
+  directory a report goes into.
+- `reports` are the JUnit files the command writes, as paths inside the work
+  tree; at least one. The runner reads them after the command, never through
+  a symbolic link, at most 4 MiB together, and refuses a report that declares
+  a DTD or an entity, which no JUnit file needs.
+- `timeout` is how long the command may run, 15 minutes unless the node says
+  and at most the run's `timeout`, and at most what is left of the step. Each
+  step builds cold, from empty caches: a Go backend the size of Rotor's takes
+  about four minutes.
+- Its output:
+
+  ```json
+  {"passed": 12, "failed": 1, "skipped": 0,
+   "failures": [{"name": "example.com/sum > TestSubtracts/[verifies_CP-T2]_by_one", "message": "sum_test.go:14: 2-1 = 1, want 2", "file": "example.com/sum"}],
+   "cases": [{"name": "example.com/sum > TestSubtracts/[verifies_CP-T2]_by_one", "result": "failed", "verifies": ["CP-T2"]}],
+   "logTail": "..."}
+  ```
+
+  - A case's `name` is its class or file, then its own name, as `>` joins a
+    vitest describe block; `result` is `passed`, `failed` or `skipped`, and an
+    error counts as failed.
+  - `verifies` are the test case keys a `[verifies KEY]` tag names in the
+    test's name or class, such as `[verifies CP-T1, CP-T2]`; Go's subtests
+    write the spaces as underscores, which count too. In pytest a parameter's
+    id (`pytest.param(..., id="verifies CP-T1")`) or
+    `record_property("verifies", "CP-T1")` tags a test.
+  - The counts hold every case. `cases` names at most 2000, those that verify
+    a case or fail first, and `failures` at most 50, each message at most
+    2000 characters, its start and end kept. `file` is the report's file for
+    the case, or its class or package, inside the work tree. `logTail` is the
+    last 8 KiB of the command's output.
+  - What the tests wrote comes from the repository's code: a later agent reads
+    `{{ nodes.test.failures }}` fenced as data, like any step's output.
+- Failing tests are a result: the step succeeds and a router or an agent
+  decides what follows. The step fails, and the run with it, when the command
+  cannot run (`test_command`), runs out of time (`test_timeout`), writes no
+  report or one that is not JUnit (`test_report`), or exits with an error
+  while its reports name no failing test (`test_command`), such as a build
+  that broke before any test ran. The reason quotes the end of the output.
+- The run's page tells how many tests passed, failed and were skipped, and
+  names the first ten that failed.
+
 ### Limits
 
 `maxSteps` bounds how many steps a run takes, each node of every branch one,
@@ -324,6 +389,8 @@ When a workflow is saved, and again when a run starts:
   - a repository's `project` and `name` read nothing but `inputs`
   - a workspace names a repository binding, and writes only through one that
     may push (`workspace_binding`)
+  - a test step only reads its workspace, names at least one report inside
+    the work tree, and asks for no longer than its run (`test_node`)
 - **The models an administrator allows:** an agent's own `model` is one of
   them (`model_not_allowed`).
 - **The tools as you see them,** when saving, and when a run starts, read
@@ -372,6 +439,8 @@ yourself. The browser remembers which tab you used last.
   - Which node the workflow starts at.
   - Each kind's main field: an agent's `prompt`, a tool node's binding and
     `call`, a code node's `source`, an approval's `message` and a router's `on`.
+    A test node's `command` is shown as one line; it is a list, changed in the
+    YAML with the node's workspace and reports.
   - An agent's `role`, which an emptied field takes out again, and its
     `model`, chosen among the models administrators allow or left to the
     workflow's.

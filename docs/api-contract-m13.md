@@ -359,6 +359,46 @@ tools:
   each step starts with empty build caches, so a test step pays a cold
   build (about four minutes for Rotor's backend under gVisor).
 
+### As built (#138)
+
+- **Checks.** A new problem, `test_node`: a test node whose workspace has
+  `access: write` (a test step only reads, and the runner forces `read`
+  whatever the spec says), one naming no report, a report path that is
+  absolute, climbs out with `..` or names no file, and a `timeout` longer
+  than the run's `limits.timeout`.
+- **The command** runs from the work tree's root through
+  `Workspace.run_command`, for its `timeout` (15 minutes unless set) and at
+  most what is left of the step. Its `workspace.command` event is #136's.
+- **The reports.** `MaxTestReport` (4 MiB, in `internal/config` and the
+  runner's `config.py`) bounds all of a step's reports together. Each is read
+  with `WorkTree.read_bytes`, so never through a link. The parser is expat
+  with any DTD refused, so no entity is expanded or fetched; no new
+  dependency. Test cases are found wherever suites nest them, as node's own
+  junit reporter writes some outside any suite.
+- **The output** is the agreed `{passed, failed, skipped, failures: [{name,
+  message, file}], cases: [{name, result, verifies}], logTail}`:
+  - `name` joins the case's `classname` and `name` with ` > `; `result` is
+    `passed`, `failed` (an `<error>` too) or `skipped`.
+  - `verifies` reads `[verifies KEY]` in the name and the classname, several
+    keys apart by commas or spaces, with Go's underscores for spaces, and a
+    JUnit property `verifies` (pytest's `record_property`). A key starts with
+    a letter and holds letters, digits, `.` and `-`.
+  - `file` is the case's `file`, its suite's, or its classname, relative to
+    the work tree.
+  - Caps (`config.py`): `cases` at most 2000, those that verify a case or fail
+    kept first; `failures` at most 50; a name 300 and a message 2000
+    characters, start and end kept; `logTail` the last 8 KiB. The counts hold
+    every case.
+- **Failures** end the run with `test_command` (the command could not start,
+  or exited with an error while its reports name no failing test),
+  `test_timeout` or `test_report` (missing, a link, larger than the cap, not
+  JUnit, or declaring a DTD); the reason quotes the last 500 characters of the
+  output. A checkout or push failure stays #136's `workspace_*`.
+- **A new event, `test.reported`** (node: the test node): `{passed, failed,
+  skipped, failures: [{name, file}]}`, the first ten failures, which the run's
+  page shows. The canvas draws the node as `Tests`, and shows `command` as a
+  line the YAML changes.
+
 ## Problems and warnings
 
 | Code | Kind | When |
@@ -370,6 +410,7 @@ tools:
 | `repository_binding` | problem | `repository` on a tool without git, or a template of anything but `inputs` |
 | `workspace_binding` | problem | `workspace.repository` names no repository binding |
 | `image_not_allowed` | problem | an image no administrator allows |
+| `test_node` | problem | a test node that writes, names no report or one outside the work tree, or outlasts its run |
 | `unbounded_loop` | warning | a cycle with no `maxVisits` |
 | `join_missing` | warning | several incoming edges and no `join` |
 
