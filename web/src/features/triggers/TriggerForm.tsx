@@ -25,11 +25,14 @@ function localZone(): string {
 export function TriggerForm({
   workflowID,
   inputsSchema,
+  unattendedCalls = [],
   existing,
   onDone,
 }: {
   workflowID: string;
   inputsSchema: unknown;
+  /** The <binding>.<call> pairs the workflow lets write with no approval, which the owner must agree to (#128). */
+  unattendedCalls?: string[];
   existing?: Trigger;
   onDone: () => void;
 }) {
@@ -46,6 +49,7 @@ export function TriggerForm({
   const [values, setValues] = useState<Values>(valuesOf(fields, existing?.inputs as Record<string, unknown> | undefined));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [nextRuns, setNextRuns] = useState<string[] | null>(null);
+  const [agreed, setAgreed] = useState(unattendedCalls.every((call) => existing?.allowUnattended.includes(call)));
 
   const fieldErrors = (err: unknown) => {
     if (!(err instanceof ApiError) || err.status !== HTTP_UNPROCESSABLE) return {};
@@ -69,10 +73,11 @@ export function TriggerForm({
   });
   const save = useMutation({
     mutationFn: (inputs: Record<string, unknown>) => {
+      const allowUnattended = agreed ? unattendedCalls : [];
       const body =
         kind === "event"
-          ? { name, kind: "event" as const, event: eventOf(draft), inputs }
-          : { name, kind: "schedule" as const, schedule: { cron, timeZone: zone, noOverlap }, inputs };
+          ? { name, kind: "event" as const, event: eventOf(draft), inputs, allowUnattended }
+          : { name, kind: "schedule" as const, schedule: { cron, timeZone: zone, noOverlap }, inputs, allowUnattended };
       return existing ? changeTrigger(existing.id, body) : createTrigger(workflowID, body);
     },
     onSuccess: async () => {
@@ -199,6 +204,31 @@ export function TriggerForm({
             </div>
           )}
         </div>
+      )}
+      {unattendedCalls.length > 0 && (
+        <fieldset className="flex flex-col gap-1" data-trigger-unattended>
+          <legend className="mb-1 text-sm font-medium text-ink">{s.triggers.unattended.title}</legend>
+          <p id={field("unattended-hint")} className="text-xs text-ink-muted">
+            {s.triggers.unattended.body}
+          </p>
+          <ul className="list-inside list-disc font-mono text-xs text-ink">
+            {unattendedCalls.map((call) => (
+              <li key={call}>{call}</li>
+            ))}
+          </ul>
+          <label className="flex items-center gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              aria-invalid={errors.allowUnattended ? true : undefined}
+              aria-describedby={described("allowUnattended", field("unattended-hint"))}
+              data-trigger-agree-unattended
+            />
+            {s.triggers.unattended.agree}
+          </label>
+          {error("allowUnattended", "allowUnattended")}
+        </fieldset>
       )}
       {save.isError && (
         <p role="alert" className="rounded-control border border-danger bg-danger-subtle px-3 py-2 text-sm text-danger" data-trigger-error>

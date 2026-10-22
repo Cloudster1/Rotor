@@ -89,7 +89,8 @@ func toVersionSummary(v workflows.Version) versionSummary {
 
 // toVersionResponse is a version with what a run of it asks for; a version that no longer parses asks for nothing.
 func toVersionResponse(v workflows.Version) versionResponse {
-	out := versionResponse{versionSummary: toVersionSummary(v), SpecYAML: v.SpecYAML, Inputs: json.RawMessage("null"), Bindings: []bindingRef{}}
+	out := versionResponse{versionSummary: toVersionSummary(v), SpecYAML: v.SpecYAML, Inputs: json.RawMessage("null"), Bindings: []bindingRef{},
+		UnattendedCalls: []string{}}
 	parsed, _ := spec.Parse([]byte(v.SpecYAML))
 	if parsed == nil {
 		return out
@@ -105,6 +106,9 @@ func toVersionResponse(v workflows.Version) versionResponse {
 		out.Bindings = append(out.Bindings, bindingRef{Name: name, Tool: b.Tool, Scopes: append([]string{}, b.Scopes...), Access: access})
 	}
 	sort.Slice(out.Bindings, func(i, j int) bool { return out.Bindings[i].Name < out.Bindings[j].Name })
+	if calls := parsed.UnattendedCalls(); len(calls) > 0 {
+		out.UnattendedCalls = calls
+	}
 	return out
 }
 

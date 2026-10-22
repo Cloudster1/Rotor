@@ -55,6 +55,10 @@ const (
 	ActionOAuthGranted           = "oauth.granted"
 	ActionOAuthRevoked           = "oauth.revoked"
 	ActionOAuthSwitched          = "oauth.switched"
+	// ActionUnattendedSwitched and ActionTriggerUnattendedWrite are M12's (#128): the administrators' switch, and a
+	// write a triggered run made with no approval through a call its owner agreed to.
+	ActionUnattendedSwitched     = "unattended.switched"
+	ActionTriggerUnattendedWrite = "trigger.unattended_write"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
@@ -64,7 +68,8 @@ var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, Actio
 	ActionApprovalDecided, ActionTriggerCreated, ActionTriggerChanged, ActionTriggerRemoved, ActionTriggerEnabled, ActionTriggerDisabled,
 	ActionHookSecretChanged, ActionLimitsChanged, ActionLangSmithChanged,
 	ActionSandboxSpawned, ActionSandboxDestroyed, ActionRunEnded, ActionApprovalRequested, ActionAuditExported,
-	ActionRetentionChanged, ActionRunDataDeleted, ActionOAuthGranted, ActionOAuthRevoked, ActionOAuthSwitched}
+	ActionRetentionChanged, ActionRunDataDeleted, ActionOAuthGranted, ActionOAuthRevoked, ActionOAuthSwitched,
+	ActionUnattendedSwitched, ActionTriggerUnattendedWrite}
 
 // Redacted stands in the record for a value that looked like a credential.
 var Redacted = redact.Redacted

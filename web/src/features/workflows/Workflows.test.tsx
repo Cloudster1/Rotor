@@ -40,6 +40,7 @@ const RESPONSE: WorkflowResponse = {
     specYAML: "apiVersion: rotor.dev/v1\nkind: Workflow\n",
     inputs: null,
     bindings: [],
+    unattendedCalls: [],
   },
 };
 

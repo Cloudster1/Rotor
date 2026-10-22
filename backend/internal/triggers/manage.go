@@ -30,9 +30,10 @@ func (s *Service) Create(ctx context.Context, workflowID uuid.UUID, in Input) (T
 	var id uuid.UUID
 	err := s.db.Write(ctx, func(ctx context.Context, tx db.DBTX) error {
 		if err := tx.QueryRow(ctx, `INSERT INTO trigger (workflow_id, owner_id, name, kind, cron, time_zone, no_overlap, next_run_at,
-				tool_id, topics, projects, conditions, inputs)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
-			workflowID, p.UserID, in.Name, in.Kind, v.cron, v.zone, in.NoOverlap, v.next, v.tool, v.topics, v.projects, v.conditions, v.inputs).Scan(&id); err != nil {
+				tool_id, topics, projects, conditions, inputs, allow_unattended)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
+			workflowID, p.UserID, in.Name, in.Kind, v.cron, v.zone, in.NoOverlap, v.next, v.tool, v.topics, v.projects, v.conditions, v.inputs,
+			v.unattended).Scan(&id); err != nil {
 			return err
 		}
 		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionTriggerCreated, TargetType: "trigger", TargetID: id.String(), Actor: p.UserID,
@@ -62,8 +63,8 @@ func (s *Service) Change(ctx context.Context, id uuid.UUID, in Input) (Trigger, 
 	}
 	err = s.db.Write(ctx, func(ctx context.Context, tx db.DBTX) error {
 		if _, err := tx.Exec(ctx, `UPDATE trigger SET name = $2, cron = $3, time_zone = $4, no_overlap = $5, next_run_at = $6,
-				tool_id = $7, topics = $8, projects = $9, conditions = $10, inputs = $11 WHERE id = $1`,
-			id, in.Name, v.cron, v.zone, in.NoOverlap, v.next, v.tool, v.topics, v.projects, v.conditions, v.inputs); err != nil {
+				tool_id = $7, topics = $8, projects = $9, conditions = $10, inputs = $11, allow_unattended = $12 WHERE id = $1`,
+			id, in.Name, v.cron, v.zone, in.NoOverlap, v.next, v.tool, v.topics, v.projects, v.conditions, v.inputs, v.unattended); err != nil {
 			return err
 		}
 		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionTriggerChanged, TargetType: "trigger", TargetID: id.String(), Actor: t.OwnerID,
@@ -173,7 +174,7 @@ func noSession(p *auth.Principal) error {
 // Input is the trigger as it was made, to check it again.
 func (t Trigger) Input() Input {
 	in := Input{Name: t.Name, Kind: t.Kind, Cron: t.Cron, TimeZone: t.TimeZone, NoOverlap: t.NoOverlap, Topics: t.Topics,
-		Projects: t.Projects, Conditions: t.Conditions, Inputs: t.Inputs}
+		Projects: t.Projects, Conditions: t.Conditions, Inputs: t.Inputs, AllowUnattended: t.AllowUnattended}
 	if t.ToolID != nil {
 		in.ToolID = *t.ToolID
 	}
@@ -185,10 +186,12 @@ type stored struct {
 	cron, zone, next, tool any
 	topics, projects       []string
 	conditions, inputs     []byte
+	unattended             []string
 }
 
 func values(in Input, now time.Time) stored {
-	v := stored{topics: []string{}, projects: []string{}, conditions: []byte("[]"), inputs: objectOr(in.Inputs)}
+	v := stored{topics: []string{}, projects: []string{}, conditions: []byte("[]"), inputs: objectOr(in.Inputs),
+		unattended: nonNil(in.AllowUnattended)}
 	switch in.Kind {
 	case KindSchedule:
 		v.cron, v.zone = in.Cron, in.TimeZone

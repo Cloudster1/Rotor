@@ -63,7 +63,7 @@ var m6Enums = map[reflect.Type][]string{
 	reflect.TypeOf(triggerKind("")): {"schedule", "event"},
 	reflect.TypeOf(fireOutcome("")): {"started", "skipped", "refused", "failed"},
 	reflect.TypeOf(disabledReason("")): {"owner_switched_off", "connection_lost", "tool_removed", "workflow_archived", "workflow_hidden",
-		"unattended_write", "inputs_refused"},
+		"unattended_write", "inputs_refused", "unattended_widened", "unattended_forbidden"},
 	reflect.TypeOf(conditionOp("")): {"equals", "in", "exists"},
 }
 
@@ -105,6 +105,8 @@ type triggerRequest struct {
 	Schedule *scheduleSpec   `json:"schedule,omitempty"`
 	Event    *eventSpec      `json:"event,omitempty"`
 	Inputs   json.RawMessage `json:"inputs,omitempty"`
+	// AllowUnattended are the <binding>.<call> pairs the owner agrees may write with no approval (#128).
+	AllowUnattended []string `json:"allowUnattended,omitempty"`
 }
 
 // triggerDisabled is why and when Rotor turned a trigger off; the owner turns it on again once that is mended.
@@ -125,20 +127,22 @@ type triggerFire struct {
 
 // triggerResponse is a trigger as its owner sees it.
 type triggerResponse struct {
-	ID        string           `json:"id"`
-	Workflow  personRef        `json:"workflow"`
-	Owner     personRef        `json:"owner"`
-	Name      string           `json:"name"`
-	Kind      triggerKind      `json:"kind"`
-	Enabled   bool             `json:"enabled"`
-	Disabled  *triggerDisabled `json:"disabled"`
-	Schedule  *scheduleSpec    `json:"schedule"`
-	Event     *eventSpec       `json:"event"`
-	Inputs    json.RawMessage  `json:"inputs"`
-	NextRunAt *time.Time       `json:"nextRunAt"`
-	LastFire  *triggerFire     `json:"lastFire"`
-	CreatedAt time.Time        `json:"createdAt"`
-	UpdatedAt time.Time        `json:"updatedAt"`
+	ID       string           `json:"id"`
+	Workflow personRef        `json:"workflow"`
+	Owner    personRef        `json:"owner"`
+	Name     string           `json:"name"`
+	Kind     triggerKind      `json:"kind"`
+	Enabled  bool             `json:"enabled"`
+	Disabled *triggerDisabled `json:"disabled"`
+	Schedule *scheduleSpec    `json:"schedule"`
+	Event    *eventSpec       `json:"event"`
+	Inputs   json.RawMessage  `json:"inputs"`
+	// AllowUnattended are the <binding>.<call> pairs the owner agreed may write with no approval (#128).
+	AllowUnattended []string     `json:"allowUnattended"`
+	NextRunAt       *time.Time   `json:"nextRunAt"`
+	LastFire        *triggerFire `json:"lastFire"`
+	CreatedAt       time.Time    `json:"createdAt"`
+	UpdatedAt       time.Time    `json:"updatedAt"`
 }
 
 // schedulePreview is when a schedule fires next, in UTC.

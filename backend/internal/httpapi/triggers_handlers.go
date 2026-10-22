@@ -22,6 +22,8 @@ type Triggers interface {
 	Enable(ctx context.Context, id uuid.UUID) (triggers.Trigger, error)
 	Disable(ctx context.Context, id uuid.UUID) (triggers.Trigger, error)
 	Preview(cron, zone string) ([]time.Time, error)
+	UnattendedSetting(ctx context.Context) (triggers.UnattendedSetting, error)
+	SetUnattended(ctx context.Context, allowed bool) (triggers.UnattendedSetting, error)
 }
 
 var (
@@ -47,8 +49,11 @@ func triggerError(err error) error {
 	case errors.As(err, &refused):
 		fields, code := map[string]string{}, "trigger_invalid"
 		for _, p := range refused.Problems {
-			if p.Code == triggers.ReasonUnattendedWrite {
-				code = triggers.ReasonUnattendedWrite
+			switch p.Code {
+			case triggers.ReasonUnattendedWrite, triggers.CodeUnattendedNotAllowed, triggers.ReasonUnattendedForbidden:
+				if code == "trigger_invalid" {
+					code = p.Code
+				}
 			}
 			if _, taken := fields[p.Field]; !taken {
 				fields[p.Field] = p.Message
@@ -200,7 +205,7 @@ func (s *Server) answerTrigger(w http.ResponseWriter, r *http.Request, status in
 }
 
 func toTriggerInput(req triggerRequest) triggers.Input {
-	in := triggers.Input{Name: req.Name, Kind: string(req.Kind), Inputs: req.Inputs}
+	in := triggers.Input{Name: req.Name, Kind: string(req.Kind), Inputs: req.Inputs, AllowUnattended: req.AllowUnattended}
 	if req.Schedule != nil {
 		in.Cron, in.TimeZone, in.NoOverlap = req.Schedule.Cron, req.Schedule.TimeZone, req.Schedule.NoOverlap
 	}
@@ -215,7 +220,8 @@ func toTriggerInput(req triggerRequest) triggers.Input {
 func toTriggerResponse(t triggers.Trigger) triggerResponse {
 	out := triggerResponse{ID: t.ID.String(), Workflow: personRef{ID: t.WorkflowID.String(), Name: t.WorkflowName},
 		Owner: personRef{ID: t.OwnerID.String(), Name: t.OwnerName}, Name: t.Name, Kind: triggerKind(t.Kind), Enabled: t.Enabled,
-		Inputs: orObject(t.Inputs), NextRunAt: t.NextRunAt, CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt}
+		Inputs: orObject(t.Inputs), AllowUnattended: append([]string{}, t.AllowUnattended...), NextRunAt: t.NextRunAt, CreatedAt: t.CreatedAt,
+		UpdatedAt: t.UpdatedAt}
 	if t.DisabledReason != "" && t.DisabledAt != nil {
 		out.Disabled = &triggerDisabled{Reason: disabledReason(t.DisabledReason), Message: t.DisabledDetail, At: *t.DisabledAt}
 	}
@@ -243,4 +249,36 @@ func toTriggerResponse(t triggers.Trigger) triggerResponse {
 		out.LastFire = fire
 	}
 	return out
+}
+
+func (s *Server) handleGetUnattendedWrites(w http.ResponseWriter, r *http.Request) {
+	if !s.triggersReady(w, r) {
+		return
+	}
+	setting, err := s.Triggers.UnattendedSetting(r.Context())
+	if err != nil {
+		respondError(w, r, err)
+		return
+	}
+	respondJSON(w, r, http.StatusOK, unattendedSetting{Allowed: setting.Allowed, UpdatedAt: setting.UpdatedAt})
+}
+
+func (s *Server) handleSetUnattendedWrites(w http.ResponseWriter, r *http.Request) {
+	if !s.triggersReady(w, r) {
+		return
+	}
+	var in unattendedSettingInput
+	if err := decodeJSON(w, r, &in); err != nil {
+		respondError(w, r, err)
+		return
+	}
+	setting, err := s.Triggers.SetUnattended(r.Context(), in.Allowed)
+	if errors.Is(err, triggers.ErrNotAdministrator) {
+		err = ErrForbidden("Only an administrator allows or forbids unattended writes, in person.")
+	}
+	if err != nil {
+		respondError(w, r, err)
+		return
+	}
+	respondJSON(w, r, http.StatusOK, unattendedSetting{Allowed: setting.Allowed, UpdatedAt: setting.UpdatedAt})
 }

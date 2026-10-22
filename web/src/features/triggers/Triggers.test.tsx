@@ -43,6 +43,7 @@ const RESPONSE: WorkflowResponse = {
     specYAML: "apiVersion: rotor.dev/v1\nkind: Workflow\n",
     inputs: { type: "object", properties: { project: { type: "string" } } },
     bindings: [],
+    unattendedCalls: [],
   },
 };
 
@@ -57,6 +58,7 @@ const TRIGGER: Trigger = {
   schedule: { cron: "0 8 * * 1", timeZone: "Europe/Berlin", noOverlap: true },
   event: null,
   inputs: { project: "RTR" },
+  allowUnattended: [],
   nextRunAt: null,
   lastFire: { outcome: "started", reason: "", at: "2026-10-12T06:00:00Z", runId: "0190a5c4-0000-7000-8000-00000000dd01", runStatus: "succeeded" },
   createdAt: "2026-10-01T10:00:00Z",
@@ -209,6 +211,47 @@ describe("a workflow's event triggers", () => {
       });
       await userEvent.click(within(section).getByRole("button", { name: s.triggers.save }));
       await waitFor(() => expect(within(section).queryByLabelText(s.triggers.event.tool)).not.toBeInTheDocument());
+    },
+    FORM_TEST_MS,
+  );
+
+  it(
+    "ask the owner to agree to the calls the workflow makes without an approval",
+    async () => {
+      const call = "armature-write.add_comment";
+      const calls = [call];
+      const posted: Record<string, unknown>[] = [];
+      let refuse = true;
+      await renderAt(`/workflows/${WORKFLOW.id}`, {
+        answers: pageAnswers({
+          [`/api/v1/workflows/${WORKFLOW.id}`]: { ...RESPONSE, version: { ...RESPONSE.version, unattendedCalls: calls } },
+          [`/api/v1/workflows/${WORKFLOW.id}/triggers`]: { triggers: [] },
+          [`POST /api/v1/workflows/${WORKFLOW.id}/triggers`]: async (request: Request) => {
+            posted.push((await request.json()) as Record<string, unknown>);
+            if (refuse) {
+              refuse = false;
+              return Response.json(
+                { error: { code: "unattended_not_allowed", message: "Agree first.", fields: { allowUnattended: "Agree to the calls first." } } },
+                { status: 422 },
+              );
+            }
+            return Response.json({ ...TRIGGER, allowUnattended: calls }, { status: 201 });
+          },
+        }),
+      });
+      const section = await screen.findByRole("region", { name: s.triggers.title });
+      await userEvent.click(within(section).getByRole("button", { name: s.triggers.add }));
+      await userEvent.type(within(section).getByLabelText(s.triggers.name), "On stories");
+      expect(within(section).getByText(call)).toBeInTheDocument();
+      const agree = within(section).getByRole("checkbox", { name: s.triggers.unattended.agree });
+      expect(agree).not.toBeChecked();
+      await userEvent.click(within(section).getByRole("button", { name: s.triggers.save }));
+      expect(await within(section).findByText("Agree to the calls first.")).toBeInTheDocument();
+      expect(posted[0]).toMatchObject({ allowUnattended: [] });
+      await userEvent.click(agree);
+      expect(await axeViolations()).toEqual([]);
+      await userEvent.click(within(section).getByRole("button", { name: s.triggers.save }));
+      await waitFor(() => expect(posted[1]).toMatchObject({ allowUnattended: calls }));
     },
     FORM_TEST_MS,
   );

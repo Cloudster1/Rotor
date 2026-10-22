@@ -54,6 +54,8 @@ type run struct {
 	Traceparent  string
 	TraceContent bool
 	spec         *spec.Spec
+	// triggerID is the trigger that started the run, whose unattended writes are audited (#128); nil for a person's.
+	triggerID *uuid.UUID
 	// model is the provider and model the run's agents use; nil for a workflow without agents.
 	model *providers.Resolution
 }
@@ -69,9 +71,9 @@ func (s *Server) loadRun(ctx context.Context, runID uuid.UUID) (*run, error) {
 	var sealed []byte
 	var resume *approved
 	err := s.DB.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		err := tx.QueryRow(ctx, `SELECT r.user_id, r.status, v.spec_yaml, r.data_key, r.sealed_inputs, r.traceparent
+		err := tx.QueryRow(ctx, `SELECT r.user_id, r.status, v.spec_yaml, r.data_key, r.sealed_inputs, r.traceparent, r.trigger_id
 			FROM run r JOIN workflow_version v ON v.workflow_id = r.workflow_id AND v.number = r.version
-			WHERE r.id = $1`, runID).Scan(&r.UserID, &r.Status, &r.SpecYAML, &r.dataKey, &sealed, &r.Traceparent)
+			WHERE r.id = $1`, runID).Scan(&r.UserID, &r.Status, &r.SpecYAML, &r.dataKey, &sealed, &r.Traceparent, &r.triggerID)
 		if err != nil {
 			return err
 		}

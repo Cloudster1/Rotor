@@ -55,13 +55,15 @@ type Trigger struct {
 	Projects       []string
 	Conditions     json.RawMessage
 	Inputs         json.RawMessage
-	LastFiredAt    *time.Time
-	LastOutcome    string
-	LastReason     string
-	LastRunID      *uuid.UUID
-	LastRunStatus  *string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	// AllowUnattended are the <binding>.<call> pairs the owner agreed may write with no approval (#128).
+	AllowUnattended []string
+	LastFiredAt     *time.Time
+	LastOutcome     string
+	LastReason      string
+	LastRunID       *uuid.UUID
+	LastRunStatus   *string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // Input makes or changes a trigger; the fields of the other kind are ignored.
@@ -76,6 +78,8 @@ type Input struct {
 	Projects   []string
 	Conditions json.RawMessage
 	Inputs     json.RawMessage
+	// AllowUnattended are the <binding>.<call> pairs the owner agrees may write with no approval (#128).
+	AllowUnattended []string
 	// Firing says the trigger is checked as it fires, not as a person makes or turns it on.
 	Firing bool
 }
@@ -123,14 +127,14 @@ func (s *Service) now() time.Time {
 const columns = `t.id, t.workflow_id, COALESCE((SELECT w.name FROM workflow w WHERE w.id = t.workflow_id), ''), t.owner_id,
 	COALESCE((SELECT u.name FROM app_user u WHERE u.id = t.owner_id), ''), t.name, t.kind, t.enabled, t.disabled_reason,
 	t.disabled_detail, t.disabled_at, COALESCE(t.cron, ''), COALESCE(t.time_zone, ''), t.no_overlap, t.next_run_at, t.tool_id,
-	t.topics, t.projects, t.conditions, t.inputs, t.last_fired_at, t.last_outcome, t.last_reason, t.last_run_id,
+	t.topics, t.projects, t.conditions, t.inputs, t.allow_unattended, t.last_fired_at, t.last_outcome, t.last_reason, t.last_run_id,
 	(SELECT r.status FROM run r WHERE r.id = t.last_run_id), t.created_at, t.updated_at`
 
 func scan(row pgx.Row) (Trigger, error) {
 	var t Trigger
 	err := row.Scan(&t.ID, &t.WorkflowID, &t.WorkflowName, &t.OwnerID, &t.OwnerName, &t.Name, &t.Kind, &t.Enabled, &t.DisabledReason,
 		&t.DisabledDetail, &t.DisabledAt, &t.Cron, &t.TimeZone, &t.NoOverlap, &t.NextRunAt, &t.ToolID,
-		&t.Topics, &t.Projects, &t.Conditions, &t.Inputs, &t.LastFiredAt, &t.LastOutcome, &t.LastReason, &t.LastRunID,
+		&t.Topics, &t.Projects, &t.Conditions, &t.Inputs, &t.AllowUnattended, &t.LastFiredAt, &t.LastOutcome, &t.LastReason, &t.LastRunID,
 		&t.LastRunStatus, &t.CreatedAt, &t.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return t, ErrNotFound

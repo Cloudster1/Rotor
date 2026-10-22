@@ -89,6 +89,7 @@ func checkSense(s *Spec) []Problem {
 		}
 	}
 	out = append(out, reviewDeciders(s)...)
+	out = append(out, unattendedOutsideAllow(s)...)
 	if known(s.Entry) {
 		reached := reach(s, index, s.Entry, nil)
 		for i, n := range s.Nodes {

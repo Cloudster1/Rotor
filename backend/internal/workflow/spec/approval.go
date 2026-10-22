@@ -82,6 +82,21 @@ func reviewDeciders(s *Spec) []Problem {
 	return out
 }
 
+// unattendedOutsideAllow refuses an unattended call the binding does not allow, which no run could make anyway.
+func unattendedOutsideAllow(s *Spec) []Problem {
+	var out []Problem
+	for _, name := range sortedKeys(s.Tools) {
+		b := s.Tools[name]
+		for j, call := range b.Unattended {
+			if !slices.Contains(b.AllowTools, call) {
+				out = append(out, Problem{Path: fmt.Sprintf("/tools/%s/unattended/%d", escape(name), j), Code: CodeUnattendedCall,
+					Message: fmt.Sprintf("%s is not in the allowTools of %s, so it cannot be unattended; add it there or take it out.", call, name)})
+			}
+		}
+	}
+	return out
+}
+
 func hours(d time.Duration) string { return fmt.Sprintf("%dh", int(d.Hours())) }
 
 // ExpiresAfter is how long the node's approval waits: its own expiresIn, or def.

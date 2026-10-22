@@ -53,3 +53,20 @@ export async function previewSchedule(cron: string, timeZone: string): Promise<s
   const { data } = await api.POST("/triggers/schedule", { body: { cron, timeZone, noOverlap: false } });
   return (data as { nextRuns: string[] }).nextRuns;
 }
+
+export type UnattendedSetting = components["schemas"]["UnattendedSetting"];
+export const unattendedSettingQueryKey = ["settings", "unattended-writes"] as const;
+
+/** Whether a trigger's owner may let named calls write with no approval (#128), for administrators. */
+export const unattendedSettingQuery = queryOptions({
+  queryKey: unattendedSettingQueryKey,
+  queryFn: async (): Promise<UnattendedSetting> => {
+    const { data } = await api.GET("/settings/unattended-writes");
+    return data as UnattendedSetting;
+  },
+});
+
+export async function setUnattendedWrites(allowed: boolean): Promise<UnattendedSetting> {
+  const { data } = await api.PUT("/settings/unattended-writes", { body: { allowed } });
+  return data as UnattendedSetting;
+}

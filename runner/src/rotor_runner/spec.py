@@ -240,6 +240,7 @@ def check_sense(document: dict[str, Any]) -> list[Problem]:
                         Problem(f"{base}/tools/{j}", "unknown_binding", f"{name} is not one of the workflow's tools.")
                     )
     out.extend(_review_deciders(tools))
+    out.extend(_unattended_outside_allow(tools))
     if entry in index:
         reached = {entry}
         queue = [entry]
@@ -298,6 +299,18 @@ def form_fields(schema: Any) -> dict[str, Any] | None:
     except Exception:
         return None
     return properties
+
+
+def _unattended_outside_allow(tools: dict[str, dict[str, Any]]) -> list[Problem]:
+    """An unattended call the binding does not allow is refused: no run could make it anyway."""
+    out: list[Problem] = []
+    for name in sorted(tools):
+        allowed = tools[name].get("allowTools", [])
+        for j, call in enumerate(tools[name].get("unattended", [])):
+            if call not in allowed:
+                path = f"/tools/{_escape(name)}/unattended/{j}"
+                out.append(Problem(path, "unattended_call_not_allowed", f"{call} is not in the allowTools of {name}."))
+    return out
 
 
 def _review_deciders(tools: dict[str, dict[str, Any]]) -> list[Problem]:
