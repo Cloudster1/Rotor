@@ -13,7 +13,7 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_mcp_adapters.interceptors import MCPToolCallRequest, ToolCallInterceptor
 from langchain_mcp_adapters.tools import load_mcp_tools
 
-from rotor_runner.events import EventSink, summary
+from rotor_runner.events import EventSink, subjects, summary
 from rotor_runner.limits import ToolRate
 from rotor_runner.spec import REVIEW_DECIDING
 from rotor_runner.telemetry import RunTracing
@@ -86,6 +86,23 @@ def result_value(result: Any) -> Any:
         return {"text": text}
 
 
+def called(
+    binding: str, name: str, arguments: dict[str, Any], value: Any, failed: bool, annotations: dict[str, Any] | None
+) -> dict[str, Any]:
+    """The tool.called payload: what was asked and answered, whether the call may write, and for a write that
+    succeeded what it wrote, read from the whole answer before it is cut short (#127)."""
+    write = not bool((annotations or {}).get("readOnlyHint"))
+    return {
+        "binding": binding,
+        "tool": name,
+        "arguments": arguments,
+        "resultSummary": summary(value),
+        "ok": not failed,
+        "write": write,
+        "subjects": subjects(value) if write and not failed else [],
+    }
+
+
 @dataclass
 class McpGateway:
     """Calls the tools over streamable HTTP, one session per call, as langchain-mcp-adapters does."""
@@ -135,17 +152,7 @@ class McpGateway:
             raise ToolFailedError(f"calling {name} at {binding} failed: {leaf(err)}") from err
         failed = bool(getattr(result, "isError", False))
         value = result_value(result)
-        await self.emit(
-            "tool.called",
-            node,
-            {
-                "binding": binding,
-                "tool": name,
-                "arguments": arguments,
-                "resultSummary": summary(value),
-                "ok": not failed,
-            },
-        )
+        await self.emit("tool.called", node, called(binding, name, arguments, value, failed, hints.get(name)))
         if failed:
             raise ToolFailedError(f"{name} at {binding} answered an error: {summary(value)}")
         return value
@@ -175,17 +182,16 @@ class McpGateway:
             span = {"rotor.binding": binding.name, "mcp.tool": request.name, "rotor.node": node}
             with self.tracing.maybe(f"mcp {request.name}", span):
                 result = await handler(request.override(headers={"Authorization": f"Bearer {token}"}))
-            await self.emit(
-                "tool.called",
-                node,
-                {
-                    "binding": binding.name,
-                    "tool": request.name,
-                    "arguments": request.args,
-                    "resultSummary": summary(result_value(result)),
-                    "ok": not bool(getattr(result, "isError", False)),
-                },
+            try:
+                hints = await self.annotations(binding)
+            except Exception:
+                # Unknown hints count the call as a write, so a trigger skips more of its own events, never fewer.
+                hints = {}
+            failed = bool(getattr(result, "isError", False))
+            payload = called(
+                binding.name, request.name, request.args, result_value(result), failed, hints.get(request.name)
             )
+            await self.emit("tool.called", node, payload)
             return result
 
         return intercept

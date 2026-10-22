@@ -134,6 +134,7 @@ func run() error {
 	triggerService.CheckEvent = hookService.CheckEvent(people)
 	firer := triggers.NewFirer(triggerService, log)
 	firer.Probe = hooks.Probe(reader)
+	firer.Written = hooks.Written
 	fired := counted.Counter("rotor_trigger_fires_total", "Firings of triggers that ended, by outcome.", "outcome")
 	firer.Fired = func(outcome string) { fired.Add(outcome, 1) }
 	// Retention (#41): a finished run's data is deleted once kept as long as the installation or its workflow says.

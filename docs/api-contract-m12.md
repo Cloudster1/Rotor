@@ -25,8 +25,8 @@ may not see is 404; refusals are sentences.
 
   | Range | Issue | Tables |
   |---|---|---|
-  | 01100-01119 | #127 | `run_write` |
   | 01120-01139 | #128 | `trigger.allow_unattended`, `unattended_setting` |
+  | 01140-01159 | #127 | `run_write`, numbered after #128's since #128 merged first |
 
 - Packages: `internal/hooks` (operators, an event's written subject, #126 and
   #127), `internal/triggers` (the ledger check at a firing, the agreed calls,
@@ -164,6 +164,19 @@ tools:
   at once, with `unattended_forbidden`. Switching it on again turns none on.
 - The audit log records `unattended.switched` with the new and the
   previous value.
+
+### As built (#127)
+
+- **A window in time.** A ledger row matches an event that occurred within
+  `OwnWriteWindow` (10 minutes) of the write, either way. An issue key names
+  every later change of the issue too, and a person's edit an hour on must
+  still start the workflow; comment ids and requirement revisions name one
+  write anyway.
+- **Any person's run counts:** a run of the same workflow by someone else
+  wrote it just the same, so the check reads the ledger as Rotor, not as the
+  trigger's owner.
+- **Hints the runner cannot read** count a call as a write, so a trigger
+  skips more of its own events, never fewer.
 
 ### As built (#128)
 

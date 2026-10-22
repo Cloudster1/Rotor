@@ -303,7 +303,7 @@ type Spec struct {
   | `node.started` | `{node, type}` |
   | `node.finished` | `{node, ok, error?, outputSummary}` |
   | `llm.output` | `{node, text}`, in chunks |
-  | `tool.called` | `{node, binding, tool, arguments, resultSummary, ok}` |
+  | `tool.called` | `{node, binding, tool, arguments, resultSummary, ok, write, subjects}`; the last two since M12 (#127) |
   | `log` | `{node, stream, text}` |
   | `interrupt` | `{node, message}` |
   | `run.finished` | `{status, reason, output}` |

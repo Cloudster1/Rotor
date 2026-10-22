@@ -152,6 +152,17 @@ administrator who added the webhook, so before a run starts Rotor asks the tool,
 as the trigger's owner, for the event's requirement, issue or page; if the owner
 cannot read it, nothing starts.
 
+### A workflow does not start itself
+
+When a run writes through a tool, Rotor keeps what it wrote: the comment,
+issue or requirement revision the tool answered with. An event about one of
+those, within ten minutes of the write, does not start the same workflow
+again; the trigger's last firing says it was skipped as the workflow's own
+write, and names the run. Other workflows still hear the event, and so does
+this one when a person changes the same thing later. Rotor does not rely on
+the tools to say who wrote something, since a tool names a connected app by
+the name the app chose (#127).
+
 ### Later
 
 Armature lets a connected app register its own webhook (Armature #281); Rotor

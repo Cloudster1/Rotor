@@ -280,6 +280,9 @@ func (s *Server) handle(ctx context.Context, stream runnerpb.RunnerControlServic
 				return err
 			}
 			if m.Event.Type == EventToolCalled {
+				if err := recordWrites(ctx, tx, r, bindings, []byte(m.Event.PayloadJson)); err != nil {
+					return err
+				}
 				return auditUnattended(ctx, tx, r, []byte(m.Event.PayloadJson))
 			}
 			if m.Event.Type != usage.EventUsage {
