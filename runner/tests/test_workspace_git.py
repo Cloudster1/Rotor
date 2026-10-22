@@ -40,7 +40,7 @@ def test_only_the_branch_is_fetched_at_depth_one_and_the_work_tree_holds_no_git(
     at = origin(tmp_path / "origin.git")
     first = head_of(at)
     advance(at, b"second.txt")
-    repo, head = git.fetch(str(at), {}, BRANCH, tmp_path / "git")
+    repo, head = git.fetch(str(at), "", BRANCH, tmp_path / "git")
     assert head == head_of(at)
     assert first not in set(repo.object_store), "the history behind the tip stays on the host"
     assert set(repo.refs.keys()) == {Ref(b"HEAD"), Ref(b"refs/heads/" + BRANCH.encode())}
@@ -52,7 +52,7 @@ def test_only_the_branch_is_fetched_at_depth_one_and_the_work_tree_holds_no_git(
 
 def test_nothing_changed_commits_nothing(tmp_path: Path) -> None:
     at = origin(tmp_path / "origin.git")
-    repo, head = git.fetch(str(at), {}, BRANCH, tmp_path / "git")
+    repo, head = git.fetch(str(at), "", BRANCH, tmp_path / "git")
     (tmp_path / "tree").mkdir()
     git.checkout(repo, head, tmp_path / "tree")
     assert git.commit(repo, head, WorkTree(tmp_path / "tree"), "nothing") is None
@@ -60,7 +60,7 @@ def test_nothing_changed_commits_nothing(tmp_path: Path) -> None:
 
 def test_a_push_never_overwrites_a_branch_that_moved_on(tmp_path: Path) -> None:
     at = origin(tmp_path / "origin.git")
-    repo, head = git.fetch(str(at), {}, BRANCH, tmp_path / "git")
+    repo, head = git.fetch(str(at), "", BRANCH, tmp_path / "git")
     (tmp_path / "tree").mkdir()
     git.checkout(repo, head, tmp_path / "tree")
     WorkTree(tmp_path / "tree").write_text("mine.txt", "mine\n")
@@ -68,7 +68,7 @@ def test_a_push_never_overwrites_a_branch_that_moved_on(tmp_path: Path) -> None:
     assert made is not None
     theirs = advance(at, b"theirs.txt")
     with pytest.raises(WorkspaceError, match="moved on"):
-        git.push(repo, str(at), {}, BRANCH, head, made)
+        git.push(repo, str(at), "", BRANCH, head, made)
     assert head_of(at) == theirs
 
 

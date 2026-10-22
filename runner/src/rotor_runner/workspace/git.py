@@ -19,6 +19,8 @@ from dulwich.repo import Repo
 from rotor_runner.config import COMMIT_AUTHOR, GIT_TIMEOUT_S, MAX_COMMIT_FILE_BYTES, MAX_WRITE_BYTES, OWNED_DIR_MODE
 from rotor_runner.workspace.files import WorkspaceError, WorkTree
 
+# The user name git sends with the token; Armature's proxy reads the password alone.
+GIT_USER = "rotor"
 # git's modes for a file, an executable and a symbolic link, which a commit keeps as a link.
 MODE_FILE, MODE_EXECUTABLE, MODE_LINK = 0o100644, 0o100755, 0o120000
 _ANY_EXECUTE = 0o111
@@ -32,20 +34,21 @@ def branch_ref(branch: str) -> Ref:
     return ref
 
 
-def _client(url: str, headers: dict[str, str]) -> tuple[GitClient, str]:
-    """The git proxy over HTTP with the token as a header, never in the address; a path for the runner's tests."""
+def _client(url: str, token: str) -> tuple[GitClient, str]:
+    """The git proxy over HTTP, the token as basic auth's password, never in the address; dulwich sends it to that
+    origin alone, so a redirect elsewhere never carries it. A path is a repository on disk, for the runner's tests."""
     if url.startswith(("https://", "http://")):
-        return HttpGitClient(url, extra_headers=headers, timeout=GIT_TIMEOUT_S), ""
+        return HttpGitClient(url, username=GIT_USER, password=token, timeout=GIT_TIMEOUT_S), ""
     return get_transport_and_path(url)
 
 
-def fetch(url: str, headers: dict[str, str], branch: str, git_dir: Path) -> tuple[Repo, ObjectID]:
+def fetch(url: str, token: str, branch: str, git_dir: Path) -> tuple[Repo, ObjectID]:
     """Fetches only the branch, at depth 1, into a new git directory: one ref is all a step needs, and a whole
     clone of a long history fetches every tag besides."""
     ref = branch_ref(branch)
     git_dir.mkdir(mode=OWNED_DIR_MODE)
     repo = Repo.init_bare(str(git_dir))
-    client, path = _client(url, headers)
+    client, path = _client(url, token)
 
     def wants(refs: dict[Ref, ObjectID], depth: int | None = None) -> list[ObjectID]:
         if ref not in refs:
@@ -145,11 +148,11 @@ def commit(repo: Repo, parent: ObjectID, tree: WorkTree, message: str) -> Object
     return c.id
 
 
-def push(repo: Repo, url: str, headers: dict[str, str], branch: str, parent: ObjectID, new: ObjectID) -> None:
+def push(repo: Repo, url: str, token: str, branch: str, parent: ObjectID, new: ObjectID) -> None:
     """Pushes new onto parent; a branch that moved on meanwhile is never overwritten, and a refusal is said as the
     host said it."""
     ref = branch_ref(branch)
-    client, path = _client(url, headers)
+    client, path = _client(url, token)
 
     def update(refs: dict[Ref, ObjectID]) -> dict[Ref, ObjectID]:
         if refs.get(ref) != parent:

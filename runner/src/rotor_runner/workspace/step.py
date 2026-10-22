@@ -167,7 +167,7 @@ class Workspaces:
             async with asyncio.timeout(cfg.step_seconds):
                 await agent.ready()
                 tree_dir.mkdir()
-                repo, head = await asyncio.to_thread(git.fetch, access.url, access.headers(), branch, git_dir)
+                repo, head = await asyncio.to_thread(git.fetch, access.url, access.token, branch, git_dir)
                 await asyncio.to_thread(git.checkout, repo, head, tree_dir)
                 await self.emit(
                     "workspace.checkout", node_id, {"branch": branch, "commit": head.decode(), "image": spec["image"]}
@@ -196,7 +196,7 @@ class Workspaces:
             await self.emit("workspace.unchanged", node_id, {"branch": branch})
             return
         access = await ctx.repository(binding)
-        await asyncio.to_thread(git.push, repo, access.url, access.headers(), branch, head, made)
+        await asyncio.to_thread(git.push, repo, access.url, access.token, branch, head, made)
         await self.emit(
             "workspace.pushed", node_id, {"branch": branch, "commit": made.decode(), "parent": head.decode()}
         )

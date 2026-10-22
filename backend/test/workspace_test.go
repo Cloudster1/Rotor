@@ -93,7 +93,7 @@ nodes:
 `, "edges: [{from: branch, to: code}]\n"))
 	run := startRun(t, bob, writer, map[string]any{"branch": branch}, http.StatusCreated)
 	if done := waitRun(t, bob, run["id"].(string), "succeeded", "failed"); done["status"] != "succeeded" {
-		t.Fatalf("the writing run ended %v: %v", done["status"], done["error"])
+		t.Fatalf("the writing run ended %v: %v", done["status"], done)
 	}
 	pushed := branchHead(stub, branch)
 	var commit string
