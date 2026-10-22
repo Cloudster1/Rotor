@@ -26,6 +26,18 @@ const (
 	armatureProject                           = "CP"
 )
 
+// armatureBrowser signs username in to Rotor and to the suite's Armature, both through Rotor's Keycloak.
+func armatureBrowser(t *testing.T, username, base string) *browser {
+	t.Helper()
+	b := newBrowser(t)
+	b.signIn(username)
+	b.client.Transport = oidc.HTTPClient(map[string]string{
+		os.Getenv(envKeycloakPublic): os.Getenv(envKeycloak), os.Getenv(envApp): apiURL(t), base: os.Getenv(envArmatureInternal),
+	}).Transport
+	b.signInToArmature(t, base, username)
+	return b
+}
+
 // signInToArmature signs the browser's person in to the suite's Armature, through Rotor's Keycloak.
 func (b *browser) signInToArmature(t *testing.T, base, username string) {
 	t.Helper()
@@ -216,14 +228,12 @@ func TestSuiteARunWritesToArmatureAsThePersonWhoStartedIt(t *testing.T) {
 	h := newHarness(t)
 	sandboxes, _ := dockerBackend(t)
 	base, _ := armature(t)
-	exciterBase, _ := exciter(t)
 	key := "llm-key-" + uuid.NewString()
 	said := "Checked by Rotor " + uuid.NewString()[:8]
 	llm := newToolStub(t, map[string]any{"llmKey": key, "llmScript": []map[string]any{
 		commentTurn(said, thinkingDelay), commentTurn("Dave was here.", 0)}})
 
-	alice := suiteBrowser(t, "alice", exciterBase)
-	alice.signInToArmature(t, base, "alice")
+	alice := armatureBrowser(t, "alice", base)
 	provider := addProvider(t, alice, llm, key)
 	toolID := addArmature(t, alice, base)
 	alice.connectToArmature(t, base, toolID, "alice")
@@ -280,8 +290,7 @@ func TestSuiteARunWritesToArmatureAsThePersonWhoStartedIt(t *testing.T) {
 	_ = plane.Revoke(context.Background(), uuid.MustParse(toolID), next.Value)
 
 	// dave reads the project and may not comment: Armature refuses his run's write, and the run says so.
-	dave := suiteBrowser(t, "dave", exciterBase)
-	dave.signInToArmature(t, base, "dave")
+	dave := armatureBrowser(t, "dave", base)
 	dave.connectToArmature(t, base, toolID, "dave")
 	run = startRun(t, dave, workflowID, inputs, http.StatusCreated)
 	daveRun, _ := run["id"].(string)
