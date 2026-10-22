@@ -164,8 +164,24 @@ tools:
   package mirror an administrator names.
 - **Settings:** `GET`/`PUT /settings/workspaces` (admin):
   `{images: [{name, reference}], packageMirror, maxStepTime, maxVolume}`.
-- The pod's shape, the command channel and the sizes are the ones #132
-  decides; this section is corrected from its findings.
+- **The shape, as #132 decided** (`docs/decisions.md`, "Workspaces in a
+  toolchain container beside the runner"):
+  - a run whose workflow has workspace steps gets, in its gVisor pod, one
+    toolchain container per image beside the runner, sharing the work tree;
+  - the runner alone does git: it fetches the run's branch at depth 1,
+    commits and pushes, so the run's token never reaches the container the
+    repository's code runs in, and the git directory stays where only the
+    runner sees it;
+  - commands reach the toolchain container through a small exec agent an
+    init container copies in, over the pod's loopback, with a secret per
+    sandbox that code nodes do not hold; between steps it ends every process
+    it started;
+  - the workspace tools never follow a symbolic link, so code that plants
+    one cannot make a read leak what the runner holds;
+  - builds fetch dependencies from the one package mirror an administrator
+    names (`GOPROXY`, `GOSUMDB`, `npm_config_registry`);
+  - in compose the toolchain joins the runner's network namespace the same
+    way, for the gate.
 
 ## The `test` node (#138)
 
@@ -173,7 +189,7 @@ tools:
 - id: test
   type: test
   workspace: { repository: repo, branch: "{{ nodes.branch.name }}", image: golang-1.26, access: read }
-  command: [go, test, -json, ./...]
+  command: [gotestsum, --junitfile, reports/junit.xml, --, ./...]
   reports: [reports/junit.xml]
   timeout: 20m
 ```
@@ -185,6 +201,11 @@ tools:
   `[verifies KEY]` tags in a test's name.
 - Failing tests are a result, not a failed step; a command that cannot run
   fails the step with the reason.
+- A command has no shell to redirect output, so the test tool writes the
+  report itself, such as `gotestsum` in a Go image.
+- `timeout` is the step's own, 15 minutes when unset and at most the run's:
+  each step starts with empty build caches, so a test step pays a cold
+  build (about four minutes for Rotor's backend under gVisor).
 
 ## Problems and warnings
 
