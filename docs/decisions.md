@@ -3,6 +3,31 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-22: Named unattended writes, for M12 (#124)
+
+- **A trigger's owner may let named calls write without an approval, before
+  #32.** A workflow that asks questions on a ticket and answers when someone
+  replies cannot wait for a person in Rotor's inbox at every comment. The
+  binding names the calls, the owner agrees to exactly those, and a later
+  version that names more turns the trigger off until the owner agrees
+  again. Every other write still needs an approval node before it.
+- **The person's gate moves into the tool.** The calls a story workflow needs
+  write a comment, a draft requirement or a link, and ask for a review; the
+  requirement becomes binding only when a person approves it in Exciter. A
+  call that decides a review stays refused, unattended or not.
+- **Each unattended write is audited, and an administrator can forbid them.**
+  The audit log names the trigger, the run and what was written, with no
+  actor, as Rotor's own turning off of triggers does. Forbidding turns the
+  triggers that rely on it off at once, so nothing waits for its next firing
+  to stop.
+- **Allowed by default.** The owner's agreement already names each call, and
+  an installation that does not want it switches it off once.
+- **A run's own writes are known from the run, not from the tools.**
+  Exciter's `actor.via` names a client by the name it registered, which any
+  client can also choose, and Armature marks nothing. The runner reports the
+  ids each write returned and Rotor keeps them with the run, so a workflow
+  never starts itself on its own comment, whatever the tools send.
+
 ## 2026-10-21: No OpenShell sandboxes for now (#118)
 
 NVIDIA OpenShell 0.1.5 was tried on this checkout's kind cluster as a third

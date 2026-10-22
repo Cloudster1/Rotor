@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- How a triggered workflow talks on a ticket is agreed (#124):
+  `docs/api-contract-m12.md` says how a trigger condition leaves events out,
+  how a workflow skips what its own runs wrote, and how a trigger's owner
+  lets named writes happen without an approval, which an administrator can
+  forbid under `/settings/unattended-writes`. The switch answers 501 until it
+  is built.
 - The README shows what Rotor does, the way Armature's does (#116): how to
   run it, what it does with pictures of it, how it is put together,
   deployed, tested and operated, every environment variable with its
