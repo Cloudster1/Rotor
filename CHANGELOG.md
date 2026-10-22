@@ -19,6 +19,9 @@ and the versioning [Semantic Versioning](https://semver.org/).
   and executions a run made, so the coming feature workflow is tested in
   every pull request. `make tool-snapshots` records Exciter's `tools/list`
   from a throwaway installation, as it does Armature's, without the suite.
+  Adding this Exciter works: it lists a token exchange for its partner apps,
+  which Rotor now leaves alone instead of registering for it, so Exciter no
+  longer refuses Rotor.
 - How a workflow writes code is agreed (#131): `docs/api-contract-m13.md`
   says how an agent gets its own model, role and step budget, how a loop is
   bounded, how parallel branches join, how a step checks out the run's

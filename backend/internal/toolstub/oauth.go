@@ -165,7 +165,7 @@ func (s *Stub) handleRegister(c *call) {
 		refuse(c.w, http.StatusBadRequest, errInvalidMetadata, "Send the client's metadata as one JSON object.", false)
 		return
 	}
-	if code, why := checkRegistration(&in, c.t.grantTypes()); code != "" {
+	if code, why := checkRegistration(&in, c.t.registrableGrants()); code != "" {
 		refuse(c.w, http.StatusBadRequest, code, why, false)
 		return
 	}

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"slices"
 	"strings"
 	"time"
 
@@ -41,7 +40,7 @@ func (s *Service) register(ctx context.Context, d discovery, method string) (vau
 		return vault.ToolClient{}, refuse("%s offers no client registration, so give the client id and secret an administrator of %s registered for Rotor, with the redirect URI %s.", title(d.Name), title(d.Name), s.redirectURL)
 	}
 	grants := []string{"authorization_code", "refresh_token"}
-	if slices.Contains(d.GrantTypes, GrantTokenExchange) {
+	if exchangesGrantTokens(d.Name, d.GrantTypes) {
 		// Asked for at registration, since a tool such as Armature leaves it out of a client that does not.
 		grants = append(grants, GrantTokenExchange)
 	}

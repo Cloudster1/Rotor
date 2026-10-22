@@ -93,8 +93,11 @@ origin), else at the well-known path with the endpoint's path, else at the
 host's root, and takes a resource that is the MCP endpoint or holds it. A tool
 without them is refused when it is added, in a sentence that says which is
 missing. Token exchange (RFC 8693) is read the same way, from the server's
-`grant_types_supported`: where it is offered, Rotor registers for it and
-every run's token is exchanged from the grant's.
+`grant_types_supported`, for a tool that hands out one access token per
+grant, such as Armature: where it is offered, Rotor registers for it and
+every run's token is exchanged from the grant's. Exciter lists an exchange
+too, but one its partner apps trade the identity provider's tokens by, which
+its open registration never grants, so Rotor leaves it alone there (#139).
 
 ### Exciter
 
