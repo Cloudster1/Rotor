@@ -1,11 +1,12 @@
 import { useId } from "react";
 import { CANVAS_MESSAGE_ROWS, CANVAS_TEXT_ROWS } from "@/config";
 import { s } from "@/strings";
-import { MAIN_FIELDS, type NodeType, type SpecNode } from "./specDoc";
+import { ModelField } from "./ModelField";
+import { MAIN_FIELDS, type ModelRef, type NodeType, type SpecNode } from "./specDoc";
 import { area, input, label } from "./styles";
 
 type Field = keyof typeof s.canvas.node.fields;
-const LONG: Field[] = ["prompt", "source", "message"];
+const LONG: Field[] = ["prompt", "role", "source", "message"];
 
 /** A node's main fields, each written into the YAML as it is typed; the other fields stay in the YAML. */
 export function NodeFields({
@@ -13,16 +14,19 @@ export function NodeFields({
   bindings,
   readOnly,
   onField,
+  onModel,
 }: {
   node: SpecNode;
   bindings: string[];
   readOnly: boolean;
   onField: (key: string, value: string) => void;
+  onModel: (model?: ModelRef) => void;
 }) {
   const id = useId();
   const keys = (MAIN_FIELDS[node.type as NodeType] ?? []) as Field[];
   return (
     <>
+      {node.type === "agent" && <ModelField model={node.model} readOnly={readOnly} onModel={onModel} />}
       {keys.map((key) => {
         const value = node.fields[key] ?? "";
         const name = `node-${key}`;
@@ -44,18 +48,26 @@ export function NodeFields({
         }
         if (LONG.includes(key)) {
           return (
-            <label key={key} className={label}>
-              {s.canvas.node.fields[key]}
-              <textarea
-                className={`${area} ${key === "source" ? "font-mono" : ""}`}
-                rows={key === "message" ? CANVAS_MESSAGE_ROWS : CANVAS_TEXT_ROWS}
-                value={value}
-                readOnly={readOnly}
-                onChange={(e) => onField(key, e.target.value)}
-                name={name}
-                spellCheck={key !== "source"}
-              />
-            </label>
+            <div key={key} className="flex flex-col gap-1">
+              <label className={label}>
+                {s.canvas.node.fields[key]}
+                <textarea
+                  className={`${area} ${key === "source" ? "font-mono" : ""}`}
+                  rows={key === "message" ? CANVAS_MESSAGE_ROWS : CANVAS_TEXT_ROWS}
+                  value={value}
+                  readOnly={readOnly}
+                  onChange={(e) => onField(key, e.target.value)}
+                  name={name}
+                  spellCheck={key !== "source"}
+                  aria-describedby={key === "role" ? `${id}-role` : undefined}
+                />
+              </label>
+              {key === "role" && (
+                <span id={`${id}-role`} className="text-xs text-ink-muted">
+                  {s.canvas.node.roleHint}
+                </span>
+              )}
+            </div>
           );
         }
         return (

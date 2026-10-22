@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Each agent can be its own specialist (#133): an agent node may name its
+  own `model`, among those an administrator allows, a `role` put under
+  Rotor's fixed rules, and its own `maxSteps`, at most the workflow's. Each
+  model call counts at its own model's prices toward `maxCost`, the canvas
+  edits an agent's role and model, and a run's page shows which model each
+  agent ran on and what it used.
 - Rotor knows Exciter's test plans and test executions (#139). The suite runs
   a current Exciter (`deploy/suite/EXCITER_REF`), whose tools a workflow
   calls to start an execution of a test plan, record each case's result and

@@ -248,4 +248,16 @@ type runUsage struct {
 	InputTokens  int64   `json:"inputTokens"`
 	OutputTokens int64   `json:"outputTokens"`
 	Cost         float64 `json:"cost"`
+	// Agents is the model each agent ran on and what it used (#133); one run alone carries it, not a list.
+	Agents []agentUsage `json:"agents,omitempty"`
+}
+
+// agentUsage is one agent node's model and what its calls used, at that model's prices.
+type agentUsage struct {
+	Node         string  `json:"node"`
+	Provider     string  `json:"provider"`
+	Model        string  `json:"model"`
+	InputTokens  int64   `json:"inputTokens"`
+	OutputTokens int64   `json:"outputTokens"`
+	Cost         float64 `json:"cost"`
 }

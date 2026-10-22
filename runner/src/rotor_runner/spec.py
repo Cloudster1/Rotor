@@ -169,6 +169,17 @@ def _code_limits(node: dict[str, Any], base: str) -> list[Problem]:
     return out
 
 
+def _agent_sense(node: dict[str, Any], base: str, max_steps: int) -> list[Problem]:
+    """An agent's own step cap within the workflow's and a role without templates, as Go's agentSense (#133)."""
+    out: list[Problem] = []
+    if int(node.get("maxSteps") or 0) > max_steps:
+        message = f"{node['id']} may take at most the workflow's {max_steps} steps, not {node['maxSteps']}."
+        out.append(Problem(f"{base}/maxSteps", "steps_over_limit", message))
+    if "{{" in str(node.get("role") or ""):
+        out.append(Problem(f"{base}/role", "role_template", f"The role of {node['id']} holds a template."))
+    return out
+
+
 def check_sense(document: dict[str, Any]) -> list[Problem]:
     """What the schema cannot find: names pointing nowhere and nodes nothing leads to, as Go's checkSense."""
     out: list[Problem] = []
@@ -234,6 +245,8 @@ def check_sense(document: dict[str, Any]) -> list[Problem]:
         elif node["type"] in ("agent", "code"):
             if node["type"] == "code":
                 out.extend(_code_limits(node, base))
+            else:
+                out.extend(_agent_sense(node, base, int(document["limits"]["maxSteps"])))
             for j, name in enumerate(node.get("tools", [])):
                 if name not in tools:
                     out.append(
@@ -304,9 +317,6 @@ def form_fields(schema: Any) -> dict[str, Any] | None:
 
 # The fields M13 agreed, by the issue that builds each (docs/api-contract-m13.md); each issue deletes its own.
 NOT_BUILT_FIELDS = {
-    "model": 133,
-    "role": 133,
-    "maxSteps": 133,
     "maxVisits": 134,
     "onExhausted": 134,
     "join": 135,

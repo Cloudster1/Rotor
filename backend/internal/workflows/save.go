@@ -18,6 +18,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/providers"
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 )
 
@@ -42,6 +43,11 @@ func (s *Service) Check(ctx context.Context, source string) (problems, warnings 
 		if found, err := s.catalog.For(ctx, parsed); err == nil {
 			catalog = found
 			problems = append(problems, parsed.CheckAgainst(found)...)
+		}
+	}
+	if len(problems) == 0 && s.Models != nil {
+		if listed, err := s.Models.Models(ctx); err == nil {
+			problems = append(problems, parsed.CheckModels(func(m spec.Model) bool { return providers.Allows(listed, m) })...)
 		}
 	}
 	return problems, parsed.Warnings(catalog)

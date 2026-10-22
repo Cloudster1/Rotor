@@ -17,6 +17,17 @@ export const providersQuery = queryOptions({
   },
 });
 
+/** A model a workflow or one of its agents may name, as everyone signed in sees it. */
+export type Model = components["schemas"]["ModelResponse"];
+
+export const modelsQuery = queryOptions({
+  queryKey: ["models"] as const,
+  queryFn: async (): Promise<Model[]> => {
+    const { data } = await api.GET("/models");
+    return (data?.models ?? []) as Model[];
+  },
+});
+
 export async function addProvider(body: ProviderRequest): Promise<Provider> {
   const { data } = await api.POST("/providers", { body });
   return data?.provider as Provider;

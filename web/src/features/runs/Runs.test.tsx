@@ -199,6 +199,20 @@ describe("a run's page", () => {
     expect(screen.queryByText(s.runs.page.live)).not.toBeInTheDocument();
   });
 
+  it("shows which model each agent ran on", async () => {
+    const agents = [
+      { node: "review", provider: "anthropic", model: "claude-opus-5-5", inputTokens: 300, outputTokens: 20, cost: 0.6 },
+      { node: "write", provider: "local", model: "llama", inputTokens: 100, outputTokens: 10, cost: 0 },
+    ];
+    await renderAt(`/runs/${RUN.id}`, {
+      answers: { [`/api/v1/runs/${RUN.id}`]: { ...RUN, usage: { inputTokens: 400, outputTokens: 30, cost: 0.6, agents } } },
+    });
+    const section = await screen.findByRole("region", { name: s.usage.agents });
+    expect(within(section).getByText(s.usage.agent("review", "claude-opus-5-5", "anthropic", 300, 20, 0.6))).toBeInTheDocument();
+    expect(within(section).getByText(s.usage.agent("write", "llama", "local", 100, 10, 0))).toBeInTheDocument();
+    expect(await axeViolations()).toEqual([]);
+  });
+
   it("says so when the run is not there", async () => {
     await renderAt(`/runs/${RUN.id}`);
     expect(await screen.findByText(s.runs.page.notFound)).toBeInTheDocument();

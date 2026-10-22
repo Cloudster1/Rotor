@@ -41,6 +41,14 @@ func (s *Service) Models(ctx context.Context) ([]Model, error) {
 	return out, nil
 }
 
+// Allows says whether the listed models hold the one wanted, as Resolve would find it: by name, and by provider
+// when it names one.
+func Allows(models []Model, wanted spec.Model) bool {
+	return slices.ContainsFunc(models, func(m Model) bool {
+		return m.Name == wanted.Name && (wanted.Provider == "" || wanted.Provider == m.ProviderName)
+	})
+}
+
 // Resolution is the provider and model a run's agents use.
 type Resolution struct {
 	Provider Provider

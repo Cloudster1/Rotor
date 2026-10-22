@@ -154,7 +154,7 @@ func run() error {
 		runners.Telemetry = &langsmith.Forwarder{Tracing: tracing, LangSmith: smith, Log: log}
 		runners.MintFailed = func(reason string) { mintFailures.Add(reason, 1) }
 		models := providers.NewService(cluster, secrets, boot.ToolClient(cfg))
-		server.Providers, runners.Models = models, models
+		server.Providers, runners.Models, workflowService.Models = models, models, models
 		// Usage (#38): a run's person's quota and its model's prices are checked as it starts.
 		usageService := usage.NewService(cluster, models)
 		server.Usage, runService.Usage = usageService, usageService

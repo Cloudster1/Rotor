@@ -28,6 +28,9 @@ export const usageStrings = {
   peopleTitle: "Everyone's usage this month",
   person: "Person",
   run: (input: number, output: number, cost: number) => `The model read ${input} and wrote ${output} tokens${cost > 0 ? `, costing ${dollars(cost)}` : ""}.`,
+  agents: "The agents' models",
+  agent: (node: string, model: string, provider: string, input: number, output: number, cost: number) =>
+    `${node} ran on ${model} of ${provider}, which read ${input} and wrote ${output} tokens${cost > 0 ? `, costing ${dollars(cost)}` : ""}.`,
   timeline: (node: string, input: number, output: number) => `${node}: the model read ${input} and wrote ${output} tokens`,
   prices: "Prices",
   pricesTitle: (provider: string) => `Prices of ${provider}`,

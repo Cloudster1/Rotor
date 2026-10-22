@@ -76,22 +76,53 @@ func (s *Service) CheckStart(ctx context.Context, userID uuid.UUID, sp *spec.Spe
 	if limit.DailyCost != nil && cost >= *limit.DailyCost {
 		return &Refused{CodeQuotaReached, fmt.Sprintf("You used today's budget of %.2f US dollars. The quota starts again at midnight UTC, or an administrator can raise it.", *limit.DailyCost)}
 	}
-	if sp.Limits.MaxCost <= 0 || s.models == nil {
+	if s.models == nil {
 		return nil
 	}
-	resolved, err := s.models.Resolve(ctx, sp.Model)
-	if err != nil {
-		return nil // a run that needs a model and has none fails with model_missing, which says more
-	}
-	var priced bool
-	err = s.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		return tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM model_price WHERE provider_id = $1 AND model = $2)`,
-			resolved.Provider.ID, resolved.Model).Scan(&priced)
-	})
-	if err != nil || priced {
+	resolved, err := s.runModels(ctx, sp)
+	if err != nil || sp.Limits.MaxCost <= 0 {
 		return err
 	}
-	return &Refused{CodeUnpricedModel, fmt.Sprintf("The workflow bounds its cost, but %s has no prices to count it by. Ask an administrator to set them, or remove limits.maxCost.", resolved.Model)}
+	for _, r := range resolved {
+		var priced bool
+		err = s.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
+			return tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM model_price WHERE provider_id = $1 AND model = $2)`,
+				r.Provider.ID, r.Model).Scan(&priced)
+		})
+		if err != nil {
+			return err
+		}
+		if !priced {
+			return &Refused{CodeUnpricedModel, fmt.Sprintf("The workflow bounds its cost, but %s has no prices to count it by. Ask an administrator to set them, or remove limits.maxCost.", r.Model)}
+		}
+	}
+	return nil
+}
+
+// runModels resolves every model a run's agents use, refusing an agent's own model no administrator allows (#133); a
+// workflow's model that resolves to none is left out, and its agents fail with model_missing, which says more.
+func (s *Service) runModels(ctx context.Context, sp *spec.Spec) ([]providers.Resolution, error) {
+	var out []providers.Resolution
+	agents := sp.AgentModels()
+	if sp.UsesWorkflowModel() || len(agents) == 0 {
+		if r, err := s.models.Resolve(ctx, sp.Model); err == nil {
+			out = append(out, r)
+		}
+	}
+	ids := make([]string, 0, len(agents))
+	for id := range agents {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	for _, id := range ids {
+		wanted := agents[id]
+		r, err := s.models.Resolve(ctx, &wanted)
+		if err != nil {
+			return nil, &Refused{spec.CodeModelNotAllowed, fmt.Sprintf("The agent %s uses %s, which no administrator allows now. Its workflow's owner must choose another model, or an administrator allows this one.", id, wanted.Describe())}
+		}
+		out = append(out, r)
+	}
+	return out, nil
 }
 
 // Day is what a person used in one UTC day, or in a span of days.

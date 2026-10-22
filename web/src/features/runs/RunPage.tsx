@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { cancelRun, runQuery, runsQueryKey } from "@/api/runs";
 import { PageHeader } from "@/features/shell/EmptyState";
 import { s } from "@/strings";
+import { RunAgents } from "./RunAgents";
 import { RunGraph } from "./RunGraph";
 import { RunStatusBadge } from "./RunStatusBadge";
 import { RunTimeline } from "./RunTimeline";
@@ -42,7 +43,12 @@ export function RunPage({ runID }: { runID: string }) {
   const cancel = useMutation({
     mutationFn: () => cancelRun(runID),
     onSuccess: (cancelled) => {
-      client.setQueryData(runQuery(runID).queryKey, (before) => ({ ...cancelled, graph: before?.graph, linkHosts: before?.linkHosts }));
+      client.setQueryData(runQuery(runID).queryKey, (before) => ({
+        ...cancelled,
+        graph: before?.graph,
+        linkHosts: before?.linkHosts,
+        usage: { ...cancelled.usage, agents: before?.usage.agents },
+      }));
       void client.invalidateQueries({ queryKey: runsQueryKey });
       setConfirming(false);
     },
@@ -82,6 +88,7 @@ export function RunPage({ runID }: { runID: string }) {
           {s.usage.run(r.usage.inputTokens, r.usage.outputTokens, r.usage.cost)}
         </p>
       )}
+      {r.usage.agents && <RunAgents agents={r.usage.agents} />}
       {!r.ended &&
         (confirming ? (
           <div role="group" aria-label={s.runs.page.confirmCancel} className="flex flex-wrap items-center gap-2">

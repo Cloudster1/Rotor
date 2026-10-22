@@ -3,7 +3,7 @@ import type { Problem } from "@/api/workflows";
 import { s } from "@/strings";
 import { NodeFields } from "./NodeFields";
 import { NodeWays, type WayEdits } from "./NodeWays";
-import { NODE_ID, type NodeType, type SpecShape } from "./specDoc";
+import { type ModelRef, NODE_ID, type NodeType, type SpecShape } from "./specDoc";
 import { danger, input, label, secondary } from "./styles";
 
 /** What the inspector asks of the canvas, each turned into a YAML edit or a move to the YAML. */
@@ -11,6 +11,7 @@ export interface NodeEdits extends WayEdits {
   rename: (to: string) => void;
   setEntry: () => void;
   setField: (key: string, value: string) => void;
+  setModel: (model?: ModelRef) => void;
   remove: () => void;
   openYaml: () => void;
   focusAt: (line: number, column: number) => void;
@@ -113,7 +114,7 @@ function Selected({ nodeID, spec, problems, readOnly, edits }: { nodeID: string;
           </button>
         )
       )}
-      <NodeFields node={node} bindings={spec.bindings} readOnly={readOnly} onField={edits.setField} />
+      <NodeFields node={node} bindings={spec.bindings} readOnly={readOnly} onField={edits.setField} onModel={edits.setModel} />
       <NodeWays node={node} spec={spec} readOnly={readOnly} edits={edits} />
       {problems.length > 0 && (
         <div data-node-problems>

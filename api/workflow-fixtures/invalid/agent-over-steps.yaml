@@ -1,0 +1,13 @@
+# expect: /nodes/0/maxSteps steps_over_limit
+# expect: /nodes/0/role role_template
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+limits: {maxSteps: 20, timeout: 5m}
+entry: review
+nodes:
+  - id: review
+    type: agent
+    role: You review {{ inputs.kind }} code for security.
+    maxSteps: 30
+    prompt: Review it.

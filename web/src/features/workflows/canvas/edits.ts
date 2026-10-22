@@ -1,5 +1,5 @@
 import { type Document, isMap, isScalar, isSeq, type Node, type Pair, parseDocument, type Scalar, visit, type YAMLMap, type YAMLSeq } from "yaml";
-import { type NodeType, nodeMap } from "./specDoc";
+import { type ModelRef, type NodeType, nodeMap } from "./specDoc";
 import {
   addPair,
   appendItem,
@@ -130,6 +130,23 @@ export function setField(source: string, id: string, key: string, value: string)
   return checked(applySplices(without, [addPair(without, at.map, key, value, at.flow)]));
 }
 
+/** Takes one of a node's fields out, when it has it. */
+export function clearField(source: string, id: string, key: string): string {
+  const doc = read(source);
+  const { map } = node(doc, id);
+  const found = pairOf(map, key);
+  return found ? checked(applySplices(source, [removePair(source, undefined, map, found.index)])) : source;
+}
+
+/** Gives an agent a model of its own, or takes it away so the agent uses the workflow's (#133). */
+export function setModel(source: string, id: string, model: ModelRef | undefined): string {
+  const without = clearField(source, id, "model");
+  if (!model) return without;
+  const at = node(read(without), id);
+  const value: { [key: string]: Value } = model.provider ? { name: model.name, provider: model.provider } : { name: model.name };
+  return checked(applySplices(without, [addPair(without, at.map, "model", value, at.flow)]));
+}
+
 /** Sends a router's matching value to a node, adding the case when it is new. */
 export function setCase(source: string, router: string, value: string, target: string): string {
   const doc = read(source);
@@ -159,10 +176,7 @@ export function removeCase(source: string, router: string, value: string): strin
 
 /** Sets where a router goes when no case matches, or removes that way when target is undefined. */
 export function setDefault(source: string, router: string, target: string | undefined): string {
-  const doc = read(source);
-  const { map } = node(doc, router);
-  const found = pairOf(map, "default");
-  if (target === undefined) return found ? checked(applySplices(source, [removePair(source, undefined, map, found.index)])) : source;
+  if (target === undefined) return clearField(source, router, "default");
   return setField(source, router, "default", target);
 }
 

@@ -87,3 +87,23 @@ for (const scheme of SCHEMES) {
     expect(await yamlLines(page)).toEqual(drawn);
   });
 }
+
+test("a person gives an agent its own role on the canvas, and the YAML keeps it under the agent @desktop", async ({ page }) => {
+  const name = `e2e-${randomUUID().slice(0, 12)}`;
+  await startInScheme(page, "light");
+  await page.goto("/workflows/new");
+  await replaceText(page, workflow(name).replace("type: approval\n    message: Go on?", "type: agent\n    prompt: Review the change."));
+  await expect(page.locator("[data-problems]")).toContainText("No problems found.");
+  await page.getByRole("tab", { name: "Canvas" }).click();
+  const inspector = page.locator("[data-inspector]");
+  await expect(inspector.getByLabel("Model", { exact: true })).toHaveValue("");
+  await inspector.getByLabel("Role", { exact: true }).focus();
+  await page.keyboard.type("You are a security reviewer.");
+  await expect(page.locator("[data-problems]")).toContainText("No problems found.");
+  await expectAccessible(page);
+
+  await page.getByRole("tab", { name: "YAML" }).click();
+  expect(await yamlLines(page)).toContain("    role: You are a security reviewer.");
+  await page.locator('[data-action="save-workflow"]').click();
+  await expect(page).toHaveURL(/\/workflows\/[0-9a-f-]{36}$/);
+});

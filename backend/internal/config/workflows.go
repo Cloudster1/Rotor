@@ -12,6 +12,8 @@ const (
 	// MaxCodeTimeout and MaxCodeMemory are the most a code node may ask for, as the runner enforces.
 	MaxCodeTimeout = 5 * time.Minute
 	MaxCodeMemory  = 1 << 30
+	// MaxRoleChars bounds an agent's role, as the schema does (#133).
+	MaxRoleChars = 8000
 	// MaxVersionComment bounds the note a save carries, as the table does.
 	MaxVersionComment = 500
 	// MaxSharedGroups bounds how many realm groups a workflow is shared with.

@@ -38,6 +38,11 @@ const (
 	CodeDecidesReview  = "decides_review"
 	// CodeNotBuilt is a field M13 agreed whose issue has not merged yet (#131).
 	CodeNotBuilt = "not_built"
+	// An agent's own model, role and steps (#133): a model no administrator allows, more steps than the workflow's,
+	// and a role that is a template.
+	CodeModelNotAllowed = "model_not_allowed"
+	CodeStepsOverLimit  = "steps_over_limit"
+	CodeRoleTemplate    = "role_template"
 	// CodeUnattendedCall is an unattended call the binding does not allow (#128).
 	CodeUnattendedCall = "unattended_call_not_allowed"
 	// CodeRetention is a retention longer than any installation keeps a run's data (#41).
@@ -156,10 +161,11 @@ type Node struct {
 	On        string            `json:"on,omitempty"`
 	Cases     map[string]string `json:"cases,omitempty"`
 	Default   string            `json:"default,omitempty"`
-	// The fields M13 agreed (docs/api-contract-m13.md); each is refused as not built until its issue merges.
-	Model       *Model     `json:"model,omitempty"`
-	Role        string     `json:"role,omitempty"`
-	MaxSteps    int        `json:"maxSteps,omitempty"`
+	// An agent's own model, role and step cap (#133); without them it has the workflow's model and maxSteps.
+	Model    *Model `json:"model,omitempty"`
+	Role     string `json:"role,omitempty"`
+	MaxSteps int    `json:"maxSteps,omitempty"`
+	// The other fields M13 agreed (docs/api-contract-m13.md); each is refused as not built until its issue merges.
 	MaxVisits   int        `json:"maxVisits,omitempty"`
 	OnExhausted string     `json:"onExhausted,omitempty"`
 	Join        string     `json:"join,omitempty"`

@@ -3,6 +3,7 @@ package runnerctl
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -58,6 +59,8 @@ type run struct {
 	triggerID *uuid.UUID
 	// model is the provider and model the run's agents use; nil for a workflow without agents.
 	model *providers.Resolution
+	// agents are the models of the agents that name their own, by node id (#133); one that resolves to none is missing.
+	agents map[string]providers.Resolution
 }
 
 // binding is a spec binding resolved to a tool, for minting its tokens.
@@ -138,61 +141,99 @@ func (s *Server) resolve(ctx context.Context, r *run) ([]*runnerpb.ToolBinding, 
 	return out, resolved, nil
 }
 
-// usesModel says whether any node of the workflow calls a language model.
-func usesModel(s *spec.Spec) bool {
-	for _, n := range s.Nodes {
-		if n.Type == spec.TypeAgent {
-			return true
+// resolveModel finds the run's provider and model, and each agent's own (#133); a model that is not allowed leaves
+// its agents without one, and they fail saying so.
+func (s *Server) resolveModel(ctx context.Context, r *run) {
+	if s.Models == nil {
+		return
+	}
+	if r.spec.UsesWorkflowModel() {
+		resolved, err := s.Models.Resolve(ctx, r.spec.Model)
+		if err != nil {
+			s.Log.Warn("a run starts without a model", "run", r.ID, "error", err)
+		} else {
+			r.model = &resolved
 		}
 	}
-	return false
+	r.agents = map[string]providers.Resolution{}
+	for node, wanted := range r.spec.AgentModels() {
+		resolved, err := s.Models.Resolve(ctx, &wanted)
+		if err != nil {
+			s.Log.Warn("an agent starts without its model", "run", r.ID, "node", node, "error", err)
+			continue
+		}
+		r.agents[node] = resolved
+	}
 }
 
-// resolveModel finds the run's provider and model; a workflow whose model is not allowed starts without one, and its
-// agents fail saying so.
-func (s *Server) resolveModel(ctx context.Context, r *run) {
-	if s.Models == nil || !usesModel(r.spec) {
-		return
+// keyProviders are the distinct providers whose keys the run's agents need.
+func (r *run) keyProviders() []providers.Provider {
+	var out []providers.Provider
+	seen := map[uuid.UUID]bool{}
+	add := func(p providers.Provider) {
+		if !seen[p.ID] {
+			seen[p.ID] = true
+			out = append(out, p)
+		}
 	}
-	resolved, err := s.Models.Resolve(ctx, r.spec.Model)
-	if err != nil {
-		s.Log.Warn("a run starts without a model", "run", r.ID, "error", err)
-		return
+	if r.model != nil {
+		add(r.model.Provider)
 	}
-	r.model = &resolved
+	for _, node := range sortedNodes(r.agents) {
+		add(r.agents[node].Provider)
+	}
+	return out
 }
 
-// modelConfig is the run's model as the runner builds it, at an address a sandbox reaches; the key comes apart.
-func (s *Server) modelConfig(r *run) *runnerpb.ModelConfig {
-	if r.model == nil {
+func sortedNodes(m map[string]providers.Resolution) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	slices.Sort(out)
+	return out
+}
+
+// modelConfig is one model as the runner builds it, at an address a sandbox reaches; the key comes apart.
+func (s *Server) modelConfig(m *providers.Resolution) *runnerpb.ModelConfig {
+	if m == nil {
 		return nil
 	}
-	base := r.model.Provider.BaseURL
+	base := m.Provider.BaseURL
 	if s.Reach != nil && base != "" {
 		base = s.Reach(base)
 	}
-	return &runnerpb.ModelConfig{ProviderId: r.model.Provider.ID.String(), Kind: r.model.Provider.Kind, Model: r.model.Model,
-		BaseUrl: base, ApiVersion: r.model.Provider.APIVersion}
+	return &runnerpb.ModelConfig{ProviderId: m.Provider.ID.String(), Kind: m.Provider.Kind, Model: m.Model,
+		BaseUrl: base, ApiVersion: m.Provider.APIVersion}
 }
 
-// secret is the run's provider key, wrapped, sent after every Hello since a grant is never stored to be resent.
-func (s *Server) secret(ctx context.Context, r *run) (*runnerpb.ConnectResponse, error) {
-	key, err := s.Models.Key(ctx, r.model.Provider.ID)
+// agentConfigs are the agents' own models as the runner builds them, by node id.
+func (s *Server) agentConfigs(r *run) map[string]*runnerpb.ModelConfig {
+	out := map[string]*runnerpb.ModelConfig{}
+	for node, m := range r.agents {
+		out[node] = s.modelConfig(&m)
+	}
+	return out
+}
+
+// secret is one provider's key, wrapped, sent after every Hello since a grant is never stored to be resent.
+func (s *Server) secret(ctx context.Context, p providers.Provider) (*runnerpb.ConnectResponse, error) {
+	key, err := s.Models.Key(ctx, p.ID)
 	if err != nil {
-		return nil, fmt.Errorf("read the key of provider %s: %w", r.model.Provider.Name, err)
+		return nil, fmt.Errorf("read the key of provider %s: %w", p.Name, err)
 	}
 	wrapped, err := s.Wrap.Wrap(ctx, map[string]any{"api_key": key}, config.WrapTTL)
 	if err != nil {
-		return nil, fmt.Errorf("wrap the key of provider %s: %w", r.model.Provider.Name, err)
+		return nil, fmt.Errorf("wrap the key of provider %s: %w", p.Name, err)
 	}
 	return &runnerpb.ConnectResponse{Message: &runnerpb.ConnectResponse_SecretGrant{SecretGrant: &runnerpb.SecretGrant{
-		ProviderId: r.model.Provider.ID.String(), Secret: &runnerpb.SecretGrant_WrappingToken{WrappingToken: wrapped}}}}, nil
+		ProviderId: p.ID.String(), Secret: &runnerpb.SecretGrant_WrappingToken{WrappingToken: wrapped}}}}, nil
 }
 
-// startRun is the run's StartRun: its pinned spec, inputs, bindings and model, and the answer it resumes with, if any.
-func startRun(r *run, bindings []*runnerpb.ToolBinding, model *runnerpb.ModelConfig) *runnerpb.ConnectResponse {
+// startRun is the run's StartRun: its pinned spec, inputs, bindings and models, and the answer it resumes with, if any.
+func startRun(r *run, bindings []*runnerpb.ToolBinding, model *runnerpb.ModelConfig, agents map[string]*runnerpb.ModelConfig) *runnerpb.ConnectResponse {
 	start := &runnerpb.StartRun{RunId: r.ID.String(), SpecYaml: r.SpecYAML, InputsJson: string(r.Inputs), Tools: bindings, Model: model,
-		Traceparent: r.Traceparent, TraceContent: r.TraceContent}
+		AgentModels: agents, Traceparent: r.Traceparent, TraceContent: r.TraceContent}
 	if r.ResumeID != "" {
 		start.Resume, start.ResumeJson, start.ResumeInterruptId = true, string(r.Resume), r.ResumeID
 	}

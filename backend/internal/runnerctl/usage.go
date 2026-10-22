@@ -9,6 +9,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/envelope"
 	"github.com/cloudster1/rotor/backend/internal/runnerpb"
 	"github.com/cloudster1/rotor/backend/internal/usage"
+	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 )
 
 // Stop ends a run that passed a limit as failed with the reason, and tells its runner to stop; the runner's own
@@ -35,8 +36,8 @@ func Stop(ctx context.Context, tx db.DBTX, keys *envelope.Keys, runID uuid.UUID,
 
 // recordUsage counts an llm.usage event toward the run's and its person's limits and stops the run past one; it
 // answers whether it stopped it.
-func recordUsage(ctx context.Context, tx db.DBTX, keys *envelope.Keys, r *run, payload []byte) (bool, error) {
-	totals, err := usage.Add(ctx, tx, r.ID, payload)
+func recordUsage(ctx context.Context, tx db.DBTX, keys *envelope.Keys, r *run, node string, payload []byte) (bool, error) {
+	totals, err := usage.Add(ctx, tx, r.ID, node, payload)
 	if err != nil {
 		return false, err
 	}
@@ -51,14 +52,34 @@ func recordUsage(ctx context.Context, tx db.DBTX, keys *envelope.Keys, r *run, p
 	return true, Stop(ctx, tx, keys, r.ID, reason, usage.Sentence(reason), usage.Detail(totals))
 }
 
-// openUsage keeps the prices the run's model has as its stream opens, once; a run without a model counts tokens only.
+// openUsage keeps the prices the run's model and each agent's have as its stream opens, once; a run without a model
+// counts tokens only.
 func (s *Server) openUsage(ctx context.Context, r *run) error {
 	var provider *uuid.UUID
 	model := ""
 	if r.model != nil {
 		provider, model = &r.model.Provider.ID, r.model.Model
 	}
+	var agents []usage.Agent
+	for _, n := range r.spec.Nodes {
+		if n.Type != spec.TypeAgent {
+			continue
+		}
+		m := r.model
+		if n.Model != nil {
+			m = nil
+			if own, ok := r.agents[n.ID]; ok {
+				m = &own
+			}
+		}
+		if m != nil {
+			agents = append(agents, usage.Agent{Node: n.ID, ProviderID: m.Provider.ID, ProviderName: m.Provider.Name, Model: m.Model})
+		}
+	}
 	return s.DB.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		return usage.Open(ctx, tx, r.ID, provider, model)
+		if err := usage.Open(ctx, tx, r.ID, provider, model); err != nil {
+			return err
+		}
+		return usage.OpenAgents(ctx, tx, r.ID, agents)
 	})
 }

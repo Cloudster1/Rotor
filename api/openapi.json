@@ -5418,6 +5418,37 @@
           "baseURL"
         ]
       },
+      "AgentUsage": {
+        "type": "object",
+        "properties": {
+          "cost": {
+            "type": "number"
+          },
+          "inputTokens": {
+            "type": "integer"
+          },
+          "model": {
+            "type": "string"
+          },
+          "node": {
+            "type": "string"
+          },
+          "outputTokens": {
+            "type": "integer"
+          },
+          "provider": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "node",
+          "provider",
+          "model",
+          "inputTokens",
+          "outputTokens",
+          "cost"
+        ]
+      },
       "ApprovalCount": {
         "type": "object",
         "properties": {
@@ -7597,6 +7628,12 @@
       "RunUsage": {
         "type": "object",
         "properties": {
+          "agents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentUsage"
+            }
+          },
           "cost": {
             "type": "number"
           },

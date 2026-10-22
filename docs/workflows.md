@@ -77,7 +77,7 @@ each of them, and an administrator can forbid them for everyone;
 
 | Type | What it does | Fields |
 |---|---|---|
-| `agent` | a model that may call the tools of its bindings | `prompt`, `tools`, `output.schema` |
+| `agent` | a model that may call the tools of its bindings | `prompt`, `tools`, `output.schema`, `model`, `role`, `maxSteps` |
 | `tool` | one MCP call | `tool` (a binding), `call`, `arguments` |
 | `code` | a Python function | `source`, `output.schema`, `tools`, `timeout`, `memory` |
 | `approval` | waits until a person decides | `message`, `approvers`, `form`, `expiresIn` |
@@ -87,6 +87,31 @@ A node's output is kept under its id: `nodes.draft.title` is the `title` the nod
 `draft` returned, and `inputs.project` is what the person gave. A string in a
 tool node's arguments, or in a prompt, may hold `{{ inputs.project }}` or
 `{{ nodes.draft.title }}`. These are paths into the run's state, never code.
+
+An agent is a specialist when it says so (#133). Each of these is optional:
+- `model`: a model of its own, of the same shape as the workflow's `model`.
+  It must be one an administrator allows: the check runs when the workflow is
+  saved and again when a run starts. Without it, the agent uses the
+  workflow's model.
+- `role`: who the agent is, put under Rotor's fixed rules as its instructions,
+  at most 8000 characters. A role is plain text and never a template: what a
+  run read goes into the prompt, fenced as data, never into the instructions.
+- `maxSteps`: how many model and tool steps the agent may take, at most the
+  workflow's `limits.maxSteps`, which it has without one.
+
+Each model call counts at its own model's prices toward the run's `maxCost`,
+and the run's page shows which model each agent ran on and what it used.
+
+```yaml
+- id: security
+  type: agent
+  model: { name: claude-opus-5-5, provider: anthropic }
+  role: |
+    You are a security reviewer. You look for injection, broken access
+    control and secrets in code, and you never approve what you did not read.
+  maxSteps: 30
+  prompt: Review the change {{ inputs.change }} for security problems.
+```
 
 A code node defines `def run(state, ctx) -> dict`, runs in a separate process
 with no access to the run's tokens, may use only the libraries the runner
@@ -125,9 +150,9 @@ never from `edges`. A node with no edge after it ends the run.
 (`30s`, `15m`, `2h`), and `maxTokens` how much the model may read and write,
 counted across every sandbox the run used. A run that passes one ends and says
 which. Three more keep a workflow from costing too much or flooding a tool:
-- `maxCost`: the most the run's model calls may cost, in US dollars, at the
-  prices an administrator set for the model. A model without prices cannot
-  carry a `maxCost`, and the run is refused when it starts.
+- `maxCost`: the most the run's model calls may cost, in US dollars, each at the
+  prices an administrator set for its own model. A run whose models are not
+  all priced cannot carry a `maxCost`, and is refused when it starts.
 - `maxConcurrent`: how many runs of the workflow may be starting or running at
   once. More wait, queued, and start as others end; a run waiting for an
   approval holds no place.
@@ -159,6 +184,10 @@ When a workflow is saved, and again when a run starts:
   - an approval's form names only its own fields, and no binding allows a
     call that decides a review, which a person does in the tool itself
   - every `unattended` call is one of its binding's `allowTools`
+  - an agent takes at most the workflow's `maxSteps`, and its role holds no
+    template
+- **The models an administrator allows:** an agent's own `model` is one of
+  them (`model_not_allowed`).
 - **The tools as you see them,** when saving, and when a run starts, read
   afresh from the tools as the run's person, so a call a tool turned into a
   write since is caught:
@@ -194,6 +223,9 @@ yourself. The browser remembers which tab you used last.
   - Which node the workflow starts at.
   - Each kind's main field: an agent's `prompt`, a tool node's binding and
     `call`, a code node's `source`, an approval's `message` and a router's `on`.
+  - An agent's `role`, which an emptied field takes out again, and its
+    `model`, chosen among the models administrators allow or left to the
+    workflow's.
 - **What stays in the YAML.** Output schemas, a tool call's `arguments`, an
   approval's form and approvers, limits, bindings and the rest. **Edit in
   YAML** on a node opens the YAML tab at it.
