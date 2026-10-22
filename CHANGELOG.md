@@ -363,6 +363,9 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The run page draws every node of its graph when the run's events arrive in
+  a burst, as they do on opening a finished run; a node redrawn before it was
+  measured stayed hidden, with its edges.
 - A trigger on Armature's events matches its projects and starts its run
   (#125). Rotor reads the issue key where Armature sends it, at the top of
   the payload, and checks the person can read that issue before the run

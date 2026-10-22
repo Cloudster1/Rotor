@@ -1,6 +1,6 @@
 import { type Edge, MarkerType, type Node, type NodeChange, ReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useMemo, useRef } from "react";
 import { GRAPH_LOOP_DASH, GRAPH_LOOP_OFFSET_PX } from "@/config";
 import { type Graph, layered, loopEdges } from "./layout";
 
@@ -33,6 +33,9 @@ export function GraphCanvas({
   region: Record<string, string>;
 }) {
   const selectable = onSelect !== undefined;
+  // What React Flow measured of each node goes back with every redrawn node: a node redrawn before its measure
+  // reached React would otherwise be left hidden, with its edges, as a run's events arrive in a burst.
+  const measured = useRef(new Map<string, { width: number; height: number }>());
   const nodes = useMemo<Node[]>(
     () =>
       layered(graph).map((p) => {
@@ -40,6 +43,7 @@ export function GraphCanvas({
         return {
           id: p.id,
           position: { x: p.x, y: p.y },
+          measured: measured.current.get(p.id),
           data: { label: drawn.label },
           ariaLabel: drawn.ariaLabel,
           className: `rounded-control border-2 px-3 py-2 text-sm ${drawn.tone} ${p.id === selected ? "outline-2 outline-offset-2 outline-focus" : ""}`,
@@ -84,7 +88,10 @@ export function GraphCanvas({
 
   // Selection is the page's to keep: a click or Enter on a focused node reaches it as a select change.
   function changed(changes: NodeChange[]) {
-    for (const c of changes) if (c.type === "select" && c.selected) onSelect?.(c.id);
+    for (const c of changes) {
+      if (c.type === "dimensions" && c.dimensions) measured.current.set(c.id, c.dimensions);
+      if (c.type === "select" && c.selected) onSelect?.(c.id);
+    }
   }
 
   return (
@@ -92,7 +99,7 @@ export function GraphCanvas({
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={selectable ? changed : undefined}
+        onNodesChange={changed}
         fitView
         nodesDraggable={false}
         nodesConnectable={false}
