@@ -282,6 +282,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- A trigger on Armature's events matches its projects and starts its run
+  (#125). Rotor reads the issue key where Armature sends it, at the top of
+  the payload, and checks the person can read that issue before the run
+  starts.
 - The development realm carries the token-exchange audience mappers Dynamo's
   canonical realm added to Armature, Exciter and Stator, and `make
   realm-check` compares the realm Dynamo holds, leaving Rotor's own clients

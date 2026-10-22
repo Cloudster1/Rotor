@@ -174,11 +174,13 @@ func Project(e Event) string {
 	case "exciter":
 		path = "requirement.project.key"
 	case "armature":
-		if key, ok := at(tree, "issue.key"); ok {
-			if s, ok := key.(string); ok {
-				prefix, _, found := strings.Cut(s, "-")
-				if found {
-					return prefix
+		// Armature sends the key at the top, as issueKey on sla and vcs events; issue.key is kept for older senders.
+		for _, p := range []string{"key", "issue.key", "issueKey"} {
+			if key, ok := at(tree, p); ok {
+				if s, ok := key.(string); ok {
+					if prefix, _, found := strings.Cut(s, "-"); found && prefix != "" {
+						return prefix
+					}
 				}
 			}
 		}

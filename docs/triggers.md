@@ -107,7 +107,7 @@ projects and conditions on the event.
 | Tool | Topics, for example | Project |
 |---|---|---|
 | Exciter | `requirement.created`, `requirement.revised`, `review.requested`, `review.decided`, `comment.created` | `payload.requirement.project.key` |
-| Armature | `issue.created`, `issue.updated`, `issue.transitioned`, `comment.added` | the part of `payload.issue.key` before the dash |
+| Armature | `issue.created`, `issue.updated`, `issue.transitioned`, `comment.added` | the part of `payload.key` (`payload.issueKey` on `sla.breached` and `vcs.*`) before the dash |
 | Stator | `page.published`, `page.moved`, `page.deleted`, `comment.created` | `payload.page.space.key` |
 
 A requirement approved in Exciter arrives as `review.decided` with

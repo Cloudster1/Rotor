@@ -211,7 +211,7 @@ func TestArmatureAndStatorSignWithTheirOwnHeaders(t *testing.T) {
 	alice := signedIn(t, "alice")
 	now := time.Now()
 	for _, c := range []struct{ product, word, topic, payload, project string }{
-		{"armature", "Armature", "issue.created", `{"issue":{"key":"CP-12"}}`, "CP"},
+		{"armature", "Armature", "issue.created", armatureIssueCreated, "CP"},
 		{"stator", "Stator", "page.published", `{"page":{"space":{"key":"DOC"}}}`, "DOC"},
 	} {
 		toolID := addTool(t, newToolStub(t, map[string]any{"product": c.product}))
@@ -234,5 +234,50 @@ func TestArmatureAndStatorSignWithTheirOwnHeaders(t *testing.T) {
 		if status, _ := deliver(t, toolID, c.word, secret, ce, now, "2", nil); status != http.StatusUnprocessableEntity {
 			t.Errorf("a CloudEvent from %s = %d, want 422 until it sends them", c.product, status)
 		}
+	}
+}
+
+// Payloads as Armature's docs/webhooks.md describes them: the issue's key sits at the top of the payload.
+const (
+	armatureIssueCreated = `{"issueId":"0b6e2f7a-3c41-4d8e-9f52-1a7c9e4b2d60","key":"CP-12","summary":"Login fails",` +
+		`"actorId":"5d3a8c19-7e2b-4f60-a1d4-8b9c0e6f2a37"}`
+	armatureCommentAdded = `{"issueId":"0b6e2f7a-3c41-4d8e-9f52-1a7c9e4b2d60","key":"CP-12","commentId":"c2f1e0d9-8b7a-4c6d-9e5f-4a3b2c1d0e9f",` +
+		`"actorId":"5d3a8c19-7e2b-4f60-a1d4-8b9c0e6f2a37","internal":false,"mentions":null}`
+)
+
+// A comment on an Armature issue fires the triggers on that issue's project, and only those (#125).
+func TestAnArmatureCommentFiresTheTriggersOnItsIssuesProject(t *testing.T) {
+	h := newHarness(t)
+	stopWorker(t)
+	alice := signedIn(t, "alice")
+	toolID := addTool(t, newToolStub(t, map[string]any{"product": "armature"}))
+	secret := "armature_whs_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	if status, hook := alice.api(http.MethodPut, "/tools/"+toolID+"/hook", map[string]any{"secret": secret}); status != http.StatusOK {
+		t.Fatalf("setting Armature's secret = %d %v", status, hook)
+	}
+	topics := []string{"comment.added"}
+	matching := h.eventTrigger(t, toolID, topics, []string{"CP"}, `[]`, true)
+	public := h.eventTrigger(t, toolID, topics, []string{"CP"}, `[{"path":"payload.internal","op":"equals","value":false}]`, true)
+	elsewhere := h.eventTrigger(t, toolID, topics, []string{"OPS"}, `[]`, true)
+	anyProject := h.eventTrigger(t, toolID, topics, nil, `[]`, true)
+
+	id := uuid.NewString()
+	body := []byte(fmt.Sprintf(`{"version":1,"id":%q,"topic":"comment.added","orgId":"0199a000-0000-7000-8000-000000000001",`+
+		`"occurredAt":"2026-10-19T08:00:00Z","payload":%s}`, id, armatureCommentAdded))
+	if status, answer := deliver(t, toolID, "Armature", secret, body, time.Now(), "1", nil); status != http.StatusAccepted {
+		t.Fatalf("the comment's delivery = %d %v", status, answer)
+	}
+	for name, c := range map[string]struct {
+		trigger uuid.UUID
+		fires   int
+	}{"its project": {matching, 1}, "a condition on it": {public, 1}, "another project": {elsewhere, 0}, "every project": {anyProject, 1}} {
+		if got := h.fires(t, c.trigger); len(got) != c.fires {
+			t.Errorf("a trigger on %s queued %v, want %d", name, got, c.fires)
+		}
+	}
+	var key string
+	if err := h.super.QueryRow(context.Background(), `SELECT inputs->'event'->'payload'->>'key' FROM trigger_fire
+		WHERE trigger_id = $1 AND fire_key = $2`, matching, "event:"+id).Scan(&key); err != nil || key != "CP-12" {
+		t.Errorf("the firing carries the issue %q (%v), want CP-12", key, err)
 	}
 }

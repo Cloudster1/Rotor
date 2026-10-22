@@ -44,7 +44,8 @@ func TestATimestampedSignatureHoldsOnlyWithinTheWindow(t *testing.T) {
 }
 
 func TestEachToolsEnvelopeReadsIntoOneEvent(t *testing.T) {
-	v1 := `{"version":1,"id":"ev-1","topic":"issue.created","orgId":"o","occurredAt":"2026-10-19T08:00:00Z","payload":{"issue":{"key":"CP-12"}}}`
+	v1 := `{"version":1,"id":"ev-1","topic":"issue.created","orgId":"o","occurredAt":"2026-10-19T08:00:00Z","payload":` +
+		armatureIssueCreated + `}`
 	ce := `{"specversion":"1.0","id":"ev-2","source":"https://exciter","type":"dev.exciter.review.decided","time":"2026-10-19T08:00:00Z",` +
 		`"datacontenttype":"application/json","dataversion":1,"data":{"review":{"decision":"approve"}}}`
 	for _, c := range []struct {
@@ -73,7 +74,7 @@ func event(tool, topic, payload string) Event {
 
 func TestAFilterMatchesTopicsProjectsAndConditions(t *testing.T) {
 	approved := event("exciter", "review.decided", `{"review":{"decision":"approve","round":2},"requirement":{"project":{"key":"RTR"}}}`)
-	issue := event("armature", "issue.created", `{"issue":{"key":"CP-12","priority":"high"}}`)
+	issue := event("armature", "issue.transitioned", armatureIssueTransitioned)
 	page := event("stator", "page.published", `{"page":{"space":{"key":"DOC"}}}`)
 	cond := func(path, op, value string) Condition {
 		return Condition{Path: path, Op: op, Value: json.RawMessage(value)}
@@ -88,16 +89,16 @@ func TestAFilterMatchesTopicsProjectsAndConditions(t *testing.T) {
 		{"another topic", Filter{Topics: []string{"review.requested"}}, approved, false},
 		{"exciter project", Filter{Topics: []string{"review.decided"}, Projects: []string{"RTR"}}, approved, true},
 		{"another project", Filter{Topics: []string{"review.decided"}, Projects: []string{"XYZ"}}, approved, false},
-		{"armature project from the key", Filter{Topics: []string{"issue.created"}, Projects: []string{"CP"}}, issue, true},
+		{"armature project from the key", Filter{Topics: []string{"issue.transitioned"}, Projects: []string{"CP"}}, issue, true},
 		{"stator space", Filter{Topics: []string{"page.published"}, Projects: []string{"DOC"}}, page, true},
 		{"equals", Filter{Topics: []string{"review.decided"}, Conditions: []Condition{cond("payload.review.decision", OpEquals, `"approve"`)}}, approved, true},
 		{"equals a number", Filter{Topics: []string{"review.decided"}, Conditions: []Condition{cond("payload.review.round", OpEquals, `2`)}}, approved, true},
 		{"not equal", Filter{Topics: []string{"review.decided"}, Conditions: []Condition{cond("payload.review.decision", OpEquals, `"reject"`)}}, approved, false},
-		{"in", Filter{Topics: []string{"issue.created"}, Conditions: []Condition{cond("payload.issue.priority", OpIn, `["high","urgent"]`)}}, issue, true},
-		{"exists", Filter{Topics: []string{"issue.created"}, Conditions: []Condition{cond("payload.issue.key", OpExists, ``)}}, issue, true},
-		{"missing", Filter{Topics: []string{"issue.created"}, Conditions: []Condition{cond("payload.issue.sprint", OpExists, ``)}}, issue, false},
-		{"all conditions", Filter{Topics: []string{"issue.created"}, Conditions: []Condition{
-			cond("payload.issue.priority", OpEquals, `"high"`), cond("topic", OpEquals, `"issue.updated"`)}}, issue, false},
+		{"in", Filter{Topics: []string{"issue.transitioned"}, Conditions: []Condition{cond("payload.toStatusCategory", OpIn, `["in_progress","done"]`)}}, issue, true},
+		{"exists", Filter{Topics: []string{"issue.transitioned"}, Conditions: []Condition{cond("payload.key", OpExists, ``)}}, issue, true},
+		{"missing", Filter{Topics: []string{"issue.transitioned"}, Conditions: []Condition{cond("payload.movedFrom", OpExists, ``)}}, issue, false},
+		{"all conditions", Filter{Topics: []string{"issue.transitioned"}, Conditions: []Condition{
+			cond("payload.toStatus", OpEquals, `"In Progress"`), cond("topic", OpEquals, `"issue.updated"`)}}, issue, false},
 	} {
 		if got := c.filter.Matches(c.e); got != c.want {
 			t.Errorf("%s: %v, want %v", c.name, got, c.want)
