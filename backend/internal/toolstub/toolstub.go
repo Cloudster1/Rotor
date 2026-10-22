@@ -62,6 +62,8 @@ type Options struct {
 	Issues map[string]Issue `json:"issues,omitempty"`
 	// TestPlans are an Exciter tenant's test plans, which only Exciter's web client makes; see TestPlanID (#139).
 	TestPlans []TestPlan `json:"testPlans,omitempty"`
+	// Repositories are what an Armature tenant's projects connect, cloned and pushed through its stand-in proxy (#137).
+	Repositories []Repository `json:"repositories,omitempty"`
 }
 
 // Stats count what happened at a tenant, for tests to check what Rotor did there.
@@ -125,6 +127,8 @@ type tenant struct {
 	stats    Stats
 	llmNext  int
 	written  *records
+	// repos are the tenant's repositories by project and name, made on first use.
+	repos map[string]*gitRepo
 }
 
 func (t *tenant) oauth() bool          { return t.opts.OAuth == nil || *t.opts.OAuth }
@@ -138,6 +142,9 @@ func (t *tenant) product() string {
 }
 
 func (t *tenant) capabilities() []string {
+	if t.opts.Capabilities == nil && t.armature() {
+		return []string{"mcp@1", "webhooks@1", CapabilityGitProxy}
+	}
 	if t.opts.Capabilities == nil {
 		return []string{"mcp@1", "webhooks@1"}
 	}
@@ -153,7 +160,8 @@ func (t *tenant) accessTTL() time.Duration {
 
 func newTenant(name string, opts Options) *tenant {
 	return &tenant{name: name, opts: opts, clients: map[string]*client{}, requests: map[string]*authRequest{},
-		codes: map[string]*code{}, grants: map[string]*grant{}, tokens: map[string]*token{}, written: newRecords()}
+		codes: map[string]*code{}, grants: map[string]*grant{}, tokens: map[string]*token{}, written: newRecords(),
+		repos: map[string]*gitRepo{}}
 }
 
 // errTooManyTenants refuses a new tenant once MaxTenants exist.
@@ -193,6 +201,9 @@ func (s *Stub) Public() http.Handler {
 		r.Get("/.well-known/oauth-authorization-server", s.withOAuth(s.handleServerMetadata))
 		r.Get(apiPrefix+"/meta", s.withTenant(s.handleMeta))
 		r.Post(mcpPath, s.withTenant(s.handleMCP))
+		r.Get(gitRoute+"/info/refs", s.withTenant(s.handleGitRefs))
+		r.Post(gitRoute+"/"+serviceUploadPack, s.withTenant(s.handleGitUploadPack))
+		r.Post(gitRoute+"/"+serviceReceivePack, s.withTenant(s.handleGitReceivePack))
 		r.Post(apiPrefix+"/oauth/register", s.withOAuth(s.handleRegister))
 		r.Get(apiPrefix+"/oauth/authorize", s.withOAuth(s.handleAuthorize))
 		r.Post(apiPrefix+"/oauth/token", s.withOAuth(s.handleToken))

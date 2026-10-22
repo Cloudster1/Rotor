@@ -75,7 +75,13 @@ func (t *tenant) testPlans() []map[string]any {
 // handleRecords answers what callers wrote at the tenant, oldest first: comments and remote links by issue key,
 // requirements, Armature links by requirement key, reviews, links between requirements and test executions.
 func (s *Stub) handleRecords(w http.ResponseWriter, _ *http.Request, t *tenant) {
-	writeJSON(w, http.StatusOK, t.written.view())
+	view := t.written.view()
+	repositories := map[string]any{}
+	for key, repo := range t.repos {
+		repositories[key] = repo.view()
+	}
+	view["repositories"] = repositories
+	writeJSON(w, http.StatusOK, view)
 }
 
 // controlled runs h on an existing tenant with the lock held; the control API never makes one by asking.

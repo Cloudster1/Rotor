@@ -21,6 +21,11 @@ var armatureOperations = map[string]struct{ method, path, status string }{
 	AddCommentTool:      {"post", "/issues/{issueKey}/comments", "201"},
 	ListRemoteLinksTool: {"get", "/issues/{issueKey}/remote-links", "200"},
 	AddRemoteLinkTool:   {"post", "/issues/{issueKey}/remote-links", "201"},
+	// The repository tools (#137).
+	ListRepositoriesTool:    {"get", "/projects/{projectKey}/repositories", "200"},
+	GetIssueDevelopmentTool: {"get", "/issues/{issueKey}/development", "200"},
+	CreateIssueBranchTool:   {"post", "/issues/{issueKey}/branches", "201"},
+	OpenPullRequestTool:     {"post", "/issues/{issueKey}/pull-requests", "201"},
 }
 
 // notArmatureAPI are the stub's routes an Armature tenant serves that are no operation of Armature's API: its

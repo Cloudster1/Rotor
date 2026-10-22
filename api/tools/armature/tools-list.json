@@ -268,6 +268,43 @@
     },
     {
       "annotations": {
+        "readOnlyHint": false,
+        "title": "create_issue_branch"
+      },
+      "description": "Make a branch for an issue on the git host, in repository, an owner/name from list_repositories; name defaults to the issue's branchName and from to the default branch. Only such a branch takes a pull request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "The branch to start from; left out, the repository's default branch."
+          },
+          "issueKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          },
+          "name": {
+            "type": "string",
+            "description": "The branch to make; left out, the name the issue suggests, its branchName."
+          },
+          "repository": {
+            "type": "string",
+            "description": "The repository as owner/name, the way list_repositories names it. Give this or repositoryId."
+          },
+          "repositoryId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The repository's id from list_repositories. Give this or repository."
+          }
+        },
+        "required": [
+          "issueKey"
+        ]
+      },
+      "name": "create_issue_branch"
+    },
+    {
+      "annotations": {
         "readOnlyHint": true,
         "title": "get_board"
       },
@@ -345,6 +382,26 @@
         ]
       },
       "name": "get_issue"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "get_issue_development"
+      },
+      "description": "An issue's branches, pull requests, commits and CI runs across the project's repositories, and branchName, the name a branch made for it gets.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "issueKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "issueKey"
+        ]
+      },
+      "name": "get_issue_development"
     },
     {
       "annotations": {
@@ -1051,6 +1108,26 @@
     {
       "annotations": {
         "readOnlyHint": true,
+        "title": "list_repositories"
+      },
+      "description": "The git repositories connected to a project, each with its owner/name, host, default branch, and hasToken, whether Armature can make branches and pull requests in it.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "list_repositories"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
         "title": "list_sprints"
       },
       "description": "A project's sprints.",
@@ -1171,6 +1248,53 @@
         ]
       },
       "name": "list_versions"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": false,
+        "title": "open_pull_request"
+      },
+      "description": "Open a pull request from the issue's own branch into the repository's default branch, with a title and a Markdown body; draft opens it as a draft. It is recorded on the issue.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "What the pull request changes and why, in Markdown."
+          },
+          "branch": {
+            "type": "string",
+            "description": "The issue's branch to merge, one made for this issue; never the default branch."
+          },
+          "draft": {
+            "type": "boolean",
+            "description": "Open it as a draft, not yet ready for review."
+          },
+          "issueKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          },
+          "repository": {
+            "type": "string",
+            "description": "The repository as owner/name, the way list_repositories names it. Give this or repositoryId."
+          },
+          "repositoryId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The repository's id from list_repositories. Give this or repository."
+          },
+          "title": {
+            "type": "string",
+            "description": "The pull request's title."
+          }
+        },
+        "required": [
+          "issueKey",
+          "branch",
+          "title"
+        ]
+      },
+      "name": "open_pull_request"
     },
     {
       "annotations": {

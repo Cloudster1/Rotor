@@ -137,8 +137,8 @@ func TestEveryRouteIsAnExciterOperation(t *testing.T) {
 	_ = chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		path := documentPath(method, route)
 		// The stub model stands in for a language model provider, not for Exciter; its contract is OpenAI's chat API.
-		// The LangSmith stand-in takes OTLP, whose contract is OpenTelemetry's.
-		if path == "" || strings.HasPrefix(path, llmPath+"/") || path == LangSmithPath {
+		// The LangSmith stand-in takes OTLP, whose contract is OpenTelemetry's. The git proxy is Armature's alone.
+		if path == "" || strings.HasPrefix(path, llmPath+"/") || path == LangSmithPath || strings.HasPrefix(path, "/git/") {
 			return nil
 		}
 		if item, ok := doc.Paths[path]; !ok || item[strings.ToLower(method)] == nil {
@@ -153,7 +153,8 @@ var answeredTools = map[string][]string{
 	SnapshotExciter: {WhoamiTool, GetRequirementTool, SearchRequirementsTool, CreateRequirementTool, UpdateRequirementTool,
 		ListArmatureLinksTool, LinkArmatureIssueTool, RequestReviewsTool, ListTypesTool, GetTreeTool, LinkRequirementsTool,
 		ListTestPlansTool, StartTestExecutionTool, RecordTestResultTool, CloseTestExecutionTool},
-	SnapshotArmature: {WhoamiTool, GetIssueTool, ListCommentsTool, AddCommentTool, ListRemoteLinksTool, AddRemoteLinkTool},
+	SnapshotArmature: {WhoamiTool, GetIssueTool, ListCommentsTool, AddCommentTool, ListRemoteLinksTool, AddRemoteLinkTool,
+		ListRepositoriesTool, GetIssueDevelopmentTool, CreateIssueBranchTool, OpenPullRequestTool},
 }
 
 // Each snapshot is served as recorded, so a client sees the tool's own tools by name, schema and hints, and a

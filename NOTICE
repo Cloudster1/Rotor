@@ -139,7 +139,13 @@ Adapted from Armature at 1a97811, its MCP tools and the operations they stand fo
   and a remote link put or retitled by its address (issue/remotelinks.go checkRemoteLink and PutRemoteLink)
 - deploy/suite/armature-snapshot.yml over Armature's deploy/docker-compose.yml, its api, database, Valkey and migration
 - api/tools/armature/tools-list.json is Armature's own tools/list, recorded from that commit and again, unchanged,
-  from 01f8d07, the commit deploy/suite/ARMATURE_REF names since (#130)
+  from 01f8d07, the commit deploy/suite/ARMATURE_REF names since (#130), and from d85bd85 (#137)
+
+Adapted from Armature at d85bd85, its repositories and git proxy (Armature#338, Armature#339, #137):
+- backend/internal/toolstub/armature_repos.go: BranchName and ValidBranchName of backend/internal/git/keys.go, and
+  the refusals of a branch or pull request of backend/internal/httpapi/errors.go
+- backend/internal/toolstub/git.go: the proxy's checks before any git and each push command's refusal, in its words,
+  of backend/internal/httpapi/git_proxy.go gitCaller and backend/internal/git/proxy.go judge
 
 Adapted from Exciter at 6706bd8, its suite's Armature (#130):
 - deploy/suite/armature.yml from deploy/suite/armature.yml: Armature on the suite's Keycloak with what the suite

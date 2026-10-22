@@ -29,7 +29,7 @@ const (
 )
 
 var (
-	armatureScopes     = []string{ArmatureRead, ArmatureIssueWrite, ArmatureIssueTransition, ArmatureCommentWrite, ArmatureWebhooksPartner}
+	armatureScopes     = []string{ArmatureRead, ArmatureIssueWrite, ArmatureIssueTransition, ArmatureCommentWrite, ArmatureGitWrite, ArmatureWebhooksPartner}
 	armatureGrantTypes = []string{"authorization_code", "refresh_token", grantExchange}
 	exciterGrantTypes  = []string{"authorization_code", "refresh_token", grantExchange}
 )
