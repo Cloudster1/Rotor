@@ -5,6 +5,8 @@ MAX_SPEC_BYTES = 256 << 10
 
 # SUMMARY_CHARS cuts the arguments and results an event carries.
 SUMMARY_CHARS = 2000
+# MAX_WRITE_SUBJECTS bounds what one tool call records it wrote, for a trigger to tell its own writes (#127).
+MAX_WRITE_SUBJECTS = 20
 
 # LLM_FLUSH_CHARS is how much of a model's streamed text one llm.output event gathers.
 LLM_FLUSH_CHARS = 200

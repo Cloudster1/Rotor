@@ -9,6 +9,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A workflow no longer starts itself on what its own runs wrote (#127). The
+  runner reports the comment, issue or requirement revision each write
+  answered with, Rotor keeps it with the run, and an event about it within ten
+  minutes skips the same workflow's triggers, saying which run wrote it. A
+  skipped firing shows its reason on the workflow page.
 - A trigger's owner can let named calls write without an approval (#128).
   A binding lists them under `unattended`, the trigger form asks the owner to
   agree to each, and a later version that names more turns the trigger off

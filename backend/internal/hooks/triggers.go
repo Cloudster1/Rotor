@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
+	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -132,4 +134,56 @@ func Subject(e Event) (string, map[string]any, bool) {
 		}
 	}
 	return "", nil, false
+}
+
+// Written is what an event says was written, as a run's ledger names it (#127): Armature's comment or issue,
+// Exciter's requirement revision or comment; an event of another topic names nothing, and fires as before.
+func Written(inputs map[string]any) (subject string, occurredAt time.Time, ok bool) {
+	var e Event
+	encoded, _ := json.Marshal(inputs["event"])
+	if json.Unmarshal(encoded, &e) != nil {
+		return "", time.Time{}, false
+	}
+	var tree any
+	if json.Unmarshal(e.Payload, &tree) != nil {
+		return "", time.Time{}, false
+	}
+	text := func(path string) string {
+		v, found := at(tree, path)
+		if !found {
+			return ""
+		}
+		switch v := v.(type) {
+		case string:
+			return v
+		case float64:
+			return strconv.FormatFloat(v, 'f', -1, 64)
+		}
+		return ""
+	}
+	named := func(member, value string) (string, time.Time, bool) {
+		if value == "" {
+			return "", time.Time{}, false
+		}
+		return member + ":" + value, e.OccurredAt, true
+	}
+	switch e.Tool + " " + e.Topic {
+	case "armature comment.added":
+		return named("comment", text("commentId"))
+	case "armature issue.created", "armature issue.updated", "armature issue.transitioned":
+		key := text("key")
+		if key == "" {
+			key = text("issue.key")
+		}
+		return named("issue", key)
+	case "exciter requirement.created", "exciter requirement.revised":
+		key, revision := text("requirement.key"), text("requirement.revision")
+		if key == "" || revision == "" {
+			return "", time.Time{}, false
+		}
+		return named("requirement", key+"@"+revision)
+	case "exciter comment.created":
+		return named("comment", text("comment.id"))
+	}
+	return "", time.Time{}, false
 }

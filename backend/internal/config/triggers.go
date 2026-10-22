@@ -26,3 +26,14 @@ const (
 	// TriggerListLimit bounds the triggers one list answers.
 	TriggerListLimit = 200
 )
+
+// The write ledger (#127); docs/api-contract-m12.md describes it.
+const (
+	// MaxWriteSubjects bounds what one tool call records it wrote.
+	MaxWriteSubjects = 20
+	// MaxWriteSubject bounds one recorded subject, as the table does.
+	MaxWriteSubject = 500
+	// OwnWriteWindow is how far apart a write and an event about it may be to count as the same: an issue key names
+	// every later change too, which a person's edit an hour on must not be mistaken for.
+	OwnWriteWindow = 10 * time.Minute
+)

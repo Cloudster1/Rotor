@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"time"
@@ -28,6 +29,9 @@ type Firer struct {
 	id       string
 	// Probe tells whether the owner may read an event's subject at its tool (#35); nil lets every event through.
 	Probe func(ctx context.Context, t Trigger, inputs map[string]any) (bool, error)
+	// Written is what an event says was written, as a run's ledger names it (#127); nil skips no event as the
+	// workflow's own.
+	Written func(inputs map[string]any) (subject string, occurredAt time.Time, ok bool)
 	// Fired counts each firing's end by its outcome; nil counts nothing.
 	Fired func(outcome string)
 }
@@ -138,6 +142,11 @@ func (f *Firer) start(ctx context.Context, fr fire, t Trigger) (outcome, reason 
 	if t.NoOverlap && t.LastRunStatus != nil && !runnerctl.Ended(*t.LastRunStatus) {
 		return OutcomeSkipped, "the last run has not ended", nil, nil
 	}
+	if own, err := f.ownWrite(ctx, t, fr.inputs); err != nil {
+		return "", err.Error(), nil, errPassing
+	} else if own != nil {
+		return OutcomeSkipped, fmt.Sprintf("The event is this workflow's own write, by run %s.", own), nil, nil
+	}
 	if f.Probe != nil && t.Kind == KindEvent {
 		readable, err := f.Probe(ctx, t, fr.inputs)
 		if err != nil {
@@ -239,4 +248,28 @@ func (f *Firer) owner(ctx context.Context, id uuid.UUID) (*auth.Principal, bool,
 		return p, false, nil
 	}
 	return p, active, err
+}
+
+// ownWrite is the run of the same workflow that wrote what the firing's event is about, if one did within
+// config.OwnWriteWindow of it, at the same tool; any person's run counts, since the workflow made it either way.
+func (f *Firer) ownWrite(ctx context.Context, t Trigger, inputs map[string]any) (*uuid.UUID, error) {
+	if f.Written == nil || t.Kind != KindEvent || t.ToolID == nil {
+		return nil, nil
+	}
+	subject, occurredAt, ok := f.Written(inputs)
+	if !ok {
+		return nil, nil
+	}
+	var run *uuid.UUID
+	err := f.triggers.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
+		err := tx.QueryRow(ctx, `SELECT w.run_id FROM run_write w JOIN run r ON r.id = w.run_id
+			WHERE r.workflow_id = $1 AND w.tool_id = $2 AND w.subject = $3
+				AND w.at BETWEEN $4::timestamptz - make_interval(secs => $5) AND $4::timestamptz + make_interval(secs => $5)
+			ORDER BY w.at DESC LIMIT 1`, t.WorkflowID, *t.ToolID, subject, occurredAt, config.OwnWriteWindow.Seconds()).Scan(&run)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	return run, err
 }
