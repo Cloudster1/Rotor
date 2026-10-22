@@ -11,6 +11,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/audit"
 	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/tools/profiles"
 	"github.com/cloudster1/rotor/backend/internal/vault"
 )
 
@@ -50,21 +51,25 @@ func (s *Service) Add(ctx context.Context, req AddRequest) (tool Tool, created b
 		id = uuid.Must(uuid.NewV7())
 	}
 
-	client, registration := vault.ToolClient{ClientID: req.ClientID, ClientSecret: req.ClientSecret, AuthMethod: method}, RegistrationManual
+	client, registration, status := vault.ToolClient{ClientID: req.ClientID, ClientSecret: req.ClientSecret, AuthMethod: method}, RegistrationManual, StatusReady
 	if req.ClientID == "" {
 		if client, err = s.register(ctx, d, method); err != nil {
 			return Tool{}, false, err
 		}
 		registration = RegistrationDynamic
+		if profiles.For(d.Name).PendingRegistration {
+			// The tool holds the client until its administrator allows Rotor, which the first connection does.
+			status = StatusAwaitingApproval
+		}
 	}
 	if err := s.keepClient(ctx, id, client, created); err != nil {
 		return Tool{}, false, err
 	}
 
-	tool = Tool{ID: id, Name: d.Name, BaseURL: base, Resource: d.Resource, Issuer: d.Issuer,
+	tool = Tool{ID: id, Name: d.Name, BaseURL: base, Resource: d.Resource, MCPURL: d.MCPURL, Issuer: d.Issuer,
 		AuthorizationEndpoint: d.AuthorizationEndpoint, TokenEndpoint: d.TokenEndpoint, RevocationEndpoint: d.RevocationEndpoint,
 		RegistrationEndpoint: d.RegistrationEndpoint, ScopesSupported: d.ScopesSupported, Capabilities: d.Capabilities,
-		ClientID: client.ClientID, ClientAuthMethod: client.AuthMethod, Registration: registration, Status: StatusReady}
+		GrantTypes: d.GrantTypes, ClientID: client.ClientID, ClientAuthMethod: client.AuthMethod, Registration: registration, Status: status}
 	if err := s.save(ctx, &tool, created); err != nil {
 		if created {
 			// The row was refused, so the secret has nothing to belong to.
@@ -100,21 +105,22 @@ func (s *Service) save(ctx context.Context, t *Tool, created bool) error {
 			err = tx.QueryRow(ctx, `
 				INSERT INTO tool (id, name, base_url, resource, issuer, authorization_endpoint, token_endpoint,
 					revocation_endpoint, registration_endpoint, scopes_supported, capabilities, client_id,
-					client_auth_method, registration, status, added_by)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), NULLIF($9, ''), $10, $11, $12, $13, $14, $15, $16)
+					client_auth_method, registration, status, added_by, mcp_url, grant_types)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), NULLIF($9, ''), $10, $11, $12, $13, $14, $15, $16, $17, $18)
 				RETURNING created_at`,
 				t.ID, t.Name, t.BaseURL, t.Resource, t.Issuer, t.AuthorizationEndpoint, t.TokenEndpoint,
 				t.RevocationEndpoint, t.RegistrationEndpoint, t.ScopesSupported, t.Capabilities, t.ClientID,
-				t.ClientAuthMethod, t.Registration, t.Status, nullable(actor)).Scan(&t.AddedAt)
+				t.ClientAuthMethod, t.Registration, t.Status, nullable(actor), t.MCPURL, t.GrantTypes).Scan(&t.AddedAt)
 		} else {
 			err = tx.QueryRow(ctx, `
 				UPDATE tool SET name = $2, resource = $3, issuer = $4, authorization_endpoint = $5, token_endpoint = $6,
 					revocation_endpoint = NULLIF($7, ''), registration_endpoint = NULLIF($8, ''), scopes_supported = $9,
-					capabilities = $10, client_id = $11, client_auth_method = $12, registration = $13, status = $14
+					capabilities = $10, client_id = $11, client_auth_method = $12, registration = $13, status = $14,
+					mcp_url = $15, grant_types = $16
 				WHERE id = $1 RETURNING created_at`,
 				t.ID, t.Name, t.Resource, t.Issuer, t.AuthorizationEndpoint, t.TokenEndpoint, t.RevocationEndpoint,
 				t.RegistrationEndpoint, t.ScopesSupported, t.Capabilities, t.ClientID, t.ClientAuthMethod,
-				t.Registration, t.Status).Scan(&t.AddedAt)
+				t.Registration, t.Status, t.MCPURL, t.GrantTypes).Scan(&t.AddedAt)
 		}
 		if err != nil {
 			return err

@@ -16,6 +16,7 @@ const EXCITER: Tool = {
   name: "exciter",
   baseURL: "https://exciter.test",
   resource: "https://exciter.test/api/v1/mcp",
+  mcpURL: "https://exciter.test/api/v1/mcp",
   issuer: "https://exciter.test",
   capabilities: ["mcp@1", "webhooks@2"],
   missing: [],

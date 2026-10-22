@@ -63,6 +63,8 @@ type client struct {
 	secretHash           []byte
 	redirectURIs         []string
 	grantTypes           []string
+	// pending is an Armature client nobody allowed yet; its tokens are refused.
+	pending bool
 }
 
 type authRequest struct {
@@ -70,7 +72,9 @@ type authRequest struct {
 	redirect, state string
 	challenge       string
 	readOnly, evid  bool
-	expires         time.Time
+	// scopes are Armature's, asked for by name.
+	scopes  []string
+	expires time.Time
 }
 
 type code struct {
@@ -84,6 +88,7 @@ type code struct {
 type grant struct {
 	id, clientID, username string
 	readOnly, evidence     bool
+	scopes                 []string
 }
 
 type token struct {
@@ -92,6 +97,9 @@ type token struct {
 	readOnly bool
 	expires  time.Time
 	replaced bool
+	// exchanged is an Armature token traded for a grant's (RFC 8693): revoking it ends only it.
+	exchanged bool
+	scopes    []string
 }
 
 // oauthError is how the protocol's endpoints refuse (RFC 6749, 5.2).
@@ -120,8 +128,13 @@ func digest(s string) []byte {
 }
 
 func (s *Stub) handleProtectedResource(c *call) {
+	if c.t.armature() && strings.HasSuffix(c.r.URL.Path, mcpPath) {
+		// Armature serves the document at its root alone, which its MCP endpoint's 401 names.
+		writeError(c.w, http.StatusNotFound, "not_found", "No such endpoint.")
+		return
+	}
 	writeJSON(c.w, http.StatusOK, map[string]any{"resource": c.resource(), "authorization_servers": []string{c.issuer},
-		"scopes_supported": scopes, "bearer_methods_supported": []string{"header"}, "resource_name": c.t.product()})
+		"scopes_supported": c.t.resourceScopes(), "bearer_methods_supported": []string{"header"}, "resource_name": c.t.product()})
 }
 
 func (s *Stub) handleServerMetadata(c *call) {
@@ -129,7 +142,7 @@ func (s *Stub) handleServerMetadata(c *call) {
 	writeJSON(c.w, http.StatusOK, map[string]any{
 		"issuer": c.issuer, "authorization_endpoint": api + "/oauth/authorize", "token_endpoint": api + "/oauth/token",
 		"registration_endpoint": api + "/oauth/register", "revocation_endpoint": api + "/oauth/revoke",
-		"scopes_supported": scopes, "response_types_supported": []string{"code"}, "grant_types_supported": grantTypes,
+		"scopes_supported": c.t.serverScopes(), "response_types_supported": []string{"code"}, "grant_types_supported": c.t.grantTypes(),
 		"code_challenge_methods_supported": []string{"S256"}, "token_endpoint_auth_methods_supported": authMethods,
 		"revocation_endpoint_auth_methods_supported": authMethods, "client_id_metadata_document_supported": false,
 		"authorization_response_iss_parameter_supported": true,
@@ -152,12 +165,12 @@ func (s *Stub) handleRegister(c *call) {
 		refuse(c.w, http.StatusBadRequest, errInvalidMetadata, "Send the client's metadata as one JSON object.", false)
 		return
 	}
-	if code, why := checkRegistration(&in); code != "" {
+	if code, why := checkRegistration(&in, c.t.grantTypes()); code != "" {
 		refuse(c.w, http.StatusBadRequest, code, why, false)
 		return
 	}
 	cl := &client{id: secret(""), name: in.ClientName, authMethod: in.TokenEndpointAuthMethod,
-		redirectURIs: in.RedirectURIs, grantTypes: in.GrantTypes}
+		redirectURIs: in.RedirectURIs, grantTypes: in.GrantTypes, pending: c.t.armature()}
 	out := map[string]any{"client_id": cl.id, "client_id_issued_at": s.now().Unix(), "client_secret_expires_at": 0,
 		"redirect_uris": in.RedirectURIs, "client_name": in.ClientName, "token_endpoint_auth_method": in.TokenEndpointAuthMethod,
 		"grant_types": in.GrantTypes}
@@ -174,7 +187,7 @@ func (s *Stub) handleRegister(c *call) {
 }
 
 // checkRegistration holds a registration to Exciter's rules and fills its defaults; code is empty when it passes.
-func checkRegistration(in *registration) (code, why string) {
+func checkRegistration(in *registration, offered []string) (code, why string) {
 	if len(in.RedirectURIs) == 0 || len(in.RedirectURIs) > config.ToolStubMaxRedirectURIs {
 		return errInvalidRedirectURI, "Register between 1 and 10 redirect addresses."
 	}
@@ -193,8 +206,8 @@ func checkRegistration(in *registration) (code, why string) {
 		in.GrantTypes = slices.Clone(grantTypes)
 	}
 	for _, g := range in.GrantTypes {
-		if !slices.Contains(grantTypes, g) {
-			return errInvalidMetadata, "The grants offered are authorization_code and refresh_token; " + g + " is not one of them."
+		if !slices.Contains(offered, g) {
+			return errInvalidMetadata, "The grants offered are " + strings.Join(offered, ", ") + "; " + g + " is not one of them."
 		}
 	}
 	if !slices.Contains(in.GrantTypes, "authorization_code") {
@@ -335,14 +348,21 @@ func (s *Stub) handleAuthorize(c *call) {
 			"state": {state}, "iss": {c.issuer}}), http.StatusFound)
 	}
 	readOnly, evidence, scopeOK := scopeAsked(q.Get("scope"))
+	var named []string
+	if c.t.armature() {
+		named, scopeOK = armatureScopesAsked(q.Get("scope"))
+		readOnly, evidence = !writes(named), false
+	}
 	switch {
+	case cl.pending:
+		back(errAccessDenied, cl.name+" is not connected to Armature yet. An Armature administrator connects it first.")
 	case q.Get("response_type") != "code":
 		back(errUnsupportedResponse, "The one response type is code.")
 	case state == "" || q.Get("code_challenge") == "" || q.Get("code_challenge_method") != "S256":
 		back(errInvalidRequest, "Send state, and a PKCE code_challenge with code_challenge_method S256.")
 	case !challengeShape.MatchString(q.Get("code_challenge")):
 		back(errInvalidRequest, "The code_challenge is not an S256 challenge.")
-	case strings.TrimRight(q.Get("resource"), "/") != c.resource():
+	case !c.resourceAccepted(q.Get("resource")):
 		back(errInvalidTarget, "Name the MCP endpoint, "+c.resource()+", as the resource.")
 	case !scopeOK:
 		back(errInvalidScope, "Ask for mcp, mcp:read to only read, or evidence alone to upload evidence.")
@@ -351,7 +371,7 @@ func (s *Stub) handleAuthorize(c *call) {
 	default:
 		id := secret("")
 		c.t.requests[id] = &authRequest{client: cl, redirect: redirect, state: state, challenge: q.Get("code_challenge"),
-			readOnly: readOnly, evid: evidence, expires: s.now().Add(RequestTTL)}
+			readOnly: readOnly, evid: evidence, scopes: named, expires: s.now().Add(RequestTTL)}
 		c.t.stats.Authorizations++
 		http.Redirect(c.w, c.r, page+"?request="+url.QueryEscape(id), http.StatusFound)
 	}

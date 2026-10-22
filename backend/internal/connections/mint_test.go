@@ -26,9 +26,3 @@ func TestAScopeRefusalNamesWhatIsMissing(t *testing.T) {
 		t.Errorf("a scope refusal reads %q", err)
 	}
 }
-
-func TestConsentingToAScopeCoversItsReadingHalf(t *testing.T) {
-	if !covers([]string{"mcp"}, "mcp:read") || covers([]string{"mcp:read"}, "mcp") || covers([]string{"mcp"}, "evidence") {
-		t.Error("consent to mcp should cover mcp:read, and nothing else beyond itself")
-	}
-}

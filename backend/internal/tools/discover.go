@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/cloudster1/rotor/backend/internal/config"
+	"github.com/cloudster1/rotor/backend/internal/tools/profiles"
 )
 
 // Paths Rotor reads under a tool's base URL, and what it asks of the authorization server.
@@ -29,11 +30,14 @@ const (
 // discovery is everything Rotor learns about a tool before it registers there.
 type discovery struct {
 	BaseURL, Name, Resource, Issuer string
-	Capabilities, ScopesSupported   []string
-	AuthorizationEndpoint           string
-	TokenEndpoint                   string
-	RevocationEndpoint              string
-	RegistrationEndpoint            string
+	// MCPURL is where Rotor calls MCP; Resource is what tokens are asked for, the endpoint itself or the API holding it.
+	MCPURL                        string
+	GrantTypes                    []string
+	Capabilities, ScopesSupported []string
+	AuthorizationEndpoint         string
+	TokenEndpoint                 string
+	RevocationEndpoint            string
+	RegistrationEndpoint          string
 	// AuthMethods are the client authentications the token endpoint accepts.
 	AuthMethods []string
 }
@@ -75,7 +79,7 @@ func wellKnown(target, suffix string) (string, error) {
 
 // discover reads the tool's meta, its protected resource metadata and its authorization server's metadata.
 func (s *Service) discover(ctx context.Context, base string) (discovery, error) {
-	d := discovery{BaseURL: base, Resource: base + mcpPath}
+	d := discovery{BaseURL: base, MCPURL: base + mcpPath}
 
 	var meta struct {
 		Product      string            `json:"product"`
@@ -92,18 +96,14 @@ func (s *Service) discover(ctx context.Context, base string) (discovery, error) 
 		return d, &Refusal{Message: m.Message, cause: m}
 	}
 
-	var resource struct {
-		Resource             string   `json:"resource"`
-		AuthorizationServers []string `json:"authorization_servers"`
-		ScopesSupported      []string `json:"scopes_supported"`
+	resource, err := s.readResource(ctx, d.Name, d.MCPURL)
+	if err != nil {
+		return d, err
 	}
-	resourceURL, _ := wellKnown(d.Resource, resourceMeta)
-	if err := s.getJSON(ctx, resourceURL, &resource); err != nil {
-		return d, missing(title(d.Name), "protected resource metadata (RFC 9728)", err)
+	if !covering(resource.Resource, d.MCPURL) {
+		return d, refuse("%s describes its API as %q, which does not hold its MCP endpoint %q. Check the address you gave.", title(d.Name), resource.Resource, d.MCPURL)
 	}
-	if strings.TrimSuffix(resource.Resource, "/") != d.Resource {
-		return d, refuse("%s describes its MCP endpoint as %q, not %q. Check the address you gave.", title(d.Name), resource.Resource, d.Resource)
-	}
+	d.Resource = strings.TrimSuffix(resource.Resource, "/")
 	if len(resource.AuthorizationServers) == 0 {
 		return d, refuse("%s names no authorization server, so people cannot connect to it with OAuth. Switch on its OAuth connections.", title(d.Name))
 	}
@@ -119,6 +119,7 @@ func (s *Service) discover(ctx context.Context, base string) (discovery, error) 
 		ResponseTypes         []string `json:"response_types_supported"`
 		CodeChallengeMethods  []string `json:"code_challenge_methods_supported"`
 		AuthMethods           []string `json:"token_endpoint_auth_methods_supported"`
+		GrantTypes            []string `json:"grant_types_supported"`
 	}
 	serverURL, err := wellKnown(d.Issuer, serverMeta)
 	if err != nil {
@@ -140,6 +141,14 @@ func (s *Service) discover(ctx context.Context, base string) (discovery, error) 
 	d.AuthorizationEndpoint, d.TokenEndpoint = server.AuthorizationEndpoint, server.TokenEndpoint
 	d.RevocationEndpoint, d.RegistrationEndpoint = server.RevocationEndpoint, server.RegistrationEndpoint
 	d.AuthMethods = server.AuthMethods
+	d.GrantTypes = server.GrantTypes
+	if len(d.GrantTypes) == 0 {
+		// RFC 8414 section 2: no list means the authorization code and implicit grants alone.
+		d.GrantTypes = []string{"authorization_code"}
+	}
+	if profiles.For(d.Name).SharedGrantToken && !slices.Contains(d.GrantTypes, GrantTokenExchange) {
+		return d, refuse("%s hands out one access token per connection, so Rotor needs its token exchange (RFC 8693) to give each run a token of its own, and it offers none. Update %s.", title(d.Name), title(d.Name))
+	}
 	d.ScopesSupported = resource.ScopesSupported
 	if len(d.ScopesSupported) == 0 {
 		d.ScopesSupported = server.ScopesSupported

@@ -350,7 +350,7 @@ export const s = {
     capabilities: "Offers",
     scopes: "Scopes",
     client: "Client",
-    status: { ready: "Ready", needs_registration: "Needs registering again" },
+    status: { ready: "Ready", needs_registration: "Needs registering again", awaiting_approval: capabilityStrings.awaitingStatus },
     registration: { dynamic: "Registered by Rotor", manual: "Registered by hand" },
     add: {
       title: "Add a tool",

@@ -84,7 +84,8 @@ function ToolConnection({ tool, connection }: { tool: Tool; connection?: Connect
       return client.invalidateQueries({ queryKey: connectionsQueryKey });
     },
   });
-  const unavailable = tool.status !== "ready";
+  const awaiting = tool.status === "awaiting_approval";
+  const unavailable = tool.status !== "ready" && !awaiting;
   const outdated = !unavailable && lacks(tool, CAPABILITY_MCP);
   const status = unavailable ? "unavailable" : outdated ? "outdated" : (connection?.status ?? "none");
   const titleId = `connection-${tool.id}`;
@@ -113,6 +114,7 @@ function ToolConnection({ tool, connection }: { tool: Tool; connection?: Connect
       )}
       {unavailable && <p className="mb-3 text-sm text-ink-muted">{s.connections.needsRegistration}</p>}
       {outdated && <p className="mb-3 text-sm text-ink-muted">{s.capabilities.lacks(name, CAPABILITY_MCP)}</p>}
+      {awaiting && <p className="mb-3 text-sm text-ink-muted">{s.capabilities.awaiting(name)}</p>}
       <div className="flex flex-wrap items-center gap-2">
         {!unavailable && !outdated && (!connection || connection.status === "reconnect") && (
           <button type="button" className={primary} disabled={connect.isPending} onClick={() => connect.mutate()} data-action="connect">

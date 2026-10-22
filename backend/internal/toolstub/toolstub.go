@@ -54,6 +54,8 @@ type Options struct {
 	Requirements map[string][]string `json:"requirements,omitempty"`
 	// Writes names calls the tenant lists as writing although the recording reads, as a tool that changed one (#90).
 	Writes []string `json:"writes,omitempty"`
+	// GrantTypes replace the grant types the authorization server offers, as an Armature without exchange (#45).
+	GrantTypes []string `json:"grantTypes,omitempty"`
 }
 
 // Stats count what happened at a tenant, for tests to check what Rotor did there.
@@ -68,6 +70,8 @@ type Stats struct {
 	GrantsEnded    int `json:"grantsEnded"`
 	MCPCalls       int `json:"mcpCalls"`
 	LLMCalls       int `json:"llmCalls"`
+	// Exchanges are Armature tokens traded for a grant's (RFC 8693).
+	Exchanges int `json:"exchanges"`
 	// LiveGrants and LiveAccessTokens are counted when asked, not kept.
 	LiveGrants       int `json:"liveGrants"`
 	LiveAccessTokens int `json:"liveAccessTokens"`
@@ -201,7 +205,13 @@ type call struct {
 	issuer string
 }
 
-func (c *call) resource() string { return c.issuer + mcpPath }
+// resource is what tokens are asked for: the MCP endpoint, or Armature's whole API.
+func (c *call) resource() string {
+	if c.t.armature() {
+		return c.issuer + apiPrefix
+	}
+	return c.issuer + mcpPath
+}
 
 type handler func(c *call)
 

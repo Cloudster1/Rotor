@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cloudster1/rotor/backend/internal/config"
+	"github.com/cloudster1/rotor/backend/internal/tools/profiles"
 	"github.com/cloudster1/rotor/backend/internal/vault"
 	"github.com/cloudster1/rotor/backend/internal/version"
 )
@@ -19,19 +20,8 @@ import (
 // clientName is what a person sees on the tool's consent page.
 const clientName = "Rotor"
 
-// unusedScopes are scopes a tool offers that Rotor never asks for: Exciter's evidence reaches only CI uploads.
-var unusedScopes = []string{"evidence"}
-
-// RequestedScopes is every scope the tool supports but those Rotor never uses, in the tool's order.
-func RequestedScopes(supported []string) []string {
-	out := []string{}
-	for _, scope := range supported {
-		if !slices.Contains(unusedScopes, scope) {
-			out = append(out, scope)
-		}
-	}
-	return out
-}
+// RequestedScopes is every scope the tool supports but those Rotor never uses there, in the tool's order.
+func (t Tool) RequestedScopes() []string { return t.Profile().Requested(t.ScopesSupported) }
 
 // registration is the RFC 7591 request Rotor sends.
 type registration struct {
@@ -50,10 +40,15 @@ func (s *Service) register(ctx context.Context, d discovery, method string) (vau
 	if d.RegistrationEndpoint == "" {
 		return vault.ToolClient{}, refuse("%s offers no client registration, so give the client id and secret an administrator of %s registered for Rotor, with the redirect URI %s.", title(d.Name), title(d.Name), s.redirectURL)
 	}
+	grants := []string{"authorization_code", "refresh_token"}
+	if slices.Contains(d.GrantTypes, GrantTokenExchange) {
+		// Asked for at registration, since a tool such as Armature leaves it out of a client that does not.
+		grants = append(grants, GrantTokenExchange)
+	}
 	body, err := json.Marshal(registration{
 		ClientName: clientName, RedirectURIs: []string{s.redirectURL}, TokenEndpointAuthMethod: method,
-		GrantTypes: []string{"authorization_code", "refresh_token"}, ResponseTypes: []string{"code"},
-		Scope: strings.Join(RequestedScopes(d.ScopesSupported), " "), SoftwareID: "rotor", SoftwareVersion: version.Current().Version,
+		GrantTypes: grants, ResponseTypes: []string{"code"}, SoftwareID: "rotor", SoftwareVersion: version.Current().Version,
+		Scope: strings.Join(profiles.For(d.Name).Requested(d.ScopesSupported), " "),
 	})
 	if err != nil {
 		return vault.ToolClient{}, err

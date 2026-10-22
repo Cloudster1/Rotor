@@ -314,6 +314,13 @@ again. When the run ends the worker revokes each token at its tool and
 forgets it; ending a connection or switching a person off does the same at
 once.
 
+Where a tool keeps one access token per grant and ends the grant when it is
+revoked, as Armature does, a run's token is exchanged from the grant's (RFC
+8693): narrowed to the binding's scopes, for 15 minutes, and revoked alone at
+the run's end, while the grant's own token never leaves the control plane
+(#45). `internal/tools/profiles` holds what each tool's metadata does not say:
+its scope names and how it hands out tokens.
+
 ## A run's data at rest (#41)
 
 Every run has a data key of its own. When a run is started the control plane

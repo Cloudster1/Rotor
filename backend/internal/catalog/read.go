@@ -11,9 +11,6 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/connections"
 )
 
-// readScopes are what a token for Read asks for: reading alone.
-var readScopes = []string{"mcp:read"}
-
 // Read calls one reading MCP tool as the person on the context, with a token minted for the call and revoked right
 // after. It answers false when the tool refuses or does not show what was asked, and an error when it did not answer.
 func (s *Service) Read(ctx context.Context, toolID uuid.UUID, name string, arguments map[string]any) (bool, error) {
@@ -25,7 +22,7 @@ func (s *Service) Read(ctx context.Context, toolID uuid.UUID, name string, argum
 	if err != nil {
 		return false, err
 	}
-	token, err := s.minter.Mint(ctx, connections.MintRequest{UserID: p.UserID, ToolID: tool.ID, Scopes: readScopes, RunID: "probe"})
+	token, err := s.minter.Mint(ctx, connections.MintRequest{UserID: p.UserID, ToolID: tool.ID, Scopes: tool.Profile().ReadScopes, RunID: "probe"})
 	switch {
 	case errors.Is(err, connections.ErrNotConnected), errors.Is(err, connections.ErrReconnect), errors.Is(err, connections.ErrNeedsRegistration),
 		errors.Is(err, connections.ErrScopeNotConsented):

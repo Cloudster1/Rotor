@@ -183,7 +183,7 @@ func (s *Service) Connected(ctx context.Context, parsed *spec.Spec) error {
 			return err
 		default:
 			scopes, ok := consent[tool.ID]
-			if !ok || !connections.Covers(scopes, b.Scopes) {
+			if !ok || !tool.Profile().Covers(scopes, b.Scopes) {
 				missing[b.Tool] = MissingTool{ID: tool.ID, Name: tool.Name}
 			}
 		}

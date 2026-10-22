@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Workflows read and write Armature as the person who started them (#45).
+  Rotor finds Armature's OAuth metadata where its MCP endpoint points, waits
+  until an Armature administrator allows it, which connecting does, and gives
+  every run a token of its own exchanged from the person's connection, so
+  ending a run never disconnects anybody. Bindings use Armature's scopes:
+  `read`, `issue.write`, `issue.transition` and `comment.write`.
 - How a triggered workflow talks on a ticket is agreed (#124):
   `docs/api-contract-m12.md` says how a trigger condition leaves events out,
   how a workflow skips what its own runs wrote, and how a trigger's owner

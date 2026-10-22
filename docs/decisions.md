@@ -212,6 +212,30 @@ This supersedes "Registration only, for now" of #47 below.
   comments carry data the checks cannot see, and a layout that drifts from the
   graph once the YAML is edited by hand.
 
+## 2026-10-19: Connecting Armature, for M9 (#45)
+
+- **A run's token is exchanged where a grant has one.** Armature keeps one
+  access token per grant: a refresh replaces it under any other run, and
+  revoking it ends the person's connection. So where the server offers RFC
+  8693, Rotor refreshes under the connection's lock as before, then exchanges
+  the grant's token for one narrowed to the binding, which the run's end
+  revokes alone. Exciter offers no exchange, so its runs keep the token a
+  refresh hands out.
+- **Profiles for what metadata does not say.** Scope names, which scope reads
+  and which Rotor never asks for differ per tool and no RFC states them, so
+  `internal/tools/profiles` holds them per product, with a generic profile for
+  any other tool. Everything a document can say, from endpoints to grant
+  types, is still read from the tool.
+- **Discovery as an MCP client does it.** Armature serves its resource
+  metadata only at its root and names its whole API as the resource. Rotor
+  follows the MCP endpoint's 401, then the path-inserted and the root
+  well-known documents, and accepts a resource that holds the MCP endpoint;
+  `tool.mcp_url` is kept apart from `tool.resource` for that.
+- **Allowed by connecting.** Armature holds a self-registered client until an
+  administrator allows it, which its consent page does for an administrator
+  connecting. Rotor shows the tool as waiting and offers to connect, rather
+  than asking for a step in Armature first.
+
 ## 2026-10-19: Rotor in the suite, for M9 (#43)
 
 - **Rotor's names are what it offers partners.** `workflows@1`, `runs@1` and

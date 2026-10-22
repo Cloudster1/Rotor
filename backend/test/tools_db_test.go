@@ -12,9 +12,9 @@ import (
 )
 
 // insertTool is the statement the registry runs, reduced to the columns the table requires.
-const insertTool = `INSERT INTO tool (name, base_url, resource, issuer, authorization_endpoint, token_endpoint, client_id,
-	client_auth_method, registration) VALUES ('exciter', $1, $1 || '/api/v1/mcp', $1, $1 || '/a', $1 || '/t', 'c',
-	'client_secret_basic', 'dynamic') RETURNING id`
+const insertTool = `INSERT INTO tool (name, base_url, resource, mcp_url, issuer, authorization_endpoint, token_endpoint,
+	client_id, client_auth_method, registration) VALUES ('exciter', $1, $1 || '/api/v1/mcp', $1 || '/api/v1/mcp', $1, $1 || '/a',
+	$1 || '/t', 'c', 'client_secret_basic', 'dynamic') RETURNING id`
 
 // The registry's guard is the database's too: a member writing straight through SQL as rotor_app is refused.
 func TestOnlyAnAdministratorWritesATool(t *testing.T) {

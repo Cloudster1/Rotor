@@ -1928,6 +1928,7 @@ export interface components {
             capabilities: string[];
             id: string;
             issuer: string;
+            mcpURL: string;
             missing: components["schemas"]["MissingCapability"][];
             name: string;
             /** @enum {string} */
@@ -1935,7 +1936,7 @@ export interface components {
             resource: string;
             scopesSupported: string[];
             /** @enum {string} */
-            status: "ready" | "needs_registration";
+            status: "ready" | "needs_registration" | "awaiting_approval";
         };
         TriggerCondition: {
             /** @enum {string} */

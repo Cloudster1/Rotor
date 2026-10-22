@@ -6,11 +6,11 @@ import (
 )
 
 func TestAToolsLinkHostsAreItsAddressesHosts(t *testing.T) {
-	tool := Tool{BaseURL: "https://Exciter.Example:8443/t/acme", Resource: "https://exciter.example/t/acme/mcp"}
+	tool := Tool{BaseURL: "https://Exciter.Example:8443/t/acme", MCPURL: "https://exciter.example/t/acme/mcp"}
 	if got := tool.LinkHosts(); !slices.Equal(got, []string{"exciter.example"}) {
 		t.Errorf("link hosts = %v", got)
 	}
-	split := Tool{BaseURL: "https://wiki.example", Resource: "https://mcp.wiki.example/mcp"}
+	split := Tool{BaseURL: "https://wiki.example", MCPURL: "https://mcp.wiki.example/mcp"}
 	if got := split.LinkHosts(); !slices.Equal(got, []string{"wiki.example", "mcp.wiki.example"}) {
 		t.Errorf("link hosts of a tool on two hosts = %v", got)
 	}
