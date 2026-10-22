@@ -13,9 +13,12 @@ import (
 
 // Condition operators.
 const (
-	OpEquals = "equals"
-	OpIn     = "in"
-	OpExists = "exists"
+	OpEquals    = "equals"
+	OpIn        = "in"
+	OpExists    = "exists"
+	OpNotEquals = "notEquals"
+	OpNotIn     = "notIn"
+	OpAbsent    = "absent"
 )
 
 // Condition holds when the event's value at Path compares as Op says; Path is dotted, such as payload.review.state.
@@ -83,19 +86,19 @@ func (c Condition) problem() string {
 	}
 	var value any
 	switch c.Op {
-	case OpExists:
+	case OpExists, OpAbsent:
 		return ""
-	case OpEquals:
+	case OpEquals, OpNotEquals:
 		if json.Unmarshal(c.Value, &value) != nil || !scalar(value) {
-			return "equals compares with one value: a string, a number, true, false or null."
+			return c.Op + " compares with one value: a string, a number, true, false or null."
 		}
-	case OpIn:
+	case OpIn, OpNotIn:
 		var values []any
 		if json.Unmarshal(c.Value, &values) != nil || len(values) == 0 || slices.ContainsFunc(values, func(v any) bool { return !scalar(v) }) {
-			return "in compares with a list of values: strings, numbers, true, false or null."
+			return c.Op + " compares with a list of values: strings, numbers, true, false or null."
 		}
 	default:
-		return fmt.Sprintf("%q is not a comparison; use equals, in or exists.", c.Op)
+		return fmt.Sprintf("%q is not a comparison; use equals, notEquals, in, notIn, exists or absent.", c.Op)
 	}
 	return ""
 }
@@ -137,14 +140,31 @@ func (c Condition) holds(tree any) bool {
 	switch c.Op {
 	case OpExists:
 		return ok
-	case OpEquals:
-		var want any
-		return ok && json.Unmarshal(c.Value, &want) == nil && reflect.DeepEqual(found, want)
-	case OpIn:
-		var want []any
-		return ok && json.Unmarshal(c.Value, &want) == nil && slices.ContainsFunc(want, func(v any) bool { return reflect.DeepEqual(found, v) })
+	case OpAbsent:
+		return !ok
 	}
-	return false
+	var match bool
+	switch c.Op {
+	case OpEquals, OpNotEquals:
+		var want any
+		if json.Unmarshal(c.Value, &want) != nil {
+			return false
+		}
+		match = ok && reflect.DeepEqual(found, want)
+	case OpIn, OpNotIn:
+		var want []any
+		if json.Unmarshal(c.Value, &want) != nil {
+			return false
+		}
+		match = ok && slices.ContainsFunc(want, func(v any) bool { return reflect.DeepEqual(found, v) })
+	default:
+		return false
+	}
+	// A missing path equals nothing, so the negations hold for it.
+	if c.Op == OpNotEquals || c.Op == OpNotIn {
+		return !match
+	}
+	return match
 }
 
 // at is the value at a dotted path, and whether the path leads anywhere.

@@ -64,7 +64,7 @@ var m6Enums = map[reflect.Type][]string{
 	reflect.TypeOf(fireOutcome("")): {"started", "skipped", "refused", "failed"},
 	reflect.TypeOf(disabledReason("")): {"owner_switched_off", "connection_lost", "tool_removed", "workflow_archived", "workflow_hidden",
 		"unattended_write", "inputs_refused", "unattended_widened", "unattended_forbidden"},
-	reflect.TypeOf(conditionOp("")): {"equals", "in", "exists"},
+	reflect.TypeOf(conditionOp("")): {"equals", "notEquals", "in", "notIn", "exists", "absent"},
 }
 
 // registerM6Schemas tells the builder about the M6 enums.

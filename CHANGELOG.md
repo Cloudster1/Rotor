@@ -9,6 +9,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A trigger condition can say what an event must not be (#126): `does not
+  equal`, `is none of` and `is missing` beside `equals`, `is one of` and
+  `exists`, so a trigger can leave out, for example, internal comments or a
+  bot's events. A path the event does not have equals nothing.
 - A workflow no longer starts itself on what its own runs wrote (#127). The
   runner reports the comment, issue or requirement revision each write
   answered with, Rotor keeps it with the run, and an event about it within ten

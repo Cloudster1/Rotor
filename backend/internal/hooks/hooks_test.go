@@ -3,6 +3,8 @@ package hooks
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -97,6 +99,17 @@ func TestAFilterMatchesTopicsProjectsAndConditions(t *testing.T) {
 		{"in", Filter{Topics: []string{"issue.transitioned"}, Conditions: []Condition{cond("payload.toStatusCategory", OpIn, `["in_progress","done"]`)}}, issue, true},
 		{"exists", Filter{Topics: []string{"issue.transitioned"}, Conditions: []Condition{cond("payload.key", OpExists, ``)}}, issue, true},
 		{"missing", Filter{Topics: []string{"issue.transitioned"}, Conditions: []Condition{cond("payload.movedFrom", OpExists, ``)}}, issue, false},
+		{"equals on a missing path", Filter{Topics: []string{"issue.transitioned"}, Conditions: []Condition{cond("payload.movedFrom", OpEquals, `null`)}}, issue, false},
+		{"in on a missing path", Filter{Topics: []string{"issue.transitioned"}, Conditions: []Condition{cond("payload.movedFrom", OpIn, `[null]`)}}, issue, false},
+		{"notEquals another value", Filter{Topics: []string{"review.decided"}, Conditions: []Condition{cond("payload.review.decision", OpNotEquals, `"reject"`)}}, approved, true},
+		{"notEquals its value", Filter{Topics: []string{"review.decided"}, Conditions: []Condition{cond("payload.review.decision", OpNotEquals, `"approve"`)}}, approved, false},
+		{"notEquals on a missing path", Filter{Topics: []string{"issue.transitioned"}, Conditions: []Condition{cond("payload.internal", OpNotEquals, `true`)}}, issue, true},
+		{"notIn none of them", Filter{Topics: []string{"issue.transitioned"}, Conditions: []Condition{cond("payload.toStatusCategory", OpNotIn, `["todo","done"]`)}}, issue, true},
+		{"notIn one of them", Filter{Topics: []string{"issue.transitioned"}, Conditions: []Condition{cond("payload.toStatusCategory", OpNotIn, `["in_progress","done"]`)}}, issue, false},
+		{"notIn on a missing path", Filter{Topics: []string{"issue.transitioned"}, Conditions: []Condition{cond("payload.movedFrom", OpNotIn, `[null]`)}}, issue, true},
+		{"absent", Filter{Topics: []string{"issue.transitioned"}, Conditions: []Condition{cond("payload.movedFrom", OpAbsent, ``)}}, issue, true},
+		{"absent when present", Filter{Topics: []string{"issue.transitioned"}, Conditions: []Condition{cond("payload.key", OpAbsent, ``)}}, issue, false},
+		{"absent past a scalar", Filter{Topics: []string{"issue.transitioned"}, Conditions: []Condition{cond("payload.key.prefix", OpAbsent, ``)}}, issue, true},
 		{"all conditions", Filter{Topics: []string{"issue.transitioned"}, Conditions: []Condition{
 			cond("payload.toStatus", OpEquals, `"In Progress"`), cond("topic", OpEquals, `"issue.updated"`)}}, issue, false},
 	} {
@@ -112,17 +125,35 @@ func TestAFilterSaysWhatIsWrongWithIt(t *testing.T) {
 		{Path: "payload.x", Op: "matches", Value: json.RawMessage(`"a"`)},
 		{Path: "payload.x", Op: OpEquals, Value: json.RawMessage(`{"a":1}`)},
 		{Path: "payload.x", Op: OpIn, Value: json.RawMessage(`[]`)},
+		{Path: "payload.x", Op: OpNotEquals, Value: json.RawMessage(`["a"]`)},
+		{Path: "payload.x", Op: OpNotIn, Value: json.RawMessage(`"a"`)},
+		{Path: "payload.x", Op: OpNotIn, Value: json.RawMessage(`[{"a":1}]`)},
 	}}
 	problems := bad.Problems()
-	for _, field := range []string{"event/topics/0", "event/projects/0", "event/conditions/0", "event/conditions/1", "event/conditions/2", "event/conditions/3"} {
+	for i := range bad.Conditions {
+		if field := fmt.Sprintf("event/conditions/%d", i); problems[field] == "" {
+			t.Errorf("no problem at %s: %v", field, problems)
+		}
+	}
+	for _, field := range []string{"event/topics/0", "event/projects/0"} {
 		if problems[field] == "" {
 			t.Errorf("no problem at %s: %v", field, problems)
+		}
+	}
+	for _, op := range []string{OpEquals, OpNotEquals, OpIn, OpNotIn, OpExists, OpAbsent} {
+		if !strings.Contains(problems["event/conditions/1"], op) {
+			t.Errorf("the refusal of an unknown op does not name %s: %s", op, problems["event/conditions/1"])
 		}
 	}
 	if problems := (Filter{}).Problems(); problems["event/topics"] == "" {
 		t.Error("a filter without topics passes")
 	}
-	good := Filter{Topics: []string{"review.decided"}, Conditions: []Condition{{Path: "payload.review.decision", Op: OpIn, Value: json.RawMessage(`["approve"]`)}}}
+	good := Filter{Topics: []string{"review.decided"}, Conditions: []Condition{
+		{Path: "payload.review.decision", Op: OpIn, Value: json.RawMessage(`["approve"]`)},
+		{Path: "payload.review.decision", Op: OpNotIn, Value: json.RawMessage(`["reject", null]`)},
+		{Path: "payload.internal", Op: OpNotEquals, Value: json.RawMessage(`true`)},
+		{Path: "payload.bot", Op: OpAbsent},
+	}}
 	if problems := good.Problems(); len(problems) != 0 {
 		t.Errorf("a good filter has %v", problems)
 	}

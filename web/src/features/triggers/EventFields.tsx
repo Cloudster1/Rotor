@@ -9,7 +9,12 @@ const input = "h-9 w-full rounded-control border border-border-strong bg-surface
 const secondary = "h-8 rounded-control border border-border-strong px-3 text-sm font-medium text-ink hover:bg-surface-raised";
 
 type EventSpec = NonNullable<TriggerRequest["event"]>;
-type Op = "equals" | "in" | "exists";
+type Op = EventSpec["conditions"][number]["op"];
+
+/** The comparisons in the order the form offers them; the ones without a value and the ones taking a list. */
+const OPS: readonly Op[] = ["equals", "notEquals", "in", "notIn", "exists", "absent"];
+const UNARY: readonly Op[] = ["exists", "absent"];
+const LISTS: readonly Op[] = ["in", "notIn"];
 
 /** An event trigger's filters as the form holds them: text the person types, read into the request on saving. */
 export interface EventDraft {
@@ -61,7 +66,7 @@ export function eventOf(d: EventDraft): EventSpec {
     conditions: d.conditions.map((c) => ({
       path: c.path.trim(),
       op: c.op,
-      ...(c.op === "exists" ? {} : { value: c.op === "in" ? list(c.value).map(scalar) : scalar(c.value) }),
+      ...(UNARY.includes(c.op) ? {} : { value: LISTS.includes(c.op) ? list(c.value).map(scalar) : scalar(c.value) }),
     })),
   };
 }
@@ -174,7 +179,7 @@ export function EventFields({ draft, onChange, errors }: { draft: EventDraft; on
                 aria-describedby={describedBy(`event/conditions/${i}`)}
               />
               <select aria-label={s.triggers.event.op(i + 1)} className={input} value={c.op} onChange={(e) => setCondition(i, { op: e.target.value as Op })}>
-                {(["equals", "in", "exists"] as const).map((op) => (
+                {OPS.map((op) => (
                   <option key={op} value={op}>
                     {s.triggers.event.ops[op]}
                   </option>
@@ -184,9 +189,9 @@ export function EventFields({ draft, onChange, errors }: { draft: EventDraft; on
                 aria-label={s.triggers.event.value(i + 1)}
                 className={input}
                 value={c.value}
-                disabled={c.op === "exists"}
+                disabled={UNARY.includes(c.op)}
                 onChange={(e) => setCondition(i, { value: e.target.value })}
-                aria-describedby={c.op === "in" ? `${id}-in-hint` : undefined}
+                aria-describedby={LISTS.includes(c.op) ? `${id}-in-hint` : undefined}
               />
               <button type="button" className={secondary} onClick={() => set({ conditions: draft.conditions.filter((_, j) => j !== i) })}>
                 {s.triggers.event.removeCondition(i + 1)}
