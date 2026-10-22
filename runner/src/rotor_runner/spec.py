@@ -241,6 +241,7 @@ def check_sense(document: dict[str, Any]) -> list[Problem]:
                     )
     out.extend(_review_deciders(tools))
     out.extend(_unattended_outside_allow(tools))
+    out.extend(_not_built(nodes, tools))
     if entry in index:
         reached = {entry}
         queue = [entry]
@@ -299,6 +300,37 @@ def form_fields(schema: Any) -> dict[str, Any] | None:
     except Exception:
         return None
     return properties
+
+
+# The fields M13 agreed, by the issue that builds each (docs/api-contract-m13.md); each issue deletes its own.
+NOT_BUILT_FIELDS = {
+    "model": 133,
+    "role": 133,
+    "maxSteps": 133,
+    "maxVisits": 134,
+    "onExhausted": 134,
+    "join": 135,
+    "workspace": 136,
+}
+
+
+def _not_built(nodes: list[dict[str, Any]], tools: dict[str, dict[str, Any]]) -> list[Problem]:
+    """Refuses the fields M13 agreed until their issue merges, as Go's notBuilt, so no run takes one it would ignore."""
+    out: list[Problem] = []
+    for name in sorted(tools):
+        if "repository" in tools[name]:
+            out.append(
+                Problem(f"/tools/{_escape(name)}/repository", "not_built", "A repository binding is not built yet.")
+            )
+    for i, node in enumerate(nodes):
+        for name, issue in NOT_BUILT_FIELDS.items():
+            if name in node:
+                out.append(Problem(f"/nodes/{i}/{name}", "not_built", f"{name} is not built yet (#{issue})."))
+        if node["type"] == "test":
+            out.append(Problem(f"/nodes/{i}/type", "not_built", "The test node is not built yet (#138)."))
+        if node["type"] == "router" and str(node.get("on", "")).startswith("visits."):
+            out.append(Problem(f"/nodes/{i}/on", "not_built", "Reading visits is not built yet (#134)."))
+    return out
 
 
 def _unattended_outside_allow(tools: dict[str, dict[str, Any]]) -> list[Problem]:

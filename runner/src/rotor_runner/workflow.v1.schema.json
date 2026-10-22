@@ -33,15 +33,7 @@
       "propertyNames": { "$ref": "#/$defs/id" },
       "additionalProperties": { "$ref": "#/$defs/binding" }
     },
-    "model": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["name"],
-      "properties": {
-        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
-        "provider": { "type": "string", "minLength": 1, "maxLength": 100 }
-      }
-    },
+    "model": { "$ref": "#/$defs/model" },
     "limits": {
       "type": "object",
       "additionalProperties": false,
@@ -118,8 +110,8 @@
     },
     "statePath": {
       "type": "string",
-      "pattern": "^(inputs|nodes)(\\.[A-Za-z0-9_-]+)+$",
-      "description": "Where a value lives in the run's state: inputs.<field> or nodes.<node>.<field>."
+      "pattern": "^(inputs|nodes|visits)(\\.[A-Za-z0-9_-]+)+$",
+      "description": "Where a value lives in the run's state: inputs.<field>, nodes.<node>.<field>, or visits.<node> (#134)."
     },
     "outputSchema": {
       "type": "object",
@@ -170,21 +162,53 @@
           "uniqueItems": true,
           "items": { "type": "string", "minLength": 1, "maxLength": 100 },
           "description": "Calls of allowTools a triggered run may make with no approval before them, once the trigger's owner agrees to each."
+        },
+        "repository": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["project", "name"],
+          "properties": {
+            "project": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "name": { "type": "string", "minLength": 1, "maxLength": 300 }
+          },
+          "description": "A repository the tool connects to a project, which workspaces check out (#137); each may be a template of inputs."
         }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "provider": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "branch", "image"],
+      "description": "The run's branch of a repository binding, checked out for the step in a toolchain image (#136).",
+      "properties": {
+        "repository": { "$ref": "#/$defs/id" },
+        "branch": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "image": { "type": "string", "minLength": 1, "maxLength": 100, "description": "An image name an administrator allows." },
+        "access": { "enum": ["read", "write"], "default": "read", "description": "write commits and pushes the branch when the step ends." }
       }
     },
     "node": {
       "type": "object",
       "required": ["id", "type"],
       "properties": {
-        "type": { "enum": ["agent", "tool", "code", "approval", "router"] }
+        "type": { "enum": ["agent", "tool", "code", "approval", "router", "test"] }
       },
       "allOf": [
         { "if": { "properties": { "type": { "const": "agent" } } }, "then": { "$ref": "#/$defs/agentNode" } },
         { "if": { "properties": { "type": { "const": "tool" } } }, "then": { "$ref": "#/$defs/toolNode" } },
         { "if": { "properties": { "type": { "const": "code" } } }, "then": { "$ref": "#/$defs/codeNode" } },
         { "if": { "properties": { "type": { "const": "approval" } } }, "then": { "$ref": "#/$defs/approvalNode" } },
-        { "if": { "properties": { "type": { "const": "router" } } }, "then": { "$ref": "#/$defs/routerNode" } }
+        { "if": { "properties": { "type": { "const": "router" } } }, "then": { "$ref": "#/$defs/routerNode" } },
+        { "if": { "properties": { "type": { "const": "test" } } }, "then": { "$ref": "#/$defs/testNode" } }
       ]
     },
     "agentNode": {
@@ -194,7 +218,14 @@
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "type": { "const": "agent" },
+        "maxVisits": { "type": "integer", "minimum": 1, "maximum": 50, "description": "How often the node may run; the visit past it goes to onExhausted (#134)." },
+        "onExhausted": { "$ref": "#/$defs/id", "description": "Where the run goes when maxVisits is used up; without it the run fails." },
+        "join": { "enum": ["all"], "description": "all runs the node once every branch into it has ended (#135)." },
         "prompt": { "type": "string", "minLength": 1, "maxLength": 20000 },
+        "model": { "$ref": "#/$defs/model", "description": "The node's own model; the workflow's without one (#133)." },
+        "role": { "type": "string", "minLength": 1, "maxLength": 8000, "description": "Who the agent is, under Rotor's fixed policy; never a template (#133)." },
+        "maxSteps": { "type": "integer", "minimum": 1, "maximum": 500, "description": "The agent's own step cap, at most the workflow's (#133)." },
+        "workspace": { "$ref": "#/$defs/workspace" },
         "tools": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
         "output": { "$ref": "#/$defs/outputSchema" }
       }
@@ -206,6 +237,9 @@
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "type": { "const": "tool" },
+        "maxVisits": { "type": "integer", "minimum": 1, "maximum": 50, "description": "How often the node may run; the visit past it goes to onExhausted (#134)." },
+        "onExhausted": { "$ref": "#/$defs/id", "description": "Where the run goes when maxVisits is used up; without it the run fails." },
+        "join": { "enum": ["all"], "description": "all runs the node once every branch into it has ended (#135)." },
         "tool": { "$ref": "#/$defs/id" },
         "call": { "type": "string", "minLength": 1, "maxLength": 100 },
         "arguments": {
@@ -221,6 +255,9 @@
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "type": { "const": "code" },
+        "maxVisits": { "type": "integer", "minimum": 1, "maximum": 50, "description": "How often the node may run; the visit past it goes to onExhausted (#134)." },
+        "onExhausted": { "$ref": "#/$defs/id", "description": "Where the run goes when maxVisits is used up; without it the run fails." },
+        "join": { "enum": ["all"], "description": "all runs the node once every branch into it has ended (#135)." },
         "source": {
           "type": "string",
           "minLength": 1,
@@ -230,7 +267,8 @@
         "tools": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
         "output": { "$ref": "#/$defs/outputSchema" },
         "timeout": { "$ref": "#/$defs/duration" },
-        "memory": { "type": "string", "pattern": "^[1-9][0-9]*(Mi|Gi)$" }
+        "memory": { "type": "string", "pattern": "^[1-9][0-9]*(Mi|Gi)$" },
+        "workspace": { "$ref": "#/$defs/workspace" }
       }
     },
     "approvalNode": {
@@ -240,6 +278,9 @@
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "type": { "const": "approval" },
+        "maxVisits": { "type": "integer", "minimum": 1, "maximum": 50, "description": "How often the node may run; the visit past it goes to onExhausted (#134)." },
+        "onExhausted": { "$ref": "#/$defs/id", "description": "Where the run goes when maxVisits is used up; without it the run fails." },
+        "join": { "enum": ["all"], "description": "all runs the node once every branch into it has ended (#135)." },
         "message": { "type": "string", "minLength": 1, "maxLength": 2000 },
         "approvers": {
           "type": "object",
@@ -282,6 +323,9 @@
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "type": { "const": "router" },
+        "maxVisits": { "type": "integer", "minimum": 1, "maximum": 50, "description": "How often the node may run; the visit past it goes to onExhausted (#134)." },
+        "onExhausted": { "$ref": "#/$defs/id", "description": "Where the run goes when maxVisits is used up; without it the run fails." },
+        "join": { "enum": ["all"], "description": "all runs the node once every branch into it has ended (#135)." },
         "on": { "$ref": "#/$defs/statePath" },
         "cases": {
           "type": "object",
@@ -290,6 +334,23 @@
           "description": "Which node follows for each value the state holds at on."
         },
         "default": { "$ref": "#/$defs/id" }
+      }
+    },
+    "testNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "workspace", "command"],
+      "description": "Runs the project's tests in a workspace and reports each (#138).",
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "test" },
+        "maxVisits": { "type": "integer", "minimum": 1, "maximum": 50, "description": "How often the node may run; the visit past it goes to onExhausted (#134)." },
+        "onExhausted": { "$ref": "#/$defs/id", "description": "Where the run goes when maxVisits is used up; without it the run fails." },
+        "join": { "enum": ["all"], "description": "all runs the node once every branch into it has ended (#135)." },
+        "workspace": { "$ref": "#/$defs/workspace" },
+        "command": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "type": "string", "maxLength": 1000 } },
+        "reports": { "type": "array", "maxItems": 20, "items": { "type": "string", "minLength": 1, "maxLength": 300 } },
+        "timeout": { "$ref": "#/$defs/duration" }
       }
     }
   }
