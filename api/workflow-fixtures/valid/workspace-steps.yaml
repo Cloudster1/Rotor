@@ -1,0 +1,38 @@
+# Workspaces (#136): a coder that edits the issue's branch and pushes it, and a code node that reads it back.
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: workspace-steps}
+inputs:
+  type: object
+  required: [issue]
+  properties: {issue: {type: string}}
+tools:
+  repo:
+    tool: armature
+    scopes: [read, issue.write]
+    access: write
+    repository: {project: CP, name: acme/portal}
+    allowTools: [create_issue_branch]
+limits: {maxSteps: 40, timeout: 1h}
+entry: branch
+nodes:
+  - id: branch
+    type: tool
+    tool: repo
+    call: create_issue_branch
+    arguments: {issueKey: "{{ inputs.issue }}", repository: acme/portal}
+  - id: code
+    type: agent
+    workspace: {repository: repo, branch: "{{ nodes.branch.branch.name }}", image: golang-1.26, access: write}
+    prompt: Implement {{ inputs.issue }} with a test, and run the tests until they pass.
+  - id: check
+    type: code
+    workspace: {repository: repo, branch: "{{ nodes.branch.branch.name }}", image: golang-1.26}
+    output: {schema: {type: object}}
+    source: |
+      def run(state, ctx):
+          found = ctx.workspace.list_files(".")
+          return {"files": len(found)}
+edges:
+  - {from: branch, to: code}
+  - {from: code, to: check}

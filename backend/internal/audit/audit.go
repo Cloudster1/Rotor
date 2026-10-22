@@ -59,6 +59,8 @@ const (
 	// write a triggered run made with no approval through a call its owner agreed to.
 	ActionUnattendedSwitched     = "unattended.switched"
 	ActionTriggerUnattendedWrite = "trigger.unattended_write"
+	// ActionWorkspacesChanged is an administrator changing what workspaces may use (#136).
+	ActionWorkspacesChanged = "workspaces.changed"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
@@ -69,7 +71,7 @@ var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, Actio
 	ActionHookSecretChanged, ActionLimitsChanged, ActionLangSmithChanged,
 	ActionSandboxSpawned, ActionSandboxDestroyed, ActionRunEnded, ActionApprovalRequested, ActionAuditExported,
 	ActionRetentionChanged, ActionRunDataDeleted, ActionOAuthGranted, ActionOAuthRevoked, ActionOAuthSwitched,
-	ActionUnattendedSwitched, ActionTriggerUnattendedWrite}
+	ActionUnattendedSwitched, ActionTriggerUnattendedWrite, ActionWorkspacesChanged}
 
 // Redacted stands in the record for a value that looked like a credential.
 var Redacted = redact.Redacted

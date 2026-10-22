@@ -40,6 +40,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/usage"
 	"github.com/cloudster1/rotor/backend/internal/version"
 	"github.com/cloudster1/rotor/backend/internal/workflows"
+	"github.com/cloudster1/rotor/backend/internal/workspaces"
 )
 
 // devOrigins are where the web client's development server runs.
@@ -122,6 +123,9 @@ func run() error {
 	defer store.Close()
 	// Without OpenBao there are no tools, so workflows are checked without them and nobody starts a run.
 	workflowService := workflows.NewService(cluster, nil)
+	// What workspaces may use (#136): a workflow's images are checked when it is saved and when a run starts.
+	workspaceService := workspaces.New(cluster)
+	workflowService.Images = workspaceService
 	if secrets != nil {
 		server.Vault = secrets
 		registry := tools.NewService(cluster, secrets, boot.ToolClient(cfg), cfg.ConnectionCallbackURL(), cfg.Env == config.EnvDevelopment)
@@ -135,6 +139,7 @@ func run() error {
 		reader := catalog.NewService(registry, people, boot.ToolClient(cfg), store, log)
 		server.Catalogs = reader
 		workflowService = workflows.NewService(cluster, reader)
+		workflowService.Images = workspaceService
 		// Every run's data is sealed with a key of its own, which OpenBao wraps (#41).
 		keys := envelope.NewKeys(secrets)
 		runService := runs.NewService(cluster, keys, workflowService, registry, people, store)
@@ -158,7 +163,7 @@ func run() error {
 		// Usage (#38): a run's person's quota and its model's prices are checked as it starts.
 		usageService := usage.NewService(cluster, models)
 		server.Usage, runService.Usage = usageService, usageService
-		runService.Catalogs = reader
+		runService.Catalogs, runService.Images = reader, workspaceService
 		go func() {
 			if err := runners.Serve(ctx, cfg.Runner.Addr, secrets); err != nil {
 				log.Error("the runner protocol stopped", "error", err)
@@ -168,6 +173,7 @@ func run() error {
 	server.Workflows = workflowService
 	server.Audit = audit.NewService(cluster)
 	server.Retention = retention.NewService(cluster, log)
+	server.Workspaces = workspaceService
 	origins := cfg.CORSOrigins
 	if len(origins) == 0 && !cfg.IsProduction() {
 		origins = devOrigins

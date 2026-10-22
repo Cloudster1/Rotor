@@ -88,8 +88,8 @@ tools:
 - `create_issue_branch` makes the issue's branch, and `open_pull_request`
   opens its pull request into the default branch. Both write, so the rules
   for writes, approvals and unattended calls apply to them as to any call.
-- Workspaces (#136) check the branch out; until they are built a run gets
-  the repository's address and token, and nothing clones yet.
+- A step with a [workspace](#workspaces-136) checks the branch out, and
+  with `access: write` pushes what it changed.
 
 A run a trigger starts writes only after an approval node, except through
 calls its binding names `unattended` (#128). The trigger's owner agrees to
@@ -229,6 +229,54 @@ step wait together: each is in the inbox, the run page links to each, and the
 run goes on once every one is decided. One rejected ends the run, and one
 expired expires it, as a single approval does.
 
+### Workspaces (#136)
+
+An agent or a code node with `workspace` works on a checkout of the run's
+branch of a repository binding, in a toolchain image an administrator allows:
+
+```yaml
+- id: code
+  type: agent
+  workspace: {repository: repo, branch: "{{ nodes.branch.branch.name }}", image: golang-1.26, access: write}
+  prompt: Implement {{ inputs.issue }} with a test, and run the tests until they pass.
+```
+
+- `repository` names a [repository binding](#a-repository-binding-137);
+  with `access: write` that binding needs `access: write` too.
+- `branch` is the branch to work on, fixed or a template of the run's inputs
+  or a node's output, such as the branch `create_issue_branch` made.
+- `image` is a name from the images an administrator allows in the
+  settings, never a reference; a workflow naming another is refused when it
+  is saved and when a run starts.
+- At the step's start the runner fetches the branch alone, at depth 1. At
+  its end, with `access: write`, it commits what changed and pushes it with
+  the run's token, as the run's person. A step that fails pushes nothing, and
+  neither does one that reads. A branch someone moved on meanwhile is never
+  overwritten; the step fails and says so.
+- An agent gets the tools `list_files`, `read_file`, `search` and
+  `run_command`, and with `write` also `write_file` and `edit_file`. What a
+  file or a command says reaches the model fenced as data, like any tool's
+  answer. A code node gets the same calls as `ctx.workspace`, such as
+  `ctx.workspace.run_command(["go", "test", "./..."])`, which answers
+  `exitCode`, `timedOut`, `durationMs`, `output` and `truncated`.
+- `run_command` runs a list of arguments in the toolchain, never a shell
+  line: `["go", "test", "./..."]`, or `["sh", "-c", "..."]` where a shell is
+  what you want. It may run 15 minutes unless the call says, at most what is
+  left of the step; past that its whole process group ends. The output keeps
+  its first and last 32 KiB.
+- No tool follows a symbolic link and every path stays inside the work tree,
+  so a link the repository or a command plants never reads the runner's own
+  files. A link is committed as a link.
+- Nothing but the branch is kept between steps: each step starts from the
+  pushed branch with empty build caches, and what a step started is ended
+  when it ends. A run waiting for an approval holds no workspace.
+- Builds fetch packages from the one mirror an administrator names, as
+  `GOPROXY`, `GOSUMDB` and `npm_config_registry`; nothing else on the
+  internet. Without a mirror, `GOPROXY` is `off`.
+- A run takes at most 50 workspace steps; a step takes at most the time an
+  administrator sets (an hour unless they say), and its work tree at most the
+  size they set (1 GiB unless they say).
+
 ### Limits
 
 `maxSteps` bounds how many steps a run takes, each node of every branch one,
@@ -274,6 +322,8 @@ When a workflow is saved, and again when a run starts:
   - an agent takes at most the workflow's `maxSteps`, and its role holds no
     template
   - a repository's `project` and `name` read nothing but `inputs`
+  - a workspace names a repository binding, and writes only through one that
+    may push (`workspace_binding`)
 - **The models an administrator allows:** an agent's own `model` is one of
   them (`model_not_allowed`).
 - **The tools as you see them,** when saving, and when a run starts, read
@@ -284,6 +334,7 @@ When a workflow is saved, and again when a run starts:
     see; one named by `inputs` is checked once the run's inputs are known
   - a read binding allows only tools that only read
   - a binding with `approval: beforeWrite` cannot be written through on any way that skips an approval
+  - a workspace's image is one an administrator allows (`image_not_allowed`)
 
 Each problem names where it is, by line and column, and what to do about it.
 

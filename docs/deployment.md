@@ -85,6 +85,34 @@ by default), which the chart creates under the restricted Pod Security standard.
 - **Dialling back.** Sandboxes dial the api's Service (`<fullname>-api.<namespace>.svc`, port
   `api.runnerPort`) over TLS; the certificate comes from OpenBao's PKI for that name.
 
+### Workspaces
+
+A run whose workflow has workspace steps (#136) gets, in the same gVisor pod, one toolchain container per image
+those steps name, beside the runner. `docs/decisions.md` ("Workspaces in a toolchain container beside the runner")
+says why this shape.
+
+- **The exec agent.** An init container from `images.agent` (`ghcr.io/cloudster1/rotor-agent`, released and signed
+  with the other images) copies a small static binary into a memory volume, and each toolchain container starts it
+  as its entrypoint, so any toolchain image works as it is. The runner reaches it over the pod's loopback with a
+  secret of the sandbox's, which code nodes never hold; between steps it ends every process a step started and
+  empties the caches. Name it by digest in `images.agent.digest` as you do the runner.
+- **The images.** Administrators allow toolchain images in Rotor's settings, by a name workflows give and a
+  reference pinned by digest. With `sandbox.admission.requireSignature`, list globs of them in
+  `sandbox.workspaces.toolchainImages`, such as `docker.io/library/golang@sha256:*`; they are no image of Rotor's, so
+  the admission lets them run as they are, and refuses a workspace pod whose toolchain matches none.
+- **Their size.** Each toolchain container is hardened as the runner is, gets
+  `sandbox.workspaces.toolchain.memoryMiB` (3072) and `milliCPUs` (2000), 4 GiB of caches on disk and a work tree in
+  memory as large as the settings allow (1 GiB unless an administrator says). Plan the nodes for the runner's and
+  the toolchains' memory together.
+- **The package mirror.** Builds fetch dependencies from one mirror an administrator runs, such as Athens for Go and
+  Verdaccio for npm, and names in the settings; the toolchains get it as `GOPROXY`, `GOSUMDB` and
+  `npm_config_registry`. Let workspace pods reach it with `sandbox.workspaces.packageMirror.host` (needs Cilium) or
+  `.cidr`; the policy selects pods labelled `rotor.dev/workspace`, so other sandboxes never reach it. Name the same
+  host in both places. The public Go proxy is no mirror: it fetches any module asked for and redirects to Cloud
+  Storage, which would open every bucket.
+- **git.** The runner alone fetches and pushes, through Armature's git proxy, which the tools' egress already
+  allows; the run's token never reaches a toolchain.
+
 ### What a sandbox may reach
 
 A prompt-injected run must not send what it read anywhere else, so sandbox egress is denied by default
@@ -105,12 +133,12 @@ the Kubernetes API included. The install test proves each of these from a pod wi
 
 ### Images you can check
 
-Rotor's images, backend, web and runner, are signed with cosign and carry their SPDX SBOMs as signed attestations
+Rotor's images, backend, web, runner and agent, are signed with cosign and carry their SPDX SBOMs as signed attestations
 (#42), so you can tell what runs in a sandbox and that it is the image that was built. A release (#44,
 `docs/releasing.md`) signs them keyless, as its own workflow at the release's tag; the targets below do the same with a
 key for images you build.
 
-- **By digest.** Set `images.backend.digest`, `images.web.digest` and `images.runner.digest` to the digests you
+- **By digest.** Set `images.backend.digest`, `images.web.digest`, `images.runner.digest` and `images.agent.digest` to the digests you
   checked, which the release notes list; a digest wins over the tag, and a tag can be moved after it was signed while
   a digest cannot.
 - **Check one.** `make verify IMAGES=<image>@sha256:... COSIGN_KEYLESS=1` checks a released image's signature and SBOM

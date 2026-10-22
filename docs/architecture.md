@@ -211,6 +211,15 @@ sandbox as a pod in the sandbox namespace instead:
 The namespace enforces the restricted Pod Security standard, and the worker
 may manage pods and Secrets there and nothing else.
 
+A run whose pinned version has workspace steps (#136) gets, in the same
+sandbox, one toolchain container per image beside the runner: in a pod, an
+init container copies the exec agent (`cmd/workspace-agent`, the image
+`rotor-agent`) in; in Docker the toolchain joins the runner's network
+namespace and the agent comes as an image mount. Both share a work tree; the
+runner alone holds the git directory and the token, does git with dulwich,
+and reaches each agent over loopback with a secret code nodes do not hold
+(`runner/src/rotor_runner/workspace`).
+
 ## Runs and the worker (#22)
 
 A person starts a run of a workflow they may see with

@@ -128,6 +128,15 @@ type Service struct {
 	Usage StartCheck
 	// Catalogs reads the tools as the run's person sees them now, to check its writes again (#90); nil skips that.
 	Catalogs Catalogs
+	// Images lists the toolchain images administrators allow now (#136); nil leaves it to the worker.
+	Images workflows.ImageSource
+}
+
+// ImageNotAllowed is a run whose workspaces name an image no administrator allows any more.
+type ImageNotAllowed struct{ Problems []spec.Problem }
+
+func (e *ImageNotAllowed) Error() string {
+	return "a workspace image is not allowed: " + e.Problems[0].Message
 }
 
 // Catalogs reads what a spec's tools offer, from the tools themselves; *catalog.Service is the real one.

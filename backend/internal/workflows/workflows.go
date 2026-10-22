@@ -85,12 +85,19 @@ type ModelSource interface {
 	Models(ctx context.Context) ([]providers.Model, error)
 }
 
+// ImageSource lists the toolchain images administrators allow workspaces (#136); *workspaces.Service is the real one.
+type ImageSource interface {
+	ImageNames(ctx context.Context) ([]string, error)
+}
+
 // Service is the workflows.
 type Service struct {
 	db      *db.Cluster
 	catalog CatalogSource
 	// Models checks an agent's own model when a workflow is saved (#133); nil leaves it to the run's start.
 	Models ModelSource
+	// Images checks a workspace's image when a workflow is saved (#136); nil leaves it to the run's start.
+	Images ImageSource
 }
 
 // NewService returns the workflows; catalog may be nil, which checks a spec without its tools.

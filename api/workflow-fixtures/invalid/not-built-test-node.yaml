@@ -1,4 +1,3 @@
-# expect: /nodes/0/workspace not_built
 # expect: /nodes/1/type not_built
 apiVersion: rotor.dev/v1
 kind: Workflow

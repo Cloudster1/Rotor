@@ -6,9 +6,9 @@ func init() {
 }
 
 var m13Operations = []operation{
-	{method: "GET", path: "/settings/workspaces", handler: "handleGetWorkspaces", tag: "workflows", admin: true, pending: true,
+	{method: "GET", path: "/settings/workspaces", handler: "handleGetWorkspaces", tag: "workflows", admin: true,
 		summary: "The toolchain images, package mirror and limits a workflow's workspaces may use.", responses: ok(workspaceSetting{})},
-	{method: "PUT", path: "/settings/workspaces", handler: "handleSetWorkspaces", tag: "workflows", admin: true, pending: true,
+	{method: "PUT", path: "/settings/workspaces", handler: "handleSetWorkspaces", tag: "workflows", admin: true,
 		summary:     "Set the images workspaces may use, the package mirror they reach and their limits.",
 		description: "A workflow naming an image no longer allowed is refused when it is saved or a run starts.",
 		request:     workspaceSetting{}, responses: ok(workspaceSetting{})},
@@ -22,7 +22,7 @@ type workspaceSetting struct {
 	MaxVolume     string           `json:"maxVolume"`
 }
 
-// workspaceImage is a toolchain image: the name a workflow gives, and the pinned reference it stands for.
+// workspaceImage is a toolchain image: the name a workflow gives, and the reference, pinned by digest, it stands for.
 type workspaceImage struct {
 	Name      string `json:"name"`
 	Reference string `json:"reference"`

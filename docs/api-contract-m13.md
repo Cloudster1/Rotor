@@ -290,6 +290,51 @@ tools:
   - in compose the toolchain joins the runner's network namespace the same
     way, for the gate.
 
+### As built (#136)
+
+- **Settings.** `maxStepTime` (`1h` unless set, from `1m` to `6h`) bounds a
+  whole workspace step, and `maxVolume` (`1Gi` unless set, from `64Mi` to
+  `8Gi`) the work tree. An image's `reference` must carry its digest, a name
+  is lowercase as workflows give it, and `packageMirror` is one `http(s)`
+  address without credentials, or empty. A change is audited as
+  `workspaces.changed`. Without a mirror `GOPROXY` is `off`.
+- **Checks.** `workspace_binding` also refuses `access: write` through a
+  binding without `access: write`, and a `branch` reading anything but
+  `inputs` or a node. `image_not_allowed` is checked when saving and when a
+  run starts (`422 image_not_allowed`); an image unallowed between the start
+  and the sandbox ends the run with the reason `image_not_allowed`.
+- **The sandbox.** The worker reads the pinned version's images, resolves
+  them with the setting and puts them in `sandbox.Spec.Workspace`; nothing
+  changed in the runner protocol. The runner learns its toolchains from
+  `ROTOR_WORKSPACE` (`{agents: {image: port}, stepSeconds}`) and the agents'
+  secret from `ROTOR_WORKSPACE_SECRET`, which it drops from its environment
+  as it does the bootstrap token and holds in its redactor. Agents listen on
+  `127.0.0.1:7700` and up, one port per image. The exec agent is the image
+  `rotor-agent` (`deploy/Dockerfile.agent`, `backend/cmd/workspace-agent`),
+  released and signed with the others. A pod with toolchains is labelled
+  `rotor.dev/workspace`, which the mirror's egress selects; its runner's end
+  ends the sandbox, as the toolchains serve on.
+- **Steps.** Each step gets `/workspace/<n>-<node>` and
+  `/private/<n>-<node>`, both removed at its end after the agent's reset.
+  The runner commits as `Rotor <rotor@rotor.invalid>`; the push carries the
+  person's token. A push whose branch moved on since the fetch fails the
+  step. A step's events: `workspace.checkout` (branch, commit, image),
+  `workspace.command` (argv, exit code, duration, the output's tail),
+  `workspace.pushed` (branch, commit, parent) or `workspace.unchanged`.
+  Failures end the run with `workspace_error`, `workspace_timeout`,
+  `workspace_binding`, `workspace_branch`, `workspace_steps` or
+  `workspace_unavailable`.
+- **Runner code for #138.** `async with ctx.workspaces.step(node, state,
+  ctx) as ws:` gives a step's `Workspace`; `await ws.run_command(argv,
+  cwd=".", timeout_s=None)` answers a `CommandResult` (`exit_code`,
+  `timed_out`, `duration_ms`, `output`, `truncated`), and
+  `ws.tree.read_bytes(path, limit)` reads a file without following a link.
+- **Checks of the shape.** The runner image's `--workspace-check` proves a
+  sandbox from inside: the agent refuses a caller without the secret, the
+  work tree is shared, a planted link is refused and committed as a link,
+  the reset ends a process that left its group, and a push lands. The Docker
+  backend's integration test and the Kubernetes test under gVisor run it.
+
 ## The `test` node (#138)
 
 ```yaml
