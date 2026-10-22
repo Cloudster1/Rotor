@@ -11,6 +11,8 @@ const (
 	MaxCommandOutput = 64 << 10
 	// DefaultCommandTimeout is how long a command runs unless the call says, at most the step's time left.
 	DefaultCommandTimeout = 15 * time.Minute
+	// MaxTestReport is the JUnit a test step reads, all its reports together (#138).
+	MaxTestReport = 4 << 20
 	// DefaultWorkspaceStepTime and DefaultWorkspaceVolume are the settings' defaults: a step's time and the work tree.
 	DefaultWorkspaceStepTime = time.Hour
 	DefaultWorkspaceVolume   = 1 << 30

@@ -21,9 +21,6 @@ func notBuilt(s *Spec) []Problem {
 				add(base+"/"+f.field, "A node's "+f.field, f.issue)
 			}
 		}
-		if n.Type == TypeTest {
-			add(base+"/type", "The test node", 138)
-		}
 	}
 	return out
 }

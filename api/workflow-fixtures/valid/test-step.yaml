@@ -1,0 +1,40 @@
+# The test node (#138): a coder writes on the issue's branch, then the project's tests run and report each case.
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: test-step}
+inputs:
+  type: object
+  required: [issue]
+  properties: {issue: {type: string}}
+tools:
+  repo:
+    tool: armature
+    scopes: [read, issue.write]
+    access: write
+    repository: {project: CP, name: acme/portal}
+    allowTools: [create_issue_branch]
+limits: {maxSteps: 40, timeout: 1h}
+entry: branch
+nodes:
+  - id: branch
+    type: tool
+    tool: repo
+    call: create_issue_branch
+    arguments: {issueKey: "{{ inputs.issue }}", repository: acme/portal}
+  - id: code
+    type: agent
+    workspace: {repository: repo, branch: "{{ nodes.branch.branch.name }}", image: golang-1.26, access: write}
+    prompt: Implement {{ inputs.issue }} with tests tagged [verifies KEY] by the test cases they cover.
+  - id: test
+    type: test
+    workspace: {repository: repo, branch: "{{ nodes.branch.branch.name }}", image: golang-1.26, access: read}
+    command: [gotestsum, --junitfile, junit.xml, --, ./...]
+    reports: [junit.xml]
+    timeout: 20m
+  - id: report
+    type: agent
+    prompt: "Say which cases of {{ inputs.issue }} pass, from these results: {{ nodes.test.cases }}"
+edges:
+  - {from: branch, to: code}
+  - {from: code, to: test}
+  - {from: test, to: report}
