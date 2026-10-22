@@ -96,7 +96,7 @@ test("a person gives an agent its own role on the canvas, and the YAML keeps it 
   await expect(page.locator("[data-problems]")).toContainText("No problems found.");
   await page.getByRole("tab", { name: "Canvas" }).click();
   const inspector = page.locator("[data-inspector]");
-  await expect(inspector.getByLabel("Model", { exact: true })).toHaveValue("");
+  await expect(inspector.getByRole("combobox", { name: /^Model/ })).toHaveValue("");
   await inspector.getByLabel("Role", { exact: true }).focus();
   await page.keyboard.type("You are a security reviewer.");
   await expect(page.locator("[data-problems]")).toContainText("No problems found.");
