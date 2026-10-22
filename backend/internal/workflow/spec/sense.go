@@ -103,6 +103,7 @@ func checkSense(s *Spec) []Problem {
 	}
 	out = append(out, reviewDeciders(s)...)
 	out = append(out, unattendedOutsideAllow(s)...)
+	out = append(out, repositorySense(s)...)
 	out = append(out, notBuilt(s)...)
 	if known(s.Entry) {
 		reached := reach(s, index, s.Entry, nil)

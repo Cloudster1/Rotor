@@ -32,6 +32,7 @@ from rotor_runner.loops import arrive, counted, counts_anywhere, landings, visit
 from rotor_runner.mcp import ToolFailedError, ToolGateway, ToolRefusedError
 from rotor_runner.policy import Fence, policy_text
 from rotor_runner.preview import preview
+from rotor_runner.repository import Repositories, RepositoryAccess
 from rotor_runner.spec import Spec
 from rotor_runner.telemetry import RunTracing
 from rotor_runner.templates import lookup, render, render_prompt
@@ -72,10 +73,18 @@ class RunContext:
     # The public hosts of the run's tools, the only ones an agent's links may name (#40).
     link_hosts: frozenset[str] = frozenset()
     fence: Fence = field(default_factory=Fence)
+    # The run's repository bindings (#137); None for a run, or a test, without any.
+    repositories: Repositories | None = None
     links: LinkLimiter = field(init=False)
 
     def __post_init__(self) -> None:
         self.links = LinkLimiter(self.link_hosts)
+
+    async def repository(self, binding: str) -> RepositoryAccess:
+        """A repository binding's clone address and current token, for the runner's own git alone (#136)."""
+        if self.repositories is None:
+            raise ToolRefusedError(f"{binding} is not a repository binding of the workflow")
+        return await self.repositories.access(binding)
 
 
 @dataclass

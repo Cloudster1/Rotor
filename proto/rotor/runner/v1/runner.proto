@@ -164,6 +164,17 @@ message ToolBinding {
   repeated string allow_tools = 6;
   // link_hosts are the tool's public hosts, the only ones links an agent writes may point at (#40).
   repeated string link_hosts = 7;
+  // repository is set on a repository binding: what the runner clones, with the binding's own token (#137).
+  Repository repository = 8;
+}
+
+// Repository is a project's repository a binding names, with the run's inputs filled in, at the tool's git proxy.
+message Repository {
+  string project = 1;
+  // name is the repository's owner/name, as the tool lists it.
+  string name = 2;
+  // clone_url is the git proxy's address of the repository; the credential is the binding's token, as a bearer.
+  string clone_url = 3;
 }
 
 // ModelConfig is the provider a run's agent nodes use; its key arrives in a SecretGrant.

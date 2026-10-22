@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cloudster1/rotor/backend/internal/auth"
+	"github.com/cloudster1/rotor/backend/internal/tools/profiles"
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 	"github.com/cloudster1/rotor/backend/internal/workflows"
 )
@@ -103,7 +104,9 @@ func toVersionResponse(v workflows.Version) versionResponse {
 		if access == "" {
 			access = spec.AccessRead
 		}
-		out.Bindings = append(out.Bindings, bindingRef{Name: name, Tool: b.Tool, Scopes: append([]string{}, b.Scopes...), Access: access})
+		// A repository binding that writes also pushes, so the person consents to that too (#137).
+		scopes := profiles.For(b.Tool).BindingScopes(append([]string{}, b.Scopes...), b.Writes(), b.Repository != nil)
+		out.Bindings = append(out.Bindings, bindingRef{Name: name, Tool: b.Tool, Scopes: scopes, Access: access})
 	}
 	sort.Slice(out.Bindings, func(i, j int) bool { return out.Bindings[i].Name < out.Bindings[j].Name })
 	if calls := parsed.UnattendedCalls(); len(calls) > 0 {

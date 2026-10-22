@@ -42,6 +42,15 @@ and the versioning [Semantic Versioning](https://semver.org/).
   and routers read the count as `visits.<id>`, a loop with no `maxVisits` is
   saved with the warning `unbounded_loop`, the run's timeline numbers each
   visit, and the canvas and the run page draw an edge back as a loop.
+- A workflow can bind a repository Armature connects to a project (#137):
+  `repository: {project, name}` on an Armature binding, fixed or named by
+  the run's inputs, checked with `list_repositories` as the person when the
+  workflow is saved or the run starts. A run gets the repository's address
+  at Armature's git proxy and its own token for it, with `git.write` when the
+  binding writes, so no host token reaches Rotor; `create_issue_branch` and
+  `open_pull_request` make the issue's branch and its pull request as the
+  person. People connected to Armature before connect again to allow pushes.
+  Workspaces (#136) will clone with it.
 - How a workflow writes code is agreed (#131): `docs/api-contract-m13.md`
   says how an agent gets its own model, role and step budget, how a loop is
   bounded, how parallel branches join, how a step checks out the run's

@@ -223,6 +223,27 @@ tools:
   `list_repositories` as the person; templates are checked when the run
   starts.
 
+### As built (#137)
+
+- **The scope follows the access.** A repository binding with
+  `access: write` asks for `git.write` beside its `scopes`, and one with
+  `read` never does, whatever `scopes` lists; the start page's bindings and
+  the check that the person consented use the same scopes.
+- **Templates at the start.** A run whose inputs leave a repository's name
+  out, or name one the person does not see, is refused as `inputs_invalid`,
+  the problem placed at the input (`inputs/repository`), not as
+  `tools_changed`.
+- **The runner protocol.** `ToolBinding.repository` carries `project`,
+  `name` and `clone_url`, at an address the sandbox reaches; the credential
+  is the binding's token from `TokenRequest`. The runner offers it as
+  `RunContext.repository(binding)`, an address and token for its own git
+  alone (#136): code nodes never get it.
+- **The tool double** answers `list_repositories`,
+  `get_issue_development`, `create_issue_branch` and `open_pull_request`,
+  lists `git-proxy@1`, and serves its repositories over git's smart HTTP
+  (version 0, shallow fetches included), refusing what Armature's proxy
+  refuses.
+
 ## Workspaces (#136)
 
 ```yaml

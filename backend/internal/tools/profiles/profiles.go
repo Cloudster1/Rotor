@@ -25,6 +25,8 @@ type Profile struct {
 	LifetimeParam string
 	// PendingRegistration is a tool that holds a client registering itself until its administrator allows it.
 	PendingRegistration bool
+	// GitWrite is the scope a push through the tool's git proxy needs; empty for a tool Rotor clones nothing from (#137).
+	GitWrite string
 }
 
 // Generic is a tool Rotor knows nothing particular of, named as Exciter names its scopes, which the suite's MCP
@@ -35,7 +37,7 @@ var known = map[string]Profile{
 	"exciter": {Product: "exciter", ReadScopes: []string{"mcp:read"}, Unused: []string{"evidence"}, ReadSuffix: ":read"},
 	// Armature's scopes are in its docs/oauth.md: read is required with every other, webhooks.partner is the app's own.
 	"armature": {Product: "armature", ReadScopes: []string{"read"}, Unused: []string{"webhooks.partner"}, Implied: []string{"read"},
-		SharedGrantToken: true, LifetimeParam: "armature_expires_in", PendingRegistration: true},
+		SharedGrantToken: true, LifetimeParam: "armature_expires_in", PendingRegistration: true, GitWrite: "git.write"},
 }
 
 // For is the profile of the product a tool's /meta names, Generic for one Rotor knows nothing particular of.
@@ -90,6 +92,19 @@ func (p Profile) WithImplied(asked []string) []string {
 		if !slices.Contains(out, scope) {
 			out = append(out, scope)
 		}
+	}
+	return out
+}
+
+// BindingScopes are what a binding's token asks for: a repository binding that writes also pushes, so it takes
+// the git scope, and one that reads never does, whatever the binding lists.
+func (p Profile) BindingScopes(scopes []string, write, repository bool) []string {
+	if !repository || p.GitWrite == "" {
+		return scopes
+	}
+	out := slices.DeleteFunc(slices.Clone(scopes), func(s string) bool { return s == p.GitWrite })
+	if write {
+		out = append(out, p.GitWrite)
 	}
 	return out
 }

@@ -265,7 +265,8 @@ def check_sense(document: dict[str, Any]) -> list[Problem]:
         out.extend(_text_and_loop_sense(node, base, index))
     out.extend(_review_deciders(tools))
     out.extend(_unattended_outside_allow(tools))
-    out.extend(_not_built(nodes, tools))
+    out.extend(_repository_sense(tools))
+    out.extend(_not_built(nodes))
     if entry in index:
         reached = {entry}
         queue = [entry]
@@ -346,20 +347,38 @@ NOT_BUILT_FIELDS = {
 }
 
 
-def _not_built(nodes: list[dict[str, Any]], tools: dict[str, dict[str, Any]]) -> list[Problem]:
+def _not_built(nodes: list[dict[str, Any]]) -> list[Problem]:
     """Refuses the fields M13 agreed until their issue merges, as Go's notBuilt, so no run takes one it would ignore."""
     out: list[Problem] = []
-    for name in sorted(tools):
-        if "repository" in tools[name]:
-            out.append(
-                Problem(f"/tools/{_escape(name)}/repository", "not_built", "A repository binding is not built yet.")
-            )
     for i, node in enumerate(nodes):
         for name, issue in NOT_BUILT_FIELDS.items():
             if name in node:
                 out.append(Problem(f"/nodes/{i}/{name}", "not_built", f"{name} is not built yet (#{issue})."))
         if node["type"] == "test":
             out.append(Problem(f"/nodes/{i}/type", "not_built", "The test node is not built yet (#138)."))
+    return out
+
+
+def _repository_sense(tools: dict[str, dict[str, Any]]) -> list[Problem]:
+    """A repository named by anything but the run's inputs is refused, as Go's repositorySense: what a run read
+    must never choose where its code goes (#137)."""
+    out: list[Problem] = []
+    for name in sorted(tools):
+        repository = tools[name].get("repository")
+        if repository is None:
+            continue
+        for part in ("name", "project"):
+            value = str(repository[part])
+            path = f"/tools/{_escape(name)}/repository/{part}"
+            rest = TEMPLATE_REF.sub("", value)
+            if "{{" in rest or "}}" in rest:
+                out.append(
+                    Problem(path, "repository_binding", f"The repository's {part} holds an unreadable template.")
+                )
+            for match in TEMPLATE_REF.finditer(value):
+                if not match.group(1).startswith("inputs."):
+                    message = f"The repository's {part} may read the run's inputs alone, not {match.group(1)}."
+                    out.append(Problem(path, "repository_binding", message))
     return out
 
 

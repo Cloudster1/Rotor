@@ -1,0 +1,21 @@
+# expect: /tools/repo/repository/name repository_binding
+# expect: /tools/repo/repository/project repository_binding
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+inputs: {type: object, properties: {project: {type: string}}}
+tools:
+  repo:
+    tool: armature
+    scopes: [read, issue.write]
+    access: write
+    allowTools: [create_issue_branch]
+    repository: {project: "{{ inputs.project }", name: "{{ nodes.pick.repository }}"}
+limits: {maxSteps: 5, timeout: 1m}
+entry: branch
+nodes:
+  - id: branch
+    type: tool
+    tool: repo
+    call: create_issue_branch
+    arguments: {issueKey: CP-12, repository: acme/portal}

@@ -121,7 +121,12 @@ func (r *run) sessionExpiry() time.Time {
 func (s *Server) resolve(ctx context.Context, r *run) ([]*runnerpb.ToolBinding, map[string]binding, error) {
 	var out []*runnerpb.ToolBinding
 	resolved := map[string]binding{}
-	for name, b := range r.spec.Tools {
+	// The run's start checked each repository its inputs name with the tool; here they are only filled in.
+	filled, problems := r.spec.WithInputs(r.Inputs)
+	if len(problems) > 0 {
+		return nil, nil, fmt.Errorf("the run's inputs do not name its repositories: %v", problems)
+	}
+	for name, b := range filled.Tools {
 		tool, err := s.Tools.ByName(ctx, b.Tool)
 		if err != nil {
 			return nil, nil, fmt.Errorf("binding %s names tool %s: %w", name, b.Tool, err)
@@ -130,7 +135,7 @@ func (s *Server) resolve(ctx context.Context, r *run) ([]*runnerpb.ToolBinding, 
 		if access == "" {
 			access = spec.AccessRead
 		}
-		scopes := b.Scopes
+		scopes := tool.Profile().BindingScopes(b.Scopes, b.Writes(), b.Repository != nil)
 		if access == spec.AccessRead && len(scopes) == 0 && tool.OffersExchange() {
 			// An exchanged token carries only what is asked, so a reading binding asks for reading alone.
 			scopes = tool.Profile().ReadScopes
@@ -139,11 +144,30 @@ func (s *Server) resolve(ctx context.Context, r *run) ([]*runnerpb.ToolBinding, 
 		if s.Reach != nil {
 			mcpURL = s.Reach(mcpURL)
 		}
-		out = append(out, &runnerpb.ToolBinding{Binding: name, ToolId: tool.ID.String(), McpUrl: mcpURL,
-			Scopes: scopes, Access: access, AllowTools: b.AllowTools, LinkHosts: tool.LinkHosts()})
+		bound := &runnerpb.ToolBinding{Binding: name, ToolId: tool.ID.String(), McpUrl: mcpURL,
+			Scopes: scopes, Access: access, AllowTools: b.AllowTools, LinkHosts: tool.LinkHosts()}
+		if b.Repository != nil {
+			if bound.Repository, err = s.repository(tool, name, *b.Repository); err != nil {
+				return nil, nil, err
+			}
+		}
+		out = append(out, bound)
 		resolved[name] = binding{toolID: tool.ID, scopes: scopes}
 	}
 	return out, resolved, nil
+}
+
+// repository is a repository binding as the runner clones it: at the tool's git proxy, at an address the
+// sandbox reaches, with the binding's own token as the credential.
+func (s *Server) repository(tool tools.Tool, name string, r spec.Repository) (*runnerpb.Repository, error) {
+	if !tool.OffersGit() {
+		return nil, fmt.Errorf("binding %s names a repository, and %s does not offer %s", name, tool.Name, tools.CapabilityGitProxy)
+	}
+	cloneURL := tool.CloneURL(r.Project, r.Name)
+	if s.Reach != nil {
+		cloneURL = s.Reach(cloneURL)
+	}
+	return &runnerpb.Repository{Project: r.Project, Name: r.Name, CloneUrl: cloneURL}, nil
 }
 
 // resolveModel finds the run's provider and model, and each agent's own (#133); a model that is not allowed leaves

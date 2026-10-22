@@ -131,8 +131,9 @@ commit Rotor is tested against.
   revoking it ends the grant, so each run's token is exchanged from it, with
   the binding's scopes and `armature_expires_in`; revoking that ends only it.
   Without the exchange Rotor refuses to add Armature.
-- **Scopes.** `read` with every other; `issue.write`, `issue.transition` and
-  `comment.write` write; Rotor never asks for `webhooks.partner`.
+- **Scopes.** `read` with every other; `issue.write`, `issue.transition`,
+  `comment.write` and `git.write` write; Rotor never asks for
+  `webhooks.partner`.
 - **As the person.** A run's write is the person's in Armature: a comment's
   author is them, and Armature refuses what their role does not allow, so a
   reader's run fails with Armature's refusal. A run's token answers
@@ -140,6 +141,28 @@ commit Rotor is tested against.
   write itself with the app yet.
 - **Events.** An Armature administrator adds a webhook at Rotor's hook for the
   tool (version 1); `docs/triggers.md` sets the story workflow up with it.
+- **Repositories (#137).** Where Armature lists `git-proxy@1`
+  (Armature#333), a workflow's repository binding names a repository its
+  project connects, and a run clones and pushes it through Armature's git
+  proxy, `{Armature}/api/v1/git/{project}/{owner}/{name}.git`, with the
+  binding's own exchanged token as a bearer; a GitLab owner with subgroups is
+  one segment, its slashes `%2F`. No host token reaches Rotor or OpenBao.
+  - **Seeing it.** Saving checks a fixed repository with
+    `list_repositories` as the person; one named by the run's inputs is
+    checked when the run starts.
+  - **Pushing.** A writing repository binding's token carries `git.write`,
+    which people consent to when they connect, so a connection made before
+    asks to connect again. Armature lets it push to a branch made for an issue
+    the person may edit, by `create_issue_branch`, never to the default
+    branch, a tag, a deletion or a force push. A reading binding's token never
+    carries `git.write`.
+  - **Branches and pull requests** are Armature's MCP tools
+    (Armature#332): `create_issue_branch` and `open_pull_request` write as
+    the person, with `issue.write`.
+  - **Until Armature#338 and Armature#339 merge,** `deploy/suite/ARMATURE_REF`
+    and `api/tools/armature` name their head, d85bd85, and the suite does
+    not clone yet; the tool double's git proxy stands in for it, held to the
+    real git client.
 
 ### Stator
 

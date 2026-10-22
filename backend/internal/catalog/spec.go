@@ -16,7 +16,7 @@ func (c specCatalog) Tool(name string) (spec.ToolInfo, bool) {
 }
 
 // For reads what a spec's bindings need to know about their tools, as the person on the context sees them. A
-// tool the person is not connected to is known by its scopes alone, so its calls are checked when they connect.
+// tool the person is not connected to is known by its scopes alone, so its calls and repositories wait for them.
 func (s *Service) For(ctx context.Context, sp *spec.Spec) (spec.Catalog, error) {
 	known, err := s.tools.List(ctx)
 	if err != nil {
@@ -37,7 +37,10 @@ func (s *Service) For(ctx context.Context, sp *spec.Spec) (spec.Catalog, error) 
 		if _, done := out[binding.Tool]; done {
 			continue
 		}
-		info := spec.ToolInfo{Scopes: t.ScopesSupported}
+		info := spec.ToolInfo{Scopes: t.ScopesSupported, Git: t.OffersGit()}
+		if info.Git {
+			info.Repositories = s.repositories(ctx, sp, t)
+		}
 		if c, err := s.Get(ctx, t.ID); err == nil {
 			info.Calls = make(map[string]spec.CallInfo, len(c.Tools))
 			for _, call := range c.Tools {
