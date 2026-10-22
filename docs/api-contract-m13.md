@@ -115,6 +115,28 @@ Conventions are M2's: paths under `/api/v1`; refusals are sentences.
 - **Warning** `unbounded_loop`, on save: a cycle in which no node carries
   `maxVisits`. `limits.maxSteps` still ends such a run.
 
+### As built (#134)
+
+- **The state** is `{inputs, nodes, visits}`: a node adds its visit to
+  `visits` when it finishes, so the count is in every checkpoint and an
+  approval that resumes counts on. A node that has not run reads 0.
+- **The guard is on the way in:** every way into a node with `maxVisits`
+  checks the count as the run takes it, so a node never starts past its last
+  visit, and a chain of `onExhausted` nodes with no visit left either ends the
+  run with `loop_exhausted` rather than going round.
+- **Events:** `node.started` carries `visit`, from 1, as `{node, type,
+  visit}`. A resumed approval starts again with the same number.
+- **The graph** (`Spec.Graph()` and the canvas) draws `onExhausted` as an edge
+  labelled `onExhausted`, and the checks count it as a way on, so a node only
+  it reaches is not `unreachable`. An edge back to a node on the way to it is
+  drawn dashed, with an arrow.
+- **The warning** treats a way into a node with `maxVisits` as also going to
+  its `onExhausted`: a loop that only goes there and back is still unbounded.
+  It is one warning per loop, at its first node.
+- **Templates** naming no node are now refused in prompts and approval
+  messages too, for `nodes.` and `visits.` alike; arguments and form values
+  were checked already. Code nodes get `state["visits"]`.
+
 ## Parallel branches (#135)
 
 ```yaml

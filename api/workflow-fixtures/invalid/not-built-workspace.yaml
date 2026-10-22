@@ -1,7 +1,6 @@
 # expect: /tools/repo/repository not_built
 # expect: /nodes/0/workspace not_built
 # expect: /nodes/1/type not_built
-# expect: /nodes/2/on not_built
 apiVersion: rotor.dev/v1
 kind: Workflow
 metadata: {name: broken}

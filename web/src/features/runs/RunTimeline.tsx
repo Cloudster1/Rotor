@@ -13,7 +13,7 @@ function Line({ entry, hosts }: { entry: Entry; hosts: readonly string[] }) {
   const t = s.runs.live;
   switch (entry.kind) {
     case "started":
-      return <p>{t.started(entry.node, entry.type)}</p>;
+      return entry.repeats ? <p data-visit={entry.visit}>{t.startedVisit(entry.node, entry.type, entry.visit)}</p> : <p>{t.started(entry.node, entry.type)}</p>;
     case "finished":
       return entry.ok ? (
         <p>{t.finished(entry.node)}</p>

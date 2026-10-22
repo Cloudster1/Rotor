@@ -32,6 +32,8 @@ export interface SpecNode {
   type: string;
   cases: [string, string][];
   default?: string;
+  /** Where the run goes past the node's last visit (#134). */
+  onExhausted?: string;
   fields: Record<string, string>;
   model?: ModelRef;
 }
@@ -68,6 +70,7 @@ export function parseSpec(source: string): Parsed | undefined {
       type: text(n.type),
       cases: Object.entries(record(n.cases)).map(([value, to]) => [value, text(to)]),
       default: n.default === undefined ? undefined : text(n.default),
+      onExhausted: n.onExhausted === undefined ? undefined : text(n.onExhausted),
       fields,
       model: n.model === undefined ? undefined : { name: text(model.name), provider: text(model.provider) },
     };
@@ -79,7 +82,8 @@ export function parseSpec(source: string): Parsed | undefined {
   return { doc, spec: { entry: text(js.entry), nodes, edges, bindings: Object.keys(record(js.tools)) } };
 }
 
-/** The graph the server's Spec.Graph() draws: nodes in order, the edges, then each router's cases by value and its default. */
+/** The graph the server's Spec.Graph() draws: nodes in order, the edges, each router's cases by value and its default,
+ * then each node's onExhausted. */
 export function graphOf(spec: SpecShape): Graph {
   const seen = new Set<string>();
   const nodes = spec.nodes.filter((n) => n.id !== "" && !seen.has(n.id) && seen.add(n.id)).map((n) => ({ id: n.id, type: n.type }));
@@ -91,6 +95,7 @@ export function graphOf(spec: SpecShape): Graph {
     for (const [value, to] of cases) if (known(to)) edges.push({ from: n.id, to, label: value });
     if (n.default && known(n.default)) edges.push({ from: n.id, to: n.default, label: "default" });
   }
+  for (const n of spec.nodes) if (n.onExhausted && known(n.id) && known(n.onExhausted)) edges.push({ from: n.id, to: n.onExhausted, label: "onExhausted" });
   return { entry: spec.entry, nodes, edges };
 }
 

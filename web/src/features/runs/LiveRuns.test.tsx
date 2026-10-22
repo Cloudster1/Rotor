@@ -109,6 +109,24 @@ describe("a run, live", () => {
     expect(FakeEventSource.last().readyState).toBe(FakeEventSource.CLOSED);
     expect(within(timeline).getByText(s.runs.live.ended(s.runs.status.succeeded))).toBeInTheDocument();
   });
+
+  it("numbers the visits of a node a loop runs again (#134)", async () => {
+    seq = 0;
+    const graph = { entry: "ask", nodes: RUN.graph?.nodes ?? [], edges: [...(RUN.graph?.edges ?? []), { from: "draft", to: "ask", label: "changes" }] };
+    const looping: Run = { ...RUN, graph };
+    await renderAt(`/runs/${RUN.id}`, { answers: { [`/api/v1/runs/${RUN.id}`]: () => Response.json(looping) } });
+    await screen.findByRole("region", { name: s.runs.live.graph });
+    for (const visit of [1, 2]) {
+      send("node.started", "ask", { type: "tool", visit });
+      send("node.finished", "ask", { ok: true });
+    }
+    send("node.started", "draft", { type: "agent", visit: 1 });
+    const timeline = screen.getByRole("region", { name: s.runs.live.timeline });
+    expect(await within(timeline).findByText(s.runs.live.startedVisit("ask", "tool", 2))).toHaveAttribute("data-visit", "2");
+    expect(within(timeline).getByText(s.runs.live.startedVisit("ask", "tool", 1))).toBeInTheDocument();
+    expect(within(timeline).getByText(s.runs.live.started("draft", "agent"))).toBeInTheDocument();
+    expect(await axeViolations()).toEqual([]);
+  });
 });
 
 describe("the runs list", () => {

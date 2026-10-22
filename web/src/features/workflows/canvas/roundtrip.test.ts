@@ -56,7 +56,8 @@ const step = fc.record<Step>({
 const clone = (s: SpecShape): SpecShape => structuredClone(s);
 const pick = <T>(items: T[], n: number): T | undefined => (items.length === 0 ? undefined : items[n % items.length]);
 const swap = (s: string, from: string, to: string) => (s === from ? to : s);
-const refs = (from: string, to: string) => (text: string) => text.replace(new RegExp(`(\\{\\{[^}]*?\\bnodes\\.)${from}(?![a-z0-9_-])`, "g"), `$1${to}`);
+const refs = (from: string, to: string) => (text: string) =>
+  text.replace(new RegExp(`(\\{\\{[^}]*?\\b(?:nodes|visits)\\.)${from}(?![a-z0-9_-])`, "g"), `$1${to}`);
 
 /** What a step does to the plain model, and the text edit and its inverse; undefined when it does not apply. */
 function plan(source: string, model: SpecShape, s: Step) {
@@ -83,7 +84,7 @@ function plan(source: string, model: SpecShape, s: Step) {
         undo: (t: string) => removeNode(t, s.word),
         model: (m: SpecShape) => {
           const fields = Object.fromEntries(MAIN_FIELDS[s.type].map((k) => [k, ""]));
-          m.nodes.push({ id: s.word, type: s.type, cases: [], default: undefined, fields });
+          m.nodes.push({ id: s.word, type: s.type, cases: [], default: undefined, onExhausted: undefined, fields });
         },
       };
     }
@@ -99,9 +100,10 @@ function plan(source: string, model: SpecShape, s: Step) {
             n.id = swap(n.id, a, s.word);
             n.cases = n.cases.map(([v, to]) => [v, swap(to, a, s.word)]);
             if (n.default !== undefined) n.default = swap(n.default, a, s.word);
+            if (n.onExhausted !== undefined) n.onExhausted = swap(n.onExhausted, a, s.word);
             for (const k of Object.keys(n.fields)) n.fields[k] = refs(a, s.word)(n.fields[k] as string);
             if (n.type === "router" && n.fields.on !== undefined)
-              n.fields.on = n.fields.on.replace(new RegExp(`^nodes\\.${a}(?![a-z0-9_-])`), `nodes.${s.word}`);
+              n.fields.on = n.fields.on.replace(new RegExp(`^(nodes|visits)\\.${a}(?![a-z0-9_-])`), `$1.${s.word}`);
           }
         },
       };
@@ -154,6 +156,7 @@ function plan(source: string, model: SpecShape, s: Step) {
           for (const n of m.nodes) {
             n.cases = n.cases.filter(([, to]) => to !== a);
             if (n.default === a) n.default = undefined;
+            if (n.onExhausted === a) n.onExhausted = undefined;
           }
         },
       };

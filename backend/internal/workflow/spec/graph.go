@@ -22,10 +22,14 @@ type Graph struct {
 	Edges []GraphEdge `json:"edges"`
 }
 
-// defaultLabel names a router's way when no case matches.
-const defaultLabel = "default"
+// defaultLabel names a router's way when no case matches, exhaustedLabel a node's way once its visits are used up.
+const (
+	defaultLabel   = "default"
+	exhaustedLabel = "onExhausted"
+)
 
-// Graph is what a run's page draws: the nodes in the spec's order, its edges, then each router's cases.
+// Graph is what a run's page draws: the nodes in the spec's order, its edges, each router's cases, then each node's
+// onExhausted (#134).
 func (s *Spec) Graph() Graph {
 	g := Graph{Entry: s.Entry, Nodes: []GraphNode{}, Edges: []GraphEdge{}}
 	for _, n := range s.Nodes {
@@ -48,6 +52,11 @@ func (s *Spec) Graph() Graph {
 		}
 		if n.Default != "" {
 			g.Edges = append(g.Edges, GraphEdge{From: n.ID, To: n.Default, Label: defaultLabel})
+		}
+	}
+	for _, n := range s.Nodes {
+		if n.OnExhausted != "" {
+			g.Edges = append(g.Edges, GraphEdge{From: n.ID, To: n.OnExhausted, Label: exhaustedLabel})
 		}
 	}
 	return g

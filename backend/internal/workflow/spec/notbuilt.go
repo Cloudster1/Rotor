@@ -1,9 +1,6 @@
 package spec
 
-import (
-	"fmt"
-	"strings"
-)
+import "fmt"
 
 // notBuilt refuses the fields M13 agreed until the issue that builds each merges, so no run takes a field it would
 // ignore; each issue deletes its lines here (docs/api-contract-m13.md).
@@ -25,8 +22,7 @@ func notBuilt(s *Spec) []Problem {
 			field string
 			issue int
 		}{
-			{n.MaxVisits != 0, "maxVisits", 134}, {n.OnExhausted != "", "onExhausted", 134}, {n.Join != "", "join", 135},
-			{n.Workspace != nil, "workspace", 136},
+			{n.Join != "", "join", 135}, {n.Workspace != nil, "workspace", 136},
 		} {
 			if f.set {
 				add(base+"/"+f.field, "A node's "+f.field, f.issue)
@@ -34,9 +30,6 @@ func notBuilt(s *Spec) []Problem {
 		}
 		if n.Type == TypeTest {
 			add(base+"/type", "The test node", 138)
-		}
-		if n.Type == TypeRouter && strings.HasPrefix(n.On, "visits.") {
-			add(base+"/on", "Reading visits", 134)
 		}
 	}
 	return out

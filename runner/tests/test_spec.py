@@ -52,3 +52,9 @@ def test_a_spec_knows_what_follows_each_node() -> None:
     assert spec.next("decide") == ["done", "confirm"]
     assert spec.next("confirm") == ["request"]
     assert spec.next("request") == []
+
+
+def test_a_node_past_its_last_visit_leads_to_its_on_exhausted() -> None:
+    spec = parse((FIXTURES / "valid" / "review-loop.yaml").read_text())
+    assert spec.next("write") == ["review", "escalate"]
+    assert spec.ways("write") == ["review"], "the graph's own edges leave the way past the last visit out"

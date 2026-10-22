@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RunEvent } from "@/api/runs";
 import { GRAPH_COLUMN_PX, GRAPH_ROW_PX } from "@/config";
-import { layered } from "@/features/graph/layout";
+import { layered, loopEdges } from "@/features/graph/layout";
 import { entries, linksIn, nodeStates } from "./timeline";
 
 let seq = 0;
@@ -98,5 +98,40 @@ describe("the graph's layout", () => {
     expect([at.a?.layer, at.b?.layer, at.c?.layer, at.d?.layer, at.lonely?.layer]).toEqual([0, 1, 2, 2, 3]);
     expect(at.c).toMatchObject({ x: 0, y: 2 * GRAPH_ROW_PX });
     expect(at.d).toMatchObject({ x: GRAPH_COLUMN_PX, y: 2 * GRAPH_ROW_PX });
+  });
+
+  it("tells the edges that close a loop from those that only cross a layer", () => {
+    const loops = loopEdges({
+      entry: "write",
+      nodes: ["write", "review", "verdict", "done", "again"].map((id) => ({ id, type: "agent" })),
+      edges: [
+        { from: "write", to: "review" },
+        { from: "review", to: "verdict" },
+        { from: "verdict", to: "done", label: "approve" },
+        { from: "verdict", to: "write", label: "changes" },
+        { from: "review", to: "done" },
+        { from: "again", to: "again" },
+      ],
+    });
+    expect([...loops].sort()).toEqual([3, 5]);
+  });
+});
+
+describe("a loop on the timeline", () => {
+  it("numbers each visit of a node that ran more than once, and no other", () => {
+    const lines = entries([
+      event("node.started", "write", { type: "agent", visit: 1 }),
+      event("node.started", "ask", { type: "approval", visit: 1 }),
+      event("node.started", "ask", { type: "approval", visit: 1 }),
+      event("node.started", "write", { type: "agent", visit: 2 }),
+      event("node.started", "old", { type: "tool" }),
+    ]);
+    expect(lines).toMatchObject([
+      { node: "write", visit: 1, repeats: true },
+      { node: "ask", visit: 1, repeats: false },
+      { node: "ask", visit: 1, repeats: false },
+      { node: "write", visit: 2, repeats: true },
+      { node: "old", visit: 1, repeats: false },
+    ]);
   });
 });

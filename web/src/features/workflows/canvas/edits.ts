@@ -180,7 +180,7 @@ export function setDefault(source: string, router: string, target: string | unde
   return setField(source, router, "default", target);
 }
 
-/** Removes a node, every edge to or from it, and the router cases and defaults that lead to it. */
+/** Removes a node, every edge to or from it, and the router cases, defaults and onExhausted that lead to it. */
 export function removeNode(source: string, id: string): string {
   let out = source;
   for (;;) {
@@ -200,17 +200,24 @@ export function removeNode(source: string, id: string): string {
     for (const value of values) out = removeCase(out, routerID, value);
     if (textOf(r.get("default", true)) === id) out = setDefault(out, routerID, undefined);
   }
+  for (;;) {
+    const items = (read(out).get("nodes") as YAMLSeq | undefined)?.items ?? [];
+    const sender = items.find((n): n is YAMLMap => isMap(n) && textOf(n.get("id", true)) !== id && textOf(n.get("onExhausted", true)) === id);
+    const way = sender && pairOf(sender, "onExhausted");
+    if (!sender || !way) break;
+    out = checked(applySplices(out, [removePair(out, undefined, sender, way.index)]));
+  }
   const doc = read(out);
   const at = node(doc, id);
   const nodes = topPair(doc, "nodes") as Pair<Node, Node>;
   return checked(applySplices(out, [removeItem(out, nodes, at.index)]));
 }
 
-/** A template reference to a node, {{ nodes.<id>... }}, or a router's statePath starting at it. */
-const refersTo = (id: string) => new RegExp(`(\\{\\{[^}]*?\\bnodes\\.)${id.replace(/[-]/g, "\\-")}(?![a-z0-9_-])`, "g");
-const pathTo = (id: string) => new RegExp(`^(["']?nodes\\.)${id.replace(/[-]/g, "\\-")}(?![a-z0-9_-])`);
+/** A template reference to a node, {{ nodes.<id>... }} or {{ visits.<id> }}, or a router's statePath starting at it. */
+const refersTo = (id: string) => new RegExp(`(\\{\\{[^}]*?\\b(?:nodes|visits)\\.)${id.replace(/[-]/g, "\\-")}(?![a-z0-9_-])`, "g");
+const pathTo = (id: string) => new RegExp(`^(["']?(?:nodes|visits)\\.)${id.replace(/[-]/g, "\\-")}(?![a-z0-9_-])`);
 
-/** Renames a node and everything that names it: edges, the entry, router cases, defaults and template references. */
+/** Renames a node and everything that names it: edges, the entry, router cases, defaults, onExhausted and templates. */
 export function renameNode(source: string, from: string, to: string): string {
   const doc = read(source);
   const splices: Splice[] = [];
@@ -221,7 +228,7 @@ export function renameNode(source: string, from: string, to: string): string {
   const nodes = topPair(doc, "nodes")?.value;
   for (const item of isSeq(nodes) ? nodes.items : []) {
     if (!isMap(item)) continue;
-    for (const key of ["id", "default"]) rename(item.get(key, true));
+    for (const key of ["id", "default", "onExhausted"]) rename(item.get(key, true));
     const cases = item.get("cases", true);
     if (isMap(cases)) for (const p of cases.items) rename(p.value);
     const on = item.get("on", true);

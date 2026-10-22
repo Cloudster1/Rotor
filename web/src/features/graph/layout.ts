@@ -45,3 +45,23 @@ export function layered(graph: Graph): Placed[] {
     return { id: n.id, type: n.type, layer: l, x: column * GRAPH_COLUMN_PX, y: l * GRAPH_ROW_PX };
   });
 }
+
+/** The edges, by index, that lead back to a node on the way to them, walking from the entry: each closes a loop (#134). */
+export function loopEdges(graph: Graph): Set<number> {
+  const out = new Map<string, number[]>();
+  graph.edges.forEach((e, i) => out.set(e.from, [...(out.get(e.from) ?? []), i]));
+  const walked = new Map<string, "open" | "closed">();
+  const back = new Set<number>();
+  const walk = (id: string) => {
+    walked.set(id, "open");
+    for (const i of out.get(id) ?? []) {
+      const to = graph.edges[i]?.to ?? "";
+      if (walked.get(to) === "open") back.add(i);
+      else if (!walked.has(to)) walk(to);
+    }
+    walked.set(id, "closed");
+  };
+  const ids = graph.nodes.map((n) => n.id);
+  for (const id of ids.includes(graph.entry) ? [graph.entry, ...ids] : ids) if (!walked.has(id)) walk(id);
+  return back;
+}

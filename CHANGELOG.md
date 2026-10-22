@@ -28,6 +28,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
   Adding this Exciter works: it lists a token exchange for its partner apps,
   which Rotor now leaves alone instead of registering for it, so Exciter no
   longer refuses Rotor.
+- Loops end where you say (#134): `maxVisits` on a node bounds how often it
+  runs, and the visit past it goes to its `onExhausted`, such as an approval
+  where a person takes over, or ends the run as `loop_exhausted`. Templates
+  and routers read the count as `visits.<id>`, a loop with no `maxVisits` is
+  saved with the warning `unbounded_loop`, the run's timeline numbers each
+  visit, and the canvas and the run page draw an edge back as a loop.
 - How a workflow writes code is agreed (#131): `docs/api-contract-m13.md`
   says how an agent gets its own model, role and step budget, how a loop is
   bounded, how parallel branches join, how a step checks out the run's
