@@ -36,6 +36,8 @@ const (
 	CodeApprovalForm   = "approval_form"
 	CodeApprovalExpiry = "approval_expiry"
 	CodeDecidesReview  = "decides_review"
+	// CodeNotBuilt is a field M13 agreed whose issue has not merged yet (#131).
+	CodeNotBuilt = "not_built"
 	// CodeUnattendedCall is an unattended call the binding does not allow (#128).
 	CodeUnattendedCall = "unattended_call_not_allowed"
 	// CodeRetention is a retention longer than any installation keeps a run's data (#41).
@@ -45,6 +47,7 @@ const (
 // Node types.
 const (
 	TypeAgent    = "agent"
+	TypeTest     = "test"
 	TypeTool     = "tool"
 	TypeCode     = "code"
 	TypeApproval = "approval"
@@ -103,6 +106,8 @@ type Binding struct {
 	// Unattended are calls of AllowTools a triggered run may make with no approval before them, once the trigger's
 	// owner agrees (#128).
 	Unattended []string `json:"unattended,omitempty"`
+	// Repository makes the binding a repository's, which workspaces check out (#137).
+	Repository *Repository `json:"repository,omitempty"`
 }
 
 // Writes says whether the binding may write; read is the default.
@@ -151,6 +156,30 @@ type Node struct {
 	On        string            `json:"on,omitempty"`
 	Cases     map[string]string `json:"cases,omitempty"`
 	Default   string            `json:"default,omitempty"`
+	// The fields M13 agreed (docs/api-contract-m13.md); each is refused as not built until its issue merges.
+	Model       *Model     `json:"model,omitempty"`
+	Role        string     `json:"role,omitempty"`
+	MaxSteps    int        `json:"maxSteps,omitempty"`
+	MaxVisits   int        `json:"maxVisits,omitempty"`
+	OnExhausted string     `json:"onExhausted,omitempty"`
+	Join        string     `json:"join,omitempty"`
+	Workspace   *Workspace `json:"workspace,omitempty"`
+	Command     []string   `json:"command,omitempty"`
+	Reports     []string   `json:"reports,omitempty"`
+}
+
+// Workspace is the run's branch of a repository binding, checked out for a step in a toolchain image (#136).
+type Workspace struct {
+	Repository string `json:"repository"`
+	Branch     string `json:"branch"`
+	Image      string `json:"image"`
+	Access     string `json:"access,omitempty"`
+}
+
+// Repository is a repository a tool connects to a project, which a repository binding names (#137).
+type Repository struct {
+	Project string `json:"project"`
+	Name    string `json:"name"`
 }
 
 // Approvers names the group whose members decide an approval; without it the run's starter decides.

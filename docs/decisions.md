@@ -3,6 +3,31 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-22: Coding agents in Rotor's own loop, for M13 (#131)
+
+- **A coder is an agent node with a workspace, not a vendor's coding agent.**
+  Rotor's agents already run any provider an administrator allows, inside the
+  fences and the bindings that keep what a run reads from steering what it
+  writes. A vendor's agent as a node type would tie coding to one provider and
+  bring its own tool loop, which those guards do not reach. File, search and
+  command tools over a checkout are small, and the same loop runs them.
+- **The branch is the only state between steps.** A step checks the run's
+  branch out, and a writing step pushes it at its end. Nothing lingers while
+  a run waits for a person or a reviewer, as no sandbox does today, and a
+  person can read every step's work in the repository.
+- **Commands are argument lists in the toolchain image, never shell lines.**
+  An agent asks for a program and its arguments, so a prompt cannot chain
+  commands or redirect into files the step does not mean to write.
+- **Loops are bounded where they are drawn.** `maxVisits` and `onExhausted`
+  on a node say how many rounds a coder and its reviewers get and who decides
+  after, instead of a run failing at `maxSteps` with no word of why.
+- **Agreed fields are refused until built.** The schema carries every M13
+  field now, so editors and the canvas know them, and `not_built` refuses each
+  until its issue merges, so no run takes a field it would ignore.
+- **Git goes through Armature.** The repositories a project's issues already
+  point at are Armature's, and its git proxy lets a run push with the
+  person's own rights; no host token reaches Rotor.
+
 ## 2026-10-22: Named unattended writes, for M12 (#124)
 
 - **A trigger's owner may let named calls write without an approval, before

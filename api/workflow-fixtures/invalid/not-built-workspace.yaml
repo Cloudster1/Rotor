@@ -1,0 +1,37 @@
+# expect: /tools/repo/repository not_built
+# expect: /nodes/0/workspace not_built
+# expect: /nodes/1/type not_built
+# expect: /nodes/2/on not_built
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+inputs: {type: object, properties: {repository: {type: string}}}
+tools:
+  repo:
+    tool: armature
+    scopes: [read, git.write]
+    access: write
+    allowTools: [create_issue_branch]
+    repository: {project: CP, name: "{{ inputs.repository }}"}
+limits: {maxSteps: 20, timeout: 5m}
+entry: code
+nodes:
+  - id: code
+    type: code
+    workspace: {repository: repo, branch: rotor/cp-12, image: golang-1.26, access: write}
+    output: {schema: {type: object}}
+    source: |
+      def run(state, ctx):
+          return {}
+  - id: test
+    type: test
+    workspace: {repository: repo, branch: rotor/cp-12, image: golang-1.26}
+    command: [go, test, ./...]
+    reports: [reports/junit.xml]
+  - id: again
+    type: router
+    on: visits.code
+    cases: {"1": code}
+    default: test
+edges:
+  - {from: code, to: again}
