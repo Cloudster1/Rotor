@@ -239,6 +239,33 @@ and its sandbox's network.
 Exciter (#25): an agent drafts a title and a statement, and a tool node files them with `create_requirement` as the
 person who runs it.
 
+### Clarify a story, then write its requirements
+
+[`story-to-requirements.yaml`](../examples/story-to-requirements.yaml) (#130)
+turns an Armature user story into Exciter requirements, holding the
+conversation on the ticket. A trigger on Armature's `issue.created` and
+`comment.added` starts it as the trigger's owner:
+1. **Gather**, a code node, reads the issue, its comments and the
+   requirements Rotor filed for it before. It ends the run unless the issue
+   is a Story, and, on a comment, unless the comment answers the questions
+   Rotor asked last.
+2. **Analyse**, an agent with no tools, reads what gather found and answers
+   either questions or the requirements to create or update. Nothing the
+   story says can make it write.
+3. With questions, a code node posts them as one comment headed
+   **Questions from Rotor**, and the run ends. The answer starts the next run.
+4. Otherwise a code node writes the requirements in the trigger's Exciter
+   project, links each to the story as `implements`, asks for their review,
+   and comments **Requirements from Rotor** on the ticket with their keys.
+   The person reviewing them in Exciter is the gate.
+
+Its writes are `unattended`, so the trigger's owner agrees to them, and the
+run's own comments do not start it again. To use it, add the workflow, then a
+trigger on Armature's events with the topics `issue.created` and
+`comment.added`, your projects, the condition `payload.internal` does not
+equal `true`, and `exciterProject` set to the Exciter project; agree to the
+calls the form lists.
+
 The examples below are the golden fixtures, which show more of the spec.
 
 ### Draft requirements, file them after approval

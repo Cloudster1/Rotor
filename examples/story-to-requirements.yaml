@@ -1,0 +1,220 @@
+# Clarifies an Armature user story on its ticket and turns it into Exciter requirements (#130). A trigger on the
+# story's issue.created and comment.added starts it as the trigger's owner: it asks what is unclear as one comment,
+# starts again when someone answers, and once nothing is open writes or updates the requirements, links them to the
+# story and asks for their review in Exciter, where a person decides. Its writes are unattended, so the trigger's
+# owner agrees to them; the agent reads what the code gathered and calls no tool at all.
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata:
+  name: story-to-requirements
+  description: Asks on an Armature story what is unclear, then writes its requirements in Exciter for review.
+inputs:
+  type: object
+  required: [event, exciterProject]
+  properties:
+    event: { type: object, description: The Armature event that started the run. }
+    exciterProject: { type: string, title: Exciter project, description: "The project the requirements go to, such as RTR." }
+    requirementType: { type: string, title: Requirement type, description: "The Exciter type id of new requirements; empty for the project's default." }
+tools:
+  armature-read:
+    tool: armature
+    scopes: [read]
+    allowTools: [get_issue, list_comments]
+  armature-write:
+    tool: armature
+    scopes: [comment.write]
+    access: write
+    allowTools: [add_comment]
+    unattended: [add_comment]
+  exciter-read:
+    tool: exciter
+    scopes: [mcp:read]
+    allowTools: [get_requirement]
+  exciter-write:
+    tool: exciter
+    scopes: [mcp]
+    access: write
+    allowTools: [create_requirement, update_requirement, link_armature_issue, request_reviews]
+    unattended: [create_requirement, update_requirement, link_armature_issue, request_reviews]
+limits:
+  maxSteps: 20
+  timeout: 15m
+  maxTokens: 200000
+entry: gather
+nodes:
+  # Reads the story, its conversation and the requirements Rotor filed for it before, and says whether to go on: only
+  # for a Story, and on a comment only when it answers questions Rotor asked last. A heading's Markdown marks are
+  # dropped before it is matched, since a plain text copy of Rotor's comment keeps its asterisks.
+  - id: gather
+    type: code
+    tools: [armature-read, exciter-read]
+    output:
+      schema:
+        type: object
+        required: [verdict, why]
+        properties:
+          verdict: { enum: [go, stop] }
+          why: { type: string }
+          story: { type: object }
+          conversation: { type: array }
+          requirements: { type: array }
+    source: |
+      import re
+
+      QUESTIONS = "Questions from Rotor"
+      FILED = "Requirements from Rotor"
+      BLOCKS = ("paragraph", "heading", "listItem", "codeBlock", "blockquote")
+
+
+      def text(node):
+          if isinstance(node, str):
+              return node
+          if isinstance(node, list):
+              return "".join(text(n) for n in node)
+          if isinstance(node, dict):
+              inner = node.get("text", "") + text(node.get("content", []))
+              return inner + ("\n" if node.get("type") in BLOCKS else "")
+          return ""
+
+
+      def stop(why):
+          return {"verdict": "stop", "why": why}
+
+
+      def run(state, ctx):
+          event = state["inputs"]["event"]
+          payload = event.get("payload") or {}
+          key = payload.get("key") or (payload.get("issue") or {}).get("key") or ""
+          if not key:
+              return stop("The event names no issue.")
+          issue = ctx.call_tool("armature-read", "get_issue", {"issueKey": key})["issue"]
+          if (issue.get("type") or {}).get("name") != "Story":
+              return stop(f"{key} is not a story.")
+          conversation = []
+          for c in ctx.call_tool("armature-read", "list_comments", {"issueKey": key})["comments"]:
+              if c.get("internal"):
+                  continue
+              body = text(c.get("body")).strip().lstrip("*_# ").replace("**", "", 2)
+              rotor = body.startswith(QUESTIONS) or body.startswith(FILED)
+              conversation.append({"id": c["id"], "author": (c.get("author") or {}).get("name", ""), "text": body, "rotor": rotor})
+          ours = [c for c in conversation if c["rotor"]]
+          if event.get("topic") == "comment.added":
+              ids = [c["id"] for c in conversation]
+              answer = payload.get("commentId")
+              if not ours or not ours[-1]["text"].startswith(QUESTIONS):
+                  return stop("No questions of Rotor's wait for an answer.")
+              if answer not in ids or ids.index(answer) < ids.index(ours[-1]["id"]) or conversation[ids.index(answer)]["rotor"]:
+                  return stop("The comment does not answer Rotor's questions.")
+          filed = " ".join(c["text"] for c in ours if c["text"].startswith(FILED))
+          requirements = []
+          for req_key in dict.fromkeys(re.findall(r"\b[A-Z][A-Z0-9]*-[0-9]+\b", filed)):
+              r = ctx.call_tool("exciter-read", "get_requirement", {"reqKey": req_key})["requirement"]
+              requirements.append({"key": r["key"], "revision": r["revision"], "title": r.get("title", ""),
+                                   "statement": r.get("statementMarkdown") or ""})
+          story = {"key": key, "summary": issue.get("summary", ""), "description": text(issue.get("description")).strip()}
+          talk = [{"author": c["author"], "fromRotor": c["rotor"], "text": c["text"]} for c in conversation]
+          return {"verdict": "go", "why": "", "story": story, "conversation": talk, "requirements": requirements}
+  - id: proceed
+    type: router
+    on: nodes.gather.verdict
+    cases: { go: analyse, stop: done }
+  # Decides from what gather read alone; it has no tool, so nothing the story says can make it write.
+  - id: analyse
+    type: agent
+    prompt: |
+      You turn a user story into requirements for a requirements engineer to review.
+
+      The story: {{ nodes.gather.story }}
+      Its conversation so far, oldest first; fromRotor marks questions and summaries Rotor posted: {{ nodes.gather.conversation }}
+      The requirements already filed for it: {{ nodes.gather.requirements }}
+
+      If anything a requirement needs is still unclear or contradictory, and the conversation has not answered it,
+      answer verdict "questions" with at most five short, specific questions, and no changes.
+      Otherwise answer verdict "ready" with the changes: "update" with the key and revision of a filed requirement
+      whose title or statement must change, and "create" for each requirement still missing. Each requirement states
+      one thing the system shall do, testable, in a statement in Markdown, with a short title. Leave out
+      requirements that need no change.
+    output:
+      schema:
+        type: object
+        required: [verdict, questions, changes]
+        properties:
+          verdict: { enum: [questions, ready] }
+          questions: { type: array, maxItems: 5, items: { type: string } }
+          changes:
+            type: array
+            maxItems: 20
+            items:
+              type: object
+              required: [action, title, statementMarkdown]
+              properties:
+                action: { enum: [create, update] }
+                reqKey: { type: string }
+                baseRevision: { type: integer }
+                title: { type: string }
+                statementMarkdown: { type: string }
+  - id: decide
+    type: router
+    on: nodes.analyse.verdict
+    cases: { questions: ask, ready: file }
+  # Posts the questions as one comment that starts with the marker gather looks for.
+  - id: ask
+    type: code
+    tools: [armature-write]
+    output:
+      schema: { type: object, required: [comment], properties: { comment: { type: string } } }
+    source: |
+      def run(state, ctx):
+          key = state["nodes"]["gather"]["story"]["key"]
+          questions = state["nodes"]["analyse"]["questions"] or ["What should this story change for the people who use it?"]
+          lines = ["**Questions from Rotor**", "", "Before the requirements are written, please answer in a comment:", ""]
+          lines += [f"{i}. {q}" for i, q in enumerate(questions, 1)]
+          answer = ctx.call_tool("armature-write", "add_comment", {"issueKey": key, "bodyMarkdown": "\n".join(lines)})
+          return {"comment": answer["comment"]["id"]}
+  # Writes the changes, links each requirement to the story, asks for their review, and tells the reporter.
+  - id: file
+    type: code
+    tools: [exciter-write, armature-write]
+    output:
+      schema: { type: object, required: [requirements], properties: { requirements: { type: array } } }
+    source: |
+      def run(state, ctx):
+          inputs = state["inputs"]
+          project, key = inputs["exciterProject"], state["nodes"]["gather"]["story"]["key"]
+          known = {r["key"] for r in state["nodes"]["gather"]["requirements"]}
+          written = []
+          for change in state["nodes"]["analyse"]["changes"]:
+              fields = {"title": change["title"], "statementMarkdown": change["statementMarkdown"],
+                        "comment": f"Written by Rotor from the story {key}."}
+              if change["action"] == "update" and change.get("reqKey") in known:
+                  fields.update({"reqKey": change["reqKey"], "baseRevision": change.get("baseRevision")})
+                  r = ctx.call_tool("exciter-write", "update_requirement", fields)["requirement"]
+              else:
+                  fields["projectKey"] = project
+                  if inputs.get("requirementType"):
+                      fields["typeId"] = inputs["requirementType"]
+                  r = ctx.call_tool("exciter-write", "create_requirement", fields)["requirement"]
+                  ctx.call_tool("exciter-write", "link_armature_issue", {"reqKey": r["key"], "issueKey": key, "relation": "implements"})
+              written.append({"key": r["key"], "revision": r["revision"], "title": r.get("title", change["title"])})
+          if written:
+              items = [{"key": r["key"], "revision": r["revision"]} for r in written]
+              ctx.call_tool("exciter-write", "request_reviews", {"projectKey": project, "items": items,
+                                                                "comment": f"Written by Rotor from the story {key}."})
+          lines = ["**Requirements from Rotor**", ""]
+          if written:
+              lines += ["These requirements are ready for your review in Exciter:", ""]
+              lines += [f"- {r['key']}: {r['title']}" for r in written]
+          else:
+              lines += ["The requirements already filed cover the story; nothing changed."]
+          ctx.call_tool("armature-write", "add_comment", {"issueKey": key, "bodyMarkdown": "\n".join(lines)})
+          return {"requirements": written}
+  - id: done
+    type: code
+    output:
+      schema: { type: object, required: [why], properties: { why: { type: string } } }
+    source: |
+      def run(state, ctx):
+          return {"why": state["nodes"]["gather"]["why"]}
+edges:
+  - { from: gather, to: proceed }
+  - { from: analyse, to: decide }
