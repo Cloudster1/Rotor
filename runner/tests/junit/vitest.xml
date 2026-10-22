@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="3" failures="1" errors="0" time="0.00995685">
+    <testsuite name="sum.test.ts" timestamp="2026-10-22T21:29:23.655Z" hostname="847b50053789" tests="3" failures="1" errors="0" skipped="1" time="0.00995685">
+        <testcase classname="sum.test.ts" name="sum &gt; adds two numbers [verifies CP-T1]" time="0.001860521">
+        </testcase>
+        <testcase classname="sum.test.ts" name="sum &gt; subtracts [verifies CP-T2, CP-T3]" time="0.006567585">
+            <failure message="expected 1 to be 2 // Object.is equality" type="AssertionError">
+AssertionError: expected 1 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ > sum.test.ts:8:19
+            </failure>
+        </testcase>
+        <testcase classname="sum.test.ts" name="sum &gt; skips the passkey" time="0">
+            <skipped/>
+        </testcase>
+    </testsuite>
+</testsuites>

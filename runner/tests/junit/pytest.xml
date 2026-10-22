@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="1" skipped="1" tests="4" time="0.026" timestamp="2026-10-22T21:29:10.016014+00:00" hostname="f04984d2d213"><testcase classname="test_sum" name="test_adds_two_numbers" time="0.000"><properties><property name="verifies" value="CP-T1" /></properties></testcase><testcase classname="test_sum" name="test_subtracts[verifies CP-T2]" time="0.001"><failure message="assert (2 - 1) == 2">n = 1
+
+    @pytest.mark.parametrize("n", [pytest.param(1, id="verifies CP-T2")])
+    def test_subtracts(n):
+&gt;       assert 2 - n == 2
+E       assert (2 - 1) == 2
+
+test_sum.py:11: AssertionError</failure></testcase><testcase classname="test_sum" name="test_skips_the_passkey" time="0.000"><skipped type="pytest.skip" message="no authenticator">/w/test_sum.py:14: no authenticator</skipped></testcase><testcase classname="test_sum.TestSetup" name="test_errors_in_setup" time="0.000"><error message="failed on setup with &quot;file /w/test_sum.py, line 20&#10;      def test_errors_in_setup(self, missing_fixture):&#10;E       fixture 'missing_fixture' not found&#10;&gt;       available fixtures: capfd, capfdbinary, caplog, capsys, capsysbinary, capteesys, doctest_namespace, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, subtests, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory&#10;&gt;       use 'pytest --fixtures [testpath]' for help on them.&#10;&#10;/w/test_sum.py:20&quot;">file /w/test_sum.py, line 20
+      def test_errors_in_setup(self, missing_fixture):
+E       fixture 'missing_fixture' not found
+&gt;       available fixtures: capfd, capfdbinary, caplog, capsys, capsysbinary, capteesys, doctest_namespace, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, subtests, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory
+&gt;       use 'pytest --fixtures [testpath]' for help on them.
+
+/w/test_sum.py:20</error></testcase></testsuite></testsuites>
