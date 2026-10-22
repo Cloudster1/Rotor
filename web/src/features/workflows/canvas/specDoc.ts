@@ -2,7 +2,7 @@ import { type Document, isMap, isSeq, LineCounter, parseDocument, type YAMLMap, 
 import type { Graph } from "@/features/graph/layout";
 
 /** The kinds of node a workflow has, as api/workflow.v1.schema.json names them. */
-export const NODE_TYPES = ["agent", "tool", "code", "approval", "router"] as const;
+export const NODE_TYPES = ["agent", "tool", "code", "approval", "router", "test"] as const;
 export type NodeType = (typeof NODE_TYPES)[number];
 
 /** A node's id as the schema allows it. */
@@ -15,6 +15,7 @@ export const MAIN_FIELDS: Record<NodeType, readonly string[]> = {
   code: ["source"],
   approval: ["message"],
   router: ["on"],
+  test: ["command"],
 };
 
 /** The main fields a node may leave out, which an emptied field takes out of the YAML (#133). */
@@ -24,6 +25,14 @@ export const OPTIONAL_FIELDS: readonly string[] = ["role"];
 export interface ModelRef {
   name: string;
   provider: string;
+}
+
+/** Main fields that are lists, such as a test's command: the canvas shows them as text and the YAML changes them. */
+export const LIST_FIELDS: readonly string[] = ["command"];
+
+/** An argument list as one line, quoting an argument that a space would split, or that is empty. */
+export function argvText(argv: unknown[]): string {
+  return argv.map((a) => (typeof a === "string" && /^[^\s"']+$/.test(a) ? a : JSON.stringify(a))).join(" ");
 }
 
 /** A node as the canvas reads it: its id and type, a router's ways, its main fields as text, and an agent's model. */
@@ -65,7 +74,10 @@ export function parseSpec(source: string): Parsed | undefined {
   const nodes = (Array.isArray(js.nodes) ? js.nodes : []).map((raw): SpecNode => {
     const n = record(raw);
     const fields: Record<string, string> = {};
-    for (const key of MAIN_FIELDS[n.type as NodeType] ?? []) fields[key] = text(n[key]);
+    for (const key of MAIN_FIELDS[n.type as NodeType] ?? []) {
+      const value = n[key];
+      fields[key] = Array.isArray(value) ? argvText(value) : text(value);
+    }
     const model = record(n.model);
     return {
       id: text(n.id),

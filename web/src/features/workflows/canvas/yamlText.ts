@@ -11,7 +11,7 @@ export interface Splice {
 }
 
 /** A value written into the YAML: text, or a map of them, as a new node's fields are. */
-export type Value = string | { [key: string]: Value };
+export type Value = string | string[] | { [key: string]: Value };
 
 /** Applies splices made against the same text, last first, so each one's offsets still hold. */
 export function applySplices(source: string, splices: Splice[]): string {
@@ -94,6 +94,7 @@ export function scalarText(value: string, flow: boolean, indent: number): string
 /** A value for a flow collection: `{ a: b, c: { d: e } }`, spaced as the text spaces them. */
 export function flowText(value: Value, pad: string): string {
   if (typeof value === "string") return scalarText(value, true, 0);
+  if (Array.isArray(value)) return `[${value.map((v) => scalarText(v, true, 0)).join(", ")}]`;
   const pairs = Object.entries(value).map(([k, v]) => `${scalarText(k, true, 0)}: ${flowText(v, pad)}`);
   return pairs.length === 0 ? "{}" : `{${pad}${pairs.join(", ")}${pad}}`;
 }
@@ -104,6 +105,7 @@ export function blockLines(value: { [key: string]: Value }, indent: number): str
   return Object.entries(value).flatMap(([k, v]) => {
     const key = `${pad}${scalarText(k, false, 0)}:`;
     if (typeof v === "string") return [`${key} ${scalarText(v, false, indent + 2)}`];
+    if (Array.isArray(v)) return [`${key} ${flowText(v, "")}`];
     if (Object.keys(v).length === 0) return [`${key} {}`];
     return [key, ...blockLines(v, indent + 2)];
   });

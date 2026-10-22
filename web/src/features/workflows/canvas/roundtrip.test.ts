@@ -2,7 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { addEdge, addNode, removeCase, removeEdge, removeNode, renameNode, setCase, setDefault, setEntry, setField } from "./edits";
 import { VALID_SPECS } from "./fixtures";
-import { graphOf, MAIN_FIELDS, NODE_TYPES, type NodeType, parseSpec, type SpecShape } from "./specDoc";
+import { graphOf, LIST_FIELDS, MAIN_FIELDS, NODE_TYPES, type NodeType, parseSpec, type SpecShape } from "./specDoc";
 
 // Over every golden spec: an edit and its inverse give the text back byte for byte, any edits draw what the same edits
 // draw on a plain model, and the comments they do not reach stay.
@@ -133,7 +133,8 @@ function plan(source: string, model: SpecShape, s: Step) {
       };
     }
     case "field": {
-      const key = node ? pick([...(MAIN_FIELDS[node.type as NodeType] ?? [])], s.b) : undefined;
+      const editable = node ? (MAIN_FIELDS[node.type as NodeType] ?? []).filter((k) => !LIST_FIELDS.includes(k)) : [];
+      const key = pick(editable, s.b);
       if (!node || !key) return undefined;
       const before = node.fields[key] as string;
       return {
@@ -221,7 +222,7 @@ describe.each(VALID_SPECS)("the canvas over %s", (_, original) => {
     const spec = read(original);
     for (const n of spec.nodes) {
       for (const [key, value] of Object.entries(n.fields)) {
-        if (value === "") continue;
+        if (value === "" || LIST_FIELDS.includes(key)) continue;
         const changed = setField(original, n.id, key, `${value} changed`);
         const back = setField(changed, n.id, key, value);
         expect(read(back).nodes.find((x) => x.id === n.id)?.fields[key]).toBe(value);

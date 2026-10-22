@@ -16,7 +16,14 @@ export type Entry =
   | { kind: "decided"; key: string; node: string; at: string; approval: string; decision: string; by: string; comment: string }
   | { kind: "run"; key: string; node: string; at: string; status: string; reason: string; message: string }
   | { kind: "lost"; key: string; node: string; at: string; replaced: boolean }
-  | { kind: "links"; key: string; node: string; at: string; where: string; count: number; hosts: string[] };
+  | { kind: "links"; key: string; node: string; at: string; where: string; count: number; hosts: string[] }
+  | { kind: "tests"; key: string; node: string; at: string; passed: number; failed: number; skipped: number; failures: TestFailure[] };
+
+/** A failing test as a test step's event names it (#138). */
+export interface TestFailure {
+  name: string;
+  file: string;
+}
 
 const text = (v: unknown): string => (typeof v === "string" ? v : v === undefined || v === null ? "" : JSON.stringify(v, null, 2));
 
@@ -98,6 +105,18 @@ export function entries(events: RunEvent[]): Entry[] {
       case "runner.lost":
         out.push({ ...base, kind: "lost", replaced: e.payload.replaced === true });
         break;
+      case "test.reported": {
+        const failures = Array.isArray(e.payload.failures) ? (e.payload.failures as Record<string, unknown>[]) : [];
+        out.push({
+          ...base,
+          kind: "tests",
+          passed: Number(e.payload.passed ?? 0),
+          failed: Number(e.payload.failed ?? 0),
+          skipped: Number(e.payload.skipped ?? 0),
+          failures: failures.map((f) => ({ name: text(f.name), file: text(f.file) })),
+        });
+        break;
+      }
       case "link.removed": {
         const hosts = Array.isArray(e.payload.hosts) ? e.payload.hosts.map(text) : [];
         out.push({ ...base, kind: "links", where: text(e.payload.where), count: Number(e.payload.count ?? hosts.length), hosts });
