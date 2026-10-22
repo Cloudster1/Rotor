@@ -1530,6 +1530,7 @@ export interface components {
         };
         GraphNode: {
             id: string;
+            join?: boolean;
             type: string;
         };
         HookResponse: {
@@ -1856,6 +1857,7 @@ export interface components {
         };
         RunResponse: {
             approvalId: string | null;
+            approvalIds: string[];
             /** Format: date-time */
             createdAt: string;
             ended: boolean;

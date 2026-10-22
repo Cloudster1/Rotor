@@ -172,12 +172,38 @@ node's output is its latest visit's, and the run's timeline numbers the visits
 of a node that ran more than once. A loop in which no node sets `maxVisits` is
 saved with the warning `unbounded_loop`; only `limits.maxSteps` ends it.
 
+### Parallel branches (#135)
+
+Several edges out of a node start their targets at once, so reviewers work
+side by side. `join: all` on the node they lead to runs it once, after every
+branch still running has ended, so a review round takes as long as its slowest
+reviewer. Without `join`, a node runs once for each branch that reaches it at
+a different step, and the workflow is saved with the warning `join_missing`.
+
+```yaml
+edges:
+  - { from: test, to: review-code }
+  - { from: test, to: review-security }
+  - { from: review-code, to: gather }
+  - { from: review-security, to: gather }
+nodes:
+  - { id: gather, type: code, join: all, ... }
+```
+
+A join waits for every branch, also one that does not lead to it. With
+`maxVisits`, the visit past its last goes to its `onExhausted` once, after the
+branches, as the join would. Approvals that parallel branches reach in the same
+step wait together: each is in the inbox, the run page links to each, and the
+run goes on once every one is decided. One rejected ends the run, and one
+expired expires it, as a single approval does.
+
 ### Limits
 
-`maxSteps` bounds how many steps a run takes, `timeout` how long it runs
-(`30s`, `15m`, `2h`), and `maxTokens` how much the model may read and write,
-counted across every sandbox the run used. A run that passes one ends and says
-which. Three more keep a workflow from costing too much or flooding a tool:
+`maxSteps` bounds how many steps a run takes, each node of every branch one,
+`timeout` how long it runs (`30s`, `15m`, `2h`), and `maxTokens` how much the
+model may read and write, counted across every sandbox the run used. A run
+that passes one ends and says which. Three more keep a workflow from costing
+too much or flooding a tool:
 - `maxCost`: the most the run's model calls may cost, in US dollars, each at the
   prices an administrator set for its own model. A run whose models are not
   all priced cannot carry a `maxCost`, and is refused when it starts.
@@ -185,7 +211,7 @@ which. Three more keep a workflow from costing too much or flooding a tool:
   once. More wait, queued, and start as others end; a run waiting for an
   approval holds no place.
 - `toolCallsPerMinute`: how many tool calls the run may make in any minute, 60
-  unless it says; one more ends the run.
+  unless it says; one more ends the run. Every branch's calls count.
 
 An administrator may also set, for everyone, how many tokens and how much
 money one person's runs may use in a day, and how many of their runs may run
@@ -235,6 +261,9 @@ When saving, a workflow can also get **warnings**, which never stop a save:
   `limits.maxSteps` ends it. A way past a node with no visit left counts as
   going to its `onExhausted`, so a loop that only leads there and back again
   is still one.
+- `join_missing`: several edges lead into a node that sets no `join`, so it
+  runs once for each branch that reaches it. An edge back round a loop is not
+  a branch. Set `join: all` to run it once, after all of them.
 
 ## Drawing a workflow (#46)
 
@@ -261,7 +290,8 @@ yourself. The browser remembers which tab you used last.
     `model`, chosen among the models administrators allow or left to the
     workflow's.
 - **What stays in the YAML.** Output schemas, a tool call's `arguments`, an
-  approval's form and approvers, limits, bindings and the rest. **Edit in
+  approval's form and approvers, a node's `join`, limits, bindings and the
+  rest. **Edit in
   YAML** on a node opens the YAML tab at it.
 - **Your text stays yours.** An edit changes only the lines it is about:
   comments, quoting, flow or block style and the order of everything else stay
@@ -270,7 +300,8 @@ yourself. The browser remembers which tab you used last.
   entry every time, so the YAML holds nothing but the workflow. An edge back
   to a node on the way to it closes a loop and is drawn dashed, with an arrow,
   around the nodes; so is it on the run page. A node's `onExhausted` is drawn
-  as an edge labelled `onExhausted`.
+  as an edge labelled `onExhausted`. Parallel branches stand side by side,
+  and a join sits below the longest of them.
 - **Problems on the nodes.** A node the checks found something wrong with is
   marked with how many problems it has; choosing it lists them, and each opens
   the YAML at its line. A YAML that does not parse is not drawn: the canvas

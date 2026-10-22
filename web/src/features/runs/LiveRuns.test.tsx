@@ -32,6 +32,7 @@ const RUN: Run = {
   finishedAt: null,
   ended: false,
   approvalId: null,
+  approvalIds: [],
   trigger: null,
   usage: { inputTokens: 0, outputTokens: 0, cost: 0 },
   linkHosts: ["exciter.example"],
@@ -125,6 +126,52 @@ describe("a run, live", () => {
     expect(await within(timeline).findByText(s.runs.live.startedVisit("ask", "tool", 2))).toHaveAttribute("data-visit", "2");
     expect(within(timeline).getByText(s.runs.live.startedVisit("ask", "tool", 1))).toBeInTheDocument();
     expect(within(timeline).getByText(s.runs.live.started("draft", "agent"))).toBeInTheDocument();
+    expect(await axeViolations()).toEqual([]);
+  });
+});
+
+describe("a run with parallel branches (#135)", () => {
+  const BRANCHES = ["review-code", "review-security"];
+  const APPROVALS = ["0190a5c4-0000-7000-8000-00000000aa01", "0190a5c4-0000-7000-8000-00000000aa02"];
+  const PARALLEL: Run = {
+    ...RUN,
+    status: "waiting",
+    approvalId: APPROVALS[0] ?? null,
+    approvalIds: APPROVALS,
+    graph: {
+      entry: "test",
+      nodes: [
+        { id: "test", type: "code" },
+        ...BRANCHES.map((id) => ({ id, type: "approval" })),
+        { id: "check", type: "code" },
+        { id: "gather", type: "code", join: true },
+      ],
+      edges: [
+        ...BRANCHES.map((to) => ({ from: "test", to })),
+        { from: "review-code", to: "check" },
+        { from: "check", to: "gather" },
+        { from: "review-security", to: "gather" },
+      ],
+    },
+  };
+
+  it("draws the branches side by side above their join, and leads to each approval they wait at", async () => {
+    seq = 0;
+    await renderAt(`/runs/${RUN.id}`, { answers: { [`/api/v1/runs/${RUN.id}`]: () => Response.json(PARALLEL) } });
+    await screen.findByRole("region", { name: s.runs.live.graph });
+    const layer = (id: string) => document.querySelector(`[data-node="${id}"]`)?.getAttribute("data-layer");
+    await waitFor(() => expect(BRANCHES.map(layer)).toEqual(["1", "1"]));
+    expect([layer("check"), layer("gather")]).toEqual(["2", "3"]);
+
+    BRANCHES.forEach((node, i) => {
+      send("node.started", node, { type: "approval" });
+      send("approval.requested", node, { approvalId: APPROVALS[i], node, message: "Fine?", approvers: { group: null } });
+    });
+    const panel = await screen.findByText(s.approvals.run.waitsMany(2));
+    const links = within(panel.parentElement as HTMLElement);
+    for (const [i, node] of BRANCHES.entries()) {
+      expect(await links.findByRole("link", { name: s.approvals.run.openAt(node) })).toHaveAttribute("href", `/approvals/${APPROVALS[i]}`);
+    }
     expect(await axeViolations()).toEqual([]);
   });
 });

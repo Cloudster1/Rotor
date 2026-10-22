@@ -70,6 +70,7 @@ const RUN: Run = {
   finishedAt: null,
   ended: false,
   approvalId: null,
+  approvalIds: [],
   trigger: null,
   usage: { inputTokens: 0, outputTokens: 0, cost: 0 },
 };

@@ -225,8 +225,10 @@ type runResponse struct {
 	FinishedAt *time.Time      `json:"finishedAt"`
 	// Ended says the run reached a state it never leaves, so it can no longer be cancelled.
 	Ended bool `json:"ended"`
-	// ApprovalID is the approval the run waits for, while it waits for one (#31).
+	// ApprovalID is the approval the run waits for, while it waits for one (#31): the first of ApprovalIDs.
 	ApprovalID *string `json:"approvalId"`
+	// ApprovalIDs are every approval the run waits for, several when parallel branches wait together (#135).
+	ApprovalIDs []string `json:"approvalIds"`
 	// Trigger is the trigger that started the run (#34); its name is shown to its owner alone.
 	Trigger *runTrigger `json:"trigger"`
 	// Usage is what the run's model calls used so far (#38).

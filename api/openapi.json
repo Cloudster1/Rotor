@@ -6248,6 +6248,9 @@
           "id": {
             "type": "string"
           },
+          "join": {
+            "type": "boolean"
+          },
           "type": {
             "type": "string"
           }
@@ -7506,6 +7509,12 @@
               "null"
             ]
           },
+          "approvalIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -7603,6 +7612,7 @@
           "finishedAt",
           "ended",
           "approvalId",
+          "approvalIds",
           "trigger",
           "usage"
         ]

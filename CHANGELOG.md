@@ -28,6 +28,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
   Adding this Exciter works: it lists a token exchange for its partner apps,
   which Rotor now leaves alone instead of registering for it, so Exciter no
   longer refuses Rotor.
+- Reviewers run at once and the next step waits for all of them (#135):
+  several edges out of a node run their targets in parallel, and `join: all`
+  runs a node once, after every branch into it has ended. A node several
+  edges lead into with no `join` is saved with the warning `join_missing`.
+  Approvals that parallel branches reach together are all in the inbox, the
+  run page links to each, and the run goes on once each is decided; one
+  rejection ends it. `maxSteps` counts the nodes of every branch, and the run
+  page draws the branches side by side above their join.
 - Loops end where you say (#134): `maxVisits` on a node bounds how often it
   runs, and the visit past it goes to its `onExhausted`, such as an approval
   where a person takes over, or ends the run as `loop_exhausted`. Templates

@@ -72,8 +72,10 @@ type Run struct {
 	UpdatedAt           time.Time
 	StartedAt           *time.Time
 	FinishedAt          *time.Time
-	// ApprovalID is the pending approval the run waits for, if any.
-	ApprovalID *uuid.UUID
+	// ApprovalID is the pending approval the run waits for, if any: the first of ApprovalIDs, which holds every one that
+	// parallel branches wait at together (#135).
+	ApprovalID  *uuid.UUID
+	ApprovalIDs []uuid.UUID
 	// TriggerID and TriggerName name the trigger that started the run, if one did; the name only for its owner.
 	TriggerID   *uuid.UUID
 	TriggerName *string
@@ -153,7 +155,7 @@ func NewService(cluster *db.Cluster, keys *envelope.Keys, wf Workflows, finder T
 
 const runColumns = `r.id, r.workflow_id, r.workflow_name, r.version, r.user_id, r.started_by_name, r.status, r.reason,
 	r.data_key, r.sealed_inputs, r.sealed_output, r.created_at, r.updated_at, r.started_at, r.finished_at,
-	(SELECT a.id FROM approval a WHERE a.run_id = r.id AND a.status = 'pending'), run_visible(r.user_id, r.workflow_id),
+	ARRAY(SELECT a.id FROM approval a WHERE a.run_id = r.id AND a.status = 'pending' ORDER BY a.id), run_visible(r.user_id, r.workflow_id),
 	r.trigger_id, (SELECT t.name FROM trigger t WHERE t.id = r.trigger_id),
 	COALESCE((SELECT u.input_tokens FROM run_usage u WHERE u.run_id = r.id), 0),
 	COALESCE((SELECT u.output_tokens FROM run_usage u WHERE u.run_id = r.id), 0),
@@ -162,9 +164,12 @@ const runColumns = `r.id, r.workflow_id, r.workflow_name, r.version, r.user_id, 
 func scanRun(row pgx.Row) (Run, error) {
 	var r Run
 	err := row.Scan(&r.ID, &r.WorkflowID, &r.WorkflowName, &r.Version, &r.UserID, &r.StartedByName, &r.Status, &r.Reason,
-		&r.dataKey, &r.sealedIn, &r.sealedOut, &r.CreatedAt, &r.UpdatedAt, &r.StartedAt, &r.FinishedAt, &r.ApprovalID, &r.Manages, &r.TriggerID, &r.TriggerName, &r.InputTokens, &r.OutputTokens, &r.Cost)
+		&r.dataKey, &r.sealedIn, &r.sealedOut, &r.CreatedAt, &r.UpdatedAt, &r.StartedAt, &r.FinishedAt, &r.ApprovalIDs, &r.Manages, &r.TriggerID, &r.TriggerName, &r.InputTokens, &r.OutputTokens, &r.Cost)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return r, ErrNotFound
+	}
+	if len(r.ApprovalIDs) > 0 {
+		r.ApprovalID = &r.ApprovalIDs[0]
 	}
 	return r, err
 }

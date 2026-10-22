@@ -6,8 +6,8 @@ import "fmt"
 // no approval in between (#40); saving still works.
 const CodeUntrustedWrite = "untrusted_then_write"
 
-// Warnings finds what may be unwise but is allowed: writes that text read from a tool could steer, and loops nothing
-// bounds (#134). c may be nil, and then every call of a write binding counts as a write. Placed like problems.
+// Warnings finds what may be unwise but is allowed: writes text read from a tool could steer, loops nothing bounds
+// (#134) and branches meeting with no join (#135). c may be nil: every call of a write binding is then a write.
 func (s *Spec) Warnings(c Catalog) []Problem {
 	infos := map[string]ToolInfo{}
 	if c != nil {
@@ -53,6 +53,7 @@ func (s *Spec) Warnings(c Catalog) []Problem {
 		}
 	}
 	out = append(out, s.unboundedLoops(index)...)
+	out = append(out, s.missingJoins(index)...)
 	if s.places != nil {
 		return s.places.place(out)
 	}

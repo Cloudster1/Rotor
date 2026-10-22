@@ -43,7 +43,7 @@ export function GraphCanvas({
           data: { label: drawn.label },
           ariaLabel: drawn.ariaLabel,
           className: `rounded-control border-2 px-3 py-2 text-sm ${drawn.tone} ${p.id === selected ? "outline-2 outline-offset-2 outline-focus" : ""}`,
-          domAttributes: { "data-node": p.id, ...drawn.attributes },
+          domAttributes: { "data-node": p.id, "data-layer": String(p.layer), ...drawn.attributes },
           draggable: false,
           connectable: false,
           selectable,

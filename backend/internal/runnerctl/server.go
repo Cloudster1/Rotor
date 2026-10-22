@@ -340,7 +340,7 @@ func (s *Server) announce(ctx context.Context, runID uuid.UUID) {
 }
 
 // finish records how the run ended in its sandbox, as a run.finished event and the run's status, and opens the
-// approval a waiting run waits at; a run the control plane already ended, such as a cancelled one, stays as it is.
+// approvals a waiting run waits at; a run the control plane already ended, such as a cancelled one, stays as it is.
 func finish(ctx context.Context, tx db.DBTX, keys *envelope.Keys, r *run, done *runnerpb.Done, approvalTTL time.Duration) error {
 	current, err := lockStatus(ctx, tx, r.ID)
 	if err != nil || current != StatusRunning {
@@ -353,7 +353,7 @@ func finish(ctx context.Context, tx db.DBTX, keys *envelope.Keys, r *run, done *
 	if err := endLocked(ctx, tx, keys, r.ID, state, done.Reason, nil, []byte(done.OutputJson)); err != nil || state != StatusWaiting {
 		return err
 	}
-	return openApproval(ctx, tx, keys, r, []byte(done.OutputJson), approvalTTL)
+	return openApprovals(ctx, tx, keys, r, []byte(done.OutputJson), approvalTTL)
 }
 
 // approvalTTL is how long an approval waits when its node sets no expiresIn.

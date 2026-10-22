@@ -1,5 +1,5 @@
-"""A run's limits that LangGraph does not enforce itself: the model's token budget and the rate of tool calls.
-Totals across sandboxes, cost and quotas are the control plane's, which sees every sandbox of a run."""
+"""A run's limits that LangGraph does not enforce itself: steps of every branch, the model's token budget and the rate
+of tool calls. Totals across sandboxes, cost and quotas are the control plane's, which sees every sandbox of a run."""
 
 from __future__ import annotations
 
@@ -24,6 +24,19 @@ class RunEnded(Exception):  # noqa: N818 - it is how a run ends, not always an e
 
 def failed(reason: str, message: str) -> RunEnded:
     return RunEnded("failed", reason, message)
+
+
+class StepBudget:
+    """Counts the nodes every branch starts in this sandbox, since LangGraph counts a step of parallel nodes as one, and
+    ends the run on the one LangGraph would refuse in a single branch (#135)."""
+
+    def __init__(self, limit: int) -> None:
+        self.limit, self.used = limit, 0
+
+    def take(self, node: str) -> None:
+        self.used += 1
+        if self.used >= self.limit:
+            raise failed("max_steps", f"{node} would be step {self.used}, and the run may take fewer than {self.limit}")
 
 
 class ToolRateExceeded(RunEnded):

@@ -247,6 +247,7 @@ describe("a waiting run", () => {
     finishedAt: null,
     ended: false,
     approvalId: APPROVAL.id,
+    approvalIds: [APPROVAL.id],
     trigger: null,
     usage: { inputTokens: 0, outputTokens: 0, cost: 0 },
   };

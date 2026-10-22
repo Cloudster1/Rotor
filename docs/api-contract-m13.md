@@ -158,6 +158,45 @@ nodes:
   approval is in the inbox, and the run goes on once each is decided.
 - Limits, usage and the tool call rate count every branch.
 
+### As built (#135)
+
+- **The join is LangGraph's deferred node** (`defer=True`), not an edge from
+  several sources: it runs once no branch has a step left. That holds when a
+  branch reaches it through a router or past a counted node (#134), where
+  `add_edge([a, b], c)` cannot, and it means a join also waits for a branch
+  that does not lead to it. The `onExhausted` nodes past a join wait the same
+  way, so a join with no visit left sends the run on once, not per branch.
+- **Without a join** branches that arrive in the same step start a node once,
+  and branches of different lengths start it once each.
+- **The warning** counts `edges` only, not router cases or `onExhausted`, and
+  leaves out an edge that closes a loop through the node.
+- **Approvals wait together when they are reached in the same step.** A run
+  stops at the end of the step its first approval is reached in, so a branch
+  that would reach its own approval a step later gets there once the first
+  wait is decided.
+- **The protocol:** a waiting run's `Done.output_json` is the first interrupt,
+  as before, with `waiting` listing every one when there are several.
+  `StartRun.resume_answers` (field 11) maps each interrupt id to its answer;
+  `resume_json` and `resume_interrupt_id` still carry the first of them.
+- **The control plane:** migration 01240 drops the index that allowed one
+  pending approval per run. A decision resumes the run only when none of its
+  approvals is pending any more; the run's row is held, so of two decided at
+  once the later resumes it. The answers are the approved approvals of the
+  run's last wait, which share `requested_at` since one `Done` opens them in
+  one transaction. A rejection ends the run and cancels the others; an expiry
+  ends it as `approval_expired`, as with one.
+- **The API:** a run carries `approvalIds`, every approval it waits for in the
+  order they were opened; `approvalId` stays the first. A graph's nodes carry
+  `join`, and the canvas and the run page draw a join below the longest
+  branch into it, the branches side by side above it.
+- **Limits:** `maxSteps` counts every node a branch starts in a sandbox, where
+  LangGraph alone counts a step of parallel nodes as one; it ends the run on
+  the same node a single branch always did. The tool call rate and
+  `maxTokens` were already counted over every node of the run, and usage is
+  reported per model call.
+- **The canvas** leaves `join` in the YAML: its main fields are one text each
+  per kind of node, and a join is a choice any node may make.
+
 ## The repository binding (#137)
 
 ```yaml

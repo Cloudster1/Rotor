@@ -38,11 +38,31 @@ type interruptValue struct {
 	Preview json.RawMessage `json:"preview"`
 }
 
-// openApproval records the approval a run now waits at. Who decides, the form and the expiry come from the pinned
+// openApprovals records every approval a waiting run stopped at: the one its output is, or, when parallel branches
+// stopped together, each one it lists under waiting (#135).
+func openApprovals(ctx context.Context, tx db.DBTX, keys *envelope.Keys, r *run, output []byte, ttl time.Duration) error {
+	var v struct {
+		interruptValue
+		Waiting []interruptValue `json:"waiting"`
+	}
+	if json.Unmarshal(output, &v) != nil {
+		return nil
+	}
+	if len(v.Waiting) == 0 {
+		v.Waiting = []interruptValue{v.interruptValue}
+	}
+	for _, w := range v.Waiting {
+		if err := openApproval(ctx, tx, keys, r, w, ttl); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// openApproval records one approval the run now waits at. Who decides, the form and the expiry come from the pinned
 // spec, never from the sandbox; an interrupt that names no approval node of it opens nothing.
-func openApproval(ctx context.Context, tx db.DBTX, keys *envelope.Keys, r *run, output []byte, ttl time.Duration) error {
-	var v interruptValue
-	if json.Unmarshal(output, &v) != nil || v.ID == "" || r.spec == nil {
+func openApproval(ctx context.Context, tx db.DBTX, keys *envelope.Keys, r *run, v interruptValue, ttl time.Duration) error {
+	if v.ID == "" || r.spec == nil {
 		return nil
 	}
 	node, ok := approvalNode(r.spec, v.Node)
@@ -117,8 +137,8 @@ type Decided struct {
 	Comment    string
 }
 
-// Decide moves a waiting run on once its approval is decided: approved, a fresh sandbox resumes it from its
-// checkpoint with the answer; rejected, it ends cancelled. The caller has recorded the decision in tx.
+// Decide moves a waiting run on once its approvals are decided: all approved, a fresh sandbox resumes it from its
+// checkpoint with the answers; one rejected, it ends cancelled. The caller has recorded the decision in tx.
 func Decide(ctx context.Context, tx db.DBTX, keys *envelope.Keys, runID uuid.UUID, d Decided) error {
 	current, err := lockStatus(ctx, tx, runID)
 	if err != nil {
@@ -139,26 +159,36 @@ func Decide(ctx context.Context, tx db.DBTX, keys *envelope.Keys, runID uuid.UUI
 	if !d.Approve {
 		return endLocked(ctx, tx, keys, runID, StatusCancelled, ReasonRejected, map[string]any{"by": d.By.String()}, nil)
 	}
+	// The run's row is held, so of two approvals decided at once the later sees the earlier and resumes the run (#135).
+	var pending bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM approval WHERE run_id = $1 AND status = 'pending')`, runID).Scan(&pending); err != nil || pending {
+		return err
+	}
 	_, err = tx.Exec(ctx, `UPDATE run SET status = 'starting', attempts = 0, sandbox_id = NULL WHERE id = $1`, runID)
 	return err
 }
 
-// approved is the run's latest approved approval as stored, which answers the interrupt a resumed sandbox stops at.
+// approved is an approved approval as stored, which answers the interrupt a resumed sandbox stops at.
 type approved struct {
 	interrupt, comment, decidedBy string
 	sealedValues                  []byte
 }
 
-// latestApproved reads the run's latest approved approval, nil when it has none.
-func latestApproved(ctx context.Context, tx db.DBTX, runID uuid.UUID) (*approved, error) {
-	var a approved
-	err := tx.QueryRow(ctx, `SELECT interrupt_id, comment, decided_by_name, sealed_approved_values
-		FROM approval WHERE run_id = $1 AND status = 'approved' ORDER BY decided_at DESC LIMIT 1`, runID).
-		Scan(&a.interrupt, &a.comment, &a.decidedBy, &a.sealedValues)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
+// lastApproved reads the approved approvals of the run's last wait, oldest first. One Done opens a wait's approvals in
+// one transaction, so they share requested_at (#135).
+func lastApproved(ctx context.Context, tx db.DBTX, runID uuid.UUID) ([]approved, error) {
+	rows, err := tx.Query(ctx, `SELECT interrupt_id, comment, decided_by_name, sealed_approved_values
+		FROM approval WHERE run_id = $1 AND status = 'approved'
+			AND requested_at = (SELECT max(requested_at) FROM approval WHERE run_id = $1)
+		ORDER BY id`, runID)
+	if err != nil {
+		return nil, err
 	}
-	return &a, err
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (approved, error) {
+		var a approved
+		err := row.Scan(&a.interrupt, &a.comment, &a.decidedBy, &a.sealedValues)
+		return a, err
+	})
 }
 
 // answer is what a resumed sandbox hands the interrupt: the decision, the approved values opened with the run's key,
