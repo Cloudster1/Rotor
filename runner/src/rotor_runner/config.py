@@ -82,3 +82,42 @@ UNTRUSTED_TAG = "untrusted-data"
 FENCE_ID_BYTES = 8
 LINK_REMOVED = "[link removed]"
 LINK_EVENT_HOSTS = 5
+
+# Workspaces (#136), as the control plane's config names them: the workspace steps one run may take, what an agent
+# reads of a command (its first and last half past the cap), how long a command runs unless it says, and how long a
+# step may take unless the sandbox says.
+MAX_WORKSPACE_STEPS = 50
+MAX_COMMAND_OUTPUT = 64 << 10
+# What the agent adds to cut output to say how much it left out.
+OUTPUT_NOTE_BYTES = 256
+COMMAND_DEFAULT_TIMEOUT_S = 900
+WORKSPACE_STEP_DEFAULT_S = 3600
+# Where the work tree both sides see and the git directories only the runner sees are mounted.
+WORK_TREE = "/workspace"
+GIT_ROOT = "/private"
+# What the workspace tools read and write at most: a read of a file, a file written, the entries a listing names, a
+# search's matches and the files it reads, a matched line, and a command's arguments.
+MAX_READ_BYTES = 64 << 10
+MAX_WRITE_BYTES = 1 << 20
+MAX_LISTED_FILES = 2000
+MAX_SEARCH_MATCHES = 200
+MAX_SEARCH_FILE_BYTES = 1 << 20
+MAX_MATCH_CHARS = 300
+MAX_ARGV_BYTES = 64 << 10
+# The largest file a step's commit carries; a larger one belongs in .gitignore.
+MAX_COMMIT_FILE_BYTES = 64 << 20
+# Bytes a file's start is checked for NUL, to tell a binary file; a new file's mode, and a directory the runner
+# must remove.
+BINARY_SNIFF_BYTES = 8 << 10
+FILE_MODE = 0o644
+DIR_MODE = 0o755
+OWNED_DIR_MODE = 0o700
+# How long the runner waits for an exec agent to answer at a step's start, how often it asks, how much longer than a
+# command's own timeout it waits for the answer, and how long git may take for one request.
+AGENT_READY_S = 120
+AGENT_POLL_S = 0.5
+AGENT_PROBE_S = 2.0
+AGENT_SLACK_S = 30
+GIT_TIMEOUT_S = 120
+# Who commits what a step wrote; the push is the run's person's, by the token it carries.
+COMMIT_AUTHOR = b"Rotor <rotor@rotor.invalid>"

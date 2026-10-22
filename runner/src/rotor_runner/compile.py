@@ -4,10 +4,11 @@ Node outputs live under state.nodes; tokens never do, they stay with the ToolGat
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import copy
 import functools
 import json
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Protocol, TypedDict, cast
 
@@ -17,6 +18,7 @@ from langchain.agents.structured_output import ToolStrategy
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import BaseTool
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.errors import GraphRecursionError
@@ -38,6 +40,8 @@ from rotor_runner.telemetry import RunTracing
 from rotor_runner.templates import lookup, render, render_prompt
 from rotor_runner.untrusted import UntrustedResults, report_removed
 from rotor_runner.usage import UsageReporter
+from rotor_runner.workspace import Workspace, Workspaces
+from rotor_runner.workspace.tools import agent_tools
 
 OUTPUT_TOOL = "submit_output"
 
@@ -53,9 +57,11 @@ class State(TypedDict):
 
 
 class CodeRunner(Protocol):
-    """Runs a code node; rotor_runner.codenode is the real one."""
+    """Runs a code node, with its step's workspace when it has one; rotor_runner.codenode is the real one."""
 
-    async def run(self, node: dict[str, Any], state: dict[str, Any], ctx: RunContext) -> Any: ...
+    async def run(
+        self, node: dict[str, Any], state: dict[str, Any], ctx: RunContext, workspace: Workspace | None = None
+    ) -> Any: ...
 
 
 @dataclass
@@ -75,6 +81,8 @@ class RunContext:
     fence: Fence = field(default_factory=Fence)
     # The run's repository bindings (#137); None for a run, or a test, without any.
     repositories: Repositories | None = None
+    # The run's workspace steps in this sandbox (#136); None for a sandbox without toolchains.
+    workspaces: Workspaces | None = None
     links: LinkLimiter = field(init=False)
 
     def __post_init__(self) -> None:
@@ -115,10 +123,37 @@ def _agent_model(node: dict[str, Any], ctx: RunContext) -> Callable[[], BaseChat
     return model
 
 
+@contextlib.asynccontextmanager
+async def _workspace(node: dict[str, Any], state: State, ctx: RunContext) -> AsyncIterator[Workspace | None]:
+    """The node's workspace for the length of its step (#136), or None for a node without one."""
+    if node.get("workspace") is None:
+        yield None
+        return
+    if ctx.workspaces is None:
+        raise failed("workspace_unavailable", f"{node['id']} needs a workspace, and this runner has none")
+    async with ctx.workspaces.step(node, cast(dict[str, Any], state), ctx) as ws:
+        yield ws
+
+
+def _workspace_tools(node: dict[str, Any], tools: list[BaseTool], ws: Workspace | None) -> list[BaseTool]:
+    """The step's workspace tools, refused when the node's other tools already take their names."""
+    own = agent_tools(ws) if ws is not None else []
+    clash = sorted({t.name for t in tools} & {t.name for t in own})
+    if clash:
+        raise failed("tool_names", f"{node['id']} has tools named like its workspace's: {', '.join(clash)}")
+    return own
+
+
 def _agent(node: dict[str, Any], ctx: RunContext) -> Callable[..., Any]:
-    async def run(state: State, config: RunnableConfig) -> dict[str, Any]:
+    async def in_workspace(state: State, config: RunnableConfig) -> dict[str, Any]:
+        _agent_model(node, ctx)
+        async with _workspace(node, state, ctx) as ws:
+            return await run(state, config, ws)
+
+    async def run(state: State, config: RunnableConfig, ws: Workspace | None) -> dict[str, Any]:
         model = _agent_model(node, ctx)
         tools = await ctx.tools.langchain_tools(list(node.get("tools", [])), node["id"])
+        tools += _workspace_tools(node, tools, ws)
         schema = (node.get("output") or {}).get("schema")
         response_format: ToolStrategy[dict[str, Any]] | None = (
             ToolStrategy({**copy.deepcopy(schema), "title": OUTPUT_TOOL}) if schema else None
@@ -143,7 +178,7 @@ def _agent(node: dict[str, Any], ctx: RunContext) -> Callable[..., Any]:
         await report_removed(ctx.emit, node["id"], "output", removed)
         return {"nodes": {node["id"]: check_output(node, value)}}
 
-    return run
+    return in_workspace
 
 
 def _tool(node: dict[str, Any], ctx: RunContext) -> Callable[..., Any]:
@@ -164,7 +199,9 @@ def _code(node: dict[str, Any], ctx: RunContext) -> Callable[..., Any]:
     async def run(state: State) -> dict[str, Any]:
         if ctx.code is None:
             raise failed("code_unavailable", f"{node['id']} is a code node, and this runner cannot run code")
-        value = await ctx.code.run(node, cast(dict[str, Any], state), ctx)
+        async with _workspace(node, state, ctx) as ws:
+            current = cast(dict[str, Any], state)
+            value = await (ctx.code.run(node, current, ctx, ws) if ws else ctx.code.run(node, current, ctx))
         return {"nodes": {node["id"]: check_output(node, value)}}
 
     return run
