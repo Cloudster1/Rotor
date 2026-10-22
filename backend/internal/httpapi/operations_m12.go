@@ -12,10 +12,10 @@ func init() {
 
 var m12Operations = []operation{
 	{method: "GET", path: "/settings/unattended-writes", handler: "handleGetUnattendedWrites", tag: "triggers", admin: true,
-		pending: true, summary: "Whether a trigger's owner may let named writes happen without an approval.",
+		summary:   "Whether a trigger's owner may let named writes happen without an approval.",
 		responses: ok(unattendedSetting{})},
 	{method: "PUT", path: "/settings/unattended-writes", handler: "handleSetUnattendedWrites", tag: "triggers", admin: true,
-		pending: true, summary: "Allow or forbid unattended writes for everyone.",
+		summary:     "Allow or forbid unattended writes for everyone.",
 		description: "Forbidding them turns off at once every trigger whose workflow names an unattended call.",
 		request:     unattendedSettingInput{}, responses: ok(unattendedSetting{})},
 }

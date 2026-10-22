@@ -32,7 +32,7 @@ func (s *Spec) Warnings(c Catalog) []Problem {
 	}
 	var out []Problem
 	for i, n := range s.Nodes {
-		through := s.writesThrough(n, infos, func(Binding) bool { return true })
+		through := s.writesThrough(n, infos, func(Binding) bool { return true }, false)
 		if len(through) == 0 {
 			continue
 		}

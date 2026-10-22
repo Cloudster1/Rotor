@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A trigger's owner can let named calls write without an approval (#128).
+  A binding lists them under `unattended`, the trigger form asks the owner to
+  agree to each, and a later version that names more turns the trigger off
+  until they agree again. Each such write is in the audit log. An
+  administrator forbids them for everyone under Settings, which turns those
+  triggers off at once.
 - The tool-stub answers as Armature does, so workflows that read a story and
   comment on it are tested in every pull request (#129). An Armature tenant
   lists Armature's own `tools/list`, recorded at `deploy/suite/ARMATURE_REF`

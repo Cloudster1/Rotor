@@ -26,6 +26,9 @@ export const ME: Me = {
 /** Assistants as a fresh installation has them: free to connect (#47). */
 export const ASSISTANTS_ON = { connectionsOn: true, updatedAt: "2026-10-21T08:00:00Z" };
 
+/** Unattended writes as a fresh installation has them: allowed (#128). */
+export const UNATTENDED_ALLOWED = { allowed: true, updatedAt: "2026-10-22T08:00:00Z" };
+
 /** Retention as a fresh installation has it: 90 days, set by nobody (#41). */
 export const RETENTION_DEFAULT = { runDataDays: 90, maxDays: 3650, changedBy: null, updatedAt: "2026-10-19T08:00:00Z" };
 
@@ -91,6 +94,7 @@ export async function renderAt(path: string, { me = ME as Me | null, answers = {
     "/api/v1/oauth/grants": { grants: [] },
     "/api/v1/oauth/grants/everyone": { grants: [] },
     "/api/v1/settings/assistants": ASSISTANTS_ON,
+    "/api/v1/settings/unattended-writes": UNATTENDED_ALLOWED,
     "/api/v1/schemas/workflow.v1.json": { $id: "https://rotor.dev/schemas/workflow.v1.json", type: "object" },
     "POST /api/v1/workflows/validate": { valid: true, problems: [], warnings: [] },
     ...answers,

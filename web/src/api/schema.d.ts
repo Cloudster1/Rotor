@@ -1950,7 +1950,7 @@ export interface components {
             at: string;
             message: string;
             /** @enum {string} */
-            reason: "owner_switched_off" | "connection_lost" | "tool_removed" | "workflow_archived" | "workflow_hidden" | "unattended_write" | "inputs_refused";
+            reason: "owner_switched_off" | "connection_lost" | "tool_removed" | "workflow_archived" | "workflow_hidden" | "unattended_write" | "inputs_refused" | "unattended_widened" | "unattended_forbidden";
         };
         TriggerFire: {
             /** Format: date-time */
@@ -1963,6 +1963,7 @@ export interface components {
             runStatus: "queued" | "starting" | "running" | "waiting" | "succeeded" | "failed" | "cancelled" | "expired" | null;
         };
         TriggerRequest: {
+            allowUnattended?: string[];
             event?: components["schemas"]["EventSpec"];
             /** @description A JSON value. */
             inputs?: unknown;
@@ -1972,6 +1973,7 @@ export interface components {
             schedule?: components["schemas"]["ScheduleSpec"];
         };
         TriggerResponse: {
+            allowUnattended: string[];
             /** Format: date-time */
             createdAt: string;
             disabled: components["schemas"]["TriggerDisabled"] | null;
@@ -2031,6 +2033,7 @@ export interface components {
             inputs: unknown;
             number: number;
             specYAML: string;
+            unattendedCalls: string[];
         };
         VersionSummary: {
             comment: string;
@@ -4471,15 +4474,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
                 headers: {
@@ -4515,15 +4509,6 @@ export interface operations {
             };
             /** @description Forbidden: for administrators of Rotor alone. */
             403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

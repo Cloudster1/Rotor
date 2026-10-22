@@ -59,6 +59,20 @@ At Armature a run's token carries only what its binding asks for: a read
 binding without scopes asks for `read`, and the token cannot write even where
 the person could.
 
+A run a trigger starts writes only after an approval node, except through
+calls its binding names `unattended` (#128). The trigger's owner agrees to
+each of them, and an administrator can forbid them for everyone;
+[triggers](triggers.md#what-a-triggered-run-may-do) says how.
+
+```yaml
+  armature-write:
+    tool: armature
+    scopes: [comment.write]
+    access: write
+    allowTools: [add_comment]
+    unattended: [add_comment]     # may write in a triggered run with no approval before it
+```
+
 ### Nodes
 
 | Type | What it does | Fields |
@@ -144,6 +158,7 @@ When a workflow is saved, and again when a run starts:
   - tool nodes call through bindings that allow the call
   - an approval's form names only its own fields, and no binding allows a
     call that decides a review, which a person does in the tool itself
+  - every `unattended` call is one of its binding's `allowTools`
 - **The tools as you see them,** when saving, and when a run starts, read
   afresh from the tools as the run's person, so a call a tool turned into a
   write since is caught:

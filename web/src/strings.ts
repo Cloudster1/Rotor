@@ -126,6 +126,17 @@ export const s = {
     schedule: (cron: string, zone: string) => `${cron} in ${zone}`,
     owner: (name: string) => `Runs as ${name}`,
     turnedOff: "Turned off by Rotor",
+    because: (reason: string) => `(${reason})`,
+    unattended: {
+      title: "Writes without an approval",
+      body: "Nobody watches a run a trigger starts. This workflow makes these calls with no approval before them; every other write still waits for one.",
+      agree: "Let these calls write as me without an approval",
+    },
+    unattendedSetting: {
+      title: "Writes without an approval",
+      body: "A trigger's owner may let the calls a workflow names write with no approval before them. Forbidding it turns those triggers off at once.",
+      allowed: "Allow triggers to write without an approval",
+    },
     remove: "Remove",
     confirmRemove: (name: string) => `Remove ${name}? The runs it started stay.`,
     confirm: "Remove trigger",

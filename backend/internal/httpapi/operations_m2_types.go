@@ -86,6 +86,8 @@ type versionResponse struct {
 	// Inputs is the JSON Schema of what a run starts with; null when the workflow takes none.
 	Inputs   json.RawMessage `json:"inputs"`
 	Bindings []bindingRef    `json:"bindings"`
+	// UnattendedCalls are the <binding>.<call> pairs a trigger's owner must agree to (#128), sorted.
+	UnattendedCalls []string `json:"unattendedCalls"`
 }
 
 // bindingRef is a tool a version's runs use, under its binding's name.

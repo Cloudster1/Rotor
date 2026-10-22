@@ -17,7 +17,7 @@ function when(at: string): string {
 }
 
 /** The triggers on a workflow that start it as their owner; each person adds their own. */
-export function TriggersSection({ workflowID, inputsSchema }: { workflowID: string; inputsSchema: unknown }) {
+export function TriggersSection({ workflowID, inputsSchema, unattendedCalls }: { workflowID: string; inputsSchema: unknown; unattendedCalls: string[] }) {
   const id = useId();
   const list = useQuery(workflowTriggersQuery(workflowID));
   const [editing, setEditing] = useState<Trigger | "new" | null>(null);
@@ -36,7 +36,13 @@ export function TriggersSection({ workflowID, inputsSchema }: { workflowID: stri
       <p className="mb-3 text-sm text-ink-muted">{s.triggers.body}</p>
       {editing !== null && (
         <div className="mb-4 rounded-control border border-border p-3">
-          <TriggerForm workflowID={workflowID} inputsSchema={inputsSchema} existing={editing === "new" ? undefined : editing} onDone={() => setEditing(null)} />
+          <TriggerForm
+            workflowID={workflowID}
+            inputsSchema={inputsSchema}
+            unattendedCalls={unattendedCalls}
+            existing={editing === "new" ? undefined : editing}
+            onDone={() => setEditing(null)}
+          />
         </div>
       )}
       {list.data?.length === 0 && editing === null && <p className="text-sm text-ink-muted">{s.triggers.none}</p>}
@@ -91,6 +97,7 @@ function TriggerRow({ trigger, onChange }: { trigger: Trigger; onChange: () => v
       {fire && (
         <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink" data-last-fire={fire.outcome}>
           {s.triggers.last(s.triggers.outcome[fire.outcome] ?? fire.outcome, when(fire.at))}
+          {fire.outcome === "skipped" && fire.reason && <span className="text-ink-muted">{s.triggers.because(fire.reason)}</span>}
           {fire.runId && fire.runStatus && (
             <Link to="/runs/$runID" params={{ runID: fire.runId }} className="hover:underline">
               <RunStatusBadge status={fire.runStatus} />

@@ -276,8 +276,14 @@ func (s *Server) handle(ctx context.Context, stream runnerpb.RunnerControlServic
 	switch m := msg.Message.(type) {
 	case *runnerpb.ConnectRequest_Event:
 		apply = func(ctx context.Context, tx db.DBTX) error {
-			if err := appendEvent(ctx, tx, s.Keys, r.ID, m.Event.Type, m.Event.NodeId, []byte(m.Event.PayloadJson)); err != nil || m.Event.Type != usage.EventUsage {
+			if err := appendEvent(ctx, tx, s.Keys, r.ID, m.Event.Type, m.Event.NodeId, []byte(m.Event.PayloadJson)); err != nil {
 				return err
+			}
+			if m.Event.Type == EventToolCalled {
+				return auditUnattended(ctx, tx, r, []byte(m.Event.PayloadJson))
+			}
+			if m.Event.Type != usage.EventUsage {
+				return nil
 			}
 			var err error
 			stopped, err = recordUsage(ctx, tx, s.Keys, r, []byte(m.Event.PayloadJson))

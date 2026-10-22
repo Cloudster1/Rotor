@@ -167,7 +167,8 @@ func refusal(err error) (string, bool) {
 	case err == nil:
 		return "", false
 	case errors.As(err, &refused):
-		for _, reason := range []string{ReasonUnattendedWrite, ReasonConnectionLost, ReasonToolRemoved} {
+		for _, reason := range []string{ReasonUnattendedForbidden, ReasonUnattendedWidened, ReasonUnattendedWrite, ReasonConnectionLost,
+			ReasonToolRemoved} {
 			for _, p := range refused.Problems {
 				if p.Code == reason {
 					return reason, true

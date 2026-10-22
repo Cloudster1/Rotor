@@ -165,6 +165,18 @@ tools:
 - The audit log records `unattended.switched` with the new and the
   previous value.
 
+### As built (#128)
+
+- **Where the calls are named:** `unattendedCalls` is on the workflow's
+  `version`, beside its `bindings`, since it is what that version names.
+- **A review-deciding call** is refused where it already was, at
+  `/tools/<name>/allowTools/<i>`; an unattended call must be in `allowTools`,
+  so it never needs a second problem.
+- **Forbidding** turns off every enabled trigger whose `allowUnattended` is
+  not empty, in the request that forbids, as Rotor.
+- **The audit entry** has `run`, `binding`, `call`, `tool` and `subjects`,
+  the last empty until the write ledger (#127) reports them.
+
 ## What is left for later
 
 - Holding a write back at the tool (#32) replaces the approval rule; named

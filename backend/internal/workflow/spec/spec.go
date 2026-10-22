@@ -36,6 +36,8 @@ const (
 	CodeApprovalForm   = "approval_form"
 	CodeApprovalExpiry = "approval_expiry"
 	CodeDecidesReview  = "decides_review"
+	// CodeUnattendedCall is an unattended call the binding does not allow (#128).
+	CodeUnattendedCall = "unattended_call_not_allowed"
 	// CodeRetention is a retention longer than any installation keeps a run's data (#41).
 	CodeRetention = "retention_too_long"
 )
@@ -98,6 +100,9 @@ type Binding struct {
 	AllowTools []string `json:"allowTools"`
 	Access     string   `json:"access,omitempty"`
 	Approval   string   `json:"approval,omitempty"`
+	// Unattended are calls of AllowTools a triggered run may make with no approval before them, once the trigger's
+	// owner agrees (#128).
+	Unattended []string `json:"unattended,omitempty"`
 }
 
 // Writes says whether the binding may write; read is the default.

@@ -163,6 +163,13 @@
           "enum": ["none", "beforeWrite"],
           "default": "none",
           "description": "beforeWrite requires an approval node on every path to a node that writes through this binding."
+        },
+        "unattended": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "description": "Calls of allowTools a triggered run may make with no approval before them, once the trigger's owner agrees to each."
         }
       }
     },

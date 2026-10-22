@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -23,6 +25,10 @@ const (
 	ReasonWorkflowHidden   = "workflow_hidden"
 	ReasonUnattendedWrite  = "unattended_write"
 	ReasonInputsRefused    = "inputs_refused"
+	// ReasonUnattendedWidened is a version naming an unattended call the owner did not agree to (#128).
+	ReasonUnattendedWidened = "unattended_widened"
+	// ReasonUnattendedForbidden is an unattended call while administrators forbid them (#128).
+	ReasonUnattendedForbidden = "unattended_forbidden"
 )
 
 // reasonSentences say each reason to the trigger's owner.
@@ -34,6 +40,10 @@ var reasonSentences = map[string]string{
 	ReasonWorkflowHidden:   "You no longer see the workflow, so the trigger cannot start it. Ask its owner to share it again.",
 	ReasonUnattendedWrite:  "The workflow may now write without an approval first. Put an approval node before each write, then turn the trigger on.",
 	ReasonInputsRefused:    "The workflow's inputs no longer take the trigger's inputs. Change them to fit, then turn the trigger on.",
+	ReasonUnattendedWidened: "The workflow now names calls that write without an approval which you did not agree to. " +
+		"Agree to them in the trigger, then turn it on.",
+	ReasonUnattendedForbidden: "An administrator forbade writes without an approval, which this workflow makes. " +
+		"Put an approval node before each write, or ask an administrator to allow them again.",
 }
 
 // Sentence says a reason to the trigger's owner.
@@ -61,6 +71,8 @@ const (
 	CodeSchedule = "schedule"
 	CodeName     = "name"
 	CodeKind     = "kind"
+	// CodeUnattendedNotAllowed is a trigger whose owner did not agree to every unattended call of the workflow.
+	CodeUnattendedNotAllowed = "unattended_not_allowed"
 )
 
 // eventPlaceholder stands in for an event when an event trigger's inputs are checked, before any event arrives.
@@ -115,6 +127,11 @@ func (s *Service) check(ctx context.Context, workflowID uuid.UUID, in Input) (ch
 	if err != nil {
 		return checked{}, err
 	}
+	if p, ok, err := s.unattendedProblem(ctx, parsed, in); err != nil {
+		return checked{}, err
+	} else if ok {
+		problems = append(problems, p)
+	}
 	writes, _ := parsed.UnattendedWrites(catalog)
 	for _, p := range writes {
 		problems = append(problems, Problem{Field: "workflow" + p.Path, Code: ReasonUnattendedWrite, Message: p.Message})
@@ -140,4 +157,36 @@ func runInputs(kind string, own json.RawMessage, fired map[string]any) []byte {
 	}
 	out, _ := json.Marshal(inputs)
 	return out
+}
+
+// unattendedProblem is what keeps the workflow's unattended calls from running: administrators forbid them, or the
+// owner did not agree to each. A firing calls a call not agreed to a wider version, which turns the trigger off.
+func (s *Service) unattendedProblem(ctx context.Context, parsed *spec.Spec, in Input) (Problem, bool, error) {
+	needs := parsed.UnattendedCalls()
+	if len(needs) == 0 {
+		return Problem{}, false, nil
+	}
+	allowed, err := s.UnattendedAllowed(ctx)
+	if err != nil {
+		return Problem{}, false, err
+	}
+	if !allowed {
+		return Problem{Field: "allowUnattended", Code: ReasonUnattendedForbidden, Message: Sentence(ReasonUnattendedForbidden)}, true, nil
+	}
+	var missing []string
+	for _, call := range needs {
+		if !slices.Contains(in.AllowUnattended, call) {
+			missing = append(missing, call)
+		}
+	}
+	if len(missing) == 0 {
+		return Problem{}, false, nil
+	}
+	code := CodeUnattendedNotAllowed
+	if in.Firing {
+		code = ReasonUnattendedWidened
+	}
+	return Problem{Field: "allowUnattended", Code: code, Message: fmt.Sprintf(
+		"The workflow writes through %s with no approval before it; agree to that in allowUnattended, or ask its author for an approval node.",
+		strings.Join(missing, ", "))}, true, nil
 }

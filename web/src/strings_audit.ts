@@ -74,5 +74,7 @@ export const audit = {
     "oauth.granted": "Assistant connected",
     "oauth.revoked": "Assistant disconnected",
     "oauth.switched": "Assistants switched on or off",
+    "unattended.switched": "Writes without an approval allowed or forbidden",
+    "trigger.unattended_write": "Trigger wrote without an approval",
   } as Record<string, string>,
 } as const;

@@ -188,6 +188,8 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Delete("/settings/langsmith/key", s.handleRemoveLangSmithKey)
 				r.Get("/settings/retention", s.handleGetRetention)
 				r.Put("/settings/retention", s.handleSetRetention)
+				r.Get("/settings/unattended-writes", s.handleGetUnattendedWrites)
+				r.Put("/settings/unattended-writes", s.handleSetUnattendedWrites)
 				mountPending(r, false, true)
 			})
 		})

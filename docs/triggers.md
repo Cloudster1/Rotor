@@ -30,13 +30,28 @@ Nobody watches a triggered run, so until Rotor holds writes back at the tool
 write comes after an approval node. Whoever the approval names decides in
 the Approvals inbox.
 
+There is one exception (#128). A binding may name calls `unattended`, such as
+a comment on the ticket that started the run or a draft requirement that a
+person still reviews in Exciter. When you add the trigger, the form lists
+those calls under **Writes without an approval**, and you agree to them;
+without that the trigger is refused. If a later version of the workflow
+names more calls, Rotor turns the trigger off at its next firing until you
+agree again. Every such write is in the audit log, with the trigger and the
+run. A call that decides a review is never allowed.
+
+An administrator can forbid writes without an approval for everyone, under
+**Settings**, **Writes without an approval**. That turns off at once every
+trigger whose owner agreed to such a call; allowing them again turns none
+back on.
+
 ## When Rotor turns a trigger off
 
 Rotor checks every firing as the trigger's owner and turns the trigger off
 when it no longer can run as them. That happens when the owner is switched
 off, a tool the workflow uses is no longer connected, the workflow is
 archived or no longer shared with them, a new version writes without an
-approval, or its inputs no longer fit. The trigger says why, the Workflows
+approval or names unattended calls you did not agree to, an administrator
+forbade unattended writes, or its inputs no longer fit. The trigger says why, the Workflows
 page flags the workflow, and the owner turns it on again once that is
 mended. A tool that does not answer does not turn anything off; the firing
 is tried again for a while.

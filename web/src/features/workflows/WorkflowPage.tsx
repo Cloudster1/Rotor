@@ -210,7 +210,7 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
       </div>
       {summary && !summary.archived && (
         <div className="mt-6">
-          <TriggersSection workflowID={summary.id} inputsSchema={existing?.version.inputs} />
+          <TriggersSection workflowID={summary.id} inputsSchema={existing?.version.inputs} unattendedCalls={existing?.version.unattendedCalls ?? []} />
         </div>
       )}
     </div>

@@ -1,0 +1,19 @@
+# expect: /tools/armature-write/unattended/1 unattended_call_not_allowed
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+tools:
+  armature-write:
+    tool: armature
+    scopes: [comment.write]
+    access: write
+    allowTools: [add_comment]
+    unattended: [add_comment, transition_issue]
+limits: {maxSteps: 5, timeout: 1m}
+entry: ask
+nodes:
+  - id: ask
+    type: tool
+    tool: armature-write
+    call: add_comment
+    arguments: {issueKey: CP-1, text: Hello}

@@ -3158,16 +3158,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
           "default": {
             "description": "An error, in the one shape every endpoint uses.",
             "content": {
@@ -3210,16 +3200,6 @@
           },
           "403": {
             "description": "Forbidden: for administrators of Rotor alone.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7864,7 +7844,9 @@
               "workflow_archived",
               "workflow_hidden",
               "unattended_write",
-              "inputs_refused"
+              "inputs_refused",
+              "unattended_widened",
+              "unattended_forbidden"
             ]
           }
         },
@@ -7927,6 +7909,12 @@
       "TriggerRequest": {
         "type": "object",
         "properties": {
+          "allowUnattended": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "event": {
             "$ref": "#/components/schemas/EventSpec"
           },
@@ -7955,6 +7943,12 @@
       "TriggerResponse": {
         "type": "object",
         "properties": {
+          "allowUnattended": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -8047,6 +8041,7 @@
           "schedule",
           "event",
           "inputs",
+          "allowUnattended",
           "nextRunAt",
           "lastFire",
           "createdAt",
@@ -8195,6 +8190,12 @@
           },
           "specYAML": {
             "type": "string"
+          },
+          "unattendedCalls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -8205,7 +8206,8 @@
           "createdAt",
           "specYAML",
           "inputs",
-          "bindings"
+          "bindings",
+          "unattendedCalls"
         ]
       },
       "VersionSummary": {

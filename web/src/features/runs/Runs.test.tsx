@@ -51,6 +51,7 @@ const RESPONSE: WorkflowResponse = {
       },
     },
     bindings: [{ name: "exciter", tool: "exciter", scopes: ["mcp"], access: "write" }],
+    unattendedCalls: [],
   },
 };
 
