@@ -31,11 +31,50 @@ test-contracts: | $(GO_CACHE) ## Hold the tool-stub and what Rotor reads of each
 	$(DOCKER_GO) go test -count=1 ./internal/toolstub/ ./internal/tools/
 
 .PHONY: tool-snapshots
-tool-snapshots: ## Record the running suite's Exciter tools/list into api/tools/exciter/tools-list.json
+tool-snapshots: ## Record a tool's tools/list for the stub: make tool-snapshots TOOL=exciter (the running suite's) or TOOL=armature
+	@case "$(or $(TOOL),exciter)" in \
+		exciter) $(MAKE) --no-print-directory tool-snapshot-exciter;; \
+		armature) $(MAKE) --no-print-directory tool-snapshot-armature;; \
+		*) echo "Name the tool: make tool-snapshots TOOL=exciter|armature"; exit 1;; \
+	esac
+
+# snapshot_record runs the recorder at address $(1) with docker run options $(2) into api/tools/$(3)/tools-list.json.
+define snapshot_record
+	docker run --rm --network host -u $(UID_GID) -v $(ROOT)/scripts:/scripts:ro $(2) $(NODE_IMAGE) \
+		node /scripts/tool-snapshot.mjs $(1) > $(TOOLS_API_DIR)/$(3)/tools-list.json.tmp \
+		&& mv $(TOOLS_API_DIR)/$(3)/tools-list.json.tmp $(TOOLS_API_DIR)/$(3)/tools-list.json \
+		|| { rm -f $(TOOLS_API_DIR)/$(3)/tools-list.json.tmp; exit 1; }
+endef
+
+.PHONY: tool-snapshot-exciter
+tool-snapshot-exciter:
 	@docker network inspect $(SUITE_NET) >/dev/null 2>&1 \
 		|| { echo "The suite is not up. Start the stack with make up, then make suite-up, then run this again."; exit 1; }
-	@docker run --rm --network host -u $(UID_GID) -v $(ROOT)/scripts:/scripts:ro $(NODE_IMAGE) \
-		node /scripts/tool-snapshot.mjs http://localhost:$(SUITE_EXCITER_WEB_PORT) > $(TOOLS_API_DIR)/exciter/tools-list.json.tmp \
-		&& mv $(TOOLS_API_DIR)/exciter/tools-list.json.tmp $(TOOLS_API_DIR)/exciter/tools-list.json \
-		&& echo "Recorded Exciter's tools/list at $(EXCITER_REF); run make check-go." \
-		|| { rm -f $(TOOLS_API_DIR)/exciter/tools-list.json.tmp; exit 1; }
+	@$(call snapshot_record,http://localhost:$(SUITE_EXCITER_WEB_PORT),,exciter)
+	@echo "Recorded Exciter's tools/list at $(EXCITER_REF); run make check-go."
+
+# Armature's list is built from its code alone, so a throwaway installation at ARMATURE_REF records it: its own
+# compose with deploy/suite/armature-snapshot.yml over it, its first sign-up the owner, and gone again afterwards.
+ARMATURE_REPO ?= https://github.com/Cloudster1/Armature.git
+ARMATURE_REF := $(shell cat $(ROOT)/deploy/suite/ARMATURE_REF 2>/dev/null)
+SNAPSHOT_ARMATURE_DIR := $(ROOT)/.cache/tools/armature
+SNAPSHOT_ARMATURE = docker compose -p $(STACK_PROJECT)-armature-snapshot \
+	-f $(SNAPSHOT_ARMATURE_DIR)/deploy/docker-compose.yml -f $(ROOT)/deploy/suite/armature-snapshot.yml
+# A person of the throwaway installation alone, which is gone with it.
+SNAPSHOT_ARMATURE_LOGIN := -e TOOL_SIGNUP_NAME=Snapshot -e TOOL_ADMIN_EMAIL=snapshot@armature.test \
+	-e 'TOOL_ADMIN_PASSWORD=armature snapshot password'
+
+.PHONY: tool-snapshot-armature
+tool-snapshot-armature:
+	@[ -n "$(ARMATURE_REF)" ] || { echo "deploy/suite/ARMATURE_REF names no commit."; exit 1; }
+	@[ -d $(SNAPSHOT_ARMATURE_DIR)/.git ] || git clone --quiet --filter=blob:none --no-checkout $(ARMATURE_REPO) $(SNAPSHOT_ARMATURE_DIR)
+	@[ -f $(SNAPSHOT_ARMATURE_DIR)/deploy/docker-compose.yml ] \
+		&& [ "$$(git -C $(SNAPSHOT_ARMATURE_DIR) rev-parse -q --verify HEAD)" = "$(ARMATURE_REF)" ] || { \
+		git -C $(SNAPSHOT_ARMATURE_DIR) fetch --quiet origin $(ARMATURE_REF) && \
+		git -C $(SNAPSHOT_ARMATURE_DIR) -c advice.detachedHead=false checkout --quiet --detach FETCH_HEAD; }
+	@trap '$(SNAPSHOT_ARMATURE) down -v --remove-orphans >/dev/null 2>&1' EXIT; \
+	$(SNAPSHOT_ARMATURE) up -d --build --wait --quiet-pull api || exit 1; \
+	port=$$($(SNAPSHOT_ARMATURE) port api 8080 | sed 's/.*://'); \
+	$(call snapshot_record,http://localhost:$$port,$(SNAPSHOT_ARMATURE_LOGIN),armature)
+	@echo "Recorded Armature's tools/list at $(ARMATURE_REF); vendor its document at the same commit with" \
+		"make tool-contracts TOOL=armature REF=$(ARMATURE_REF), then run make check-go."

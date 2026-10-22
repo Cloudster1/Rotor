@@ -11,8 +11,8 @@ import (
 	"strings"
 )
 
-// The MCP endpoint, in the shape of Exciter's backend/internal/httpapi/mcp.go: one JSON-RPC request per POST,
-// answered as JSON. tools/list answers the snapshot of Exciter's; whoami is the one tool that does something.
+// The MCP endpoint as Exciter's backend/internal/httpapi/mcp.go, one JSON-RPC request per POST: tools/list answers
+// the tenant's snapshot, and the tools the suite's workflows call answer from its options and what was written there.
 
 // MCPProtocolVersions are the revisions spoken, newest first, as Exciter speaks them.
 var MCPProtocolVersions = []string{"2025-11-25", "2025-06-18"}
@@ -50,6 +50,8 @@ type caller struct {
 	username string
 	readOnly bool
 	scopes   []string
+	// app and clientID name the connected app an Armature OAuth token was granted to; empty for a personal token.
+	app, clientID string
 }
 
 // callerOf reads the bearer: an access token of the tenant when it is an authorization server, a personal token
@@ -69,7 +71,11 @@ func (s *Stub) callerOf(c *call) (*caller, bool) {
 		return nil, true
 	}
 	if c.t.armature() {
-		return &caller{username: tk.grant.username, readOnly: tk.readOnly, scopes: tk.scopes}, true
+		app := "Rotor"
+		if cl, ok := c.t.clients[tk.grant.clientID]; ok && cl.name != "" {
+			app = cl.name
+		}
+		return &caller{username: tk.grant.username, readOnly: tk.readOnly, scopes: tk.scopes, app: app, clientID: tk.grant.clientID}, true
 	}
 	return &caller{username: tk.grant.username, readOnly: tk.readOnly, scopes: []string{scopeName(tk.readOnly, false)}}, true
 }
@@ -159,14 +165,15 @@ func readOnlyTool(tool map[string]any) bool {
 	return ro
 }
 
-// toolsFor leaves the writing tools out for a token made to read, as Exciter does, with the tenant's writes marked.
+// toolsFor leaves the writing tools out for a token made to read, as Exciter does, with the tenant's writes marked;
+// Armature lists every tool to every caller and refuses the call instead.
 func (s *Stub) toolsFor(t *tenant, who *caller) []map[string]any {
 	out := []map[string]any{}
-	for _, tool := range s.tools {
+	for _, tool := range s.toolsOf(t) {
 		if name, _ := tool["name"].(string); slices.Contains(t.opts.Writes, name) {
 			tool = asWrite(tool)
 		}
-		if !who.readOnly || readOnlyTool(tool) {
+		if !who.readOnly || readOnlyTool(tool) || t.snapshot() == SnapshotArmature {
 			out = append(out, tool)
 		}
 	}
@@ -197,7 +204,7 @@ func refusal(message string) map[string]any {
 
 func (s *Stub) callTool(c *call, who *caller, name string, arguments json.RawMessage) (any, *rpcError) {
 	var tool map[string]any
-	for _, t := range s.tools {
+	for _, t := range s.toolsOf(c.t) {
 		if t["name"] == name {
 			tool = t
 		}
@@ -205,16 +212,15 @@ func (s *Stub) callTool(c *call, who *caller, name string, arguments json.RawMes
 	switch {
 	case tool == nil:
 		return nil, &rpcError{Code: rpcInvalidParams, Message: "There is no tool " + name + ". Ask tools/list for the names."}
+	case c.t.snapshot() == SnapshotArmature:
+		return s.callArmature(c, who, tool, arguments)
 	case who.readOnly && !readOnlyTool(tool):
 		return refusal("This connection may only read, so it cannot " + name + ". Connect again with writing allowed."), nil
-	case name == GetRequirementTool:
-		return getRequirement(c.t, who, arguments), nil
-	case name != WhoamiTool:
-		return refusal("The test double answers whoami and get_requirement alone; " + name + " is listed so clients see Exciter's tools."), nil
 	}
-	structured := whoami(c.t, who)
-	text, _ := json.Marshal(structured)
-	return map[string]any{"content": []toolContent{{Type: "text", Text: string(text)}}, "structuredContent": structured}, nil
+	if answer, ok := s.callExciter(c, who, name, arguments); ok {
+		return answer, nil
+	}
+	return refusal("The test double does not answer " + name + "; it is listed so clients see Exciter's tools."), nil
 }
 
 // whoami answers in the shape of Exciter's whoami output schema, which clients check the answer against; the

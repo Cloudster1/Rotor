@@ -66,7 +66,8 @@ service refusing: try the same thing straight through SQL as `rotor_app` and
 watch the database refuse it too.
 
 The tools are not mocked either: the stack's `tool-stub` behaves as Exciter
-does and a contract test holds it to the documents vendored in `api/tools/`.
+or Armature does and a contract test holds it to the documents vendored in
+`api/tools/` and the `tools/list` recorded beside them.
 Each test makes a tenant of its own (`/t/<name>`), so tests never share a
 tool. What only the real Exciter can settle runs in the suite, outside the
 gate: `make up`, `make suite-up`, then `make test-suite`; CI runs it nightly

@@ -13,13 +13,16 @@ import (
 
 const toolsDir = "../../../api/tools/"
 
-// reads are the operations Rotor relies on per tool, as "METHOD /path" under the document's /api/v1. Armature's OAuth
-// joins with #45 and Stator's with #105, once their documents carry it.
+// reads are the operations Rotor relies on per tool, as "METHOD /path" under the document's /api/v1: Armature's are
+// its OAuth (#45) and the ones its tools the story workflow calls stand for (#129); Stator's OAuth joins with #105.
 var reads = map[string][]string{
 	"exciter": {"GET /meta", "POST /mcp", "POST /oauth/register", "POST /oauth/token", "POST /oauth/revoke",
 		"GET /.well-known/oauth-authorization-server", "GET /.well-known/oauth-protected-resource/api/v1/mcp"},
-	"armature": {"GET /meta", "POST /mcp"},
-	"stator":   {"GET /meta", "POST /mcp"},
+	"armature": {"GET /meta", "POST /mcp", "POST /oauth/register", "POST /oauth/token", "POST /oauth/revoke",
+		"GET /.well-known/oauth-authorization-server", "GET /.well-known/oauth-protected-resource",
+		"GET /auth/me", "GET /issues/{issueKey}", "GET /issues/{issueKey}/comments", "POST /issues/{issueKey}/comments",
+		"GET /issues/{issueKey}/remote-links", "POST /issues/{issueKey}/remote-links"},
+	"stator": {"GET /meta", "POST /mcp"},
 }
 
 type document struct {

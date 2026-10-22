@@ -64,7 +64,8 @@ Every port is bound to `127.0.0.1` and derived from the checkout's path, so
 worktrees and the siblings' stacks run side by side; `make ports` prints them
 and `.cache/stack.env` keeps them. The stack's `tool-stub` stands in for the
 tools: every `/t/<name>` on its port is a tool of its own that behaves as
-Exciter does, with a stub model under `/t/<name>/llm/v1`.
+Exciter does, or as Armature for `/t/armature--<name>`, with a stub model under
+`/t/<name>/llm/v1`.
 
 For something to look at, `make screenshots` against a fresh stack does what a
 first afternoon would: it adds the tool stub as Exciter and its stub model,
@@ -263,8 +264,9 @@ names them; each layer tests something the one below cannot.
 Nothing is mocked below the layer under test. A guard is not proven by the
 service refusing: the same thing is tried straight through SQL as `rotor_app`
 and the database refuses it too. The tools are not mocked either: the
-`tool-stub` behaves as Exciter does and a contract test holds it to the
-documents vendored in `api/tools/`. Each test makes a tenant of its own,
+`tool-stub` behaves as Exciter or Armature does and a contract test holds it
+to the documents vendored in `api/tools/` and the `tools/list` recorded beside
+them. Each test makes a tenant of its own,
 `/t/<name>`, so tests never share a tool.
 
 What only a real sibling or a cluster can settle runs outside the gate:

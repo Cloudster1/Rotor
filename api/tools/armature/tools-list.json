@@ -1,0 +1,1652 @@
+{
+  "tools": [
+    {
+      "annotations": {
+        "readOnlyHint": false,
+        "title": "add_comment"
+      },
+      "description": "Comment on an issue; text is plain words.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "object",
+            "description": "A rich text document.",
+            "properties": {
+              "content": {
+                "type": "array",
+                "items": {
+                  "description": "A node of the document."
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "doc"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "content"
+            ]
+          },
+          "bodyMarkdown": {
+            "type": "string"
+          },
+          "issueKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "issueKey"
+        ]
+      },
+      "name": "add_comment"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": false,
+        "title": "add_remote_link"
+      },
+      "description": "Put a page from another application on an issue by its url, with relation requirement for a requirement it implements and page otherwise; sending a url already there updates its title and icon, and its relation when one is sent.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "iconUrl": {
+            "type": "string"
+          },
+          "issueKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "page",
+              "requirement"
+            ]
+          },
+          "source": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "issueKey",
+          "url",
+          "title",
+          "source"
+        ]
+      },
+      "name": "add_remote_link"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": false,
+        "title": "bulk_edit_issues"
+      },
+      "description": "Change many issues at once: priority, assignee, sprint, milestone, team, labels, or a transition by name; each refusal is named.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "change": {
+            "$ref": "#/$defs/Input"
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "keys",
+          "change"
+        ],
+        "$defs": {
+          "Input": {
+            "type": "object",
+            "properties": {
+              "addLabels": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "assignee": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
+              "milestoneId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
+              "priority": {
+                "type": "string",
+                "enum": [
+                  "lowest",
+                  "low",
+                  "medium",
+                  "high",
+                  "highest"
+                ]
+              },
+              "sprintId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
+              "teamId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
+              "transition": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "name": "bulk_edit_issues"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": false,
+        "title": "create_issue"
+      },
+      "description": "File an issue in a project; typeId comes from list_issue_types.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "assigneeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "componentIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "description": {
+            "type": "object",
+            "description": "A rich text document.",
+            "properties": {
+              "content": {
+                "type": "array",
+                "items": {
+                  "description": "A node of the document."
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "doc"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "content"
+            ]
+          },
+          "descriptionMarkdown": {
+            "type": "string"
+          },
+          "dueDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "A day, YYYY-MM-DD; null clears it."
+          },
+          "estimate": {
+            "type": "number"
+          },
+          "parentKey": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string"
+          },
+          "projectKey": {
+            "type": "string"
+          },
+          "sprintId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "A day, YYYY-MM-DD; null clears it."
+          },
+          "summary": {
+            "type": "string"
+          },
+          "teamId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "projectKey",
+          "summary"
+        ]
+      },
+      "name": "create_issue"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "get_board"
+      },
+      "description": "One board with its columns and cards.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "boardID": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "boardID"
+        ]
+      },
+      "name": "get_board"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "get_hierarchy"
+      },
+      "description": "The whole project as a tree of issues, roots first.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "get_hierarchy"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "get_holiday_calendar"
+      },
+      "description": "One holiday calendar with every day off on it, half days marked.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "calendarID": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "calendarID"
+        ]
+      },
+      "name": "get_holiday_calendar"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "get_issue"
+      },
+      "description": "One issue by its key, such as CP-12.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "issueKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "issueKey"
+        ]
+      },
+      "name": "get_issue"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "get_plan"
+      },
+      "description": "The project laid out against a calendar, with an optional NQL query marking what matches.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          },
+          "q": {
+            "type": "string",
+            "description": "An NQL query; the plan is returned whole and matched lists the keys it selects."
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "get_plan"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "get_project"
+      },
+      "description": "One project by its key.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "get_project"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "get_report"
+      },
+      "description": "One report computed now; kind is a widget kind such as status_breakdown, throughput or velocity.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "integer",
+            "description": "The window, 1 to 365."
+          },
+          "groupBy": {
+            "type": "string",
+            "description": "For a chart: status, statusCategory, type, priority, assignee, team, milestone, label, fixVersion or component."
+          },
+          "interval": {
+            "type": "string",
+            "description": "For a line: week or month."
+          },
+          "kind": {
+            "type": "string"
+          },
+          "measure": {
+            "type": "string",
+            "description": "For a chart: count or points."
+          },
+          "milestone": {
+            "type": "string",
+            "format": "uuid",
+            "description": "One milestone's progress, open or closed, instead of every open one's."
+          },
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          },
+          "q": {
+            "type": "string",
+            "description": "An NQL query the counted issues must match; the dashboard's filter, composed on the page."
+          },
+          "series": {
+            "type": "string",
+            "description": "For a line: created, resolved or open."
+          },
+          "shape": {
+            "type": "string",
+            "description": "For a chart: bar, stacked, donut or line."
+          },
+          "splitBy": {
+            "type": "string",
+            "description": "For a stacked chart: a second field from the same list."
+          },
+          "sprint": {
+            "type": "string",
+            "format": "uuid",
+            "description": "One sprint's burndown, running or over."
+          },
+          "team": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "string",
+            "format": "uuid",
+            "description": "One version's progress, released or not, instead of every unreleased one's."
+          }
+        },
+        "required": [
+          "projectKey",
+          "kind"
+        ]
+      },
+      "name": "get_report"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "get_resources"
+      },
+      "description": "Hours of work per team or person per week against the hours they have, with what is unscheduled or unestimated.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "A day in the first week, YYYY-MM-DD; this week when absent."
+          },
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "A day in the last week, YYYY-MM-DD; at most 26 weeks after from."
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "get_resources"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "get_sprint_board"
+      },
+      "description": "A sprint's board, showing only what is committed to it.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sprintID": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "sprintID"
+        ]
+      },
+      "name": "get_sprint_board"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "get_working_week"
+      },
+      "description": "How many minutes a person works on each weekday and which holiday calendar they keep; anybody may read their own, an administrator anybody's.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "userID": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "userID"
+        ]
+      },
+      "name": "get_working_week"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_absences"
+      },
+      "description": "Who is away on which days, a month back and a year ahead unless from and to say otherwise; from alone lists every absence after it, up to a bound, and truncated says the list was cut. Never why. Optionally for one person.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "The first day, YYYY-MM-DD."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "The last day, YYYY-MM-DD; at most two years after from. Left out with from given, the list has no last day."
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Only this person's absences."
+          }
+        }
+      },
+      "name": "list_absences"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_allocations"
+      },
+      "description": "What share of each person's week the project has, and how much of it their other projects take.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "list_allocations"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_articles"
+      },
+      "description": "A service desk's knowledge base, drafts included.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "list_articles"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_audit_log"
+      },
+      "description": "Who did what: roles, groups, projects, workflows, tokens and sign-ins, newest first.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "One action, such as role.granted."
+          },
+          "actor": {
+            "type": "string",
+            "description": "A user id."
+          },
+          "before": {
+            "type": "string",
+            "description": "The createdAt of the last row shown, for the next page."
+          },
+          "from": {
+            "type": "string",
+            "description": "The first day, YYYY-MM-DD."
+          },
+          "limit": {
+            "type": "string",
+            "description": "Rows per page, at most 200."
+          },
+          "to": {
+            "type": "string",
+            "description": "The last day, YYYY-MM-DD, inclusive."
+          }
+        }
+      },
+      "name": "list_audit_log"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_automation_rules"
+      },
+      "description": "A project's automation rules with their triggers, conditions and actions.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "list_automation_rules"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_boards"
+      },
+      "description": "A project's boards.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "list_boards"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_comments"
+      },
+      "description": "The comments on an issue.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "issueKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "issueKey"
+        ]
+      },
+      "name": "list_comments"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_components"
+      },
+      "description": "A project's components with their leads and default assignees.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "list_components"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_dashboards"
+      },
+      "description": "A project's dashboards with their widgets.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "list_dashboards"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_filters"
+      },
+      "description": "The caller's saved filters and the ones shared with everyone, each a named query.",
+      "inputSchema": {
+        "type": "object"
+      },
+      "name": "list_filters"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_holiday_calendars"
+      },
+      "description": "The holiday calendars, the default first, with how many days each holds.",
+      "inputSchema": {
+        "type": "object"
+      },
+      "name": "list_holiday_calendars"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_issue_types"
+      },
+      "description": "The issue types and their ids, needed to file an issue of a given type.",
+      "inputSchema": {
+        "type": "object"
+      },
+      "name": "list_issue_types"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_labels"
+      },
+      "description": "The labels and how often each is used, 50 at a time by name; q finds one by part of its name, those starting with it first, and offset reads the next page.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "description": "1 to 200; 50 unless said."
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "q": {
+            "type": "string",
+            "description": "Text the name contains; names starting with it come first."
+          }
+        }
+      },
+      "name": "list_labels"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_members"
+      },
+      "description": "Everyone with an active account here, with the ids other tools take for assignees, 50 at a time by name; q finds somebody by part of their name or address, staff leaves customers out, and offset reads the next page.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "description": "1 to 200; 50 unless said."
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "q": {
+            "type": "string",
+            "description": "Text the name or the address contains; names it starts come first."
+          },
+          "staff": {
+            "type": "boolean",
+            "description": "Leave the service desk's customers out."
+          }
+        }
+      },
+      "name": "list_members"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_milestones"
+      },
+      "description": "A project's milestones, each with its progress.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "closed": {
+            "type": "boolean",
+            "description": "Include closed milestones."
+          },
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "list_milestones"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_notifications"
+      },
+      "description": "What the caller was told about their work, newest first.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "description": "1 to 200."
+          },
+          "unread": {
+            "type": "boolean",
+            "description": "Only what is not read yet."
+          }
+        }
+      },
+      "name": "list_notifications"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_project_issues"
+      },
+      "description": "A project's issues, filtered or narrowed by an NQL query in q.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "assignee": {
+            "type": "string",
+            "description": "A user id, \"me\", or \"none\"."
+          },
+          "category": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "todo",
+                "in_progress",
+                "done"
+              ]
+            }
+          },
+          "label": {
+            "type": "array",
+            "description": "Issues carrying any of these labels.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "description": "1 to 200."
+          },
+          "milestone": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Issues counting towards this milestone."
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "order": {
+            "type": "string",
+            "description": "asc or desc; desc unless said."
+          },
+          "orderBy": {
+            "type": "string",
+            "description": "created, updated, priority, key, summary, status or rank."
+          },
+          "priority": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "lowest",
+                "low",
+                "medium",
+                "high",
+                "highest"
+              ]
+            }
+          },
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          },
+          "q": {
+            "type": "string",
+            "description": "An NQL query, such as assignee = currentUser() AND statusCategory != done ORDER BY priority DESC. Its ORDER BY outranks orderBy."
+          },
+          "reporter": {
+            "type": "string",
+            "description": "A user id or \"me\"."
+          },
+          "sprint": {
+            "type": "string",
+            "description": "A sprint id for the work committed to it, or \"none\" for the backlog."
+          },
+          "status": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "team": {
+            "type": "string",
+            "description": "A team id for the work it carries, or \"none\" for the project's own."
+          },
+          "text": {
+            "type": "string",
+            "description": "Words the summary contains."
+          },
+          "type": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "list_project_issues"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_project_statuses"
+      },
+      "description": "The statuses a project's issues can be in, across the workflows it follows, in workflow order.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "list_project_statuses"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_projects"
+      },
+      "description": "The projects the caller can see, with their keys, 50 at a time by key; q finds one by key or name, and offset reads the next page.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "archived": {
+            "type": "boolean",
+            "description": "Include archived projects."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "1 to 200; 50 unless said."
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "q": {
+            "type": "string",
+            "description": "Text the key or the name contains."
+          }
+        }
+      },
+      "name": "list_projects"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_remote_links"
+      },
+      "description": "The pages in other applications that are about an issue, such as its spec, each a page or a requirement the issue implements.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "issueKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "issueKey"
+        ]
+      },
+      "name": "list_remote_links"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_sprints"
+      },
+      "description": "A project's sprints.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "closed": {
+            "type": "boolean",
+            "description": "Include completed sprints."
+          },
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          },
+          "team": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Only one team's."
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "list_sprints"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_status_updates"
+      },
+      "description": "How a project has said it is doing, newest first.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "list_status_updates"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_statuses"
+      },
+      "description": "The statuses workflows are built from.",
+      "inputSchema": {
+        "type": "object"
+      },
+      "name": "list_statuses"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_teams"
+      },
+      "description": "A project's teams.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "list_teams"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_transitions"
+      },
+      "description": "The moves the workflow allows the caller on this issue right now.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "issueKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "issueKey"
+        ]
+      },
+      "name": "list_transitions"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "list_versions"
+      },
+      "description": "A project's versions with how far each has got; archived ones on request.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "archived": {
+            "type": "boolean",
+            "description": "Include archived versions."
+          },
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          }
+        },
+        "required": [
+          "projectKey"
+        ]
+      },
+      "name": "list_versions"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": false,
+        "title": "post_status_update"
+      },
+      "description": "Say how a project is doing: on_track, at_risk or off_track, with a note and an optional target date.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string"
+          },
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          },
+          "status": {
+            "type": "string"
+          },
+          "targetOn": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "projectKey",
+          "status"
+        ]
+      },
+      "name": "post_status_update"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": false,
+        "title": "record_absence"
+      },
+      "description": "Record that a person is away from startsOn to endsOn, YYYY-MM-DD and both included, or half of one day; the caller when no userId is given.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "endsOn": {
+            "type": "string"
+          },
+          "halfDay": {
+            "type": "boolean"
+          },
+          "startsOn": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "name": "record_absence"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": false,
+        "title": "remove_remote_link"
+      },
+      "description": "Take a page off an issue by the id list_remote_links gives it.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "issueKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          },
+          "remoteLinkID": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "issueKey",
+          "remoteLinkID"
+        ]
+      },
+      "name": "remove_remote_link"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": false,
+        "title": "run_automation_rule"
+      },
+      "description": "Run a rule now against one issue, or with none, and read what it did.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "issueKey": {
+            "type": "string"
+          },
+          "ruleID": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "ruleID"
+        ]
+      },
+      "name": "run_automation_rule"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "run_filter"
+      },
+      "description": "The issues a saved filter matches right now, as the caller.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filterID": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "1 to 200."
+          },
+          "offset": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "filterID"
+        ]
+      },
+      "name": "run_filter"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "search_issues"
+      },
+      "description": "Search issues across projects; q takes an NQL query such as assignee = currentUser() AND statusCategory != done.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "assignee": {
+            "type": "string",
+            "description": "A user id, \"me\", or \"none\"."
+          },
+          "category": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "todo",
+                "in_progress",
+                "done"
+              ]
+            }
+          },
+          "label": {
+            "type": "array",
+            "description": "Issues carrying any of these labels.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "description": "1 to 200."
+          },
+          "milestone": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Issues counting towards this milestone."
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "order": {
+            "type": "string",
+            "description": "asc or desc; desc unless said."
+          },
+          "orderBy": {
+            "type": "string",
+            "description": "created, updated, priority, key, summary, status or rank."
+          },
+          "priority": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "lowest",
+                "low",
+                "medium",
+                "high",
+                "highest"
+              ]
+            }
+          },
+          "project": {
+            "type": "string",
+            "description": "Project key; only on the cross-project list."
+          },
+          "q": {
+            "type": "string",
+            "description": "An NQL query, such as assignee = currentUser() AND statusCategory != done ORDER BY priority DESC. Its ORDER BY outranks orderBy."
+          },
+          "reporter": {
+            "type": "string",
+            "description": "A user id or \"me\"."
+          },
+          "sprint": {
+            "type": "string",
+            "description": "A sprint id for the work committed to it, or \"none\" for the backlog."
+          },
+          "status": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "team": {
+            "type": "string",
+            "description": "A team id for the work it carries, or \"none\" for the project's own."
+          },
+          "text": {
+            "type": "string",
+            "description": "Words the summary contains."
+          },
+          "type": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "name": "search_issues"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": false,
+        "title": "set_allocation"
+      },
+      "description": "Set the percentage of a person's week the project has, 0 to 100; 100 is the whole week, as when nothing is set.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "percent": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "projectKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          },
+          "userID": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "projectKey",
+          "userID",
+          "percent"
+        ]
+      },
+      "name": "set_allocation"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": false,
+        "title": "set_holidays"
+      },
+      "description": "Make a holiday calendar hold exactly these days, each a YYYY-MM-DD date with a name and whether it is a half day.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "calendarID": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/Holiday"
+            }
+          }
+        },
+        "required": [
+          "calendarID",
+          "days"
+        ],
+        "$defs": {
+          "Holiday": {
+            "type": "object",
+            "properties": {
+              "day": {
+                "type": "string"
+              },
+              "halfDay": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "day",
+              "name",
+              "halfDay"
+            ]
+          }
+        }
+      },
+      "name": "set_holidays"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": false,
+        "title": "set_working_week"
+      },
+      "description": "Set a person's minutes per weekday, mon to sun, and their holiday calendar, null for the default one.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "calendarId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "minutes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "userID": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "userID",
+          "calendarId",
+          "minutes"
+        ]
+      },
+      "name": "set_working_week"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": false,
+        "title": "transition_issue"
+      },
+      "description": "Move an issue through its workflow by a transition id from list_transitions.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "assigneeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "issueKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          },
+          "resolution": {
+            "type": "string"
+          },
+          "transitionId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "issueKey",
+          "transitionId"
+        ]
+      },
+      "name": "transition_issue"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": false,
+        "title": "update_issue"
+      },
+      "description": "Edit an issue's fields; its status moves through transition_issue instead.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "assigneeId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "description": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "A rich text document; null clears it."
+          },
+          "descriptionMarkdown": {
+            "type": "string"
+          },
+          "dueDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "A day, YYYY-MM-DD; null clears it."
+          },
+          "expectedUpdatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "issueKey": {
+            "type": "string",
+            "description": "An issue key such as CP-12, or a project key such as CP."
+          },
+          "priority": {
+            "type": "string"
+          },
+          "reporterId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "timeEstimateMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Minutes; null clears it."
+          },
+          "timeRemainingMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Minutes; null clears it."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "issueKey"
+        ]
+      },
+      "name": "update_issue"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "whoami"
+      },
+      "description": "Who the token belongs to, and its scopes and projects.",
+      "inputSchema": {
+        "type": "object"
+      },
+      "name": "whoami"
+    }
+  ]
+}

@@ -37,8 +37,9 @@ RUN apk add --no-cache ca-certificates tzdata && \
     adduser -D -u 10001 rotor
 WORKDIR /app
 COPY --from=builder /out/ /app/
-# What the tool-stub answers to tools/list: Exciter's, recorded from the suite (make tool-snapshots).
+# What the tool-stub answers to tools/list: Exciter's and Armature's, as recorded (make tool-snapshots TOOL=...).
 COPY api/tools/exciter/tools-list.json /app/tools/exciter/tools-list.json
+COPY api/tools/armature/tools-list.json /app/tools/armature/tools-list.json
 USER rotor
 EXPOSE 8080
 CMD ["/app/api"]

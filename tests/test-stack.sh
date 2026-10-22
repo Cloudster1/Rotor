@@ -95,6 +95,14 @@ for tool in exciter armature stator; do
   [[ -s "$SRC/api/tools/$tool/openapi.json" && "$(cut -d' ' -f2 "$SRC/api/tools/$tool/SOURCE")" =~ ^[0-9a-f]{40}$ ]] \
     && pass "$tool's document is vendored at a commit" || fail "api/tools/$tool lacks its document or the commit it came from"
 done
+# Armature's tools/list is recorded at its pin, and its document vendored at the same commit, so the stub's answers
+# and the list it serves are one release of Armature (#129).
+armature_ref="$(tr -d '[:space:]' < "$SRC/deploy/suite/ARMATURE_REF")"
+[[ "$armature_ref" =~ ^[0-9a-f]{40}$ && "$(cut -d' ' -f2 "$SRC/api/tools/armature/SOURCE")" == "$armature_ref" ]] \
+  && pass "Armature's document is vendored at the commit its tools/list is recorded at" \
+  || fail "deploy/suite/ARMATURE_REF is not the commit api/tools/armature/SOURCE names"
+jq -e '.tools | length > 0' "$SRC/api/tools/armature/tools-list.json" > /dev/null 2>&1 \
+  && pass "Armature's tools/list is recorded" || fail "api/tools/armature/tools-list.json is no tools/list result"
 
 echo "== keycloak realm"
 [[ "$(jq -r .realm "$REALM")" == dynamo ]] && pass "the realm is dynamo" || fail "the realm is not dynamo"

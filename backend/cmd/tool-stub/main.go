@@ -1,5 +1,5 @@
 // Command tool-stub stands in for the tools Rotor connects to, in the test suites (#8): each tenant is an OAuth
-// authorization server and an MCP endpoint that behave as Exciter's do. Adapted from Exciter's cmd/armature-stub.
+// authorization server and an MCP endpoint that behave as Exciter's or Armature's do. Adapted from Exciter's cmd/armature-stub.
 package main
 
 import (
@@ -21,8 +21,10 @@ const (
 	addrEnv        = "TOOLSTUB_ADDR"
 	controlAddrEnv = "TOOLSTUB_CONTROL_ADDR"
 	toolsListEnv   = "TOOLSTUB_TOOLS_LIST"
-	// defaultToolsList is where the backend image carries the snapshot of Exciter's tools/list.
+	armatureEnv    = "TOOLSTUB_ARMATURE_TOOLS_LIST"
+	// defaultToolsList and defaultArmature are where the backend image carries Exciter's and Armature's tools/list.
 	defaultToolsList = "/app/tools/exciter/tools-list.json"
+	defaultArmature  = "/app/tools/armature/tools-list.json"
 )
 
 func main() {
@@ -44,11 +46,18 @@ func run() error {
 	if len(os.Args) > 1 && os.Args[1] == "-healthcheck" {
 		return healthcheck(controlAddr)
 	}
-	list, err := os.ReadFile(setting(toolsListEnv, defaultToolsList))
-	if err != nil {
-		return fmt.Errorf("read the tools/list snapshot; set %s to api/tools/exciter/tools-list.json: %w", toolsListEnv, err)
+	snapshots := map[string][]byte{}
+	for _, s := range []struct{ name, env, def string }{
+		{toolstub.SnapshotExciter, toolsListEnv, defaultToolsList},
+		{toolstub.SnapshotArmature, armatureEnv, defaultArmature},
+	} {
+		list, err := os.ReadFile(setting(s.env, s.def))
+		if err != nil {
+			return fmt.Errorf("read the %s tools/list snapshot; set %s to api/tools/%s/tools-list.json: %w", s.name, s.env, s.name, err)
+		}
+		snapshots[s.name] = list
 	}
-	stub, err := toolstub.New(list)
+	stub, err := toolstub.New(snapshots)
 	if err != nil {
 		return err
 	}

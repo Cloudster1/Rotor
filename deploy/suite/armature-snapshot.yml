@@ -1,0 +1,28 @@
+# Armature at deploy/suite/ARMATURE_REF, over its own deploy/docker-compose.yml, for as long as make tool-snapshots
+# TOOL=armature takes to record its tools/list (#129): the api, its primary database, Valkey and the migration alone.
+# The tool list is built from Armature's code, so nothing else it runs beside them changes what is recorded.
+services:
+  # Neither publishes a port, so a recording never collides with a stack that holds 5432 or 6379 already.
+  postgres-primary:
+    ports: !reset []
+  redis:
+    ports: !reset []
+
+  # No replica, attachment store, mail, printer or identity provider: the api starts without each of them.
+  api:
+    depends_on: !override
+      postgres-primary:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      ARMATURE_DB_REPLICA_URLS: ""
+      ARMATURE_S3_ENDPOINT: ""
+      ARMATURE_SMTP_ADDR: ""
+      ARMATURE_POP3_ADDR: ""
+      ARMATURE_RENDER_URL: ""
+    # A port Docker picks, read back with docker compose port.
+    ports: !override
+      - "127.0.0.1::8080"

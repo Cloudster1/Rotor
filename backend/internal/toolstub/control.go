@@ -22,6 +22,7 @@ func (s *Stub) Control() http.Handler {
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	r.Post("/control/tenants", s.handleMakeTenant)
 	r.Get("/control/tenants/{tenant}/stats", s.controlled(s.handleStats))
+	r.Get("/control/tenants/{tenant}/records", s.controlled(s.handleRecords))
 	r.Delete("/control/tenants/{tenant}/grants", s.controlled(s.handleEndGrants))
 	r.Delete("/control/tenants/{tenant}/clients", s.controlled(s.handleForgetClients))
 	r.Put("/control/tenants/{tenant}/writes", s.controlled(s.handleSetWrites))
@@ -44,6 +45,11 @@ func (s *Stub) handleMakeTenant(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "validation_failed", "Name the tenant with 1 to 63 lower case letters, digits and dashes.")
 		return
 	}
+	if in.Snapshot != "" && !s.HasSnapshot(in.Snapshot) {
+		writeError(w, http.StatusUnprocessableEntity, "validation_failed", "The stub has no snapshot "+in.Snapshot+
+			". Name exciter or armature, or leave it out to serve the product's own.")
+		return
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, exists := s.tenants[in.Name]; !exists && len(s.tenants) >= MaxTenants {
@@ -53,7 +59,14 @@ func (s *Stub) handleMakeTenant(w http.ResponseWriter, r *http.Request) {
 	t := newTenant(in.Name, in.Options)
 	s.tenants[in.Name] = t
 	writeJSON(w, http.StatusCreated, map[string]any{"name": t.name, "oauth": t.oauth(), "reuseDetection": t.reuseDetection(),
-		"product": t.product(), "capabilities": t.capabilities(), "accessTokenSeconds": int(t.accessTTL().Seconds())})
+		"product": t.product(), "capabilities": t.capabilities(), "accessTokenSeconds": int(t.accessTTL().Seconds()),
+		"snapshot": t.snapshot()})
+}
+
+// handleRecords answers what callers wrote at the tenant, for a test to check what a run did there: comments and
+// remote links by issue key, requirements, Armature links by requirement key, and reviews, oldest first.
+func (s *Stub) handleRecords(w http.ResponseWriter, _ *http.Request, t *tenant) {
+	writeJSON(w, http.StatusOK, t.written.view())
 }
 
 // controlled runs h on an existing tenant with the lock held; the control API never makes one by asking.

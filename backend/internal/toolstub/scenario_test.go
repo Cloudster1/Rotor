@@ -171,7 +171,7 @@ func TestEveryAnswerFitsExcitersDocument(t *testing.T) {
 	if init := c.mcp("acme", bob.access, "initialize", map[string]any{"protocolVersion": "2025-06-18"}); init["protocolVersion"] != "2025-06-18" {
 		t.Errorf("initialize answered %v", init)
 	}
-	if tools := c.mcp("acme", bob.access, "tools/list", nil)["tools"].([]any); len(tools) != len(newTestStub(t).tools) {
+	if tools := c.mcp("acme", bob.access, "tools/list", nil)["tools"].([]any); len(tools) != len(newTestStub(t).snapshots[SnapshotExciter]) {
 		t.Errorf("tools/list answered %d tools", len(tools))
 	}
 	if me := c.whoami("acme", bob.access); nameOf(me) != "bob" || !slices.Contains(scopesOf(me), ScopeMCP) {
@@ -200,7 +200,7 @@ func TestEveryAnswerFitsExcitersDocument(t *testing.T) {
 		t.Errorf("a narrowed grant refreshed to %q", carol.scope)
 	}
 	c.refresh("acme", carol, ScopeMCP, http.StatusBadRequest)
-	if read := c.mcp("acme", carol.access, "tools/list", nil)["tools"].([]any); len(read) >= len(newTestStub(t).tools) {
+	if read := c.mcp("acme", carol.access, "tools/list", nil)["tools"].([]any); len(read) >= len(newTestStub(t).snapshots[SnapshotExciter]) {
 		t.Errorf("a read-only token lists %d tools", len(read))
 	}
 
