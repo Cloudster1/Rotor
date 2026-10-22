@@ -1,0 +1,30 @@
+# expect: /nodes/0/model not_built
+# expect: /nodes/0/role not_built
+# expect: /nodes/0/maxSteps not_built
+# expect: /nodes/0/maxVisits not_built
+# expect: /nodes/0/onExhausted not_built
+# expect: /nodes/1/join not_built
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+model: {name: claude-sonnet-5-5}
+limits: {maxSteps: 20, timeout: 5m}
+entry: review
+nodes:
+  - id: review
+    type: agent
+    model: {name: claude-opus-5-5}
+    role: You review code for security.
+    maxSteps: 10
+    maxVisits: 3
+    onExhausted: done
+    prompt: Review it.
+  - id: done
+    type: code
+    join: all
+    output: {schema: {type: object}}
+    source: |
+      def run(state, ctx):
+          return {}
+edges:
+  - {from: review, to: done}

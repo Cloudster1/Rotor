@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- How a workflow writes code is agreed (#131): `docs/api-contract-m13.md`
+  says how an agent gets its own model, role and step budget, how a loop is
+  bounded, how parallel branches join, how a step checks out the run's
+  branch of an Armature repository, and how a test step reports. The schema
+  carries the fields, and a workflow using one is refused as `not_built`
+  until its issue lands; `/settings/workspaces` answers 501 until then.
 - The first workflow that holds a conversation on a ticket (#130):
   `examples/story-to-requirements.yaml` asks on a new Armature user story
   what is unclear, starts again when someone answers, then writes or updates
