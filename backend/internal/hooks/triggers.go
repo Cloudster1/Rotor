@@ -123,7 +123,7 @@ func Subject(e Event) (string, map[string]any, bool) {
 			return "get_requirement", map[string]any{"reqKey": key}, true
 		}
 	case "armature":
-		if key := text("issue.key", "issueKey"); key != "" {
+		if key := text("key", "issue.key", "issueKey"); key != "" {
 			return "get_issue", map[string]any{"issueKey": key}, true
 		}
 	case "stator":

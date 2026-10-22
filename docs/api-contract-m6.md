@@ -79,7 +79,7 @@ may not see is 404; refusals are sentences.
   - With `noOverlap`, a firing whose trigger's last run has not ended, a run waiting for an approval included, is `skipped`.
 - **Event filters:**
   - `topics` (required) are the tools' event names, such as `issue.created` (Armature), `review.decided` (Exciter; a requirement approved is `review.decided` with `decision: approve`) or `page.published` (Stator).
-  - `projects`, when given, must hold the event's project key, read from `payload.issue.key` before its dash (Armature), `payload.requirement.project.key` (Exciter) or `payload.page.space.key` (Stator). An event without one matches no project filter.
+  - `projects`, when given, must hold the event's project key, read from `payload.key` before its dash (Armature; `payload.issueKey` on `sla.breached` and `vcs.*`), `payload.requirement.project.key` (Exciter) or `payload.page.space.key` (Stator). An event without one matches no project filter.
   - `conditions` must all hold. Each has a dotted `path` into the event, such as `payload.review.decision`; an `op`; and a JSON `value`:
     - `equals` holds when the value at the path is the given value.
     - `in` holds when it is one of a given list.
@@ -184,7 +184,7 @@ may not see is 404; refusals are sentences.
     | Tool | Call | Argument |
     |---|---|---|
     | Exciter | `get_requirement` | `reqKey` from `payload.requirement.key` |
-    | Armature | `get_issue` | `issueKey` from `payload.issue.key` or `payload.issueKey` |
+    | Armature | `get_issue` | `issueKey` from `payload.key` or `payload.issueKey` |
     | Stator | `get_page` | `pageID` from `payload.page.id` |
 
     - The firing is `skipped`, with "the owner cannot read the event's subject", when the tool answers the call as an error, refuses it, or refuses the token.
