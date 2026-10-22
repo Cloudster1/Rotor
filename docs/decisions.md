@@ -3,6 +3,175 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-10-22: Workspaces in a toolchain container beside the runner (#132)
+
+A step that works on a repository was tried on this checkout's kind cluster,
+as one gVisor pod in which the runner and a toolchain container share a
+volume. The outcome is go, in the shape below, and #136 and #138 are
+corrected to it. The trial's code is commit 3d350d8, reverted after it.
+
+- **The trial.** On kind v1.34 with Cilium 1.19.8 and gVisor
+  release-20260928.0 in the node:
+  - one pod: an init container that copies an exec agent into a memory
+    volume, the runner image with dulwich 1.2.17 added, and
+    `golang:1.26.8-alpine`, pinned by digest, as the toolchain. Every
+    container runs non-root, read-only and without capabilities, as today's
+    sandbox does;
+  - Gitea 1.24 in the cluster, standing in for Armature's git proxy
+    (Cloudster1/Armature#333). It held a small module whose test needs
+    `go-cmp`, and Rotor, Armature and Caddy migrated from GitHub for clone
+    sizes;
+  - the egress of today's chart: DNS, the git host by selector, and by
+    hostname the Go module proxy, its checksum database and the model
+    provider.
+
+  The steps are `scripts/kind/workspace-trial.sh` in that commit, run in the
+  kind tools container after `make kind-up`: `gvisor`, `images`, `forge`,
+  `pod`, then `step clone|exec|edit|read|push|reset`, `probe`, `loopback`
+  and `docker_up`. Times below are from a node of 8 cores shared with two
+  other stacks, the toolchain container at 2 CPUs and 3 GiB, the runner at
+  today's 1 CPU and 1.5 GiB.
+- **Q1, running a command: a small exec agent in the toolchain container.**
+  - The agent is a static Go binary of 6 MB. An init container from
+    Rotor's image copies it into a memory volume, and the toolchain
+    container starts it as its entrypoint, so any toolchain image works as
+    it is. Image volumes would save the copy, but Kubernetes 1.34 drops the
+    field with its feature gate off.
+  - The runner sends argv, a directory, environment, a timeout and an
+    output cap, and gets the exit code, whether it timed out, the duration
+    and the output. argv runs without a shell, in a process group that the
+    timeout kills, and the output keeps its first and last 32 KiB. A 3
+    second timeout ended a command at 3.0 s; `seq 1 200000` came back cut in
+    0.1 s; a call adds under 10 ms.
+  - **A process that leaves its group survives.** `setsid sleep` outlived
+    the kill. The agent is PID 1 of its container, which has a PID
+    namespace of its own, so between steps it ends every other process
+    there and reaps it (`reset`). Without that, orphans also stay as
+    zombies.
+  - **Loopback, not a socket on a shared volume.** Under gVisor every
+    emptyDir, memory-backed or not, is a host directory each container
+    reaches through its own gofer. Files pass between the containers, but a
+    unix socket bound in one is not seen in the other. gVisor's pod mount
+    hints (`dev.gvisor.spec.mount.<volume>.share: pod`, `.type: tmpfs`) make
+    the volume one tmpfs of the sandbox, where the socket works, but only
+    when containerd passes the annotations on (`pod_annotations =
+    ["dev.gvisor.*"]` for runsc), which a stock containerd does not. The
+    pod's loopback works everywhere.
+  - **The agent asks for a secret.** Code nodes share the loopback, so the
+    agent takes a secret per sandbox, delivered to the runner like its
+    bootstrap token and dropped from its environment, which #89 keeps code
+    nodes from reading.
+  - **Not the Kubernetes exec API.** The worker would need `pods/exec` in
+    the sandbox namespace, every command's output would pass through the
+    API server and the control plane, and the docker backend would need the
+    same through the Engine API.
+- **Q2, egress: shared by the pod, and the public Go proxy is too wide.**
+  - A NetworkPolicy selects pods, not containers. Both containers reached
+    the module proxy, the checksum database, the model provider and the git
+    host, and neither reached `example.com`, `github.com`, the npm registry
+    or the Kubernetes API. The toolchain therefore reaches the model
+    provider and the tools, without a token, and the runner reaches the
+    mirror. The run's tokens stay in the runner.
+  - The git proxy is on Armature's API host (Cloudster1/Armature#333), which
+    the tools' egress already allows, so cloning adds no destination.
+  - `go mod download` through `proxy.golang.org` failed until
+    `storage.googleapis.com` was allowed: the proxy redirects larger module
+    zips to signed Cloud Storage URLs. Allowing that host allows every
+    bucket, and a public proxy fetches any module path it is asked for;
+    both are ways out for a hostile test. The package mirror is one host an
+    administrator runs and that serves what it holds, such as Athens for Go
+    and Verdaccio for npm, set as `GOPROXY`, `GOSUMDB` through it and
+    `npm_config_registry` in the toolchain container.
+  - With the proxy and its storage allowed, Rotor's backend fetched its 303
+    MB of modules in 5 s.
+- **Q3, size and time.**
+  - **The pod** ran its init container and both containers 2 to 5 s after
+    creation with the images on the node, 8 s while the node pulled the
+    golang image.
+  - **The work tree**: Rotor 10 MB in 819 files, Armature 19 MB in 1415.
+    The git directory at depth 1: 4.4 and 11 MB. dulwich peaked at 60 to
+    130 MB in the runner.
+  - **The toolchain**: Rotor's backend `go test ./...` from empty caches
+    took 226 s under gVisor, against 214 s under runc on the same host,
+    with 1.2 GB of working set at its peak. It left 303 MB of modules and
+    1060 MB of build cache. A small module's first test run took 13 to 24
+    s, compiling the standard library, and 0.5 s warm.
+  - So the work tree is a memory volume of 1 GiB, the caches 4 GiB of
+    ephemeral storage on disk, and the toolchain container 3 GiB unless an
+    administrator sets more for its image.
+  - **Against the run timeout.** A run's deadline is set again whenever a
+    sandbox takes the run up (`runnerctl`'s `supersede`), and every sandbox
+    starts with empty caches, so each test step pays a cold build: about 4
+    minutes for Rotor's backend, close to the 5 minutes a code node may
+    take. `run_command` and the `test` node get a timeout of their own, 15
+    minutes unless they say, at most the run's. The loop of #140 runs in one
+    sandbox until a person is asked, so its `timeout` covers up to five
+    rounds of a coder, a test step and four reviewers: `2h`, not `15m`.
+- **Q4, the branch as the only state.**
+  - Each step fetches the run's branch at depth 1 into a git directory only
+    the runner mounts, checks it out into the shared volume and, if it
+    writes, commits and pushes at its end. For Rotor and Armature the fetch
+    took 0.2 to 1.3 s, the checkout 0.2 to 0.6 s, the commit 0.2 s and the
+    push 0.3 to 1.3 s. The next step's fetch saw the commit, a file the
+    toolchain wrote included.
+  - **One ref, not a clone.** dulwich's `porcelain.clone` fetches every
+    branch and tag, each to the depth asked. Caddy, with eleven years of
+    history and many tags, took 21 s and 25 MB at depth 1 and 31 s and 38
+    MB in full. Fetching only the branch took 0.7 s and 1.6 MB at depth 1,
+    2.9 s and 11 MB in full. For
+    Rotor and Armature, a few weeks old, depth hardly matters (4.4 against
+    5.2 MB, 11 against 13.6 MB).
+  - **Depth 1 is enough to push**, and was cloned back.
+  - **Partial clones do not help.** dulwich fetches with `blob:none` (0.4
+    MB for Rotor), but checking out fails, since it cannot fetch the missing
+    blobs; at depth 1 the tip needs every blob anyway.
+  - A reviewer that needs the changes, not only the files, also fetches the
+    base branch at depth 1, or the run's branch with `shallow_exclude` of
+    the base; neither was measured.
+  - **git in the runner, with dulwich.** The push needs the run's Armature
+    token, which must not reach the container where the repository's code
+    runs, and the runner's image has no git and no shell. dulwich is Python
+    with optional compiled parts, 9.4 MB with urllib3.
+  - **The git directory stays out of the shared volume.** dulwich runs
+    hooks from the git directory, so one the toolchain could write would
+    run its code in the runner. The work tree has no `.git` at all.
+  - **Links are planted.** The toolchain made `leak -> /proc/self/environ`;
+    a plain `open` in the runner then read the runner's own environment,
+    the trial's git token included, while `O_NOFOLLOW` refused it. The
+    workspace tools resolve every path inside the work tree without
+    following a link, and dulwich commits a link as a link.
+- **Q5, the same shape on Docker, for the gate.**
+  - The toolchain container joins the runner's network namespace
+    (`--network container:<runner>`), so loopback reaches the agent and the
+    egress is the runner's internal network. The agent comes as an image
+    mount (`--mount type=image`, Docker 28 and later), the work tree as a
+    tmpfs volume with the sandbox's user (`--opt type=tmpfs --opt
+    o=size=1g,uid=65532,gid=65532`), removed with the sandbox, and the
+    caches as a tmpfs that allows exec. The hardening is the runner's.
+  - Under runc: both containers up and the agent answering within a
+    second, the fetch 0.1 s, a module without dependencies tested cold in 9
+    s, the push 0.3 s.
+  - The network is internal, so the small module could not fetch `go-cmp`:
+    the gate's fixture repository has no dependencies, and the gate needs no
+    mirror.
+  - A named volume mounted on a directory the container already has takes
+    that directory's owner; a working directory set with `-w` was enough.
+- **Go, in this shape:**
+  1. A run whose pinned version has workspace nodes gets, beside the
+     runner, one toolchain container per image those nodes name, since the
+     worker knows them when it starts the sandbox. Other runs get today's
+     pod.
+  2. Steps share nothing on disk: each has a directory of its own in the
+     work tree volume, removed at its end with the toolchain's caches, and
+     the agent's `reset` ends what it started. A waiting run loses its
+     sandbox, as today; the branch carries the work.
+  3. The runner does git with dulwich; the token never leaves it.
+  4. Egress adds the mirror an administrator names, one host.
+- **What would change this.**
+  - Image volumes on by default replace the init container.
+  - A build cache allowed to outlive a step would cut a test step from
+    minutes to seconds.
+
 ## 2026-10-22: Named unattended writes, for M12 (#124)
 
 - **A trigger's owner may let named calls write without an approval, before
