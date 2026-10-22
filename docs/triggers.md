@@ -138,7 +138,15 @@ event**:
 - **Topics:** tick the ones offered for the tool, or type others.
 - **Projects:** project keys, or leave it empty for every project.
 - **Conditions:** a dotted path into the event, such as
-  `payload.review.decision`, with `equals`, `is one of` or `exists`.
+  `payload.review.decision`, compared with one of:
+  - `equals` (`equals`) and `does not equal` (`notEquals`) one value;
+  - `is one of` (`in`) and `is none of` (`notIn`) a list of values,
+    separated by commas;
+  - `exists` (`exists`) and `is missing` (`absent`), without a value.
+
+  A path that leads nowhere equals nothing: `payload.internal` set to
+  `does not equal` `true` leaves out Armature's internal comments and keeps
+  an event without `internal`.
 
 The workflow's inputs must declare `event`; the form asks only for the other
 inputs, which each run starts with.

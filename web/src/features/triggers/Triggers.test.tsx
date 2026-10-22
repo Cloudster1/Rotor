@@ -195,6 +195,18 @@ describe("a workflow's event triggers", () => {
       await userEvent.clear(path);
       await userEvent.type(path, "payload.review.decision");
       await userEvent.type(within(section).getByLabelText(s.triggers.event.value(1)), "approve");
+      await userEvent.click(within(section).getByRole("button", { name: s.triggers.event.addCondition }));
+      const actor = within(section).getByLabelText(s.triggers.event.path(2));
+      await userEvent.clear(actor);
+      await userEvent.type(actor, "payload.review.actorId");
+      await userEvent.selectOptions(within(section).getByLabelText(s.triggers.event.op(2)), s.triggers.event.ops.notIn);
+      await userEvent.type(within(section).getByLabelText(s.triggers.event.value(2)), "bot, 7");
+      await userEvent.click(within(section).getByRole("button", { name: s.triggers.event.addCondition }));
+      const note = within(section).getByLabelText(s.triggers.event.path(3));
+      await userEvent.clear(note);
+      await userEvent.type(note, "payload.review.note");
+      await userEvent.selectOptions(within(section).getByLabelText(s.triggers.event.op(3)), s.triggers.event.ops.absent);
+      expect(within(section).getByLabelText(s.triggers.event.value(3))).toBeDisabled();
       expect(await axeViolations()).toEqual([]);
 
       await userEvent.click(within(section).getByRole("button", { name: s.triggers.save }));
@@ -206,9 +218,14 @@ describe("a workflow's event triggers", () => {
           toolId: EXCITER.id,
           topics: ["review.decided"],
           projects: ["RTR", "DOC"],
-          conditions: [{ path: "payload.review.decision", op: "equals", value: "approve" }],
+          conditions: [
+            { path: "payload.review.decision", op: "equals", value: "approve" },
+            { path: "payload.review.actorId", op: "notIn", value: ["bot", 7] },
+            { path: "payload.review.note", op: "absent" },
+          ],
         },
       });
+      expect((posted?.event as { conditions: object[] }).conditions[2]).not.toHaveProperty("value");
       await userEvent.click(within(section).getByRole("button", { name: s.triggers.save }));
       await waitFor(() => expect(within(section).queryByLabelText(s.triggers.event.tool)).not.toBeInTheDocument());
     },

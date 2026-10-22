@@ -281,3 +281,40 @@ func TestAnArmatureCommentFiresTheTriggersOnItsIssuesProject(t *testing.T) {
 		t.Errorf("the firing carries the issue %q (%v), want CP-12", key, err)
 	}
 }
+
+func TestAConditionLeavesOutTheEventsItExcludes(t *testing.T) {
+	h := newHarness(t)
+	stopWorker(t)
+	alice := signedIn(t, "alice")
+	now := time.Now()
+	toolID := addTool(t, newToolStub(t, map[string]any{"product": "armature"}))
+	secret := "armature_whs_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	if status, hook := alice.api(http.MethodPut, "/tools/"+toolID+"/hook", map[string]any{"secret": secret}); status != http.StatusOK {
+		t.Fatalf("setting the secret = %d %v", status, hook)
+	}
+	public := h.eventTrigger(t, toolID, []string{"comment.added"}, nil, `[{"path":"payload.internal","op":"notEquals","value":true}]`, true)
+	byPeople := h.eventTrigger(t, toolID, []string{"comment.added"}, nil,
+		`[{"path":"payload.actorId","op":"notIn","value":["bot"]},{"path":"payload.mentions","op":"absent"}]`, true)
+
+	// Armature's comment.added carries issueId, key, commentId, actorId, internal and mentions.
+	comment := func(actor, rest string) []byte {
+		payload := fmt.Sprintf(`{"issueId":%q,"key":"CP-12","commentId":%q,"actorId":%q%s}`, uuid.NewString(), uuid.NewString(), actor, rest)
+		return []byte(fmt.Sprintf(`{"version":1,"id":%q,"topic":"comment.added","orgId":"o","occurredAt":"2026-10-19T08:00:00Z","payload":%s}`,
+			uuid.NewString(), payload))
+	}
+	for name, body := range map[string][]byte{
+		"an internal comment":        comment("alice", `,"internal":true,"mentions":[]`),
+		"a public comment":           comment("bot", `,"internal":false,"mentions":[]`),
+		"a comment without the flag": comment("alice", ``),
+	} {
+		if status, answer := deliver(t, toolID, "Armature", secret, body, now, "1", nil); status != http.StatusAccepted {
+			t.Fatalf("%s = %d %v", name, status, answer)
+		}
+	}
+	if got := h.fires(t, public); len(got) != 2 {
+		t.Errorf("payload.internal notEquals true queued %d firings, want the public comment and the one without the flag", len(got))
+	}
+	if got := h.fires(t, byPeople); len(got) != 1 {
+		t.Errorf("a trigger leaving out the bot and mentions queued %d firings, want the comment without them", len(got))
+	}
+}

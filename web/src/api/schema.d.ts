@@ -1940,7 +1940,7 @@ export interface components {
         };
         TriggerCondition: {
             /** @enum {string} */
-            op: "equals" | "in" | "exists";
+            op: "equals" | "notEquals" | "in" | "notIn" | "exists" | "absent";
             path: string;
             /** @description A JSON value. */
             value?: unknown;

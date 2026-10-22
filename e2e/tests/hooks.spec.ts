@@ -98,6 +98,11 @@ for (const scheme of SCHEMES) {
       await form.locator("[data-event-tool]").selectOption(id);
       await form.locator('[data-event-topic="requirement.created"]').check();
       await form.locator("[data-event-projects]").fill("RTR");
+      // The event carries no status, and a missing path equals nothing, so the condition holds for it.
+      await form.locator('[data-action="add-condition"]').click();
+      await form.getByLabel("Path of condition 1").fill("payload.requirement.status");
+      await form.getByLabel("Comparison of condition 1").selectOption("notEquals");
+      await form.getByLabel("Value of condition 1").fill("archived");
       await expectAccessible(page);
       await form.locator('[data-action="save-trigger"]').click();
       const trigger = section.locator('[data-trigger="On new requirements"]');
