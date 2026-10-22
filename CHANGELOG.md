@@ -9,6 +9,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The first workflow that holds a conversation on a ticket (#130):
+  `examples/story-to-requirements.yaml` asks on a new Armature user story
+  what is unclear, starts again when someone answers, then writes or updates
+  the requirements in Exciter, links them to the story, asks for their
+  review, and says so on the ticket. Its own comments never start it again.
 - A trigger condition can say what an event must not be (#126): `does not
   equal`, `is none of` and `is missing` beside `equals`, `is one of` and
   `exists`, so a trigger can leave out, for example, internal comments or a
