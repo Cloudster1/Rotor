@@ -24,6 +24,8 @@ const apiBase = "http://docker"
 type Backend struct {
 	http    *http.Client
 	network string
+	// pull fetches a toolchain image a workspace names, which can take far longer than a call (#136).
+	pull *http.Client
 }
 
 // New talks to the daemon at socket; network is the internal network sandboxes join, and nothing else.
@@ -31,7 +33,8 @@ func New(socket, network string) *Backend {
 	transport := &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 		return (&net.Dialer{}).DialContext(ctx, "unix", socket)
 	}}
-	return &Backend{http: &http.Client{Transport: transport, Timeout: config.SandboxCallTimeout}, network: network}
+	return &Backend{http: &http.Client{Transport: transport, Timeout: config.SandboxCallTimeout}, network: network,
+		pull: &http.Client{Transport: transport, Timeout: config.WorkspacePullTimeout}}
 }
 
 type hostConfig struct {
@@ -44,6 +47,7 @@ type hostConfig struct {
 	NanoCPUs       int64             `json:"NanoCpus,omitempty"`
 	PidsLimit      int64             `json:"PidsLimit,omitempty"`
 	NetworkMode    string            `json:"NetworkMode"`
+	Mounts         []mount           `json:"Mounts,omitempty"`
 }
 
 type createRequest struct {
@@ -52,6 +56,8 @@ type createRequest struct {
 	Labels     map[string]string `json:"Labels"`
 	Entrypoint []string          `json:"Entrypoint,omitempty"`
 	Cmd        []string          `json:"Cmd,omitempty"`
+	User       string            `json:"User,omitempty"`
+	WorkingDir string            `json:"WorkingDir,omitempty"`
 	HostConfig hostConfig        `json:"HostConfig"`
 }
 
@@ -82,27 +88,54 @@ func (b *Backend) Spawn(ctx context.Context, spec sandbox.Spec) (sandbox.ID, err
 			PidsLimit:      spec.Limits.PIDs,
 			NetworkMode:    b.network,
 		}}
-	var created struct {
-		ID string `json:"Id"`
+	if spec.Workspace != nil {
+		return b.spawnWorkspace(ctx, spec, req)
 	}
-	if err := b.call(ctx, http.MethodPost, "/containers/create", req, &created, http.StatusCreated); err != nil {
-		return "", fmt.Errorf("create a sandbox for run %s: %w", spec.RunID, err)
-	}
-	id := sandbox.ID(created.ID)
-	if err := b.call(ctx, http.MethodPost, "/containers/"+created.ID+"/start", nil, nil, http.StatusNoContent); err != nil {
-		_ = b.Destroy(context.WithoutCancel(ctx), id)
-		return "", fmt.Errorf("start the sandbox of run %s: %w", spec.RunID, err)
+	id, err := b.start(ctx, "", req)
+	if err != nil {
+		return "", fmt.Errorf("start a sandbox for run %s: %w", spec.RunID, err)
 	}
 	return id, nil
 }
 
-// Destroy stops and removes a container at once; one already gone is ErrNotFound.
+// start creates a container, named when name is given, and starts it; one that does not start is removed.
+func (b *Backend) start(ctx context.Context, name string, req createRequest) (sandbox.ID, error) {
+	var created struct {
+		ID string `json:"Id"`
+	}
+	path := "/containers/create"
+	if name != "" {
+		path += "?name=" + url.QueryEscape(name)
+	}
+	if err := b.call(ctx, http.MethodPost, path, req, &created, http.StatusCreated); err != nil {
+		return "", err
+	}
+	if err := b.call(ctx, http.MethodPost, "/containers/"+created.ID+"/start", nil, nil, http.StatusNoContent); err != nil {
+		_ = b.remove(context.WithoutCancel(ctx), created.ID)
+		return "", err
+	}
+	return sandbox.ID(created.ID), nil
+}
+
+// Destroy stops and removes a sandbox at once, with its toolchains and work tree; one already gone is ErrNotFound.
 func (b *Backend) Destroy(ctx context.Context, id sandbox.ID) error {
-	return b.call(ctx, http.MethodDelete, "/containers/"+url.PathEscape(string(id))+"?force=true&v=true", nil, nil, http.StatusNoContent)
+	var got inspected
+	if err := b.call(ctx, http.MethodGet, "/containers/"+url.PathEscape(string(id))+"/json", nil, &got, http.StatusOK); err != nil {
+		return err
+	}
+	if got.Config.Labels[sandbox.LabelWorkspace] == "" {
+		return b.remove(ctx, string(id))
+	}
+	return b.destroyWorkspace(ctx, id, strings.TrimPrefix(got.Name, "/"))
+}
+
+func (b *Backend) remove(ctx context.Context, id string) error {
+	return b.call(ctx, http.MethodDelete, "/containers/"+url.PathEscape(id)+"?force=true&v=true", nil, nil, http.StatusNoContent)
 }
 
 type inspected struct {
 	ID     string `json:"Id"`
+	Name   string `json:"Name"`
 	Config struct {
 		Labels map[string]string `json:"Labels"`
 	} `json:"Config"`

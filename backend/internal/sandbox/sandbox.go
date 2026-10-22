@@ -5,9 +5,12 @@ package sandbox
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/cloudster1/rotor/backend/internal/config"
 )
 
 // Labels every sandbox carries, so a control plane finds its own and nobody else's.
@@ -46,6 +49,55 @@ type Spec struct {
 	// Entrypoint and Command replace the image's own; tests use them, runs never do.
 	Entrypoint []string
 	Command    []string
+	// Workspace puts toolchain containers beside the runner, for a run with workspace steps (#136); nil for others.
+	Workspace *Workspace
+}
+
+// EnvWorkspaceSecret is the secret the runner shows the exec agents, in SecretEnv, which the toolchains get too.
+const EnvWorkspaceSecret = "ROTOR_WORKSPACE_SECRET"
+
+// LabelWorkspace marks a sandbox with toolchain containers, whose egress adds the package mirror.
+const LabelWorkspace = "rotor.dev/workspace"
+
+// Workspace is one toolchain container per image beside the runner, each started by the exec agent an init
+// container or an image mount hands it, all sharing the work tree, which only the runner pairs with a git directory.
+type Workspace struct {
+	AgentImage string
+	Toolchains []Toolchain
+	// TreeBytes bounds the work tree, a memory volume.
+	TreeBytes int64
+	// Env is what every toolchain container gets, such as the package mirror.
+	Env    map[string]string
+	Limits Limits
+}
+
+// Toolchain is one toolchain container: the image's name as workflows give it, its reference, and the loopback
+// port its agent listens on.
+type Toolchain struct {
+	Name  string
+	Image string
+	Port  int
+}
+
+// ToolchainEnv is what a toolchain container runs with beyond ws.Env: where its agent listens, and caches that a
+// reset empties instead of the image's own directories, which are read-only.
+func ToolchainEnv(ws *Workspace, tc Toolchain) map[string]string {
+	cache := config.WorkspaceCachePath
+	env := map[string]string{
+		"ROTOR_AGENT_LISTEN": fmt.Sprintf("127.0.0.1:%d", tc.Port),
+		"ROTOR_AGENT_CACHE":  cache,
+		"HOME":               cache,
+		"TMPDIR":             cache,
+		"XDG_CACHE_HOME":     cache + "/xdg",
+		"GOCACHE":            cache + "/go-build",
+		"GOMODCACHE":         cache + "/go-mod",
+		"GOTOOLCHAIN":        "local",
+		"npm_config_cache":   cache + "/npm",
+	}
+	for k, v := range ws.Env {
+		env[k] = v
+	}
+	return env
 }
 
 // State is where a sandbox is in its life.

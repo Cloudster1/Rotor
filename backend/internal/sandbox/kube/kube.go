@@ -137,10 +137,16 @@ func (b *Backend) List(ctx context.Context, match map[string]string) ([]sandbox.
 	return out, nil
 }
 
-// statusOf maps a pod's phase to a sandbox's state; a pod being deleted counts as exited.
+// statusOf maps a pod's phase to a sandbox's state; a pod being deleted, or whose runner ended, counts as exited.
 func statusOf(pod *corev1.Pod) sandbox.Status {
 	if pod.DeletionTimestamp != nil {
 		return sandbox.Status{State: sandbox.StateExited}
+	}
+	// A workspace pod's toolchains serve on after the runner ends, so the runner's own end ends the sandbox.
+	for _, c := range pod.Status.ContainerStatuses {
+		if c.Name == containerName && c.State.Terminated != nil {
+			return sandbox.Status{State: sandbox.StateExited, ExitCode: int(c.State.Terminated.ExitCode)}
+		}
 	}
 	switch pod.Status.Phase {
 	case corev1.PodPending:

@@ -180,6 +180,22 @@ check "the identity is the release workflow at a version tag" \
 check "the SBOM must be signed by it too" "$(grep -c 'predicateType: spdxjson' <<<"${RENDERED}")" "1"
 check "no key is trusted" "$(grep -c 'name: runner-key' <<<"${RENDERED}")" "0"
 
+echo "== workspaces (#136)"
+render "workspaces" "${PRODUCTION[@]}" --set sandbox.admission.requireSignature=true \
+    --set 'sandbox.workspaces.toolchainImages[0]=docker.io/library/golang@sha256:*' \
+    --set sandbox.workspaces.packageMirror.cidr=10.21.0.0/24
+check "the exec agent is signed like the runner" \
+    "$(grep -c 'glob: "ghcr.io/cloudster1/rotor-agent[@:]\*"' <<<"${RENDERED}")" "4"
+check "the allowed toolchains run as they are" "$(grep -c 'glob: "docker.io/library/golang@sha256:\*"' <<<"${RENDERED}")" "1"
+check "the worker starts toolchains with the agent" \
+    "$(config_value "${RENDERED}" ROTOR_WORKSPACE_AGENT_IMAGE)" "ghcr.io/cloudster1/rotor-agent:$(sed -n 's/^appVersion: *"\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' "${CHART}/Chart.yaml")"
+check "workspace pods alone reach the mirror" \
+    "$(grep -A24 'name: r-rotor-workspace-mirror$' <<<"${RENDERED}" | grep -c 'rotor.dev/workspace: "1"\|cidr: 10.21.0.0/24')" "2"
+render "no mirror" "${PRODUCTION[@]}"
+check "without a mirror workspaces reach nothing more" "$(grep -c 'workspace-mirror' <<<"${RENDERED}")" "0"
+refused "a mirror by hostname without Cilium" "packageMirror.host names a hostname" "${TRIAL[@]}" \
+    --set sandbox.workspaces.packageMirror.host=mirror.example.com
+
 echo "== refusals"
 refused "runc in production" "would run hostile code without gVisor" "${PRODUCTION[@]}" \
     --set sandbox.runtimeClass= --set sandbox.allowRunc=true

@@ -29,7 +29,7 @@ kind-tools: ## Build the image with kind, kubectl and helm the Kubernetes tests 
 	docker build -q -t $(KIND_TOOLS_IMAGE) $(ROOT)/scripts/kind >/dev/null
 
 .PHONY: kind-up
-kind-up: kind-tools $(if $(wildcard $(ROOT)/runner/pyproject.toml),runner-image) ## Start this checkout's kind cluster, load the runner image and add the sandbox namespace and RBAC
+kind-up: kind-tools $(if $(wildcard $(ROOT)/runner/pyproject.toml),runner-image) ## Start this checkout's kind cluster, load the runner and agent images, add the sandbox namespace and RBAC, and gVisor
 	@mkdir -p $(dir $(KIND_KUBECONFIG))
 	$(DOCKER_KIND) sh -c 'kind get clusters 2>/dev/null | grep -qx $(KIND_CLUSTER) \
 		|| kind create cluster --name $(KIND_CLUSTER) --image $(KIND_NODE_IMAGE) --config scripts/kind/cluster.yaml; \
@@ -38,8 +38,9 @@ kind-up: kind-tools $(if $(wildcard $(ROOT)/runner/pyproject.toml),runner-image)
 		&& helm upgrade --install cilium cilium/cilium --version $(CILIUM_VERSION) -n kube-system \
 			--set ipam.mode=kubernetes --set image.pullPolicy=IfNotPresent --set operator.replicas=1 --wait --timeout 10m \
 		&& kubectl wait --for=condition=Ready nodes --all --timeout=300s \
-		&& kind load docker-image $(RUNNER_IMAGE) --name $(KIND_CLUSTER) \
-		&& kubectl apply -f deploy/kube/sandboxes.yaml'
+		&& kind load docker-image $(RUNNER_IMAGE) $(AGENT_IMAGE) --name $(KIND_CLUSTER) \
+		&& kubectl apply -f deploy/kube/sandboxes.yaml \
+		&& CLUSTER=$(KIND_CLUSTER) scripts/kind/gvisor.sh'
 
 .PHONY: kind-down
 kind-down: kind-tools ## Delete this checkout's kind cluster and the registry beside it
@@ -62,5 +63,6 @@ test-kube: | $(GO_CACHE) ## Run the Kubernetes sandbox tests against this checko
 	@[ -f $(KIND_KUBECONFIG) ] || { echo "No kind cluster for this checkout. Start it with make kind-up, then run this again."; exit 1; }
 	@mkdir -p $(REPORTS)
 	$(ROOT)/scripts/go-test.sh $(REPORTS)/kube.json $(call go_run,--network host \
-		-e ROTOR_TEST_KUBECONFIG=/work/.cache/kind/kubeconfig -e ROTOR_TEST_KUBE_IMAGE=$(RUNNER_IMAGE)) \
+		-e ROTOR_TEST_KUBECONFIG=/work/.cache/kind/kubeconfig -e ROTOR_TEST_KUBE_IMAGE=$(RUNNER_IMAGE) \
+		-e ROTOR_TEST_AGENT_IMAGE=$(AGENT_IMAGE)) \
 		go test -json -tags kube -count=1 $(TESTFLAGS) ./test/kube/...

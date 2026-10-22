@@ -186,6 +186,9 @@ ROTOR_SANDBOX_NAMESPACE: {{ include "rotor.sandboxNamespace" . | quote }}
 ROTOR_SANDBOX_RUNTIME_CLASS: {{ .Values.sandbox.runtimeClass | quote }}
 ROTOR_SANDBOX_SERVICE_ACCOUNT: {{ .Values.sandbox.serviceAccount | quote }}
 ROTOR_SANDBOX_ALLOW_RUNC: {{ .Values.sandbox.allowRunc | quote }}
+ROTOR_WORKSPACE_AGENT_IMAGE: {{ include "rotor.image" (dict "root" . "name" "agent") | quote }}
+ROTOR_WORKSPACE_MEMORY_MIB: {{ .Values.sandbox.workspaces.toolchain.memoryMiB | quote }}
+ROTOR_WORKSPACE_MILLICPUS: {{ .Values.sandbox.workspaces.toolchain.milliCPUs | quote }}
 ROTOR_RUNNER_ADDR: {{ printf ":%d" (int .Values.api.runnerPort) | quote }}
 ROTOR_RUNNER_HOST: {{ include "rotor.runnerHost" . | quote }}
 ROTOR_RUNNER_DIAL: {{ printf "%s:%d" (include "rotor.runnerHost" .) (int .Values.api.runnerPort) | quote }}

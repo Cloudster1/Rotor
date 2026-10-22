@@ -151,6 +151,9 @@ data:
   ROTOR_SANDBOX_RUNTIME_CLASS: "gvisor"
   ROTOR_SANDBOX_SERVICE_ACCOUNT: "rotor-sandbox"
   ROTOR_SANDBOX_ALLOW_RUNC: "false"
+  ROTOR_WORKSPACE_AGENT_IMAGE: "ghcr.io/cloudster1/rotor-agent:0.1.0"
+  ROTOR_WORKSPACE_MEMORY_MIB: "3072"
+  ROTOR_WORKSPACE_MILLICPUS: "2000"
   ROTOR_RUNNER_ADDR: ":9443"
   ROTOR_RUNNER_HOST: "r-rotor-api.default.svc"
   ROTOR_RUNNER_DIAL: "r-rotor-api.default.svc:9443"
@@ -398,7 +401,7 @@ spec:
         app.kubernetes.io/instance: r
         app.kubernetes.io/component: api
       annotations:
-        checksum/env: 85ec5fccb15f426f88cb34f120856dae9fd979f52e369a88bc87b072828bdcff
+        checksum/env: 54a001187838464adc404b4516a45e111180b612dd55317d4749fd19eb2c32b7
     spec:
       serviceAccountName: r-rotor-api
       terminationGracePeriodSeconds: 40
@@ -583,7 +586,7 @@ spec:
         app.kubernetes.io/instance: r
         app.kubernetes.io/component: worker
       annotations:
-        checksum/env: 85ec5fccb15f426f88cb34f120856dae9fd979f52e369a88bc87b072828bdcff
+        checksum/env: 54a001187838464adc404b4516a45e111180b612dd55317d4749fd19eb2c32b7
     spec:
       serviceAccountName: r-rotor-worker
       terminationGracePeriodSeconds: 20

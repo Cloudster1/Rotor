@@ -1,0 +1,16 @@
+# The workspace exec agent (#136): one static binary on scratch. A workspace's init container copies it into a toolchain
+# container, or the docker backend mounts this image there, so any toolchain image runs it as it is.
+
+FROM golang:1.26.8-alpine@sha256:8ac98ca534ac3f51e1f420a1dd2c15e74c75cfa0f23f3ad27eb5d7236c349a0c AS builder
+WORKDIR /src
+ENV GOFLAGS=-buildvcs=false GOTOOLCHAIN=local CGO_ENABLED=0
+# The agent imports the standard library and Rotor's config alone, so no module is downloaded.
+COPY backend/go.mod backend/go.sum ./
+COPY backend/internal/config ./internal/config
+COPY backend/cmd/workspace-agent ./cmd/workspace-agent
+RUN go build -trimpath -ldflags="-s -w" -o /out/agent ./cmd/workspace-agent
+
+FROM scratch
+COPY --from=builder /out/agent /agent
+USER 65532:65532
+ENTRYPOINT ["/agent"]

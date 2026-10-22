@@ -13,6 +13,8 @@ images:
   web: { repository: ghcr.io/cloudster1/rotor-web, tag: "", digest: "" }
   # The sandboxes' image, which every run executes.
   runner: { repository: ghcr.io/cloudster1/rotor-runner, tag: "", digest: "" }
+  # The exec agent of a workspace's toolchain containers (#136), which an init container copies into each.
+  agent: { repository: ghcr.io/cloudster1/rotor-agent, tag: "", digest: "" }
   # The client the roles Job runs and the server the bundled Postgres runs.
   psql: { repository: postgres, tag: 18-alpine }
   valkey: { repository: valkey/valkey, tag: 8-alpine }
@@ -200,6 +202,22 @@ sandbox:
     dns:
       namespace: kube-system
       podLabels: { k8s-app: kube-dns }
+  # Workspaces (#136): a run whose workflow has workspace steps gets one toolchain container per image beside its
+  # runner. Administrators allow the images and name the package mirror in Rotor's settings; the chart sizes the
+  # toolchains and lets the sandboxes reach that mirror.
+  workspaces:
+    # Each toolchain container's memory and CPU: a cold Go build of a large module peaks near 1.2 GB under gVisor.
+    toolchain: { memoryMiB: 3072, milliCPUs: 2000 }
+    # The package mirror the settings name, as the one destination workspace pods add: a hostname, which needs
+    # cilium, or an address range. The public Go proxy is no mirror: it fetches any module and redirects to every
+    # Cloud Storage bucket.
+    packageMirror:
+      host: ""
+      cidr: ""
+      ports: [443]
+    # With admission.requireSignature, globs of the toolchain images administrators allow, such as
+    # docker.io/library/golang@sha256:*, which the admission lets run unsigned beside the runner.
+    toolchainImages: []
   # Refuse a sandbox pod whose image the runner's cosign key did not sign, or that carries no signed SBOM (#42).
   # sigstore's policy-controller enforces it and must be installed first; the chart labels the sandbox namespace for
   # it when it creates the namespace, and one that exists needs the label policy.sigstore.dev/include=true by hand.
