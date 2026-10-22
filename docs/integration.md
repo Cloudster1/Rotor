@@ -128,8 +128,10 @@ Stator offers `webhooks@1`, but neither `mcp@1` nor partner OAuth yet
 
 - **The pinned commits, in every pull request.** `api/tools/<tool>/openapi.json`
   holds each sibling's document at the commit its `SOURCE` names (`make
-  tool-contracts`). The tool-stub is held to Exciter's, and a unit test holds
-  what Rotor reads of each tool to all three.
+  tool-contracts`). The tool-stub is held to Exciter's and Armature's, and to
+  their `tools/list` recorded at the same commits (`make tool-snapshots`;
+  Armature's at `deploy/suite/ARMATURE_REF`, from a throwaway installation),
+  and a unit test holds what Rotor reads of each tool to all three.
 - **Their main, every night.** `suite.yml` vendors each sibling's `main` into
   the working copy (`make tool-contracts-main`), runs the same tests (`make
   test-contracts`), then runs the suite against Exciter's `main`

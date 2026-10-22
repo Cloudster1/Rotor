@@ -9,6 +9,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The tool-stub answers as Armature does, so workflows that read a story and
+  comment on it are tested in every pull request (#129). An Armature tenant
+  lists Armature's own `tools/list`, recorded at `deploy/suite/ARMATURE_REF`
+  by `make tool-snapshots TOOL=armature`, and answers `whoami`, `get_issue`,
+  `list_comments`, `add_comment`, `list_remote_links` and `add_remote_link`
+  from the issues a test gives it. Exciter tenants also search, create,
+  revise, link and send requirements for review, and the control API reads
+  back what a run wrote.
 - Workflows read and write Armature as the person who started them (#45).
   Rotor finds Armature's OAuth metadata where its MCP endpoint points, waits
   until an Armature administrator allows it, which connecting does, and gives

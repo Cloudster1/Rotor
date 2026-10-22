@@ -56,6 +56,10 @@ type Options struct {
 	Writes []string `json:"writes,omitempty"`
 	// GrantTypes replace the grant types the authorization server offers, as an Armature without exchange (#45).
 	GrantTypes []string `json:"grantTypes,omitempty"`
+	// Snapshot is the tools/list the tenant serves and answers as: armature for an Armature, exciter otherwise (#129).
+	Snapshot string `json:"snapshot,omitempty"`
+	// Issues are the Armature issues the tenant holds, by key, each shown to its readers alone (#129).
+	Issues map[string]Issue `json:"issues,omitempty"`
 }
 
 // Stats count what happened at a tenant, for tests to check what Rotor did there.
@@ -80,26 +84,34 @@ type Stats struct {
 
 // Stub holds every tenant; one lock covers them all, which also serialises refreshes the way a database row lock does.
 type Stub struct {
-	mu      sync.Mutex
-	tenants map[string]*tenant
-	tools   []map[string]any
-	now     func() time.Time
+	mu        sync.Mutex
+	tenants   map[string]*tenant
+	snapshots map[string][]map[string]any
+	now       func() time.Time
 	// langsmith is what reached the LangSmith stand-in (#37), newest last.
 	langsmith []LangSmithCall
 }
 
-// New makes a stub serving toolsList, a tools/list result ({"tools": [...]}), at every tenant's MCP endpoint.
-func New(toolsList []byte) (*Stub, error) {
-	var list struct {
-		Tools []map[string]any `json:"tools"`
+// New makes a stub serving recorded tools/list results ({"tools": [...]}) by the tool they were recorded from;
+// Exciter's is required, as every tenant not told otherwise serves it.
+func New(snapshots map[string][]byte) (*Stub, error) {
+	if snapshots[SnapshotExciter] == nil {
+		return nil, fmt.Errorf("the stub needs the %s tools/list snapshot", SnapshotExciter)
 	}
-	if err := json.Unmarshal(toolsList, &list); err != nil || len(list.Tools) == 0 {
-		return nil, fmt.Errorf("the tools/list snapshot is not a tools/list result with tools: %v", err)
+	s := &Stub{tenants: map[string]*tenant{}, snapshots: map[string][]map[string]any{}, now: time.Now}
+	for name, raw := range snapshots {
+		var list struct {
+			Tools []map[string]any `json:"tools"`
+		}
+		if err := json.Unmarshal(raw, &list); err != nil || len(list.Tools) == 0 {
+			return nil, fmt.Errorf("the %s tools/list snapshot is not a tools/list result with tools: %v", name, err)
+		}
+		s.snapshots[name] = list.Tools
 	}
-	return &Stub{tenants: map[string]*tenant{}, tools: list.Tools, now: time.Now}, nil
+	return s, nil
 }
 
-// tenant is one tool: its options, the clients registered with it and what people consented to.
+// tenant is one tool: its options, the clients registered with it, what people consented to and what they wrote.
 type tenant struct {
 	name     string
 	opts     Options
@@ -110,6 +122,7 @@ type tenant struct {
 	tokens   map[string]*token
 	stats    Stats
 	llmNext  int
+	written  *records
 }
 
 func (t *tenant) oauth() bool          { return t.opts.OAuth == nil || *t.opts.OAuth }
@@ -138,7 +151,7 @@ func (t *tenant) accessTTL() time.Duration {
 
 func newTenant(name string, opts Options) *tenant {
 	return &tenant{name: name, opts: opts, clients: map[string]*client{}, requests: map[string]*authRequest{},
-		codes: map[string]*code{}, grants: map[string]*grant{}, tokens: map[string]*token{}}
+		codes: map[string]*code{}, grants: map[string]*grant{}, tokens: map[string]*token{}, written: newRecords()}
 }
 
 // errTooManyTenants refuses a new tenant once MaxTenants exist.

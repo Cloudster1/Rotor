@@ -3,52 +3,160 @@ package toolstub
 import (
 	"encoding/json"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
-
-	"github.com/google/uuid"
 )
 
-// GetRequirementTool is the reading tool the stub answers besides whoami, for the people a tenant lets read each
-// requirement: Rotor asks it before an event trigger starts a run, as the trigger's owner (#35).
-const GetRequirementTool = "get_requirement"
+// Exciter's tools the stub answers besides whoami, in their snapshot's output schemas, which clients check answers
+// against: get_requirement before a trigger starts a run (#35), the rest for the story workflow (#130).
+const (
+	GetRequirementTool     = "get_requirement"
+	SearchRequirementsTool = "search_requirements"
+	CreateRequirementTool  = "create_requirement"
+	UpdateRequirementTool  = "update_requirement"
+	ListArmatureLinksTool  = "list_armature_links"
+	LinkArmatureIssueTool  = "link_armature_issue"
+	RequestReviewsTool     = "request_reviews"
+)
 
-// stubTime is the time every stub requirement was made and changed, so answers are stable.
+// stubTime is the time every requirement and issue of a tenant's options was made and changed, so answers are stable.
 var stubTime = time.Date(2026, 10, 19, 8, 0, 0, 0, time.UTC)
 
-// getRequirement answers get_requirement in the shape of Exciter's output schema, for a key the tenant lets the
-// caller read; any other key is refused as Exciter refuses one it does not show.
-func getRequirement(t *tenant, who *caller, arguments json.RawMessage) any {
-	var args struct {
-		ReqKey string `json:"reqKey"`
-	}
+// Exciter's words for what the stub refuses, as its API says them.
+const (
+	requirementNotFound = "That requirement was not found. Check its key, or ask the project's administrators to let you in."
+	baseRevisionMissing = "Say which revision you changed, as baseRevision, so a newer one is not overwritten."
+)
+
+// callExciter answers the Exciter tools the stub plays; ok is false for one it only lists.
+func (s *Stub) callExciter(c *call, who *caller, name string, arguments json.RawMessage) (any, bool) {
+	var args map[string]json.RawMessage
 	_ = json.Unmarshal(arguments, &args)
-	if !slices.Contains(t.opts.Requirements[args.ReqKey], who.username) {
-		return refusal("There is no requirement " + args.ReqKey + ", or you may not see it.")
+	switch name {
+	case WhoamiTool:
+		return answered(whoami(c.t, who)), true
+	case GetRequirementTool:
+		req := findRequirement(c.t, who, stringArg(args, "reqKey"))
+		if req == nil {
+			return refusal("There is no requirement " + stringArg(args, "reqKey") + ", or you may not see it."), true
+		}
+		return answered(map[string]any{"requirement": req.answer()}), true
+	case SearchRequirementsTool:
+		return searchRequirements(c.t, who, args), true
+	case CreateRequirementTool:
+		return s.createRequirement(c, who, args), true
+	case UpdateRequirementTool:
+		return s.updateRequirement(c, who, args), true
+	case ListArmatureLinksTool:
+		return listArmatureLinks(c.t, who, args), true
+	case LinkArmatureIssueTool:
+		return s.linkArmatureIssue(c, who, args), true
+	case RequestReviewsTool:
+		return s.requestReviews(c, who, args), true
 	}
-	structured := map[string]any{"requirement": requirement(args.ReqKey)}
-	text, _ := json.Marshal(structured)
-	return map[string]any{"content": []toolContent{{Type: "text", Text: string(text)}}, "structuredContent": structured}
+	return nil, false
 }
 
-// requirement is a draft requirement by its key, such as RTR-1, with every field Exciter's schema asks for.
-func requirement(key string) map[string]any {
+// storedRequirement is a requirement of a tenant: one its options let some people read, or one a caller created.
+type storedRequirement struct {
+	key, project, kind, title string
+	number, revision          int
+	statement, rationale      string
+	priority                  *string
+	labels                    []string
+	createdBy, updatedBy      string
+	createdAt, updatedAt      string
+	pendingReview             *string
+	created                   bool
+}
+
+// seededRequirement is a draft of the tenant's options by its key, such as RTR-1.
+func seededRequirement(key string) *storedRequirement {
 	project, number, _ := strings.Cut(key, "-")
-	n := 0
-	for _, r := range number {
-		if r >= '0' && r <= '9' {
-			n = n*10 + int(r-'0')
+	n, _ := strconv.Atoi(number)
+	at := stubTime.Format(time.RFC3339)
+	return &storedRequirement{key: key, project: project, kind: "requirement", title: "Requirement " + key, number: n, revision: 1,
+		labels: []string{}, createdBy: "Stub", updatedBy: "Stub", createdAt: at, updatedAt: at}
+}
+
+// findRequirement is a requirement the caller may read: one somebody created there, which everyone may, or one of
+// the tenant's options that names the caller.
+func findRequirement(t *tenant, who *caller, key string) *storedRequirement {
+	for _, r := range t.written.requirements {
+		if r.key == key {
+			return r
 		}
 	}
-	at := stubTime.Format(time.RFC3339)
-	return map[string]any{
-		"id": uuid.NewSHA1(uuid.NameSpaceURL, []byte("requirement:"+key)).String(), "key": key, "projectKey": project, "number": n,
-		"kind": "requirement", "title": "Requirement " + key, "statement": nil, "rationale": nil, "type": nil,
-		"attributes": map[string]any{}, "revision": 1, "status": nil, "owner": nil, "priority": nil, "labels": []string{},
-		"parentId": nil, "outline": "1", "formerKeys": []string{}, "copiedFrom": nil, "reuse": nil,
-		"createdAt": at, "createdByName": "Stub", "updatedAt": at, "updatedByName": "Stub", "trashedAt": nil,
-		"can":      map[string]any{"edit": false, "transition": false, "delete": false, "link": false, "comment": false},
-		"comments": map[string]any{"threads": 0, "open": 0}, "watching": map[string]any{"requirement": false, "project": false},
-		"approval": map[string]any{"pendingReviewId": nil, "approvedRevision": nil, "current": false}, "lock": nil,
+	if key != "" && slices.Contains(t.opts.Requirements[key], who.username) {
+		return seededRequirement(key)
 	}
+	return nil
+}
+
+// readableRequirements are every requirement the caller may read, the options' first, by key.
+func readableRequirements(t *tenant, who *caller) []*storedRequirement {
+	out := []*storedRequirement{}
+	keys := make([]string, 0, len(t.opts.Requirements))
+	for key := range t.opts.Requirements {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	for _, key := range keys {
+		if r := findRequirement(t, who, key); r != nil && !r.created {
+			out = append(out, r)
+		}
+	}
+	return append(out, t.written.requirements...)
+}
+
+func (r *storedRequirement) id() string { return stubID("requirement", r.key) }
+
+// answer is the requirement in Exciter's Requirement shape, with every field its schema asks for.
+func (r *storedRequirement) answer() map[string]any {
+	var statement, rationale any
+	out := map[string]any{
+		"id": r.id(), "key": r.key, "projectKey": r.project, "number": r.number, "kind": r.kind, "title": r.title,
+		"type": nil, "attributes": map[string]any{}, "revision": r.revision, "status": nil, "owner": nil, "labels": r.labels,
+		"parentId": nil, "outline": strconv.Itoa(r.number), "formerKeys": []string{}, "copiedFrom": nil, "reuse": nil,
+		"createdAt": r.createdAt, "createdByName": r.createdBy, "updatedAt": r.updatedAt, "updatedByName": r.updatedBy,
+		"trashedAt": nil, "lock": nil,
+		"can":      map[string]any{"edit": r.created, "transition": r.created, "delete": false, "link": r.created, "comment": r.created},
+		"comments": map[string]any{"threads": 0, "open": 0}, "watching": map[string]any{"requirement": false, "project": false},
+		"approval": map[string]any{"pendingReviewId": r.pendingReview, "approvedRevision": nil, "current": false},
+	}
+	if r.statement != "" {
+		statement, out["statementMarkdown"] = markdownDocument(r.statement), r.statement
+	}
+	if r.rationale != "" {
+		rationale, out["rationaleMarkdown"] = markdownDocument(r.rationale), r.rationale
+	}
+	out["statement"], out["rationale"] = statement, rationale
+	if r.priority != nil {
+		out["priority"] = *r.priority
+	} else {
+		out["priority"] = nil
+	}
+	return out
+}
+
+// ref is the requirement in Exciter's RequirementRef shape.
+func (r *storedRequirement) ref() map[string]any {
+	return map[string]any{"id": r.id(), "key": r.key, "projectKey": r.project, "kind": r.kind, "title": r.title,
+		"revision": r.revision, "status": nil, "trashed": false}
+}
+
+// via is how Exciter names what a write came through: the connection's kind, and Rotor.
+func via(t *tenant) map[string]any {
+	if t.oauth() {
+		return map[string]any{"kind": "oauth", "name": "Rotor"}
+	}
+	return map[string]any{"kind": "token", "name": "Rotor"}
+}
+
+// stringArg is a string argument, or "" when it is missing or not a string.
+func stringArg(args map[string]json.RawMessage, name string) string {
+	var v string
+	_ = json.Unmarshal(args[name], &v)
+	return v
 }

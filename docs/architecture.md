@@ -399,10 +399,17 @@ the compose project and its ports from the checkout's path, in 30000 to
 
 The `tool-stub` (#8) stands in for the tools: every `/t/<name>` on its port is
 an OAuth authorization server and MCP endpoint that behaves as Exciter's does,
-held to the siblings' vendored documents in `api/tools/` and to a recording of
-Exciter's `tools/list` by a contract test. Its control API, on a port the
-stack never publishes, lets tests shape a tenant, count what Rotor did there,
-and end grants or forget clients as a tool would. `make suite-up` runs the real
+or as Armature's for a tenant whose product is `armature` (#45). A tenant
+serves the `tools/list` recorded from its tool (`make tool-snapshots`), or the
+one its `snapshot` option names, and answers the calls the suite's workflows
+make from its options and what was written there (#129): Armature's issues,
+comments and remote links, Exciter's requirements, their links to Armature and
+their reviews. A contract test holds every route and answer to the siblings'
+vendored documents in `api/tools/` and to the recorded lists. Its control API,
+on a port the stack never publishes, lets tests shape a tenant, count what
+Rotor did there, read back what was written (`GET
+/control/tenants/<name>/records`), and end grants or forget clients as a tool
+would. `make suite-up` runs the real
 Exciter, from the commit in `deploy/suite/EXCITER_REF`, beside the stack: it
 signs people in through Rotor's Keycloak, and the two meet on a network of
 their own under `rotor-*` and `suite-exciter-*` names.

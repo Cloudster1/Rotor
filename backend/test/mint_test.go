@@ -74,17 +74,25 @@ func whoami(t *testing.T, stub *toolStub, token string) (int, string) {
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(resp.Body)
+	type person struct {
+		Name string `json:"name"`
+	}
+	// Exciter names the person as user, Armature as its principal's user.
 	var answer struct {
 		Result struct {
 			StructuredContent struct {
-				User struct {
-					Name string `json:"name"`
-				} `json:"user"`
+				User      person `json:"user"`
+				Principal struct {
+					User person `json:"user"`
+				} `json:"principal"`
 			} `json:"structuredContent"`
 		} `json:"result"`
 	}
 	_ = json.Unmarshal(raw, &answer)
-	return resp.StatusCode, answer.Result.StructuredContent.User.Name
+	if name := answer.Result.StructuredContent.User.Name; name != "" {
+		return resp.StatusCode, name
+	}
+	return resp.StatusCode, answer.Result.StructuredContent.Principal.User.Name
 }
 
 func TestTwentyRunsMintAtOnceWithoutEndingTheGrant(t *testing.T) {

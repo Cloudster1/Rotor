@@ -74,3 +74,6 @@ vulnerability, and an installation never uses them:
 - the suite's Exciter and its bootstrap administrator `admin@exciter.test` /
   `exciter admin password`, Exciter's own development account, which
   `make tool-snapshots` signs in with
+- `snapshot@armature.test` / `armature snapshot password`, the first account
+  of the throwaway Armature `make tool-snapshots TOOL=armature` starts on
+  ports nobody else reaches and removes with its data once it has recorded

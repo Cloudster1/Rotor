@@ -131,6 +131,14 @@ Adapted from Armature at cdf4bb1, its integration capabilities:
 - backend/internal/httpapi/capabilities.go: the capability with its promise and operations, sorted at /meta, and the
   tests holding each to the operations table and to name@version, of backend/internal/httpapi/capabilities.go
 
+Adapted from Armature at 1a97811, its MCP tools and the operations they stand for:
+- backend/internal/toolstub/armature_issues.go: a tool's answer as its operation's body, the refusals of a read-only
+  token and of a connected app's missing scope (httpapi/mcp.go, middleware.go writeRefused, connected_apps.go appWrites,
+  oauth.MissingScope), a comment's body from a document, Markdown or text (httpapi/issue_handlers.go commentRequest),
+  and a remote link put or retitled by its address (issue/remotelinks.go checkRemoteLink and PutRemoteLink)
+- deploy/suite/armature-snapshot.yml over Armature's deploy/docker-compose.yml, its api, database, Valkey and migration
+- api/tools/armature/tools-list.json is Armature's own tools/list, recorded from that commit
+
 Adapted from Exciter at a74de66, its checks of a partner:
 - backend/internal/tools/needs.go: the needs table, Offered with nil as never asked, and Lacks and Missing saying what
   goes without a capability, of backend/internal/armature/capabilities.go

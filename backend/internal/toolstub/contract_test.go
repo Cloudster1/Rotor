@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -19,13 +20,63 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/openapi"
 )
 
-// The contract: the stub serves nothing Exciter does not, answers in Exciter's shapes, and its /meta reads as
-// Exciter's, Armature's and Stator's do. The documents are vendored under api/tools by make tool-contracts.
+// The contract: the stub serves nothing its tools do not and answers in their shapes, held to the documents make
+// tool-contracts vendors under api/tools and the tools/list snapshots make tool-snapshots records beside them.
 
-const (
-	toolsDir     = "../../../api/tools/"
-	snapshotFile = toolsDir + "exciter/tools-list.json"
-)
+const toolsDir = "../../../api/tools/"
+
+// snapshotFile is where make tool-snapshots records a tool's tools/list.
+func snapshotFile(tool string) string { return toolsDir + tool + "/tools-list.json" }
+
+// listed is a snapshot's tools, as recorded.
+func listed(t *testing.T, tool string) []map[string]any {
+	t.Helper()
+	raw, err := os.ReadFile(snapshotFile(tool))
+	if err != nil {
+		t.Fatalf("read %s's tools/list snapshot; record it with make tool-snapshots TOOL=%s: %v", tool, tool, err)
+	}
+	var list struct {
+		Tools []map[string]any `json:"tools"`
+	}
+	if err := json.Unmarshal(raw, &list); err != nil {
+		t.Fatal(err)
+	}
+	return list.Tools
+}
+
+// outputSchema compiles the output schema a tool of Exciter's snapshot lists, which MCP clients check answers against.
+func outputSchema(t *testing.T, name string) *jsonschema.Schema {
+	t.Helper()
+	var schema any
+	for _, tool := range listed(t, SnapshotExciter) {
+		if tool["name"] == name {
+			schema = tool["outputSchema"]
+		}
+	}
+	if schema == nil {
+		t.Fatalf("the snapshot's %s lists no output schema", name)
+	}
+	compiler := jsonschema.NewCompiler()
+	compiler.AssertFormat()
+	if err := compiler.AddResource(name+".json", schema); err != nil {
+		t.Fatal(err)
+	}
+	compiled, err := compiler.Compile(name + ".json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return compiled
+}
+
+// fits checks a structured answer against a compiled schema.
+func fits(t *testing.T, schema *jsonschema.Schema, what string, answer any) {
+	t.Helper()
+	encoded, _ := json.Marshal(answer)
+	instance, _ := jsonschema.UnmarshalJSON(bytes.NewReader(encoded))
+	if err := schema.Validate(instance); err != nil {
+		t.Errorf("%s answered %s, which its schema refuses: %v", what, encoded, err)
+	}
+}
 
 func loadDocument(t *testing.T, tool string) *openapi.Document {
 	t.Helper()
@@ -42,11 +93,15 @@ func loadDocument(t *testing.T, tool string) *openapi.Document {
 
 func newTestStub(t *testing.T) *Stub {
 	t.Helper()
-	raw, err := os.ReadFile(snapshotFile)
-	if err != nil {
-		t.Fatalf("read the tools/list snapshot; record it with make tool-snapshots: %v", err)
+	snapshots := map[string][]byte{}
+	for _, tool := range []string{SnapshotExciter, SnapshotArmature} {
+		raw, err := os.ReadFile(snapshotFile(tool))
+		if err != nil {
+			t.Fatalf("read %s's tools/list snapshot; record it with make tool-snapshots TOOL=%s: %v", tool, tool, err)
+		}
+		snapshots[tool] = raw
 	}
-	s, err := New(raw)
+	s, err := New(snapshots)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,24 +148,30 @@ func TestEveryRouteIsAnExciterOperation(t *testing.T) {
 	})
 }
 
-// The snapshot is served as recorded, so a client sees Exciter's tools by name, schema and hints.
+// answeredTools are the tools the stub answers per snapshot, which the recorded list has to carry.
+var answeredTools = map[string][]string{
+	SnapshotExciter: {WhoamiTool, GetRequirementTool, SearchRequirementsTool, CreateRequirementTool, UpdateRequirementTool,
+		ListArmatureLinksTool, LinkArmatureIssueTool, RequestReviewsTool},
+	SnapshotArmature: {WhoamiTool, GetIssueTool, ListCommentsTool, AddCommentTool, ListRemoteLinksTool, AddRemoteLinkTool},
+}
+
+// Each snapshot is served as recorded, so a client sees the tool's own tools by name, schema and hints, and a
+// tenant serves the one its option or its product names (#129).
 func TestToolsListIsTheSnapshot(t *testing.T) {
-	raw, _ := os.ReadFile(snapshotFile)
-	var want struct {
-		Tools []map[string]any `json:"tools"`
-	}
-	if err := json.Unmarshal(raw, &want); err != nil {
-		t.Fatal(err)
-	}
-	if got := newTestStub(t).toolsFor(newTenant("contract", Options{}), &caller{}); !reflect.DeepEqual(got, want.Tools) {
-		t.Errorf("tools/list serves %d tools that are not the snapshot's %d", len(got), len(want.Tools))
-	}
-	for _, tool := range want.Tools {
-		if tool["name"] == WhoamiTool {
-			return
+	stub := newTestStub(t)
+	for snapshot, answered := range answeredTools {
+		want := listed(t, snapshot)
+		for _, opts := range []Options{{Snapshot: snapshot}, {Product: snapshot}} {
+			if got := stub.toolsFor(newTenant("contract", opts), &caller{}); !reflect.DeepEqual(got, want) {
+				t.Errorf("a tenant of %+v serves %d tools that are not %s's %d", opts, len(got), snapshot, len(want))
+			}
+		}
+		for _, name := range answered {
+			if !slices.ContainsFunc(want, func(tool map[string]any) bool { return tool["name"] == name }) {
+				t.Errorf("%s's snapshot has no %s tool, which the stub answers", snapshot, name)
+			}
 		}
 	}
-	t.Errorf("the snapshot has no %s tool, which the stub answers", WhoamiTool)
 }
 
 // contract drives the stub and checks every request and answer against Exciter's document.
@@ -291,64 +352,14 @@ func validates(t *testing.T, tool, component string, raw []byte) {
 // MCP clients check a tool's structured answer against the output schema it lists, so whoami answers in the shape of
 // Exciter's own: a stub that did not would fail every client that checks, as the runner's does.
 func TestWhoamiAnswersInTheShapeExciterLists(t *testing.T) {
-	raw, _ := os.ReadFile(snapshotFile)
-	var listed struct {
-		Tools []map[string]any `json:"tools"`
-	}
-	if err := json.Unmarshal(raw, &listed); err != nil {
-		t.Fatal(err)
-	}
-	var schema any
-	for _, tool := range listed.Tools {
-		if tool["name"] == WhoamiTool {
-			schema = tool["outputSchema"]
-		}
-	}
-	if schema == nil {
-		t.Fatalf("the snapshot's %s lists no output schema", WhoamiTool)
-	}
-	compiler := jsonschema.NewCompiler()
-	if err := compiler.AddResource("whoami.json", schema); err != nil {
-		t.Fatal(err)
-	}
-	compiled, err := compiler.Compile("whoami.json")
-	if err != nil {
-		t.Fatal(err)
-	}
 	c := newContract(t)
 	c.controlled("POST", "/control/tenants", map[string]any{"name": "plain", "oauth": false}, http.StatusCreated)
-	answer := c.whoami("plain", PATPrefix+"erin")
-	encoded, _ := json.Marshal(answer)
-	instance, _ := jsonschema.UnmarshalJSON(bytes.NewReader(encoded))
-	if err := compiled.Validate(instance); err != nil {
-		t.Errorf("whoami answered %s, which Exciter's output schema refuses: %v", encoded, err)
-	}
+	fits(t, outputSchema(t, WhoamiTool), WhoamiTool, c.whoami("plain", PATPrefix+"erin"))
 }
 
 // get_requirement answers in the shape Exciter lists too, for a key the tenant lets the caller read, and refuses
 // any other as Exciter refuses one it does not show (#35).
 func TestGetRequirementAnswersInTheShapeExciterLists(t *testing.T) {
-	raw, _ := os.ReadFile(snapshotFile)
-	var listed struct {
-		Tools []map[string]any `json:"tools"`
-	}
-	if err := json.Unmarshal(raw, &listed); err != nil {
-		t.Fatal(err)
-	}
-	var schema any
-	for _, tool := range listed.Tools {
-		if tool["name"] == GetRequirementTool {
-			schema = tool["outputSchema"]
-		}
-	}
-	compiler := jsonschema.NewCompiler()
-	if err := compiler.AddResource("requirement.json", schema); err != nil {
-		t.Fatal(err)
-	}
-	compiled, err := compiler.Compile("requirement.json")
-	if err != nil {
-		t.Fatal(err)
-	}
 	c := newContract(t)
 	c.controlled("POST", "/control/tenants", map[string]any{"name": "reqs", "oauth": false,
 		"requirements": map[string]any{"RTR-7": []string{"erin"}}}, http.StatusCreated)
@@ -356,11 +367,10 @@ func TestGetRequirementAnswersInTheShapeExciterLists(t *testing.T) {
 		return c.mcp("reqs", PATPrefix+username, "tools/call", map[string]any{"name": GetRequirementTool, "arguments": map[string]any{"reqKey": key}})
 	}
 	answer := read("erin", "RTR-7")
-	encoded, _ := json.Marshal(answer["structuredContent"])
-	instance, _ := jsonschema.UnmarshalJSON(bytes.NewReader(encoded))
-	if err := compiled.Validate(instance); err != nil || answer["isError"] == true {
-		t.Errorf("get_requirement answered %s, which Exciter's output schema refuses: %v", encoded, err)
+	if answer["isError"] == true {
+		t.Errorf("get_requirement refused a reader: %v", answer)
 	}
+	fits(t, outputSchema(t, GetRequirementTool), GetRequirementTool, answer["structuredContent"])
 	for _, refused := range []map[string]any{read("frank", "RTR-7"), read("erin", "RTR-8")} {
 		if refused["isError"] != true {
 			t.Errorf("a requirement the caller may not see was answered: %v", refused)
