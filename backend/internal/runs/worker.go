@@ -221,12 +221,14 @@ func (w *Worker) startOne(ctx context.Context, c claimed) error {
 		Env:       map[string]string{"ROTOR_CONTROL_PLANE_ADDR": w.launch.Dial, "ROTOR_RUNNER_CA": ca, "ROTOR_OPENBAO_ADDR": w.launch.OpenBao},
 		SecretEnv: map[string]string{"ROTOR_RUNNER_BOOTSTRAP": token},
 		Deadline:  w.deadline(ctx, c.ID), Workspace: workspace}
-	toolchains := []string{}
+	spawned := map[string]any{"image": w.launch.Image}
 	if workspace != nil {
 		wanted.Env[EnvWorkspace], wanted.SecretEnv[sandbox.EnvWorkspaceSecret] = told[EnvWorkspace], told[sandbox.EnvWorkspaceSecret]
+		toolchains := []string{}
 		for _, tc := range workspace.Toolchains {
 			toolchains = append(toolchains, tc.Image)
 		}
+		spawned["toolchains"] = toolchains
 	}
 	id, err := w.sandboxes.Spawn(ctx, wanted)
 	if err != nil {
@@ -238,9 +240,10 @@ func (w *Worker) startOne(ctx context.Context, c claimed) error {
 			WHERE id = $1 AND claimed_by = $2 AND status = 'starting'`, c.ID, w.id, string(id)); err != nil {
 			return err
 		}
-		// What started, never how: the spec carries the bootstrap token.
+		// What started, never how: the spec carries the bootstrap token and the agents' secret.
+		spawned["sandboxId"] = string(id)
 		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionSandboxSpawned, TargetType: "run", TargetID: c.ID.String(),
-			Data: map[string]any{"sandboxId": string(id), "image": w.launch.Image, "toolchains": toolchains}})
+			Data: spawned})
 	})
 }
 
