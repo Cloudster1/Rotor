@@ -199,7 +199,9 @@ tool once, and the trigger's owner after that:
 
 The owner needs to read the stories in Armature, to comment there, and to
 edit requirements in the Exciter project; the comments and requirements are
-theirs, written through Rotor. A story then gets Rotor's questions as a
+theirs, written through Rotor. Exciter asks for a review only in a project
+with an approval rule, so give the project one; without it the requirements
+are filed and linked, and nobody is asked. A story then gets Rotor's questions as a
 comment; the answer of anyone who may comment starts the next run, and Rotor's
 own comments start none.
 

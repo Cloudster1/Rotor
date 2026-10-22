@@ -62,8 +62,10 @@ jobs:
 
       - name: Say what the stacks logged
         if: failure()
+        # The stack's project and file are make's, kept in .cache/stack.env for a shell like this one.
         run: |
-          docker compose logs --tail 200 api tool-stub keycloak
+          set -a; . .cache/stack.env; set +a
+          docker compose -f deploy/docker-compose.yml logs --tail 200 api worker tool-stub keycloak || true
           make --no-print-directory suite-logs
 
       - name: Keep the reports

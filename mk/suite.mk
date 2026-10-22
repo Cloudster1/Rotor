@@ -23,9 +23,12 @@ SUITE_EXCITER = COMPOSE_PROJECT_NAME=$(SUITE_EXCITER_PROJECT) \
 	KEYCLOAK_PORT=$(KEYCLOAK_PORT) MAILPIT_PORT=$(call stack_port,9) POSTGRES_PORT=$(call stack_port,10) \
 	POSTGRES_REPLICA_PORT=$(call stack_port,11) VALKEY_PORT=$(call stack_port,12) S3_PORT=$(call stack_port,13) \
 	ARMATURE_STUB_PORT=$(call stack_port,14) STATOR_STUB_PORT=$(call stack_port,15) docker compose
+# Armature's database passwords are its own defaults, not the ones the stack exports under the same names, so a
+# compose call from the shell meets the database make set up.
 SUITE_ARMATURE = COMPOSE_PROJECT_NAME=$(SUITE_ARMATURE_PROJECT) \
 	COMPOSE_FILE=$(SUITE_ARMATURE_DIR)/deploy/docker-compose.yml:$(ROOT)/deploy/suite/armature.yml \
-	WEB_PORT=$(SUITE_ARMATURE_WEB_PORT) KEYCLOAK_PORT=$(KEYCLOAK_PORT) docker compose
+	WEB_PORT=$(SUITE_ARMATURE_WEB_PORT) KEYCLOAK_PORT=$(KEYCLOAK_PORT) \
+	POSTGRES_PASSWORD=armature APP_DB_PASSWORD=armature_app ADMIN_DB_PASSWORD=armature_admin docker compose
 
 # Rotor's services the suite reaches, each joining the suite's network as rotor-<service>, and the siblings', as
 # suite-<tool>-<service>; by hand, so no service is known there by a name another stack uses too. Rotor's worker is
@@ -135,9 +138,12 @@ DOCKER_GO_SUITE = $(call go_run,--network $(SUITE_NET) \
 	-e ROTOR_TEST_ARMATURE_INTERNAL_URL=http://suite-armature-api:8080 \
 	$(1))
 
+# Each test runs whole workflows in sandboxes; on a busy machine the lot takes longer than go test's ten minutes.
+SUITE_TIMEOUT ?= 30m
+
 .PHONY: test-suite
 test-suite: | $(GO_CACHE) ## Run the tests against the real Exciter and Armature; start them first with make suite-up
 	@docker network inspect $(SUITE_NET) >/dev/null 2>&1 \
 		|| { echo "The suite is not up. Start the stack with make up, then make suite-up, then run this again."; exit 1; }
 	$(ROOT)/tests/test-suite.sh $(SUITE_EXCITER_WEB_PORT) $(SUITE_ARMATURE_WEB_PORT)
-	$(ROOT)/scripts/go-test.sh $(REPORTS)/suite.json $(DOCKER_GO_SUITE) go test -json -tags 'integration suite' -run Suite -count=1 $(TESTFLAGS) ./test/...
+	$(ROOT)/scripts/go-test.sh $(REPORTS)/suite.json $(DOCKER_GO_SUITE) go test -json -tags 'integration suite' -run Suite -count=1 -timeout $(SUITE_TIMEOUT) $(TESTFLAGS) ./test/...

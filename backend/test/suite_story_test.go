@@ -31,6 +31,24 @@ func connectExciterToArmature(t *testing.T, alice *browser, exciterBase, base st
 	}
 }
 
+// approvedByAlice gives the Exciter project an approval rule in which alice approves, since Exciter asks for no
+// review in a project without one.
+func approvedByAlice(t *testing.T, alice *browser, exciterBase, project string) {
+	t.Helper()
+	_, listed := alice.atExciter(t, exciterBase, http.MethodGet, "/users", nil)
+	members, _ := listed["members"].([]any)
+	aliceID := ""
+	for _, m := range members {
+		if member, _ := m.(map[string]any); member["email"] == "alice@suite.test" {
+			aliceID, _ = member["userId"].(string)
+		}
+	}
+	rule := map[string]any{"required": 1, "authorMayApprove": true, "approvers": []map[string]any{{"subjectType": "user", "userId": aliceID}}}
+	if status, answer := alice.atExciter(t, exciterBase, http.MethodPut, "/projects/"+project+"/approval-rules", rule); status != http.StatusOK {
+		t.Fatalf("giving %s an approval rule = %d %v", project, status, answer)
+	}
+}
+
 // armatureWebhook points a webhook of Armature's at the tool's hook in Rotor and gives Rotor its secret; its address
 // names the tool, so the test makes it once the tool is added.
 func armatureWebhook(t *testing.T, alice *browser, base, toolID string, topics []string) {
@@ -141,6 +159,7 @@ func TestSuiteAStoryInArmatureBecomesRequirementsInExciter(t *testing.T) {
 	t.Cleanup(func() { alice.api(http.MethodDelete, "/tools/"+exciterID, nil) })
 	alice.connectExciter(t, exciterBase, exciterID, "alice")
 	project := exciterProject(t, alice, exciterBase)
+	approvedByAlice(t, alice, exciterBase, project)
 	armatureID := addArmature(t, alice, base)
 	alice.connectToArmature(t, base, armatureID, "alice")
 	connectExciterToArmature(t, alice, exciterBase, base)

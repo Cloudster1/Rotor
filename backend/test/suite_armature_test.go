@@ -90,6 +90,11 @@ func allowRotor(t *testing.T, admin *browser, base string) {
 func addArmature(t *testing.T, alice *browser, base string) string {
 	t.Helper()
 	status, answer := alice.api(http.MethodPost, "/tools", map[string]any{"baseURL": base})
+	if status == http.StatusOK {
+		// A test stopped before its cleanup left Armature added; it is added afresh, so it waits for approval again.
+		alice.api(http.MethodDelete, "/tools/"+stringOf(toolOf(t, answer)["id"]), nil)
+		status, answer = alice.api(http.MethodPost, "/tools", map[string]any{"baseURL": base})
+	}
 	tool := toolOf(t, answer)
 	id, _ := tool["id"].(string)
 	if status != http.StatusCreated || tool["name"] != "armature" || tool["status"] != "awaiting_approval" || tool["mcpURL"] != base+"/api/v1/mcp" {
