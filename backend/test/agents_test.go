@@ -45,7 +45,9 @@ func TestTwoAgentsRunOnTheirOwnModelsAndEachCallCountsAtItsModelsPrice(t *testin
 	// An agent's own model is checked when the workflow is saved.
 	status, answer := bob.api(http.MethodPost, "/workflows", map[string]any{
 		"specYAML": specialists(uniqueName("refused"), cheap, "nowhere-"+uuid.NewString()[:8]), "comment": "first"})
-	if status != http.StatusUnprocessableEntity || !strings.Contains(fmt.Sprint(answer["problems"]), "model_not_allowed") {
+	refusal, _ := answer["error"].(map[string]any)
+	if fields, _ := refusal["fields"].(map[string]any); status != http.StatusUnprocessableEntity ||
+		!strings.Contains(fmt.Sprint(fields["/nodes/1/model"]), "No administrator allows the model") {
 		t.Fatalf("saving an agent on a model no administrator allows = %d %v", status, answer)
 	}
 
