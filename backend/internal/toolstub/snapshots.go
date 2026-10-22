@@ -46,6 +46,8 @@ type records struct {
 	requirements  []*storedRequirement
 	armatureLinks map[string][]map[string]any
 	reviews       []map[string]any
+	links         []requirementLink
+	executions    []*execution
 }
 
 func newRecords() *records {
@@ -63,8 +65,16 @@ func (r *records) view() map[string]any {
 	if reviews == nil {
 		reviews = []map[string]any{}
 	}
+	links := make([]map[string]any, 0, len(r.links))
+	for _, l := range r.links {
+		links = append(links, l.view())
+	}
+	executions := make([]map[string]any, 0, len(r.executions))
+	for _, e := range r.executions {
+		executions = append(executions, e.answer(nil, true))
+	}
 	return map[string]any{"comments": r.comments, "remoteLinks": r.remoteLinks, "requirements": reqs,
-		"armatureLinks": r.armatureLinks, "reviews": reviews}
+		"armatureLinks": r.armatureLinks, "reviews": reviews, "requirementLinks": links, "testExecutions": executions}
 }
 
 // stubID is an id derived from what it names, so a test can expect it and two tenants never share one.

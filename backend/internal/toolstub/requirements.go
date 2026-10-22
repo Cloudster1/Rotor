@@ -9,7 +9,8 @@ import (
 )
 
 // Exciter's tools the stub answers besides whoami, in their snapshot's output schemas, which clients check answers
-// against: get_requirement before a trigger starts a run (#35), the rest for the story workflow (#130).
+// against: get_requirement before a trigger starts a run (#35), the story workflow's (#130), and the feature
+// workflow's tracing and test executions (#139).
 const (
 	GetRequirementTool     = "get_requirement"
 	SearchRequirementsTool = "search_requirements"
@@ -18,6 +19,13 @@ const (
 	ListArmatureLinksTool  = "list_armature_links"
 	LinkArmatureIssueTool  = "link_armature_issue"
 	RequestReviewsTool     = "request_reviews"
+	ListTypesTool          = "list_types"
+	GetTreeTool            = "get_tree"
+	LinkRequirementsTool   = "link_requirements"
+	ListTestPlansTool      = "list_test_plans"
+	StartTestExecutionTool = "start_test_execution"
+	RecordTestResultTool   = "record_test_result"
+	CloseTestExecutionTool = "close_test_execution"
 )
 
 // stubTime is the time every requirement and issue of a tenant's options was made and changed, so answers are stable.
@@ -54,6 +62,20 @@ func (s *Stub) callExciter(c *call, who *caller, name string, arguments json.Raw
 		return s.linkArmatureIssue(c, who, args), true
 	case RequestReviewsTool:
 		return s.requestReviews(c, who, args), true
+	case ListTypesTool:
+		return listTypes(args), true
+	case GetTreeTool:
+		return getTree(c.t, who, args), true
+	case LinkRequirementsTool:
+		return s.linkRequirements(c, who, args), true
+	case ListTestPlansTool:
+		return listTestPlans(c.t, who, args), true
+	case StartTestExecutionTool:
+		return s.startTestExecution(c, who, args), true
+	case RecordTestResultTool:
+		return s.recordTestResult(c, who, args), true
+	case CloseTestExecutionTool:
+		return s.closeTestExecution(c, who, args), true
 	}
 	return nil, false
 }
@@ -69,6 +91,9 @@ type storedRequirement struct {
 	createdAt, updatedAt      string
 	pendingReview             *string
 	created                   bool
+	// typeID is the requirement type it was given, and testCase what a test case carries, nil for any other.
+	typeID   *string
+	testCase *testCase
 }
 
 // seededRequirement is a draft of the tenant's options by its key, such as RTR-1.
@@ -117,10 +142,11 @@ func (r *storedRequirement) answer() map[string]any {
 	var statement, rationale any
 	out := map[string]any{
 		"id": r.id(), "key": r.key, "projectKey": r.project, "number": r.number, "kind": r.kind, "title": r.title,
-		"type": nil, "attributes": map[string]any{}, "revision": r.revision, "status": nil, "owner": nil, "labels": r.labels,
+		"attributes": map[string]any{}, "revision": r.revision, "status": nil, "owner": nil, "labels": r.labels,
 		"parentId": nil, "outline": strconv.Itoa(r.number), "formerKeys": []string{}, "copiedFrom": nil, "reuse": nil,
 		"createdAt": r.createdAt, "createdByName": r.createdBy, "updatedAt": r.updatedAt, "updatedByName": r.updatedBy,
-		"trashedAt": nil, "lock": nil,
+		"trashedAt": nil, "lock": nil, "type": typeRef(r.project, r.typeID), "computed": map[string]any{}, "risk": nil,
+		"quality":  map[string]any{"score": nil, "active": 0, "accepted": 0, "stale": false},
 		"can":      map[string]any{"edit": r.created, "transition": r.created, "delete": false, "link": r.created, "comment": r.created},
 		"comments": map[string]any{"threads": 0, "open": 0}, "watching": map[string]any{"requirement": false, "project": false},
 		"approval": map[string]any{"pendingReviewId": r.pendingReview, "approvedRevision": nil, "current": false},
@@ -132,6 +158,11 @@ func (r *storedRequirement) answer() map[string]any {
 		rationale, out["rationaleMarkdown"] = markdownDocument(r.rationale), r.rationale
 	}
 	out["statement"], out["rationale"] = statement, rationale
+	if r.testCase != nil {
+		out["testCase"] = r.testCase.answer()
+	} else {
+		out["testCase"] = nil
+	}
 	if r.priority != nil {
 		out["priority"] = *r.priority
 	} else {

@@ -403,8 +403,9 @@ or as Armature's for a tenant whose product is `armature` (#45). A tenant
 serves the `tools/list` recorded from its tool (`make tool-snapshots`), or the
 one its `snapshot` option names, and answers the calls the suite's workflows
 make from its options and what was written there (#129): Armature's issues,
-comments and remote links, Exciter's requirements, their links to Armature and
-their reviews. A contract test holds every route and answer to the siblings'
+comments and remote links, Exciter's requirements, their links to Armature,
+to each other and their reviews, test cases, and test executions of the test
+plans its options hold (#139). A contract test holds every route and answer to the siblings'
 vendored documents in `api/tools/` and to the recorded lists. Its control API,
 on a port the stack never publishes, lets tests shape a tenant, count what
 Rotor did there, read back what was written (`GET

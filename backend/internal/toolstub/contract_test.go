@@ -151,7 +151,8 @@ func TestEveryRouteIsAnExciterOperation(t *testing.T) {
 // answeredTools are the tools the stub answers per snapshot, which the recorded list has to carry.
 var answeredTools = map[string][]string{
 	SnapshotExciter: {WhoamiTool, GetRequirementTool, SearchRequirementsTool, CreateRequirementTool, UpdateRequirementTool,
-		ListArmatureLinksTool, LinkArmatureIssueTool, RequestReviewsTool},
+		ListArmatureLinksTool, LinkArmatureIssueTool, RequestReviewsTool, ListTypesTool, GetTreeTool, LinkRequirementsTool,
+		ListTestPlansTool, StartTestExecutionTool, RecordTestResultTool, CloseTestExecutionTool},
 	SnapshotArmature: {WhoamiTool, GetIssueTool, ListCommentsTool, AddCommentTool, ListRemoteLinksTool, AddRemoteLinkTool},
 }
 

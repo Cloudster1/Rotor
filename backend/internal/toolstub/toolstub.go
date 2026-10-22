@@ -60,6 +60,8 @@ type Options struct {
 	Snapshot string `json:"snapshot,omitempty"`
 	// Issues are the Armature issues the tenant holds, by key, each shown to its readers alone (#129).
 	Issues map[string]Issue `json:"issues,omitempty"`
+	// TestPlans are an Exciter tenant's test plans, which only Exciter's web client makes; see TestPlanID (#139).
+	TestPlans []TestPlan `json:"testPlans,omitempty"`
 }
 
 // Stats count what happened at a tenant, for tests to check what Rotor did there.

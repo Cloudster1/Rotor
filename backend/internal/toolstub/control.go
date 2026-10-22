@@ -60,11 +60,20 @@ func (s *Stub) handleMakeTenant(w http.ResponseWriter, r *http.Request) {
 	s.tenants[in.Name] = t
 	writeJSON(w, http.StatusCreated, map[string]any{"name": t.name, "oauth": t.oauth(), "reuseDetection": t.reuseDetection(),
 		"product": t.product(), "capabilities": t.capabilities(), "accessTokenSeconds": int(t.accessTTL().Seconds()),
-		"snapshot": t.snapshot()})
+		"snapshot": t.snapshot(), "testPlans": t.testPlans()})
 }
 
-// handleRecords answers what callers wrote at the tenant, for a test to check what a run did there: comments and
-// remote links by issue key, requirements, Armature links by requirement key, and reviews, oldest first.
+// testPlans name the tenant's test plans with their ids, which start_test_execution takes.
+func (t *tenant) testPlans() []map[string]any {
+	out := []map[string]any{}
+	for _, plan := range t.opts.TestPlans {
+		out = append(out, map[string]any{"id": TestPlanID(t.name, plan), "project": plan.Project, "title": plan.Title})
+	}
+	return out
+}
+
+// handleRecords answers what callers wrote at the tenant, oldest first: comments and remote links by issue key,
+// requirements, Armature links by requirement key, reviews, links between requirements and test executions.
 func (s *Stub) handleRecords(w http.ResponseWriter, _ *http.Request, t *tenant) {
 	writeJSON(w, http.StatusOK, t.written.view())
 }

@@ -1,0 +1,27 @@
+# Exciter at deploy/suite/EXCITER_REF, over its own deploy/docker-compose.yml, for as long as make tool-snapshots
+# TOOL=exciter takes to record its tools/list (#139): the api, its primary database, Valkey, the migration and the seed,
+# which makes the bootstrap administrator the recording signs in as. The list is built from Exciter's code alone.
+services:
+  # Neither publishes a port, so a recording never collides with a stack that holds 5432 or 6379 already.
+  postgres-primary:
+    ports: !reset []
+  valkey:
+    ports: !reset []
+
+  # No replica, file store, partner stubs, diagram renderer or printer: the api starts without each of them.
+  api:
+    depends_on: !override
+      postgres-primary:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+    environment:
+      EXCITER_DB_REPLICA_URLS: ""
+      EXCITER_S3_ENDPOINT: ""
+      EXCITER_KROKI_URL: ""
+      EXCITER_RENDER_URL: ""
+    # A port Docker picks, read back with docker compose port.
+    ports: !override
+      - "127.0.0.1::8080"

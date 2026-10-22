@@ -1,5 +1,5 @@
 # The tools Rotor connects to, as the test double stands in for them: their API documents, vendored for the
-# tool-stub's contract test, and a snapshot of Exciter's MCP tools/list from the suite. Adapted from Exciter's
+# tool-stub's contract test, and a snapshot of each one's MCP tools/list beside it. Adapted from Exciter's
 # mk/armature.mk: updating a vendored document is how a change in a tool reaches Rotor's test double.
 CURL_IMAGE ?= curlimages/curl:8.16.0
 TOOLS_API_DIR := $(ROOT)/api/tools
@@ -31,7 +31,7 @@ test-contracts: | $(GO_CACHE) ## Hold the tool-stub and what Rotor reads of each
 	$(DOCKER_GO) go test -count=1 ./internal/toolstub/ ./internal/tools/
 
 .PHONY: tool-snapshots
-tool-snapshots: ## Record a tool's tools/list for the stub: make tool-snapshots TOOL=exciter (the running suite's) or TOOL=armature
+tool-snapshots: ## Record a tool's tools/list for the stub from a throwaway installation: make tool-snapshots TOOL=exciter|armature
 	@case "$(or $(TOOL),exciter)" in \
 		exciter) $(MAKE) --no-print-directory tool-snapshot-exciter;; \
 		armature) $(MAKE) --no-print-directory tool-snapshot-armature;; \
@@ -46,34 +46,34 @@ define snapshot_record
 		|| { rm -f $(TOOLS_API_DIR)/$(3)/tools-list.json.tmp; exit 1; }
 endef
 
+# A tool's list is built from its code alone, so a throwaway installation at the suite's commit records it: its own
+# compose with deploy/suite/<tool>-snapshot.yml over it, gone again afterwards. The repositories and commits are the
+# suite's, mk/suite.mk.
+SNAPSHOT_DIR := $(ROOT)/.cache/tools
+snapshot_compose = docker compose -p $(STACK_PROJECT)-$(1)-snapshot \
+	-f $(SNAPSHOT_DIR)/$(1)/deploy/docker-compose.yml -f $(ROOT)/deploy/suite/$(1)-snapshot.yml
+
+# snapshot_throwaway records tool $(1) at commit $(3) of repository $(2), the recorder taking docker run options $(4).
+define snapshot_throwaway
+	@[ -n "$(3)" ] || { echo "deploy/suite names no commit of $(1) to record."; exit 1; }
+	$(call suite_clone,$(2),$(3),$(SNAPSHOT_DIR)/$(1))
+	@trap '$(call snapshot_compose,$(1)) down -v --remove-orphans >/dev/null 2>&1' EXIT; \
+	$(call snapshot_compose,$(1)) up -d --build --wait --quiet-pull api || exit 1; \
+	port=$$($(call snapshot_compose,$(1)) port api 8080 | sed 's/.*://'); \
+	$(call snapshot_record,http://localhost:$$port,$(4),$(1))
+	@echo "Recorded $(1)'s tools/list at $(3); vendor its document at the same commit with" \
+		"make tool-contracts TOOL=$(1) REF=$(3), then run make check-go."
+endef
+
+# Exciter's seed makes its bootstrap administrator, whom the recorder signs in as unless told otherwise.
 .PHONY: tool-snapshot-exciter
 tool-snapshot-exciter:
-	@docker network inspect $(SUITE_NET) >/dev/null 2>&1 \
-		|| { echo "The suite is not up. Start the stack with make up, then make suite-up, then run this again."; exit 1; }
-	@$(call snapshot_record,http://localhost:$(SUITE_EXCITER_WEB_PORT),,exciter)
-	@echo "Recorded Exciter's tools/list at $(EXCITER_REF); run make check-go."
+	$(call snapshot_throwaway,exciter,$(EXCITER_REPO),$(EXCITER_REF),)
 
-# Armature's list is built from its code alone, so a throwaway installation at ARMATURE_REF records it: its own
-# compose with deploy/suite/armature-snapshot.yml over it, its first sign-up the owner, and gone again afterwards.
-# ARMATURE_REPO and ARMATURE_REF are the suite's, mk/suite.mk.
-SNAPSHOT_ARMATURE_DIR := $(ROOT)/.cache/tools/armature
-SNAPSHOT_ARMATURE = docker compose -p $(STACK_PROJECT)-armature-snapshot \
-	-f $(SNAPSHOT_ARMATURE_DIR)/deploy/docker-compose.yml -f $(ROOT)/deploy/suite/armature-snapshot.yml
-# A person of the throwaway installation alone, which is gone with it.
+# Armature's first sign-up is its owner: a person of the throwaway installation alone, which is gone with it.
 SNAPSHOT_ARMATURE_LOGIN := -e TOOL_SIGNUP_NAME=Snapshot -e TOOL_ADMIN_EMAIL=snapshot@armature.test \
 	-e 'TOOL_ADMIN_PASSWORD=armature snapshot password'
 
 .PHONY: tool-snapshot-armature
 tool-snapshot-armature:
-	@[ -n "$(ARMATURE_REF)" ] || { echo "deploy/suite/ARMATURE_REF names no commit."; exit 1; }
-	@[ -d $(SNAPSHOT_ARMATURE_DIR)/.git ] || git clone --quiet --filter=blob:none --no-checkout $(ARMATURE_REPO) $(SNAPSHOT_ARMATURE_DIR)
-	@[ -f $(SNAPSHOT_ARMATURE_DIR)/deploy/docker-compose.yml ] \
-		&& [ "$$(git -C $(SNAPSHOT_ARMATURE_DIR) rev-parse -q --verify HEAD)" = "$(ARMATURE_REF)" ] || { \
-		git -C $(SNAPSHOT_ARMATURE_DIR) fetch --quiet origin $(ARMATURE_REF) && \
-		git -C $(SNAPSHOT_ARMATURE_DIR) -c advice.detachedHead=false checkout --quiet --detach FETCH_HEAD; }
-	@trap '$(SNAPSHOT_ARMATURE) down -v --remove-orphans >/dev/null 2>&1' EXIT; \
-	$(SNAPSHOT_ARMATURE) up -d --build --wait --quiet-pull api || exit 1; \
-	port=$$($(SNAPSHOT_ARMATURE) port api 8080 | sed 's/.*://'); \
-	$(call snapshot_record,http://localhost:$$port,$(SNAPSHOT_ARMATURE_LOGIN),armature)
-	@echo "Recorded Armature's tools/list at $(ARMATURE_REF); vendor its document at the same commit with" \
-		"make tool-contracts TOOL=armature REF=$(ARMATURE_REF), then run make check-go."
+	$(call snapshot_throwaway,armature,$(ARMATURE_REPO),$(ARMATURE_REF),$(SNAPSHOT_ARMATURE_LOGIN))

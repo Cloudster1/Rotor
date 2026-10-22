@@ -100,6 +100,15 @@ every run's token is exchanged from the grant's.
 
 Exciter offers `mcp@1`, `webhooks@1` and `webhooks@2`, and its authorization
 server registers Rotor by RFC 7591. Everything Rotor does works with it.
+`deploy/suite/EXCITER_REF` names the commit Rotor is tested against, since
+#139 one with test plans and executions: a workflow lists a project's test
+plans (`list_test_plans`), starts an execution of one
+(`start_test_execution`), records each case's result
+(`record_test_result`) and closes it (`close_test_execution`); the three
+write and ask for an approval as any write does, and reading a case's results
+(`get_test_case_results`) does not. Test cases are requirements of a type
+whose role is a test case (`list_types`), traced to what they verify with
+`link_requirements`.
 
 ### Armature
 
@@ -139,8 +148,9 @@ Stator offers `webhooks@1`, but neither `mcp@1` nor partner OAuth yet
 - **The pinned commits, in every pull request.** `api/tools/<tool>/openapi.json`
   holds each sibling's document at the commit its `SOURCE` names (`make
   tool-contracts`). The tool-stub is held to Exciter's and Armature's, and to
-  their `tools/list` recorded at the same commits (`make tool-snapshots`;
-  Armature's at `deploy/suite/ARMATURE_REF`, from a throwaway installation),
+  their `tools/list` recorded at the same commits (`make tool-snapshots`,
+  at `deploy/suite/EXCITER_REF` and `ARMATURE_REF`, each from a throwaway
+  installation that is gone again once it has recorded),
   and a unit test holds what Rotor reads of each tool to all three.
 - **The real ones, in the suite.** `make suite-up` runs Exciter and Armature
   at their pinned commits beside the stack, on Rotor's Keycloak, and `make

@@ -39,8 +39,29 @@ services:
     environment:
       EXCITER_BOOTSTRAP_MEMBERS: alice@suite.test=admin,bob@suite.test=member,dave@suite.test=member
 
-  # A webhook's address is checked when it is saved, so Rotor's api is let through here too.
+  # Diagrams drawn from their source are not part of what Rotor reads, and the renderer is a JVM (#139).
+  kroki:
+    profiles: ["off"]
+
+  # A webhook's address is checked when it is saved, so Rotor's api is let through here too. It shows a diagram as
+  # its source, without the renderer.
   api:
+    depends_on: !override
+      postgres-primary:
+        condition: service_healthy
+      postgres-replica:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_healthy
+      armature-stub:
+        condition: service_healthy
+      stator-stub:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
     environment:
       <<: *partners
       EXCITER_OIDC_BACKCHANNEL: http://localhost:${KEYCLOAK_PORT}=http://rotor-keycloak:8080
+      EXCITER_KROKI_URL: ""

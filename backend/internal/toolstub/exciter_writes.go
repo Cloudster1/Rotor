@@ -108,7 +108,7 @@ func (r *storedRequirement) apply(args map[string]json.RawMessage) string {
 	if !slices.Contains([]string{"requirement", "section"}, r.kind) {
 		return "A kind is requirement or section."
 	}
-	return ""
+	return r.applyType(args)
 }
 
 // searchRequirements finds the requirements the caller may read whose title or statement holds every word asked,
@@ -142,7 +142,8 @@ func searchRequirements(t *tenant, who *caller, args map[string]json.RawMessage)
 	}
 	total := len(hits)
 	hits = hits[min(offset, total):min(offset+limit, total)]
-	return answered(map[string]any{"hits": hits, "limit": limit, "offset": offset, "total": total})
+	// Exciter's glossary terms that match; the stub keeps no glossary.
+	return answered(map[string]any{"hits": hits, "limit": limit, "offset": offset, "total": total, "terms": []any{}})
 }
 
 func listArmatureLinks(t *tenant, who *caller, args map[string]json.RawMessage) any {

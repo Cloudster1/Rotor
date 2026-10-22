@@ -9,6 +9,16 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Rotor knows Exciter's test plans and test executions (#139). The suite runs
+  a current Exciter (`deploy/suite/EXCITER_REF`), whose tools a workflow
+  calls to start an execution of a test plan, record each case's result and
+  close it; the catalogue knows these write and ask for an approval, and that
+  reading a case's results does not. The tool-stub answers them too, as well
+  as `list_types`, `get_tree`, `link_requirements` and `list_test_plans`,
+  files test cases with their steps, and the control API reads back the links
+  and executions a run made, so the coming feature workflow is tested in
+  every pull request. `make tool-snapshots` records Exciter's `tools/list`
+  from a throwaway installation, as it does Armature's, without the suite.
 - How a workflow writes code is agreed (#131): `docs/api-contract-m13.md`
   says how an agent gets its own model, role and step budget, how a loop is
   bounded, how parallel branches join, how a step checks out the run's
