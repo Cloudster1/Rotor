@@ -48,9 +48,10 @@ type run struct {
 	Inputs     []byte
 	// dataKey is the run's wrapped data key, which opens what is stored of it (#41).
 	dataKey string
-	// Resume answers the interrupt ResumeID names: the latest approved approval's decision, if any.
-	Resume   []byte
-	ResumeID string
+	// Resume answers the interrupt ResumeID names, and ResumeAnswers every interrupt of the run's last wait (#135).
+	Resume        []byte
+	ResumeID      string
+	ResumeAnswers map[string]string
 	// Traceparent is the run's trace, which its runner's spans join (#37); TraceContent lets them carry text.
 	Traceparent  string
 	TraceContent bool
@@ -72,7 +73,7 @@ type binding struct {
 func (s *Server) loadRun(ctx context.Context, runID uuid.UUID) (*run, error) {
 	r := &run{ID: runID}
 	var sealed []byte
-	var resume *approved
+	var resume []approved
 	err := s.DB.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		err := tx.QueryRow(ctx, `SELECT r.user_id, r.status, v.spec_yaml, r.data_key, r.sealed_inputs, r.traceparent, r.trigger_id
 			FROM run r JOIN workflow_version v ON v.workflow_id = r.workflow_id AND v.number = r.version
@@ -80,7 +81,7 @@ func (s *Server) loadRun(ctx context.Context, runID uuid.UUID) (*run, error) {
 		if err != nil {
 			return err
 		}
-		resume, err = latestApproved(ctx, tx, runID)
+		resume, err = lastApproved(ctx, tx, runID)
 		return err
 	})
 	if err != nil {
@@ -93,11 +94,15 @@ func (s *Server) loadRun(ctx context.Context, runID uuid.UUID) (*run, error) {
 	if r.Inputs, err = box.Open(envelope.ColumnInputs, "", sealed); err != nil {
 		return nil, err
 	}
-	if resume != nil {
-		if r.Resume, err = resume.answer(box); err != nil {
+	for _, a := range resume {
+		answer, err := a.answer(box)
+		if err != nil {
 			return nil, err
 		}
-		r.ResumeID = resume.interrupt
+		if r.ResumeAnswers == nil {
+			r.Resume, r.ResumeID, r.ResumeAnswers = answer, a.interrupt, map[string]string{}
+		}
+		r.ResumeAnswers[a.interrupt] = string(answer)
 	}
 	parsed, problems := spec.Parse([]byte(r.SpecYAML))
 	if parsed == nil || len(problems) > 0 {
@@ -236,6 +241,7 @@ func startRun(r *run, bindings []*runnerpb.ToolBinding, model *runnerpb.ModelCon
 		AgentModels: agents, Traceparent: r.Traceparent, TraceContent: r.TraceContent}
 	if r.ResumeID != "" {
 		start.Resume, start.ResumeJson, start.ResumeInterruptId = true, string(r.Resume), r.ResumeID
+		start.ResumeAnswers = r.ResumeAnswers
 	}
 	return &runnerpb.ConnectResponse{Message: &runnerpb.ConnectResponse_StartRun{StartRun: start}}
 }

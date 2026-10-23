@@ -373,6 +373,26 @@ class StartRun(_message.Message):
         def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
         def WhichOneof(self, oneof_group: _Never) -> None: ...
 
+    @_typing.final
+    class ResumeAnswersEntry(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: _builtins.int
+        VALUE_FIELD_NUMBER: _builtins.int
+        key: _builtins.str
+        value: _builtins.str
+        def __init__(
+            self,
+            *,
+            key: _builtins.str = ...,
+            value: _builtins.str = ...,
+        ) -> None: ...
+        _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        def WhichOneof(self, oneof_group: _Never) -> None: ...
+
     RUN_ID_FIELD_NUMBER: _builtins.int
     SPEC_YAML_FIELD_NUMBER: _builtins.int
     INPUTS_JSON_FIELD_NUMBER: _builtins.int
@@ -384,6 +404,7 @@ class StartRun(_message.Message):
     TRACEPARENT_FIELD_NUMBER: _builtins.int
     TRACE_CONTENT_FIELD_NUMBER: _builtins.int
     AGENT_MODELS_FIELD_NUMBER: _builtins.int
+    RESUME_ANSWERS_FIELD_NUMBER: _builtins.int
     run_id: _builtins.str
     spec_yaml: _builtins.str
     inputs_json: _builtins.str
@@ -406,6 +427,12 @@ class StartRun(_message.Message):
         An agent whose model resolved to none is missing here and fails with model_missing.
         """
 
+    @_builtins.property
+    def resume_answers(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]:
+        """resume_answers answers every interrupt a run waited at together, as JSON by interrupt id (#135); when it is set,
+        resume_json and resume_interrupt_id carry one of them for a runner that knows no more.
+        """
+
     def __init__(
         self,
         *,
@@ -420,10 +447,11 @@ class StartRun(_message.Message):
         traceparent: _builtins.str = ...,
         trace_content: _builtins.bool = ...,
         agent_models: _abc.Mapping[_builtins.str, Global___ModelConfig] | None = ...,
+        resume_answers: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["model", b"model"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["agent_models", b"agent_models", "inputs_json", b"inputs_json", "model", b"model", "resume", b"resume", "resume_interrupt_id", b"resume_interrupt_id", "resume_json", b"resume_json", "run_id", b"run_id", "spec_yaml", b"spec_yaml", "tools", b"tools", "trace_content", b"trace_content", "traceparent", b"traceparent"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["agent_models", b"agent_models", "inputs_json", b"inputs_json", "model", b"model", "resume", b"resume", "resume_answers", b"resume_answers", "resume_interrupt_id", b"resume_interrupt_id", "resume_json", b"resume_json", "run_id", b"run_id", "spec_yaml", b"spec_yaml", "tools", b"tools", "trace_content", b"trace_content", "traceparent", b"traceparent"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

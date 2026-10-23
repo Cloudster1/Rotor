@@ -25,7 +25,8 @@ from langgraph.types import Command, interrupt
 
 from rotor_runner.config import DURATION_UNITS, LLM_FLUSH_CHARS
 from rotor_runner.events import EventSink, summary, top_node
-from rotor_runner.limits import RunEnded, TokenBudget, TokenBudgetError, failed
+from rotor_runner.joins import answering, deferred, reported
+from rotor_runner.limits import RunEnded, StepBudget, TokenBudget, TokenBudgetError, failed
 from rotor_runner.links import LinkLimiter
 from rotor_runner.loops import arrive, counted, counts_anywhere, landings, visits
 from rotor_runner.mcp import ToolFailedError, ToolGateway, ToolRefusedError
@@ -233,7 +234,22 @@ def _traced(run: Callable[..., Any], node: dict[str, Any], tracing: RunTracing) 
     return traced
 
 
-def compile_workflow(ctx: RunContext, checkpointer: BaseCheckpointSaver[Any] | None = None) -> Any:
+def _stepped(run: Callable[..., Any], node_id: str, steps: StepBudget | None) -> Callable[..., Any]:
+    """A node that takes a step of the run's budget before it starts; wraps keeps the signature LangGraph reads."""
+    if steps is None:
+        return run
+
+    @functools.wraps(run)
+    async def step(*args: Any, **kwargs: Any) -> Any:
+        steps.take(node_id)
+        return await run(*args, **kwargs)
+
+    return step
+
+
+def compile_workflow(
+    ctx: RunContext, checkpointer: BaseCheckpointSaver[Any] | None = None, steps: StepBudget | None = None
+) -> Any:
     """The spec as a compiled graph; a checkpointer lets an approval wait and the run resume."""
     graph = StateGraph(State)
     makers: dict[str, Callable[[dict[str, Any]], Callable[..., Any]]] = {
@@ -243,8 +259,10 @@ def compile_workflow(ctx: RunContext, checkpointer: BaseCheckpointSaver[Any] | N
         "approval": lambda n: _approval(n, ctx.spec),
         "router": lambda _n: _pass,
     }
+    joins = deferred(ctx.spec)
     for node in ctx.spec.nodes.values():
-        graph.add_node(node["id"], counted(_traced(makers[node["type"]](node), node, ctx.tracing), node["id"]))
+        run = _stepped(counted(_traced(makers[node["type"]](node), node, ctx.tracing), node["id"]), node["id"], steps)
+        graph.add_node(node["id"], run, defer=node["id"] in joins)
     graph.add_edge(START, ctx.spec.entry)
     for node in ctx.spec.nodes.values():
         targets = ctx.spec.ways(node["id"])
@@ -276,10 +294,11 @@ async def _run_workflow(
     resume: Any = None,
     resuming: bool = False,
     resume_id: str = "",
+    resume_answers: dict[str, Any] | None = None,
 ) -> Outcome:
-    """Runs the workflow, or resumes it with the answer to the interrupt resume_id names, emitting its events."""
+    """Runs the workflow, or resumes it with the answers to the interrupts it waits at, emitting its events."""
     limits = ctx.spec.limits
-    graph = compile_workflow(ctx, checkpointer)
+    graph = compile_workflow(ctx, checkpointer, StepBudget(int(limits["maxSteps"])))
     config: RunnableConfig = {"configurable": {"thread_id": thread_id}, "recursion_limit": int(limits["maxSteps"])}
     callbacks: list[Any] = [UsageReporter(ctx.emit)]
     if limits.get("maxTokens"):
@@ -290,10 +309,11 @@ async def _run_workflow(
     start: Any = {"inputs": inputs, "nodes": {}, "visits": {}}
     snapshot = await graph.aget_state(config) if checkpointer is not None else None
     waiting_at = {i.id for task in snapshot.tasks for i in task.interrupts} if snapshot else set()
-    if resuming and resume_id in waiting_at:
+    answers = resume_answers or ({resume_id: resume} if resume_id else {})
+    if resuming and answering(answers, waiting_at):
         # Keyed by the interrupt, an answer never answers a later approval the run reaches.
-        start = Command(resume={resume_id: resume})
-    elif resuming and not resume_id:
+        start = Command(resume=answering(answers, waiting_at))
+    elif resuming and not answers:
         start = Command(resume=resume)
     elif snapshot is not None and snapshot.next:
         # A sandbox that replaced a lost one carries on from the run's last checkpoint.
@@ -351,8 +371,7 @@ async def _run_workflow(
     snapshot = await graph.aget_state(config)
     waiting = [i for task in snapshot.tasks for i in task.interrupts]
     if waiting:
-        value = waiting[0].value if isinstance(waiting[0].value, dict) else {"message": str(waiting[0].value)}
-        return Outcome("interrupted", "", interrupt={**value, "id": waiting[0].id})
+        return Outcome("interrupted", "", interrupt=reported(waiting))
     return Outcome("succeeded", "", cast(dict[str, Any], snapshot.values.get("nodes", {})))
 
 

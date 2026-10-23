@@ -342,7 +342,6 @@ def form_fields(schema: Any) -> dict[str, Any] | None:
 
 # The fields M13 agreed, by the issue that builds each (docs/api-contract-m13.md); each issue deletes its own.
 NOT_BUILT_FIELDS = {
-    "join": 135,
     "workspace": 136,
 }
 

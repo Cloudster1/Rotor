@@ -128,6 +128,9 @@ message StartRun {
   // agent_models are the models of the agent nodes that name their own, by node id; the others use model (#133).
   // An agent whose model resolved to none is missing here and fails with model_missing.
   map<string, ModelConfig> agent_models = 11;
+  // resume_answers answers every interrupt a run waited at together, as JSON by interrupt id (#135); when it is set,
+  // resume_json and resume_interrupt_id carry one of them for a runner that knows no more.
+  map<string, string> resume_answers = 12;
 }
 
 // SpanBatch carries the runner's finished spans, sent with seq 0: the control plane exports them for it, so the

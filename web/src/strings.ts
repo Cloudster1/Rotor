@@ -301,7 +301,9 @@ export const s = {
     },
     run: {
       waits: "This run waits for a person to approve what it does next.",
+      waitsMany: (count: number) => `This run waits for ${count} approvals on parallel branches, and goes on once each is decided.`,
       open: "Open the approval",
+      openAt: (node: string) => `Open the approval at ${node}`,
     },
     live: {
       requested: (node: string, who: string) => `${node} waits for ${who} to decide`,

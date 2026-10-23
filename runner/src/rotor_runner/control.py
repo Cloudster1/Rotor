@@ -321,6 +321,7 @@ class Channel:
         )
         inputs = json.loads(start.inputs_json or "{}")
         resume = json.loads(start.resume_json) if start.resume else None
+        answers = {i: json.loads(a) for i, a in start.resume_answers.items()} if start.resume else {}
         return await run_workflow(
             ctx,
             inputs,
@@ -329,6 +330,7 @@ class Channel:
             resuming=start.resume,
             resume=resume,
             resume_id=start.resume_interrupt_id,
+            resume_answers=answers,
         )
 
 

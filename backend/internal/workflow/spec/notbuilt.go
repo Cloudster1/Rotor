@@ -22,7 +22,7 @@ func notBuilt(s *Spec) []Problem {
 			field string
 			issue int
 		}{
-			{n.Join != "", "join", 135}, {n.Workspace != nil, "workspace", 136},
+			{n.Workspace != nil, "workspace", 136},
 		} {
 			if f.set {
 				add(base+"/"+f.field, "A node's "+f.field, f.issue)

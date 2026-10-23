@@ -6,6 +6,8 @@ import "sort"
 type GraphNode struct {
 	ID   string `json:"id"`
 	Type string `json:"type"`
+	// Join says the node waits for every branch into it (#135), so it is drawn below the longest.
+	Join bool `json:"join,omitempty"`
 }
 
 // GraphEdge leads from one node to the next; a router's edges carry the case that takes them.
@@ -33,7 +35,7 @@ const (
 func (s *Spec) Graph() Graph {
 	g := Graph{Entry: s.Entry, Nodes: []GraphNode{}, Edges: []GraphEdge{}}
 	for _, n := range s.Nodes {
-		g.Nodes = append(g.Nodes, GraphNode{ID: n.ID, Type: n.Type})
+		g.Nodes = append(g.Nodes, GraphNode{ID: n.ID, Type: n.Type, Join: n.Join == JoinAll})
 	}
 	for _, e := range s.Edges {
 		g.Edges = append(g.Edges, GraphEdge{From: e.From, To: e.To})

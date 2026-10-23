@@ -34,6 +34,8 @@ export interface SpecNode {
   default?: string;
   /** Where the run goes past the node's last visit (#134). */
   onExhausted?: string;
+  /** Whether the node waits for every branch into it, set in the YAML as join: all (#135). */
+  join?: boolean;
   fields: Record<string, string>;
   model?: ModelRef;
 }
@@ -71,6 +73,7 @@ export function parseSpec(source: string): Parsed | undefined {
       cases: Object.entries(record(n.cases)).map(([value, to]) => [value, text(to)]),
       default: n.default === undefined ? undefined : text(n.default),
       onExhausted: n.onExhausted === undefined ? undefined : text(n.onExhausted),
+      ...(n.join === "all" ? { join: true } : {}),
       fields,
       model: n.model === undefined ? undefined : { name: text(model.name), provider: text(model.provider) },
     };
@@ -82,11 +85,13 @@ export function parseSpec(source: string): Parsed | undefined {
   return { doc, spec: { entry: text(js.entry), nodes, edges, bindings: Object.keys(record(js.tools)) } };
 }
 
-/** The graph the server's Spec.Graph() draws: nodes in order, the edges, each router's cases by value and its default,
- * then each node's onExhausted. */
+/** The graph the server's Spec.Graph() draws: nodes in order with their join, the edges, each router's cases by value
+ * and its default, then each node's onExhausted. */
 export function graphOf(spec: SpecShape): Graph {
   const seen = new Set<string>();
-  const nodes = spec.nodes.filter((n) => n.id !== "" && !seen.has(n.id) && seen.add(n.id)).map((n) => ({ id: n.id, type: n.type }));
+  const nodes = spec.nodes
+    .filter((n) => n.id !== "" && !seen.has(n.id) && seen.add(n.id))
+    .map((n) => ({ id: n.id, type: n.type, ...(n.join ? { join: true } : {}) }));
   const known = (id: string) => seen.has(id);
   const edges: Graph["edges"] = spec.edges.filter((e) => known(e.from) && known(e.to)).map((e) => ({ from: e.from, to: e.to }));
   for (const n of spec.nodes) {

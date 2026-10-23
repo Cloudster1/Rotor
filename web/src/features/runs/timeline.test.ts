@@ -100,6 +100,31 @@ describe("the graph's layout", () => {
     expect(at.d).toMatchObject({ x: GRAPH_COLUMN_PX, y: 2 * GRAPH_ROW_PX });
   });
 
+  it("puts a join below the longest branch into it, and what follows it below that (#135)", () => {
+    const placed = layered({
+      entry: "test",
+      nodes: [
+        { id: "test", type: "code" },
+        { id: "code", type: "agent" },
+        { id: "security", type: "agent" },
+        { id: "fix", type: "agent" },
+        { id: "gather", type: "code", join: true },
+        { id: "done", type: "approval" },
+      ],
+      edges: [
+        { from: "test", to: "code" },
+        { from: "test", to: "security" },
+        { from: "code", to: "fix" },
+        { from: "fix", to: "gather" },
+        { from: "security", to: "gather" },
+        { from: "gather", to: "done" },
+        { from: "gather", to: "test", label: "again" },
+      ],
+    });
+    const at = Object.fromEntries(placed.map((p) => [p.id, p.layer]));
+    expect(at).toEqual({ test: 0, code: 1, security: 1, fix: 2, gather: 3, done: 4 });
+  });
+
   it("tells the edges that close a loop from those that only cross a layer", () => {
     const loops = loopEdges({
       entry: "write",

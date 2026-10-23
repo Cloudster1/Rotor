@@ -17,14 +17,25 @@ const danger = "h-9 rounded-control bg-danger px-3 text-sm font-medium text-on-d
 /** The events after which the run reads differently: it ended, lost its sandbox, or waits for or got a decision. */
 const MOVES = new Set(["run.finished", "runner.lost", "approval.requested", "approval.decided"]);
 
-/** A waiting run's way to the approval it waits for. */
-function WaitingForApproval({ approvalID }: { approvalID: string }) {
+/** A waiting run's way to each approval it waits for, named by its node once the run's events say it (#135). */
+function WaitingForApproval({ approvalIDs, nodes }: { approvalIDs: string[]; nodes: Map<string, string> }) {
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-control border border-warning bg-warning-subtle px-3 py-2 text-sm text-ink" data-run-approval>
-      <span>{s.approvals.run.waits}</span>
-      <Link to="/approvals/$approvalID" params={{ approvalID }} className="font-medium text-accent underline-offset-2 hover:underline">
-        {s.approvals.run.open}
-      </Link>
+      <span>{approvalIDs.length > 1 ? s.approvals.run.waitsMany(approvalIDs.length) : s.approvals.run.waits}</span>
+      {approvalIDs.map((approvalID) => {
+        const node = nodes.get(approvalID);
+        return (
+          <Link
+            key={approvalID}
+            to="/approvals/$approvalID"
+            params={{ approvalID }}
+            className="font-medium text-accent underline-offset-2 hover:underline"
+            data-approval-link={approvalID}
+          >
+            {approvalIDs.length > 1 && node ? s.approvals.run.openAt(node) : s.approvals.run.open}
+          </Link>
+        );
+      })}
     </div>
   );
 }
@@ -39,6 +50,10 @@ export function RunPage({ runID }: { runID: string }) {
   });
   const timeline = useMemo(() => entries(events), [events]);
   const states = useMemo(() => nodeStates(events), [events]);
+  const approvalNodes = useMemo(
+    () => new Map(events.filter((e) => e.type === "approval.requested").map((e) => [String(e.payload.approvalId ?? ""), e.node])),
+    [events],
+  );
   const [confirming, setConfirming] = useState(false);
   const cancel = useMutation({
     mutationFn: () => cancelRun(runID),
@@ -76,7 +91,7 @@ export function RunPage({ runID }: { runID: string }) {
         </Link>
       </div>
       {!r.ended && <p className="text-sm text-ink-muted">{s.runs.page.live}</p>}
-      {r.approvalId && <WaitingForApproval approvalID={r.approvalId} />}
+      {r.approvalIds.length > 0 && <WaitingForApproval approvalIDs={r.approvalIds} nodes={approvalNodes} />}
       {r.reason && (
         <p className="text-sm text-ink" data-run-reason={r.reason}>
           <span className="font-medium">{s.runs.page.reason}: </span>

@@ -3,7 +3,8 @@ import { GRAPH_COLUMN_PX, GRAPH_ROW_PX } from "@/config";
 /** A workflow's nodes and the ways between them, entry first, as the server's Spec.Graph() draws it. */
 export interface Graph {
   entry: string;
-  nodes: { id: string; type: string }[];
+  /** join marks a node that waits for every branch into it (#135). */
+  nodes: { id: string; type: string; join?: boolean }[];
   edges: { from: string; to: string; label?: string }[];
 }
 
@@ -16,7 +17,8 @@ export interface Placed {
   layer: number;
 }
 
-/** Lays the graph out in layers from its entry, top to bottom: each node one layer below the nearest node leading to it. */
+/** Lays the graph out in layers from its entry, top to bottom: each node one layer below the nearest node leading to it,
+ * and a join below the deepest, so parallel branches stand side by side above it (#135). */
 export function layered(graph: Graph): Placed[] {
   const next = new Map<string, string[]>();
   for (const e of graph.edges) next.set(e.from, [...(next.get(e.from) ?? []), e.to]);
@@ -35,6 +37,7 @@ export function layered(graph: Graph): Placed[] {
       }
     }
   }
+  lowerJoins(graph, layer);
   // A node nothing leads to, which a valid workflow has not, still gets a place below the rest.
   const deepest = Math.max(-1, ...layer.values());
   const width = new Map<number, number>();
@@ -64,4 +67,23 @@ export function loopEdges(graph: Graph): Set<number> {
   const ids = graph.nodes.map((n) => n.id);
   for (const id of ids.includes(graph.entry) ? [graph.entry, ...ids] : ids) if (!walked.has(id)) walk(id);
   return back;
+}
+
+/** Moves each join below every branch into it, and what follows a moved node below it; loops are left out, so the
+ * rest is acyclic and this ends within a round per node. */
+function lowerJoins(graph: Graph, layer: Map<string, number>) {
+  const loops = loopEdges(graph);
+  const joins = new Set(graph.nodes.filter((n) => n.join).map((n) => n.id));
+  const moved = new Set<string>();
+  for (let round = 0, again = joins.size > 0; again && round <= graph.nodes.length; round++) {
+    again = false;
+    graph.edges.forEach((e, i) => {
+      const from = layer.get(e.from);
+      const to = layer.get(e.to);
+      if (loops.has(i) || from === undefined || to === undefined || !(joins.has(e.to) || moved.has(e.from)) || to > from) return;
+      layer.set(e.to, from + 1);
+      moved.add(e.to);
+      again = true;
+    });
+  }
 }

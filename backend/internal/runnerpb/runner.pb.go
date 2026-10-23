@@ -929,7 +929,10 @@ type StartRun struct {
 	TraceContent bool `protobuf:"varint,10,opt,name=trace_content,json=traceContent,proto3" json:"trace_content,omitempty"`
 	// agent_models are the models of the agent nodes that name their own, by node id; the others use model (#133).
 	// An agent whose model resolved to none is missing here and fails with model_missing.
-	AgentModels   map[string]*ModelConfig `protobuf:"bytes,11,rep,name=agent_models,json=agentModels,proto3" json:"agent_models,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	AgentModels map[string]*ModelConfig `protobuf:"bytes,11,rep,name=agent_models,json=agentModels,proto3" json:"agent_models,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// resume_answers answers every interrupt a run waited at together, as JSON by interrupt id (#135); when it is set,
+	// resume_json and resume_interrupt_id carry one of them for a runner that knows no more.
+	ResumeAnswers map[string]string `protobuf:"bytes,12,rep,name=resume_answers,json=resumeAnswers,proto3" json:"resume_answers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1037,6 +1040,13 @@ func (x *StartRun) GetTraceContent() bool {
 func (x *StartRun) GetAgentModels() map[string]*ModelConfig {
 	if x != nil {
 		return x.AgentModels
+	}
+	return nil
+}
+
+func (x *StartRun) GetResumeAnswers() map[string]string {
+	if x != nil {
+		return x.ResumeAnswers
 	}
 	return nil
 }
@@ -2431,7 +2441,7 @@ const file_rotor_runner_v1_runner_proto_rawDesc = "" +
 	"\aoutcome\x18\x01 \x01(\x0e2\x1b.rotor.runner.v1.RunOutcomeR\aoutcome\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\x12\x1f\n" +
 	"\voutput_json\x18\x03 \x01(\tR\n" +
-	"outputJson\"\xa4\x04\n" +
+	"outputJson\"\xbb\x05\n" +
 	"\bStartRun\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x1b\n" +
 	"\tspec_yaml\x18\x02 \x01(\tR\bspecYaml\x12\x1f\n" +
@@ -2446,10 +2456,14 @@ const file_rotor_runner_v1_runner_proto_rawDesc = "" +
 	"\vtraceparent\x18\t \x01(\tR\vtraceparent\x12#\n" +
 	"\rtrace_content\x18\n" +
 	" \x01(\bR\ftraceContent\x12M\n" +
-	"\fagent_models\x18\v \x03(\v2*.rotor.runner.v1.StartRun.AgentModelsEntryR\vagentModels\x1a\\\n" +
+	"\fagent_models\x18\v \x03(\v2*.rotor.runner.v1.StartRun.AgentModelsEntryR\vagentModels\x12S\n" +
+	"\x0eresume_answers\x18\f \x03(\v2,.rotor.runner.v1.StartRun.ResumeAnswersEntryR\rresumeAnswers\x1a\\\n" +
 	"\x10AgentModelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x122\n" +
-	"\x05value\x18\x02 \x01(\v2\x1c.rotor.runner.v1.ModelConfigR\x05value:\x028\x01\">\n" +
+	"\x05value\x18\x02 \x01(\v2\x1c.rotor.runner.v1.ModelConfigR\x05value:\x028\x01\x1a@\n" +
+	"\x12ResumeAnswersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\">\n" +
 	"\tSpanBatch\x121\n" +
 	"\x05spans\x18\x01 \x03(\v2\x1b.rotor.runner.v1.RunnerSpanR\x05spans\"\xa3\x03\n" +
 	"\n" +
@@ -2593,7 +2607,7 @@ func file_rotor_runner_v1_runner_proto_rawDescGZIP() []byte {
 }
 
 var file_rotor_runner_v1_runner_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_rotor_runner_v1_runner_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_rotor_runner_v1_runner_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
 var file_rotor_runner_v1_runner_proto_goTypes = []any{
 	(RunOutcome)(0),                  // 0: rotor.runner.v1.RunOutcome
 	(*ConnectRequest)(nil),           // 1: rotor.runner.v1.ConnectRequest
@@ -2625,8 +2639,9 @@ var file_rotor_runner_v1_runner_proto_goTypes = []any{
 	(*CheckpointWritesRequest)(nil),  // 27: rotor.runner.v1.CheckpointWritesRequest
 	(*CheckpointWritesResponse)(nil), // 28: rotor.runner.v1.CheckpointWritesResponse
 	nil,                              // 29: rotor.runner.v1.StartRun.AgentModelsEntry
-	nil,                              // 30: rotor.runner.v1.RunnerSpan.AttributesEntry
-	(*timestamppb.Timestamp)(nil),    // 31: google.protobuf.Timestamp
+	nil,                              // 30: rotor.runner.v1.StartRun.ResumeAnswersEntry
+	nil,                              // 31: rotor.runner.v1.RunnerSpan.AttributesEntry
+	(*timestamppb.Timestamp)(nil),    // 32: google.protobuf.Timestamp
 }
 var file_rotor_runner_v1_runner_proto_depIdxs = []int32{
 	3,  // 0: rotor.runner.v1.ConnectRequest.hello:type_name -> rotor.runner.v1.Hello
@@ -2649,33 +2664,34 @@ var file_rotor_runner_v1_runner_proto_depIdxs = []int32{
 	24, // 17: rotor.runner.v1.ConnectResponse.checkpoint_list:type_name -> rotor.runner.v1.CheckpointListResponse
 	26, // 18: rotor.runner.v1.ConnectResponse.checkpoint_put:type_name -> rotor.runner.v1.CheckpointPutResponse
 	28, // 19: rotor.runner.v1.ConnectResponse.checkpoint_writes:type_name -> rotor.runner.v1.CheckpointWritesResponse
-	31, // 20: rotor.runner.v1.HelloAck.session_expires_at:type_name -> google.protobuf.Timestamp
-	31, // 21: rotor.runner.v1.Event.at:type_name -> google.protobuf.Timestamp
+	32, // 20: rotor.runner.v1.HelloAck.session_expires_at:type_name -> google.protobuf.Timestamp
+	32, // 21: rotor.runner.v1.Event.at:type_name -> google.protobuf.Timestamp
 	0,  // 22: rotor.runner.v1.Done.outcome:type_name -> rotor.runner.v1.RunOutcome
 	12, // 23: rotor.runner.v1.StartRun.tools:type_name -> rotor.runner.v1.ToolBinding
 	13, // 24: rotor.runner.v1.StartRun.model:type_name -> rotor.runner.v1.ModelConfig
 	29, // 25: rotor.runner.v1.StartRun.agent_models:type_name -> rotor.runner.v1.StartRun.AgentModelsEntry
-	11, // 26: rotor.runner.v1.SpanBatch.spans:type_name -> rotor.runner.v1.RunnerSpan
-	31, // 27: rotor.runner.v1.RunnerSpan.start:type_name -> google.protobuf.Timestamp
-	31, // 28: rotor.runner.v1.RunnerSpan.end:type_name -> google.protobuf.Timestamp
-	30, // 29: rotor.runner.v1.RunnerSpan.attributes:type_name -> rotor.runner.v1.RunnerSpan.AttributesEntry
-	31, // 30: rotor.runner.v1.TokenGrant.expires_at:type_name -> google.protobuf.Timestamp
-	18, // 31: rotor.runner.v1.Checkpoint.checkpoint:type_name -> rotor.runner.v1.TypedValue
-	18, // 32: rotor.runner.v1.Checkpoint.metadata:type_name -> rotor.runner.v1.TypedValue
-	20, // 33: rotor.runner.v1.Checkpoint.pending_writes:type_name -> rotor.runner.v1.PendingWrite
-	18, // 34: rotor.runner.v1.PendingWrite.value:type_name -> rotor.runner.v1.TypedValue
-	19, // 35: rotor.runner.v1.CheckpointGetResponse.checkpoint:type_name -> rotor.runner.v1.Checkpoint
-	19, // 36: rotor.runner.v1.CheckpointListResponse.checkpoints:type_name -> rotor.runner.v1.Checkpoint
-	19, // 37: rotor.runner.v1.CheckpointPutRequest.checkpoint:type_name -> rotor.runner.v1.Checkpoint
-	20, // 38: rotor.runner.v1.CheckpointWritesRequest.writes:type_name -> rotor.runner.v1.PendingWrite
-	13, // 39: rotor.runner.v1.StartRun.AgentModelsEntry.value:type_name -> rotor.runner.v1.ModelConfig
-	1,  // 40: rotor.runner.v1.RunnerControlService.Connect:input_type -> rotor.runner.v1.ConnectRequest
-	2,  // 41: rotor.runner.v1.RunnerControlService.Connect:output_type -> rotor.runner.v1.ConnectResponse
-	41, // [41:42] is the sub-list for method output_type
-	40, // [40:41] is the sub-list for method input_type
-	40, // [40:40] is the sub-list for extension type_name
-	40, // [40:40] is the sub-list for extension extendee
-	0,  // [0:40] is the sub-list for field type_name
+	30, // 26: rotor.runner.v1.StartRun.resume_answers:type_name -> rotor.runner.v1.StartRun.ResumeAnswersEntry
+	11, // 27: rotor.runner.v1.SpanBatch.spans:type_name -> rotor.runner.v1.RunnerSpan
+	32, // 28: rotor.runner.v1.RunnerSpan.start:type_name -> google.protobuf.Timestamp
+	32, // 29: rotor.runner.v1.RunnerSpan.end:type_name -> google.protobuf.Timestamp
+	31, // 30: rotor.runner.v1.RunnerSpan.attributes:type_name -> rotor.runner.v1.RunnerSpan.AttributesEntry
+	32, // 31: rotor.runner.v1.TokenGrant.expires_at:type_name -> google.protobuf.Timestamp
+	18, // 32: rotor.runner.v1.Checkpoint.checkpoint:type_name -> rotor.runner.v1.TypedValue
+	18, // 33: rotor.runner.v1.Checkpoint.metadata:type_name -> rotor.runner.v1.TypedValue
+	20, // 34: rotor.runner.v1.Checkpoint.pending_writes:type_name -> rotor.runner.v1.PendingWrite
+	18, // 35: rotor.runner.v1.PendingWrite.value:type_name -> rotor.runner.v1.TypedValue
+	19, // 36: rotor.runner.v1.CheckpointGetResponse.checkpoint:type_name -> rotor.runner.v1.Checkpoint
+	19, // 37: rotor.runner.v1.CheckpointListResponse.checkpoints:type_name -> rotor.runner.v1.Checkpoint
+	19, // 38: rotor.runner.v1.CheckpointPutRequest.checkpoint:type_name -> rotor.runner.v1.Checkpoint
+	20, // 39: rotor.runner.v1.CheckpointWritesRequest.writes:type_name -> rotor.runner.v1.PendingWrite
+	13, // 40: rotor.runner.v1.StartRun.AgentModelsEntry.value:type_name -> rotor.runner.v1.ModelConfig
+	1,  // 41: rotor.runner.v1.RunnerControlService.Connect:input_type -> rotor.runner.v1.ConnectRequest
+	2,  // 42: rotor.runner.v1.RunnerControlService.Connect:output_type -> rotor.runner.v1.ConnectResponse
+	42, // [42:43] is the sub-list for method output_type
+	41, // [41:42] is the sub-list for method input_type
+	41, // [41:41] is the sub-list for extension type_name
+	41, // [41:41] is the sub-list for extension extendee
+	0,  // [0:41] is the sub-list for field type_name
 }
 
 func init() { file_rotor_runner_v1_runner_proto_init() }
@@ -2725,7 +2741,7 @@ func file_rotor_runner_v1_runner_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_rotor_runner_v1_runner_proto_rawDesc), len(file_rotor_runner_v1_runner_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   30,
+			NumMessages:   31,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
