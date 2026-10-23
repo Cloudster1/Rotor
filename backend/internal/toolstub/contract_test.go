@@ -152,7 +152,7 @@ func TestEveryRouteIsAnExciterOperation(t *testing.T) {
 var answeredTools = map[string][]string{
 	SnapshotExciter: {WhoamiTool, GetRequirementTool, SearchRequirementsTool, CreateRequirementTool, UpdateRequirementTool,
 		ListArmatureLinksTool, LinkArmatureIssueTool, RequestReviewsTool, ListTypesTool, GetTreeTool, LinkRequirementsTool,
-		ListTestPlansTool, StartTestExecutionTool, RecordTestResultTool, CloseTestExecutionTool},
+		ListTestPlansTool, StartTestExecutionTool, RecordTestResultTool, CloseTestExecutionTool, ListLinksTool},
 	SnapshotArmature: {WhoamiTool, GetIssueTool, ListCommentsTool, AddCommentTool, ListRemoteLinksTool, AddRemoteLinkTool,
 		ListRepositoriesTool, GetIssueDevelopmentTool, CreateIssueBranchTool, OpenPullRequestTool},
 }

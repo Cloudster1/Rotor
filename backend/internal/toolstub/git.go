@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
@@ -43,6 +44,8 @@ type Repository struct {
 	Readers       []string `json:"readers"`
 	// NoToken is a repository Armature holds no host token for, which it cannot reach.
 	NoToken bool `json:"noToken,omitempty"`
+	// Files are what the first commit holds beside the README, each at the top of the tree, as a test's fixture.
+	Files map[string]string `json:"files,omitempty"`
 }
 
 // gitRepo is a repository's objects and refs, which branches were made for which issue, and its pull requests.
@@ -57,15 +60,22 @@ type gitRepo struct {
 	pushedWith []string
 }
 
-// newGitRepo holds one commit with a README on the default branch.
+// newGitRepo holds one commit on the default branch, with a README and the fixture's files.
 func newGitRepo(tenant string, r Repository) *gitRepo {
 	if r.DefaultBranch == "" {
 		r.DefaultBranch = defaultBranch
 	}
 	g := &gitRepo{Repository: r, id: stubID(tenant, "repository", r.Project, r.Name), objects: map[string]gitObject{},
 		refs: map[string]string{}, branches: map[string]string{}}
-	blob := g.put(kindBlob, []byte("# "+r.Name+"\n\nA repository of the tool double.\n"))
-	tree := g.put(kindTree, append([]byte("100644 README.md\x00"), mustHex(blob)...))
+	files := map[string]string{"README.md": "# " + r.Name + "\n\nA repository of the tool double.\n"}
+	maps.Copy(files, r.Files)
+	var entries []byte
+	// Git sorts a tree's entries by name, which for files alone is the order of their bytes.
+	for _, name := range slices.Sorted(maps.Keys(files)) {
+		blob := g.put(kindBlob, []byte(files[name]))
+		entries = append(append(entries, "100644 "+name+"\x00"...), mustHex(blob)...)
+	}
+	tree := g.put(kindTree, entries)
 	who := "Armature Stub <stub@armature.test> " + fixtureTime
 	g.refs["refs/heads/"+r.DefaultBranch] = g.put(kindCommit, []byte("tree "+tree+"\nauthor "+who+"\ncommitter "+who+
 		"\n\nStart the repository\n"))

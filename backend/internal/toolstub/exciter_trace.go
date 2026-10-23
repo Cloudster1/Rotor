@@ -151,23 +151,45 @@ func (r *storedRequirement) applyType(args map[string]json.RawMessage) string {
 	return ""
 }
 
-// getTree answers the requirements of a project the caller may read, in the order they were made, as top-level
-// nodes; the stub keeps no outline.
+// getTree answers the requirements of a project the caller may read in reading order: each under the one it was
+// placed under, siblings in the order they were made. The stub numbers outlines by key, not by place.
 func getTree(t *tenant, who *caller, args map[string]json.RawMessage) any {
 	project := stringArg(args, "projectKey")
 	if project == "" {
 		return refusal("Name the project, as projectKey.")
 	}
-	nodes := []map[string]any{}
+	var mine []*storedRequirement
 	for _, r := range readableRequirements(t, who) {
-		if r.project != project {
-			continue
+		if r.project == project {
+			mine = append(mine, r)
 		}
-		nodes = append(nodes, map[string]any{"id": r.id(), "key": r.key, "kind": r.kind, "title": r.title, "parentId": nil,
-			"depth": 0, "outline": strconv.Itoa(r.number), "typeId": r.typeID, "status": nil, "revision": r.revision, "children": 0,
-			"quality": nil})
 	}
+	nodes := []map[string]any{}
+	var walk func(parent *string, depth int)
+	walk = func(parent *string, depth int) {
+		for _, r := range mine {
+			if !sameParent(r.parentID, parent) {
+				continue
+			}
+			children := 0
+			for _, c := range mine {
+				if c.parentID != nil && *c.parentID == r.id() {
+					children++
+				}
+			}
+			nodes = append(nodes, map[string]any{"id": r.id(), "key": r.key, "kind": r.kind, "title": r.title, "parentId": r.parentID,
+				"depth": depth, "outline": strconv.Itoa(r.number), "typeId": r.typeID, "status": nil, "revision": r.revision,
+				"children": children, "quality": nil})
+			id := r.id()
+			walk(&id, depth+1)
+		}
+	}
+	walk(nil, 0)
 	return answered(map[string]any{"nodes": nodes})
+}
+
+func sameParent(a, b *string) bool {
+	return (a == nil && b == nil) || (a != nil && b != nil && *a == *b)
 }
 
 // linkType is one of the link types every Exciter installation starts with.
