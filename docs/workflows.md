@@ -53,11 +53,43 @@ Each tool names its scopes its own way:
 | Tool | Reading | Writing |
 |---|---|---|
 | Exciter | `mcp:read` | `mcp` |
-| Armature | `read` | `issue.write`, `issue.transition`, `comment.write`; `read` goes along with each |
+| Armature | `read` | `issue.write`, `issue.transition`, `comment.write`, `git.write`; `read` goes along with each |
 
 At Armature a run's token carries only what its binding asks for: a read
 binding without scopes asks for `read`, and the token cannot write even where
 the person could.
+
+#### A repository binding (#137)
+
+A binding with `repository` is a repository Armature connects to a project,
+which the run clones and pushes through Armature's git proxy, as its person:
+
+```yaml
+tools:
+  repo:
+    tool: armature
+    scopes: [read, issue.write]
+    access: write
+    repository: {project: "{{ inputs.project }}", name: "{{ inputs.repository }}"}
+    allowTools: [list_repositories, create_issue_branch, open_pull_request]
+```
+
+- `project` is the project key and `name` the repository's `owner/name`, as
+  `list_repositories` gives it. Each is fixed, or a template of the run's
+  `inputs` alone, never of what a node read.
+- The tool must offer git: Armature, once it lists `git-proxy@1` in its
+  `/meta`.
+- The run clones from the git proxy, `{Armature}/api/v1/git/{project}/{owner}/{name}.git`,
+  with the binding's own token as a bearer. No host token reaches Rotor.
+- With `access: write` the token also carries `git.write`, which pushes to a
+  branch made for an issue the person may edit, never to the default branch;
+  people connect Armature again to consent to it. With `read` the token
+  never carries `git.write`, whatever `scopes` lists, and cannot push.
+- `create_issue_branch` makes the issue's branch, and `open_pull_request`
+  opens its pull request into the default branch. Both write, so the rules
+  for writes, approvals and unattended calls apply to them as to any call.
+- Workspaces (#136) check the branch out; until they are built a run gets
+  the repository's address and token, and nothing clones yet.
 
 A run a trigger starts writes only after an approval node, except through
 calls its binding names `unattended` (#128). The trigger's owner agrees to
@@ -241,12 +273,15 @@ When a workflow is saved, and again when a run starts:
   - every `unattended` call is one of its binding's `allowTools`
   - an agent takes at most the workflow's `maxSteps`, and its role holds no
     template
+  - a repository's `project` and `name` read nothing but `inputs`
 - **The models an administrator allows:** an agent's own `model` is one of
   them (`model_not_allowed`).
 - **The tools as you see them,** when saving, and when a run starts, read
   afresh from the tools as the run's person, so a call a tool turned into a
   write since is caught:
   - the tool exists and offers the scopes
+  - a repository binding's tool offers git, and the repository is one you
+    see; one named by `inputs` is checked once the run's inputs are known
   - a read binding allows only tools that only read
   - a binding with `approval: beforeWrite` cannot be written through on any way that skips an approval
 

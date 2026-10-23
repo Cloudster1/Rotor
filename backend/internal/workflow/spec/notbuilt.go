@@ -10,11 +10,6 @@ func notBuilt(s *Spec) []Problem {
 		out = append(out, Problem{Path: path, Code: CodeNotBuilt,
 			Message: fmt.Sprintf("%s is agreed but not built yet (#%d); leave it out until Rotor offers it.", field, issue)})
 	}
-	for _, name := range sortedKeys(s.Tools) {
-		if s.Tools[name].Repository != nil {
-			add(fmt.Sprintf("/tools/%s/repository", escape(name)), "A repository binding", 137)
-		}
-	}
 	for i, n := range s.Nodes {
 		base := fmt.Sprintf("/nodes/%d", i)
 		for _, f := range []struct {

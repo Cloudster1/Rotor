@@ -62,6 +62,11 @@ func (s *Stub) callerOf(c *call) (*caller, bool) {
 	if !isBearer || bearer == "" {
 		return nil, false
 	}
+	return s.callerByToken(c, bearer)
+}
+
+// callerByToken is who a token acts for; sent is false for no token, and the caller nil for one the tenant refuses.
+func (s *Stub) callerByToken(c *call, bearer string) (*caller, bool) {
 	if !c.t.oauth() {
 		name, ok := strings.CutPrefix(bearer, PATPrefix)
 		return &caller{username: name, scopes: []string{}}, ok && name != ""

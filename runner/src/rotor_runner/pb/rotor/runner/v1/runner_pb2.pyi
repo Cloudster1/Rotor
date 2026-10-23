@@ -563,6 +563,7 @@ class ToolBinding(_message.Message):
     ACCESS_FIELD_NUMBER: _builtins.int
     ALLOW_TOOLS_FIELD_NUMBER: _builtins.int
     LINK_HOSTS_FIELD_NUMBER: _builtins.int
+    REPOSITORY_FIELD_NUMBER: _builtins.int
     binding: _builtins.str
     tool_id: _builtins.str
     mcp_url: _builtins.str
@@ -576,6 +577,10 @@ class ToolBinding(_message.Message):
     def link_hosts(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
         """link_hosts are the tool's public hosts, the only ones links an agent writes may point at (#40)."""
 
+    @_builtins.property
+    def repository(self) -> Global___Repository:
+        """repository is set on a repository binding: what the runner clones, with the binding's own token (#137)."""
+
     def __init__(
         self,
         *,
@@ -586,14 +591,44 @@ class ToolBinding(_message.Message):
         access: _builtins.str = ...,
         allow_tools: _abc.Iterable[_builtins.str] | None = ...,
         link_hosts: _abc.Iterable[_builtins.str] | None = ...,
+        repository: Global___Repository | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["repository", b"repository"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["access", b"access", "allow_tools", b"allow_tools", "binding", b"binding", "link_hosts", b"link_hosts", "mcp_url", b"mcp_url", "scopes", b"scopes", "tool_id", b"tool_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["access", b"access", "allow_tools", b"allow_tools", "binding", b"binding", "link_hosts", b"link_hosts", "mcp_url", b"mcp_url", "repository", b"repository", "scopes", b"scopes", "tool_id", b"tool_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___ToolBinding: _TypeAlias = ToolBinding  # noqa: Y015
+
+@_typing.final
+class Repository(_message.Message):
+    """Repository is a project's repository a binding names, with the run's inputs filled in, at the tool's git proxy."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    PROJECT_FIELD_NUMBER: _builtins.int
+    NAME_FIELD_NUMBER: _builtins.int
+    CLONE_URL_FIELD_NUMBER: _builtins.int
+    project: _builtins.str
+    name: _builtins.str
+    """name is the repository's owner/name, as the tool lists it."""
+    clone_url: _builtins.str
+    """clone_url is the git proxy's address of the repository; the credential is the binding's token, as a bearer."""
+    def __init__(
+        self,
+        *,
+        project: _builtins.str = ...,
+        name: _builtins.str = ...,
+        clone_url: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["clone_url", b"clone_url", "name", b"name", "project", b"project"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___Repository: _TypeAlias = Repository  # noqa: Y015
 
 @_typing.final
 class ModelConfig(_message.Message):

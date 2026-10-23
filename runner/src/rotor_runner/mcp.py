@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -17,6 +17,9 @@ from rotor_runner.events import EventSink, subjects, summary
 from rotor_runner.limits import ToolRate
 from rotor_runner.spec import REVIEW_DECIDING
 from rotor_runner.telemetry import RunTracing
+
+if TYPE_CHECKING:
+    from rotor_runner.repository import Repository
 
 
 @dataclass(frozen=True)
@@ -30,6 +33,8 @@ class Binding:
     allow_tools: tuple[str, ...]
     # The tool's public hosts, where links in an agent's text may point (#40).
     link_hosts: tuple[str, ...] = ()
+    # Set on a repository binding: what the runner clones with the binding's token (#137).
+    repository: Repository | None = None
 
     @property
     def writes(self) -> bool:

@@ -53,6 +53,12 @@ func (s *Service) Start(ctx context.Context, req StartRequest) (Run, bool, error
 	if problems := parsed.CheckInputs(req.Inputs); len(problems) > 0 {
 		return Run{}, false, &InputsRefused{Problems: problems}
 	}
+	// A repository named by the inputs is known now, and is checked with the tools below like a fixed one (#137).
+	saved := parsed
+	parsed, problems = parsed.WithInputs(req.Inputs)
+	if len(problems) > 0 {
+		return Run{}, false, &InputsRefused{Problems: problems}
+	}
 	if err := s.Connected(ctx, parsed); err != nil {
 		return Run{}, false, err
 	}
@@ -67,8 +73,12 @@ func (s *Service) Start(ctx context.Context, req StartRequest) (Run, bool, error
 		if err != nil {
 			return Run{}, false, err
 		}
-		if problems := parsed.CheckAgainst(catalog); len(problems) > 0 {
-			return Run{}, false, &ToolsChanged{Problems: problems}
+		inputs, changed := saved.ByInputs(parsed.CheckAgainst(catalog))
+		if len(inputs) > 0 {
+			return Run{}, false, &InputsRefused{Problems: inputs}
+		}
+		if len(changed) > 0 {
+			return Run{}, false, &ToolsChanged{Problems: changed}
 		}
 	}
 	// The run's trace begins here, so the worker's and the runner's spans join what started it (#37).
@@ -183,7 +193,7 @@ func (s *Service) Connected(ctx context.Context, parsed *spec.Spec) error {
 			return err
 		default:
 			scopes, ok := consent[tool.ID]
-			if !ok || !tool.Profile().Covers(scopes, b.Scopes) {
+			if !ok || !tool.Profile().Covers(scopes, tool.Profile().BindingScopes(b.Scopes, b.Writes(), b.Repository != nil)) {
 				missing[b.Tool] = MissingTool{ID: tool.ID, Name: tool.Name}
 			}
 		}

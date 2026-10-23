@@ -46,8 +46,9 @@ const (
 // armatureWrites are the scopes a connected app needs for each writing tool the stub answers, from Armature's
 // appWrites; allows is how Armature words each in a refusal.
 var (
-	armatureWrites = map[string]string{AddCommentTool: ArmatureCommentWrite, AddRemoteLinkTool: ArmatureIssueWrite}
-	allows         = map[string]string{ArmatureIssueWrite: "file and edit issues", ArmatureCommentWrite: "comment on issues"}
+	armatureWrites = map[string]string{AddCommentTool: ArmatureCommentWrite, AddRemoteLinkTool: ArmatureIssueWrite,
+		CreateIssueBranchTool: ArmatureIssueWrite, OpenPullRequestTool: ArmatureIssueWrite}
+	allows = map[string]string{ArmatureIssueWrite: "file and edit issues", ArmatureCommentWrite: "comment on issues"}
 )
 
 // callArmature runs one of Armature's tools as Armature does: the arguments checked as its router would take them,
@@ -72,6 +73,9 @@ func (s *Stub) callArmature(c *call, who *caller, tool map[string]any, arguments
 		}
 	} else if refused := armatureWriteRefused(who, name); refused != "" {
 		return refusal(refused), nil
+	}
+	if answer, ok := s.callRepositories(c, who, name, args); ok {
+		return answer, nil
 	}
 	key := stringArg(args, "issueKey")
 	issue, readable := c.t.opts.Issues[key]

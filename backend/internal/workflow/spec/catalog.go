@@ -16,6 +16,10 @@ type ToolInfo struct {
 	Scopes []string
 	// Calls are the tool's MCP tools; nil when unknown, such as for a person not connected to it.
 	Calls map[string]CallInfo
+	// Git says whether repository bindings may clone through the tool (#137).
+	Git bool
+	// Repositories are the names of the repositories the person sees, by project; nil when unknown.
+	Repositories map[string][]string
 }
 
 // CallInfo is what an MCP tool says of itself.
@@ -40,6 +44,7 @@ func (s *Spec) CheckAgainst(c Catalog) []Problem {
 			continue
 		}
 		infos[name] = info
+		out = append(out, checkRepository(b, base, info)...)
 		for j, scope := range b.Scopes {
 			if !slices.Contains(info.Scopes, scope) {
 				add(fmt.Sprintf("%s/scopes/%d", base, j), CodeUnknownScope, "%s does not offer the scope %s; it offers %v.", b.Tool, scope, info.Scopes)

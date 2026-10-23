@@ -9,7 +9,7 @@ import json
 import logging
 import time
 import uuid
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Iterable
 from typing import Any
 
 import grpc
@@ -36,6 +36,7 @@ from rotor_runner.models import build_model
 from rotor_runner.pb.rotor.runner.v1 import runner_pb2 as pb
 from rotor_runner.pb.rotor.runner.v1 import runner_pb2_grpc as pb_grpc
 from rotor_runner.redact import Redactor
+from rotor_runner.repository import Repositories, Repository
 from rotor_runner.spec import parse
 from rotor_runner.telemetry import RunTracing
 from rotor_runner.tokens import UnwrapError, Unwrapper
@@ -295,12 +296,7 @@ class Channel:
 
     async def _run_workflow(self, start: pb.StartRun) -> Outcome:
         spec = parse(start.spec_yaml)
-        bindings = {
-            b.binding: Binding(
-                b.binding, b.mcp_url, tuple(b.scopes), b.access, tuple(b.allow_tools), tuple(b.link_hosts)
-            )
-            for b in start.tools
-        }
+        bindings = bindings_from(start.tools)
         model = await self._model(start.model) if start.HasField("model") else None
         agent_models = {node: await self._model(config) for node, config in sorted(start.agent_models.items())}
         ctx = RunContext(
@@ -318,6 +314,7 @@ class Channel:
             code=CodeNodeRunner(),
             tracing=self.tracing,
             link_hosts=frozenset(h for b in bindings.values() for h in b.link_hosts),
+            repositories=Repositories(bindings, self.tokens),
         )
         inputs = json.loads(start.inputs_json or "{}")
         resume = json.loads(start.resume_json) if start.resume else None
@@ -332,6 +329,24 @@ class Channel:
             resume_id=start.resume_interrupt_id,
             resume_answers=answers,
         )
+
+
+def bindings_from(tools: Iterable[pb.ToolBinding]) -> dict[str, Binding]:
+    """The run's bindings as StartRun resolved them, a repository binding's clone address among them."""
+    return {
+        b.binding: Binding(
+            b.binding,
+            b.mcp_url,
+            tuple(b.scopes),
+            b.access,
+            tuple(b.allow_tools),
+            tuple(b.link_hosts),
+            Repository(b.repository.project, b.repository.name, b.repository.clone_url)
+            if b.HasField("repository")
+            else None,
+        )
+        for b in tools
+    }
 
 
 async def _drain(queue: asyncio.Queue[pb.ConnectRequest | None]) -> AsyncIterator[pb.ConnectRequest]:

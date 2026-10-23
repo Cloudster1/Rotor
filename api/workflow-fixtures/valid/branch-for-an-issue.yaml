@@ -1,0 +1,23 @@
+# A repository binding (#137): the project's repository, named by the run's inputs, and the issue's branch made in it.
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: branch-for-an-issue}
+inputs:
+  type: object
+  required: [project, repository, issue]
+  properties: {project: {type: string}, repository: {type: string}, issue: {type: string}}
+tools:
+  repo:
+    tool: armature
+    scopes: [read, issue.write]
+    access: write
+    repository: {project: "{{ inputs.project }}", name: "{{ inputs.repository }}"}
+    allowTools: [list_repositories, create_issue_branch, open_pull_request]
+limits: {maxSteps: 5, timeout: 2m}
+entry: branch
+nodes:
+  - id: branch
+    type: tool
+    tool: repo
+    call: create_issue_branch
+    arguments: {issueKey: "{{ inputs.issue }}", repository: "{{ inputs.repository }}"}

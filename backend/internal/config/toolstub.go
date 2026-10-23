@@ -35,4 +35,8 @@ const (
 	// ToolStubMaxOTLPBytes bounds one export the LangSmith stand-in takes, and ToolStubMaxOTLPCalls how many it keeps.
 	ToolStubMaxOTLPBytes = 4 << 20
 	ToolStubMaxOTLPCalls = 200
+	// ToolStubMaxPushBytes is the largest push Armature's git proxy forwards, and ToolStubMaxObjectBytes the largest
+	// object the stand-in inflates, so a hostile pack cannot fill the stub's memory (#137).
+	ToolStubMaxPushBytes   = 32 << 20
+	ToolStubMaxObjectBytes = 16 << 20
 )

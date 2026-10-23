@@ -24,6 +24,8 @@ type fakeRunner struct {
 	t         *testing.T
 	stream    runnerpb.RunnerControlService_ConnectClient
 	responses chan *runnerpb.ConnectResponse
+	// start is the run's StartRun, as the control plane resolved it.
+	start *runnerpb.StartRun
 }
 
 // connectRunner opens the run's stream with a fresh bootstrap token and waits for its StartRun.
@@ -60,7 +62,7 @@ func connectRunner(t *testing.T, h *harness, runID uuid.UUID) *fakeRunner {
 		Credential: &runnerpb.Hello_BootstrapToken{BootstrapToken: h.bootstrap(t, runID)}}}}); err != nil {
 		t.Fatal(err)
 	}
-	f.await(func(m *runnerpb.ConnectResponse) bool { return m.GetStartRun() != nil }, "StartRun")
+	f.start = f.await(func(m *runnerpb.ConnectResponse) bool { return m.GetStartRun() != nil }, "StartRun").GetStartRun()
 	return f
 }
 
