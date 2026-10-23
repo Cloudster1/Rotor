@@ -66,7 +66,11 @@ class Spec:
         return cast(str, self.document["entry"])
 
     def next(self, node_id: str) -> list[str]:
-        """The nodes that may follow a node: its edges, or a router's cases and default."""
+        """The nodes that may follow a node: its ways, and its onExhausted (#134)."""
+        return following(self.document, self.nodes[node_id])
+
+    def ways(self, node_id: str) -> list[str]:
+        """The nodes a node leads to once it has run: its edges, or a router's cases and default."""
         return successors(self.document, self.nodes[node_id])
 
 
@@ -136,9 +140,15 @@ def successors(document: dict[str, Any], node: dict[str, Any]) -> list[str]:
     return [e["to"] for e in document.get("edges", []) if e["from"] == node["id"]]
 
 
+def following(document: dict[str, Any], node: dict[str, Any]) -> list[str]:
+    """A node's ways and where a run goes when the node has no visit left, as Go's next."""
+    exhausted = [cast(str, node["onExhausted"])] if node.get("onExhausted") else []
+    return successors(document, node) + exhausted
+
+
 def _state_node(path: str) -> str:
     parts = path.split(".")
-    return parts[1] if len(parts) >= 2 and parts[0] == "nodes" else ""
+    return parts[1] if len(parts) >= 2 and parts[0] in ("nodes", "visits") else ""
 
 
 def _argument_refs(value: Any, path: str) -> list[tuple[str, str]]:
@@ -252,6 +262,7 @@ def check_sense(document: dict[str, Any]) -> list[Problem]:
                     out.append(
                         Problem(f"{base}/tools/{j}", "unknown_binding", f"{name} is not one of the workflow's tools.")
                     )
+        out.extend(_text_and_loop_sense(node, base, index))
     out.extend(_review_deciders(tools))
     out.extend(_unattended_outside_allow(tools))
     out.extend(_not_built(nodes, tools))
@@ -260,7 +271,7 @@ def check_sense(document: dict[str, Any]) -> list[Problem]:
         queue = [entry]
         while queue:
             current = queue.pop(0)
-            for to in successors(document, nodes[index[current]]) if current in index else []:
+            for to in following(document, nodes[index[current]]) if current in index else []:
                 if to not in reached:
                     reached.add(to)
                     queue.append(to)
@@ -269,6 +280,20 @@ def check_sense(document: dict[str, Any]) -> list[Problem]:
                 out.append(
                     Problem(f"/nodes/{i}", "unreachable", f"Nothing leads to {node['id']} from the entry {entry}.")
                 )
+    return out
+
+
+def _text_and_loop_sense(node: dict[str, Any], base: str, index: dict[str, int]) -> list[Problem]:
+    """Templates in a prompt or message that read no node, and an onExhausted naming none (#134), as Go's checkSense."""
+    out: list[Problem] = []
+    for name in ("prompt", "message"):
+        for path, ref in _argument_refs(node.get(name, ""), f"{base}/{name}"):
+            if ref not in index:
+                out.append(Problem(path, "unknown_node", f"The {name} reads {ref}, which is not a node."))
+    after = node.get("onExhausted")
+    if after and after not in index:
+        message = f"After its last visit {node['id']} goes to {after}, which is not a node."
+        out.append(Problem(f"{base}/onExhausted", "exhausted_to_nowhere", message))
     return out
 
 
@@ -317,8 +342,6 @@ def form_fields(schema: Any) -> dict[str, Any] | None:
 
 # The fields M13 agreed, by the issue that builds each (docs/api-contract-m13.md); each issue deletes its own.
 NOT_BUILT_FIELDS = {
-    "maxVisits": 134,
-    "onExhausted": 134,
     "join": 135,
     "workspace": 136,
 }
@@ -338,8 +361,6 @@ def _not_built(nodes: list[dict[str, Any]], tools: dict[str, dict[str, Any]]) ->
                 out.append(Problem(f"/nodes/{i}/{name}", "not_built", f"{name} is not built yet (#{issue})."))
         if node["type"] == "test":
             out.append(Problem(f"/nodes/{i}/type", "not_built", "The test node is not built yet (#138)."))
-        if node["type"] == "router" and str(node.get("on", "")).startswith("visits."):
-            out.append(Problem(f"/nodes/{i}/on", "not_built", "Reading visits is not built yet (#134)."))
     return out
 
 

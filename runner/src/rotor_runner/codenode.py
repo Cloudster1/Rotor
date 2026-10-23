@@ -23,6 +23,7 @@ from rotor_runner.config import (
     DURATION_UNITS,
     MEBIBYTE,
 )
+from rotor_runner.loops import visits
 from rotor_runner.mcp import ToolFailedError, ToolRefusedError
 
 if TYPE_CHECKING:
@@ -87,7 +88,7 @@ class CodeNodeRunner:
         request = {
             "node": node["id"],
             "source": node["source"],
-            "state": {"inputs": state.get("inputs", {}), "nodes": state.get("nodes", {})},
+            "state": {"inputs": state.get("inputs", {}), "nodes": state.get("nodes", {}), "visits": visits(state)},
         }
         child.stdin.write((json.dumps(request) + "\n").encode())
         await child.stdin.drain()

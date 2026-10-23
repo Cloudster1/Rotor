@@ -5,7 +5,7 @@ export type NodeState = "pending" | "running" | "done" | "failed" | "waiting";
 
 /** One line of a run's timeline: an event, or several in a row that read as one, such as a model's chunks. */
 export type Entry =
-  | { kind: "started"; key: string; node: string; at: string; type: string }
+  | { kind: "started"; key: string; node: string; at: string; type: string; visit: number; repeats: boolean }
   | { kind: "finished"; key: string; node: string; at: string; ok: boolean; error: string; summary: string }
   | { kind: "tool"; key: string; node: string; at: string; binding: string; tool: string; args: string; result: string; ok: boolean }
   | { kind: "log"; key: string; node: string; at: string; text: string }
@@ -41,7 +41,7 @@ export function entries(events: RunEvent[]): Entry[] {
     const last = out[out.length - 1];
     switch (e.type) {
       case "node.started":
-        out.push({ ...base, kind: "started", type: text(e.payload.type) });
+        out.push({ ...base, kind: "started", type: text(e.payload.type), visit: Number(e.payload.visit ?? 1), repeats: false });
         break;
       case "node.finished":
         out.push({ ...base, kind: "finished", ok: e.payload.ok !== false, error: text(e.payload.error), summary: text(e.payload.outputSummary) });
@@ -105,6 +105,9 @@ export function entries(events: RunEvent[]): Entry[] {
       }
     }
   }
+  // A node a loop ran more than once numbers each of its visits (#134); one run once says nothing of visits.
+  const repeated = new Set(out.flatMap((e) => (e.kind === "started" && e.visit > 1 ? [e.node] : [])));
+  for (const e of out) if (e.kind === "started") e.repeats = repeated.has(e.node);
   return out;
 }
 

@@ -300,7 +300,7 @@ type Spec struct {
 
   | Type | Payload |
   |---|---|
-  | `node.started` | `{node, type}` |
+  | `node.started` | `{node, type, visit}`; `visit`, from 1, since M13 (#134) |
   | `node.finished` | `{node, ok, error?, outputSummary}` |
   | `llm.output` | `{node, text}`, in chunks |
   | `tool.called` | `{node, binding, tool, arguments, resultSummary, ok, write, subjects}`; the last two since M12 (#127) |

@@ -27,6 +27,7 @@ from rotor_runner.config import DURATION_UNITS, LLM_FLUSH_CHARS
 from rotor_runner.events import EventSink, summary, top_node
 from rotor_runner.limits import RunEnded, TokenBudget, TokenBudgetError, failed
 from rotor_runner.links import LinkLimiter
+from rotor_runner.loops import arrive, counted, counts_anywhere, landings, visits
 from rotor_runner.mcp import ToolFailedError, ToolGateway, ToolRefusedError
 from rotor_runner.policy import Fence, policy_text
 from rotor_runner.preview import preview
@@ -46,6 +47,7 @@ def _merge(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
 class State(TypedDict):
     inputs: dict[str, Any]
     nodes: Annotated[dict[str, Any], _merge]
+    visits: Annotated[dict[str, int], _merge]
 
 
 class CodeRunner(Protocol):
@@ -191,16 +193,25 @@ def _approval(node: dict[str, Any], spec: Spec) -> Callable[..., Any]:
     return run
 
 
-def _route(node: dict[str, Any]) -> Callable[[State], str]:
+def _route(node: dict[str, Any], spec: Spec) -> Callable[[State], str]:
     def choose(state: State) -> str:
         value = lookup(cast(dict[str, Any], state), node["on"])
         key = value if isinstance(value, str) else json.dumps(value)
         cases = cast(dict[str, str], node["cases"])
         if key in cases:
-            return cases[key]
+            return arrive(spec, cases[key], state)
         if node.get("default"):
-            return cast(str, node["default"])
+            return arrive(spec, cast(str, node["default"]), state)
         raise failed("no_route", f"{node['id']} has no case for {key} and no default")
+
+    return choose
+
+
+def _onward(targets: list[str], spec: Spec) -> Callable[[State], list[str]]:
+    """Every way out of a node, each past a node with no visit left to where that node sends the run (#134)."""
+
+    def choose(state: State) -> list[str]:
+        return [arrive(spec, t, state) for t in targets]
 
     return choose
 
@@ -233,16 +244,20 @@ def compile_workflow(ctx: RunContext, checkpointer: BaseCheckpointSaver[Any] | N
         "router": lambda _n: _pass,
     }
     for node in ctx.spec.nodes.values():
-        graph.add_node(node["id"], _traced(makers[node["type"]](node), node, ctx.tracing))
+        graph.add_node(node["id"], counted(_traced(makers[node["type"]](node), node, ctx.tracing), node["id"]))
     graph.add_edge(START, ctx.spec.entry)
     for node in ctx.spec.nodes.values():
-        targets = ctx.spec.next(node["id"])
+        targets = ctx.spec.ways(node["id"])
+        ends = list(dict.fromkeys(end for t in targets for end in landings(ctx.spec, t)))
         if node["type"] == "router":
-            graph.add_conditional_edges(node["id"], _route(node), {t: t for t in targets})
+            graph.add_conditional_edges(node["id"], _route(node, ctx.spec), ends)
         elif not targets:
             graph.add_edge(node["id"], END)
-        for target in targets if node["type"] != "router" else []:
-            graph.add_edge(node["id"], target)
+        elif counts_anywhere(ctx.spec, targets):
+            graph.add_conditional_edges(node["id"], _onward(targets, ctx.spec), ends)
+        else:
+            for target in targets:
+                graph.add_edge(node["id"], target)
     return graph.compile(checkpointer=checkpointer or InMemorySaver())
 
 
@@ -272,7 +287,7 @@ async def _run_workflow(
     if ctx.tracing.on:
         callbacks.extend(ctx.tracing.callbacks())
     config["callbacks"] = callbacks
-    start: Any = {"inputs": inputs, "nodes": {}}
+    start: Any = {"inputs": inputs, "nodes": {}, "visits": {}}
     snapshot = await graph.aget_state(config) if checkpointer is not None else None
     waiting_at = {i.id for task in snapshot.tasks for i in task.interrupts} if snapshot else set()
     if resuming and resume_id in waiting_at:
@@ -313,11 +328,14 @@ async def _run_workflow(
                             {
                                 "ok": error is None,
                                 "error": str(error) if error else None,
-                                "outputSummary": summary(chunk.get("result")),
+                                "outputSummary": summary(_written(chunk.get("result"))),
                             },
                         )
                     else:
-                        await ctx.emit("node.started", node, {"type": ctx.spec.nodes.get(node, {}).get("type", "")})
+                        # The task's input is the state it starts from, so the visit counts on across resumes (#134).
+                        visit = visits(chunk.get("input")).get(node, 0) + 1
+                        kind = ctx.spec.nodes.get(node, {}).get("type", "")
+                        await ctx.emit("node.started", node, {"type": kind, "visit": visit})
                 elif mode == "updates" and "__interrupt__" in chunk:
                     for pending in chunk["__interrupt__"]:
                         value = pending.value if isinstance(pending.value, dict) else {"message": str(pending.value)}
@@ -336,6 +354,11 @@ async def _run_workflow(
         value = waiting[0].value if isinstance(waiting[0].value, dict) else {"message": str(waiting[0].value)}
         return Outcome("interrupted", "", interrupt={**value, "id": waiting[0].id})
     return Outcome("succeeded", "", cast(dict[str, Any], snapshot.values.get("nodes", {})))
+
+
+def _written(result: Any) -> Any:
+    """What a node wrote, without the visit it counted, which node.started already told."""
+    return {k: v for k, v in result.items() if k != "visits"} if isinstance(result, dict) else result
 
 
 def whole_words(text: str, done: bool) -> tuple[str, str]:

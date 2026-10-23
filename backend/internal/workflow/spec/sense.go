@@ -61,7 +61,7 @@ func checkSense(s *Spec) []Problem {
 				add(base+"/default", CodeUnknownNode, "The default leads to %s, which is not a node.", n.Default)
 			}
 			if ref := stateNode(n.On); ref != "" && !known(ref) {
-				add(base+"/on", CodeUnknownNode, "The router reads the output of %s, which is not a node.", ref)
+				add(base+"/on", CodeUnknownNode, "The router reads %s, which is not a node.", ref)
 			}
 		case TypeTool:
 			b, ok := s.Tools[n.Tool]
@@ -72,7 +72,7 @@ func checkSense(s *Spec) []Problem {
 			}
 			for _, ref := range argumentRefs(n.Arguments, base+"/arguments") {
 				if !known(ref.node) {
-					add(ref.path, CodeUnknownNode, "The argument reads the output of %s, which is not a node.", ref.node)
+					add(ref.path, CodeUnknownNode, "The argument reads %s, which is not a node.", ref.node)
 				}
 			}
 		case TypeApproval:
@@ -88,6 +88,17 @@ func checkSense(s *Spec) []Problem {
 					add(fmt.Sprintf("%s/tools/%d", base, j), CodeUnknownBind, "%s is not one of the workflow's tools.", name)
 				}
 			}
+		}
+		for _, field := range []struct{ name, text string }{{"prompt", n.Prompt}, {"message", n.Message}} {
+			for _, ref := range refsIn(field.text, base+"/"+field.name) {
+				if !known(ref.node) {
+					add(ref.path, CodeUnknownNode, "The %s reads %s, which is not a node.", field.name, ref.node)
+				}
+			}
+		}
+		if n.OnExhausted != "" && !known(n.OnExhausted) {
+			add(base+"/onExhausted", CodeExhaustedNowhere,
+				"After its last visit %s goes to %s, which is not a node; name a node or leave onExhausted out.", n.ID, n.OnExhausted)
 		}
 	}
 	out = append(out, reviewDeciders(s)...)
@@ -131,8 +142,17 @@ func memoryBytes(size string) int64 {
 	return n * units[size[len(size)-2:]]
 }
 
-// next lists the nodes that may follow a node: its edges, or a router's cases and default.
+// next lists the nodes that may follow a node: its ways, and where a run goes when the node has no visit left.
 func next(s *Spec, n Node) []string {
+	out := ways(s, n)
+	if n.OnExhausted != "" {
+		out = append(out, n.OnExhausted)
+	}
+	return out
+}
+
+// ways lists the nodes a node leads to once it has run: its edges, or a router's cases and default.
+func ways(s *Spec, n Node) []string {
 	if n.Type == TypeRouter {
 		out := make([]string, 0, len(n.Cases)+1)
 		for _, value := range sortedKeys(n.Cases) {
@@ -173,10 +193,10 @@ func reach(s *Spec, index map[string]int, start string, stop func(Node) bool) ma
 	return reached
 }
 
-// stateNode is the node a state path such as nodes.draft.title reads, or empty for inputs.
+// stateNode is the node a state path such as nodes.draft.title or visits.code reads, or empty for inputs.
 func stateNode(path string) string {
 	parts := strings.Split(path, ".")
-	if len(parts) >= 2 && parts[0] == "nodes" {
+	if len(parts) >= 2 && (parts[0] == "nodes" || parts[0] == "visits") {
 		return parts[1]
 	}
 	return ""
@@ -203,14 +223,21 @@ func argumentRefs(raw json.RawMessage, base string) []argumentRef {
 				walk(item, fmt.Sprintf("%s/%d", path, i))
 			}
 		case string:
-			for _, m := range templateRef.FindAllStringSubmatch(v, -1) {
-				if ref := stateNode(m[1]); ref != "" {
-					out = append(out, argumentRef{path: path, node: ref})
-				}
-			}
+			out = append(out, refsIn(v, path)...)
 		}
 	}
 	walk(value, base)
+	return out
+}
+
+// refsIn lists the nodes the templates in one text read, each placed at path.
+func refsIn(text, path string) []argumentRef {
+	var out []argumentRef
+	for _, m := range templateRef.FindAllStringSubmatch(text, -1) {
+		if ref := stateNode(m[1]); ref != "" {
+			out = append(out, argumentRef{path: path, node: ref})
+		}
+	}
 	return out
 }
 

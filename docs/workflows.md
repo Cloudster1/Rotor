@@ -144,6 +144,34 @@ most 168h).
 A router reads one value and picks a case; its next nodes come from its cases,
 never from `edges`. A node with no edge after it ends the run.
 
+### Loops (#134)
+
+An edge or a router's case may lead back to an earlier node, so a coder and
+its reviewer can go round until the review passes. `maxVisits` on a node, from
+1 to 50, bounds how often it runs; the visit past it does not run the node:
+the run goes to `onExhausted` instead, or, without one, ends as `failed` with
+the reason `loop_exhausted`. Any node may carry both.
+
+```yaml
+- id: write
+  type: agent
+  maxVisits: 5
+  onExhausted: escalate        # a person takes over after the fifth attempt
+  prompt: You have tried {{ visits.write }} times so far. {{ nodes.review.notes }}
+- id: verdict
+  type: router
+  on: nodes.review.verdict
+  cases: { approve: done, changes: write }
+```
+
+`visits.<id>` is how often a node has run so far, 0 before it first runs:
+templates read it as `{{ visits.write }}`, a router as `on: visits.write`, and
+a code node as `state["visits"]["write"]`. The count is kept with the run, so
+it carries on after an approval and in a sandbox that replaced a lost one. A
+node's output is its latest visit's, and the run's timeline numbers the visits
+of a node that ran more than once. A loop in which no node sets `maxVisits` is
+saved with the warning `unbounded_loop`; only `limits.maxSteps` ends it.
+
 ### Limits
 
 `maxSteps` bounds how many steps a run takes, `timeout` how long it runs
@@ -177,7 +205,8 @@ When a workflow is saved, and again when a run starts:
 - **The YAML and the schema:** every field known, of the right kind.
 - **Its sense:**
   - node ids unique
-  - edges, cases and templates name nodes that exist
+  - edges, cases, `onExhausted` and templates, in arguments, prompts, messages
+    and form values, name nodes that exist
   - every node reachable from the entry
   - a retention of at most 3650 days
   - tool nodes call through bindings that allow the call
@@ -202,6 +231,10 @@ When saving, a workflow can also get **warnings**, which never stop a save:
   with no approval node in between, or an agent or code node both reads and
   may write in one step. Text in what was read could steer the write; read in
   one node, put an approval node after it, and write in the next.
+- `unbounded_loop`: a loop in which no node sets `maxVisits`, so only
+  `limits.maxSteps` ends it. A way past a node with no visit left counts as
+  going to its `onExhausted`, so a loop that only leads there and back again
+  is still one.
 
 ## Drawing a workflow (#46)
 
@@ -216,8 +249,9 @@ yourself. The browser remembers which tab you used last.
   - Removing a node, with its edges and the router cases and default that lead
     to it. The entry is left as it was; the checks say when it names no node.
   - Renaming a node, which also renames it in edges, the entry, router cases,
-    the default, a router's `on` and `{{ nodes.<id>... }}` templates. Python in
-    a code node is your own and keeps the old name.
+    the default, `onExhausted`, a router's `on` and `{{ nodes.<id>... }}` and
+    `{{ visits.<id> }}` templates. Python in a code node is your own and keeps
+    the old name. Removing a node also takes out an `onExhausted` naming it.
   - The edges out of a node, and a router's cases and its default (a router
     takes no edges).
   - Which node the workflow starts at.
@@ -233,7 +267,10 @@ yourself. The browser remembers which tab you used last.
   comments, quoting, flow or block style and the order of everything else stay
   as you wrote them. A new item follows the style of the items beside it.
 - **No layout is stored.** The canvas lays the graph out in layers from the
-  entry every time, so the YAML holds nothing but the workflow.
+  entry every time, so the YAML holds nothing but the workflow. An edge back
+  to a node on the way to it closes a loop and is drawn dashed, with an arrow,
+  around the nodes; so is it on the run page. A node's `onExhausted` is drawn
+  as an edge labelled `onExhausted`.
 - **Problems on the nodes.** A node the checks found something wrong with is
   marked with how many problems it has; choosing it lists them, and each opens
   the YAML at its line. A YAML that does not parse is not drawn: the canvas

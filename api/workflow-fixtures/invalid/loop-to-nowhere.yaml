@@ -1,0 +1,22 @@
+# expect: /nodes/0/onExhausted exhausted_to_nowhere
+# expect: /nodes/0/prompt unknown_node
+# expect: /nodes/1/on unknown_node
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+model: {name: claude-sonnet-5-5}
+limits: {maxSteps: 20, timeout: 5m}
+entry: write
+nodes:
+  - id: write
+    type: agent
+    maxVisits: 3
+    onExhausted: nobody
+    prompt: Attempt {{ visits.ghost }}.
+  - id: again
+    type: router
+    on: visits.ghost
+    cases: {"1": write}
+    default: write
+edges:
+  - {from: write, to: again}

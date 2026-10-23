@@ -46,7 +46,7 @@ func approvalSense(n Node, base string, known func(string) bool) []Problem {
 	}
 	for _, ref := range argumentRefs(n.Form.Values, base+"/form/values") {
 		if !known(ref.node) {
-			add(ref.path, CodeUnknownNode, "The value reads the output of %s, which is not a node.", ref.node)
+			add(ref.path, CodeUnknownNode, "The value reads %s, which is not a node.", ref.node)
 		}
 	}
 	return out

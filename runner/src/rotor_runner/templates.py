@@ -1,4 +1,5 @@
-"""Templates in a workflow: {{ inputs.x }} and {{ nodes.n.x }} are paths into the run's state, never code."""
+"""Templates in a workflow: {{ inputs.x }}, {{ nodes.n.x }} and {{ visits.n }} are paths into the run's state, never
+code."""
 
 from __future__ import annotations
 
@@ -9,11 +10,15 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from rotor_runner.policy import Fence
 
-TEMPLATE = re.compile(r"\{\{\s*((?:inputs|nodes)(?:\.[A-Za-z0-9_-]+)+)\s*\}\}")
+TEMPLATE = re.compile(r"\{\{\s*((?:inputs|nodes|visits)(?:\.[A-Za-z0-9_-]+)+)\s*\}\}")
 
 
 def lookup(state: dict[str, Any], path: str) -> Any:
-    """The value at a state path such as nodes.draft.title, or None where there is none."""
+    """The value at a state path such as nodes.draft.title, or None where there is none; a node not run yet has 0
+    visits (#134)."""
+    head, _, node = path.partition(".")
+    if head == "visits" and "." not in node:
+        return int((state.get("visits") or {}).get(node, 0))
     value: Any = state
     for part in path.split("."):
         if not isinstance(value, dict) or part not in value:

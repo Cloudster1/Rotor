@@ -1,0 +1,58 @@
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata:
+  name: review-loop
+  description: Writes a change and reviews it until the review passes, five attempts at most, then asks a person.
+inputs:
+  type: object
+  required: [task]
+  properties:
+    task: { type: string, description: What the change should do. }
+model: { name: claude-sonnet-5-5 }
+limits: { maxSteps: 40, timeout: 30m }
+entry: write
+nodes:
+  # The loop: write, review, and back to write while the review asks for changes.
+  - id: write
+    type: agent
+    maxVisits: 5
+    onExhausted: escalate
+    prompt: |
+      You have tried {{ visits.write }} times so far. Do this: {{ inputs.task }}
+      The last review said: {{ nodes.review.notes }}
+  - id: review
+    type: agent
+    prompt: Review this change and say whether it is done. {{ nodes.write.text }}
+    output:
+      schema:
+        type: object
+        required: [verdict, notes]
+        properties:
+          verdict: { type: string, enum: [approve, changes] }
+          notes: { type: string }
+  - id: verdict
+    type: router
+    on: nodes.review.verdict
+    cases: { approve: tally, changes: write }
+  # Past its fifth visit, write sends the run here instead.
+  - id: escalate
+    type: approval
+    message: The change did not pass its review after {{ visits.write }} attempts. Take it over?
+  - id: tally
+    type: router
+    on: visits.write
+    cases: { "1": done }
+    default: confirm
+  - id: confirm
+    type: approval
+    message: The change passed after {{ visits.write }} attempts. Keep it?
+  - id: done
+    type: code
+    output: { schema: { type: object } }
+    source: |
+      def run(state, ctx):
+          return {"attempts": state["visits"]["write"]}
+edges:
+  - { from: write, to: review }
+  - { from: review, to: verdict }
+  - { from: confirm, to: done }

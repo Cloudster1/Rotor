@@ -1,7 +1,8 @@
-import { type Edge, type Node, type NodeChange, ReactFlow } from "@xyflow/react";
+import { type Edge, MarkerType, type Node, type NodeChange, ReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
 import { type ReactNode, useMemo } from "react";
-import { type Graph, layered } from "./layout";
+import { GRAPH_LOOP_DASH, GRAPH_LOOP_OFFSET_PX } from "@/config";
+import { type Graph, layered, loopEdges } from "./layout";
 
 /** How one node is drawn: what it says, its colours, and the attributes tests and readers find it by. */
 export interface Drawn {
@@ -51,25 +52,35 @@ export function GraphCanvas({
       }),
     [graph, draw, selected, selectable],
   );
-  const edges = useMemo<Edge[]>(
-    () =>
-      graph.edges.map((e, i) => {
-        const stroke = edgeTone?.(e.from, e.to) ?? "var(--color-border-strong)";
-        return {
-          id: `${e.from}-${e.to}-${i}`,
-          source: e.from,
-          target: e.to,
-          label: e.label,
-          className: "text-ink-muted",
-          labelStyle: { fill: "var(--color-ink-muted)" },
-          labelBgStyle: { fill: "var(--color-surface)" },
-          style: { stroke },
-          focusable: false,
-          selectable: false,
-        };
-      }),
-    [graph, edgeTone],
-  );
+  const edges = useMemo<Edge[]>(() => {
+    const loops = loopEdges(graph);
+    return graph.edges.map((e, i) => {
+      const stroke = edgeTone?.(e.from, e.to) ?? "var(--color-border-strong)";
+      const edge: Edge = {
+        id: `${e.from}-${e.to}-${i}`,
+        source: e.from,
+        target: e.to,
+        label: e.label,
+        className: "text-ink-muted",
+        labelStyle: { fill: "var(--color-ink-muted)" },
+        labelBgStyle: { fill: "var(--color-surface)" },
+        style: { stroke },
+        focusable: false,
+        selectable: false,
+      };
+      if (!loops.has(i)) return edge;
+      // A way back swings out around its nodes, dashed and pointed, rather than cutting up through them.
+      const attributes: Record<string, string> = { "data-edge-loop": "", "data-from": e.from, "data-to": e.to };
+      return {
+        ...edge,
+        type: "smoothstep",
+        pathOptions: { offset: GRAPH_LOOP_OFFSET_PX },
+        style: { stroke, strokeDasharray: GRAPH_LOOP_DASH },
+        markerEnd: { type: MarkerType.ArrowClosed, color: stroke },
+        domAttributes: attributes,
+      } as Edge;
+    });
+  }, [graph, edgeTone]);
 
   // Selection is the page's to keep: a click or Enter on a focused node reaches it as a select change.
   function changed(changes: NodeChange[]) {

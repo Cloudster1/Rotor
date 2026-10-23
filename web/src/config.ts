@@ -64,6 +64,10 @@ export const MAX_INPUT_TEXT = 10_000;
 export const GRAPH_COLUMN_PX = 200;
 export const GRAPH_ROW_PX = 100;
 
+/** How far a loop's edge back swings out of its nodes, and its dashes, in pixels, so it reads as a way round (#134). */
+export const GRAPH_LOOP_OFFSET_PX = 28;
+export const GRAPH_LOOP_DASH = "6 4";
+
 /** How tall the run graph is drawn, in pixels; it fits the graph inside. */
 export const GRAPH_HEIGHT_PX = 360;
 

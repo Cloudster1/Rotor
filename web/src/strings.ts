@@ -237,6 +237,7 @@ export const s = {
       nothing: "This run recorded nothing.",
       nodeState: { pending: "not yet", running: "running", done: "done", failed: "failed", waiting: "waiting" },
       started: (node: string, type: string) => `Started ${node} (${type})`,
+      startedVisit: (node: string, type: string, visit: number) => `Started ${node} (${type}), visit ${visit}`,
       finished: (node: string) => `Finished ${node}`,
       failedNode: (node: string) => `${node} failed`,
       called: (tool: string, binding: string) => `Called ${tool} through ${binding}`,
