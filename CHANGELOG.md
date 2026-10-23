@@ -9,6 +9,18 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A feature specified in Exciter can be implemented through reviewed, tested
+  code (#140): `examples/implement-feature.yaml`, started by a person, reads
+  the feature's requirements and which of them changed, lets a test designer
+  and a test reviewer write its test cases and files them in Exciter, linked
+  `verifies`, then lets a coder work on the Armature issue's branch until its
+  tests pass and code, security, test run and requirements reviewers agree,
+  each round's findings going back to the coder. It opens a pull request with
+  the reviewers' summary, records each test case's result in a test execution
+  and comments on the issue; nothing merges by itself. The tool-stub places a
+  requirement under a section, answers `list_links` with its suspect ends,
+  refuses a test case's text sent both as a document and as Markdown, as
+  Exciter does, and starts a repository with a fixture's files.
 - Each agent can be its own specialist (#133): an agent node may name its
   own `model`, among those an administrator allows, a `role` put under
   Rotor's fixed rules, and its own `maxSteps`, at most the workflow's. Each
@@ -399,6 +411,8 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- A workflow with a `maxTokens` of a million or more is saved; such a number
+  was written with an exponent on its way into the spec, and refused.
 - The run page draws every node of its graph when the run's events arrive in
   a burst, as they do on opening a finished run; a node redrawn before it was
   measured stayed hidden, with its edges.

@@ -63,7 +63,7 @@ func TestTracingAnswersInTheShapesExciterLists(t *testing.T) {
 	}
 	made := c.answers(tenant, erin, CreateRequirementTool, map[string]any{"projectKey": "RTR", "title": "Sign in with a passkey",
 		"typeId": testType["id"], "testCase": map[string]any{"preconditions": nil, "parameters": []any{},
-			"steps": []map[string]any{{"actionMarkdown": "Sign in", "expectedMarkdown": "Signed in", "action": nil, "expected": nil}}}})
+			"steps": []map[string]any{{"actionMarkdown": "Sign in", "expectedMarkdown": "Signed in"}}}})
 	tc := made["requirement"].(map[string]any)
 	if tc["key"] != "RTR-2" || tc["testCase"] == nil || tc["type"].(map[string]any)["name"] != "Test case" {
 		t.Errorf("the test case = %v", tc)
@@ -90,6 +90,8 @@ func TestTracingAnswersInTheShapesExciterLists(t *testing.T) {
 		CreateRequirementTool: {
 			{"projectKey": "RTR", "title": "No test case", "testCase": map[string]any{"preconditions": nil, "steps": []any{}, "parameters": []any{}}},
 			{"projectKey": "RTR", "title": "Foreign type", "typeId": typeID("CP", roleTestCase)},
+			{"projectKey": "RTR", "title": "Both ways", "typeId": testType["id"], "testCase": map[string]any{"parameters": []any{},
+				"steps": []map[string]any{{"actionMarkdown": "Sign in", "action": nil, "expectedMarkdown": "Signed in"}}}},
 		},
 	})
 	links := c.controlled("GET", "/control/tenants/"+tenant+"/records", nil, http.StatusOK)["requirementLinks"].([]any)

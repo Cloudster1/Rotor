@@ -26,6 +26,7 @@ const (
 	StartTestExecutionTool = "start_test_execution"
 	RecordTestResultTool   = "record_test_result"
 	CloseTestExecutionTool = "close_test_execution"
+	ListLinksTool          = "list_links"
 )
 
 // stubTime is the time every requirement and issue of a tenant's options was made and changed, so answers are stable.
@@ -68,6 +69,8 @@ func (s *Stub) callExciter(c *call, who *caller, name string, arguments json.Raw
 		return getTree(c.t, who, args), true
 	case LinkRequirementsTool:
 		return s.linkRequirements(c, who, args), true
+	case ListLinksTool:
+		return listLinks(c.t, who, args), true
 	case ListTestPlansTool:
 		return listTestPlans(c.t, who, args), true
 	case StartTestExecutionTool:
@@ -94,6 +97,8 @@ type storedRequirement struct {
 	// typeID is the requirement type it was given, and testCase what a test case carries, nil for any other.
 	typeID   *string
 	testCase *testCase
+	// parentID is the section or requirement it was placed under, nil at the top of the project's tree.
+	parentID *string
 }
 
 // seededRequirement is a draft of the tenant's options by its key, such as RTR-1.
@@ -143,7 +148,7 @@ func (r *storedRequirement) answer() map[string]any {
 	out := map[string]any{
 		"id": r.id(), "key": r.key, "projectKey": r.project, "number": r.number, "kind": r.kind, "title": r.title,
 		"attributes": map[string]any{}, "revision": r.revision, "status": nil, "owner": nil, "labels": r.labels,
-		"parentId": nil, "outline": strconv.Itoa(r.number), "formerKeys": []string{}, "copiedFrom": nil, "reuse": nil,
+		"parentId": r.parentID, "outline": strconv.Itoa(r.number), "formerKeys": []string{}, "copiedFrom": nil, "reuse": nil,
 		"createdAt": r.createdAt, "createdByName": r.createdBy, "updatedAt": r.updatedAt, "updatedByName": r.updatedBy,
 		"trashedAt": nil, "lock": nil, "type": typeRef(r.project, r.typeID), "computed": map[string]any{}, "risk": nil,
 		"quality":  map[string]any{"score": nil, "active": 0, "accepted": 0, "stale": false},

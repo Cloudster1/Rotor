@@ -523,6 +523,62 @@ calls the form lists. [`triggers.md`](triggers.md#the-story-workflow-against-arm
 walks through it, Armature's webhook included. The suite runs it against the
 real Armature and Exciter (`TestSuiteAStoryInArmatureBecomesRequirementsInExciter`).
 
+### Implement a feature through reviewed, tested code
+
+[`implement-feature.yaml`](../examples/implement-feature.yaml) (#140) takes a
+feature specified in Exciter to a pull request in Armature that every reviewer
+approved, with a trace from the requirements to passing tests. A person
+starts it with the Exciter project, the feature (a section or a requirement),
+the section test cases go under, the Armature project, issue and repository,
+and optionally the test plan whose execution records the results:
+1. **Gather**, a code node, reads the feature's requirements from the tree,
+   the test cases linked to them by `verifies`, and which requirements changed:
+   one whose `verifies` link is suspect, because it moved past the revision
+   its test cases were reviewed against, or that no test case verifies yet.
+2. **Test design**, at most three rounds: a test designer drafts the test
+   specification and the cases to add or update, each naming the requirements
+   it verifies; a test reviewer approves or names what to change, and the
+   router sends changes back. After the third draft a person decides whether
+   to file it as it is.
+3. **File tests**, a code node, writes the cases as Test case requirements
+   under the test section, of the project's test case type, and links each to
+   the requirements it verifies.
+4. **Branch**, a code node, takes the issue's branch in the repository, or
+   makes it with `create_issue_branch`.
+5. **Implementation**, five rounds before a person is asked:
+   - the coder works on the branch in a [workspace](#workspaces-136) that
+     writes, tagging each test `[verifies KEY]` with the test case it
+     automates and `[implements KEY]` with the requirement it implements;
+   - a [test step](#a-test-step-138) runs the tests;
+   - four reviewers run side by side, each in a workspace that only reads:
+     code review, security review, test run analysis (which reads
+     `nodes.test`), and conformance to the requirements;
+   - **verdict**, a code node with `join: all`, gathers the four verdicts and
+     their findings, and adds a failing test or a test case no passing test
+     verifies. Any finding sends the coder another round, with every finding
+     in its prompt. Past the fifth round, each further one is a person's to
+     allow; rejecting stops the run, and the branch keeps what was pushed.
+6. **Finish**, a code node, opens the pull request with the reviewers'
+   summary and each test case's result, starts a test execution of the plan
+   holding the cases, records each case from the tests that verify it, closes
+   it, and comments on the issue with the pull request. Nothing merges: the
+   pull request is the gate.
+
+Each agent has its own `role` and `model` and only the bindings it needs. No
+agent holds a binding that writes, the reviewers never push, and every write
+in Exciter and Armature is a code node's. The example runs node's own test
+runner in the `node-26` image; set the workspaces' `image`, the test step's
+`command` and `reports` to your project's toolchain, such as `golang-1.26`
+with `gotestsum`, and the models to ones your administrators allow. The
+toolchain is the workflow's, not an input: an image is checked when the
+workflow is saved, and a command is never a template.
+
+The integration test runs it as shipped against the tool double's Exciter and
+Armature, on a fixture repository (`TestAFeatureIsImplementedThroughReviewedTestedCode`);
+the suite runs its test design against the real Exciter and Armature
+(`TestSuiteAFeaturesTestCasesAreDesignedAndFiledInExciter`). The suite's
+Armature has no Gitea yet, so its repository half runs on the double alone.
+
 The examples below are the golden fixtures, which show more of the spec.
 
 ### Draft requirements, file them after approval

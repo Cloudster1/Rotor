@@ -47,6 +47,9 @@ func (s *Stub) createRequirement(c *call, who *caller, args map[string]json.RawM
 	if refused := req.apply(args); refused != "" {
 		return refusal(refused)
 	}
+	if refused := req.place(c.t, who, args["place"]); refused != "" {
+		return refusal(refused)
+	}
 	c.t.written.requirements = append(c.t.written.requirements, req)
 	return answered(map[string]any{"requirement": req.answer()})
 }

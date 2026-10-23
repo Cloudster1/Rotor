@@ -120,6 +120,24 @@ func TestTheEmbeddedSchemaIsTheOneInAPI(t *testing.T) {
 	}
 }
 
+// Numbers keep their digits on the way from YAML to the spec, so a large whole number still reads as one.
+func TestLargeWholeNumbersReadIntoIntegerFields(t *testing.T) {
+	s, problems := Parse([]byte(`apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: large}
+limits: {maxSteps: 40, timeout: 10m, maxTokens: 6000000, maxCost: 2.5}
+entry: done
+nodes:
+  - {id: done, type: code, output: {schema: {type: object}}, source: "def run(state, ctx):\n    return {}\n"}
+`))
+	if len(problems) > 0 {
+		t.Fatal(problems)
+	}
+	if s.Limits.MaxTokens != 6000000 || s.Limits.MaxCost != 2.5 {
+		t.Errorf("the limits read as %+v", s.Limits)
+	}
+}
+
 func TestTheSpecIsReadIntoItsTypes(t *testing.T) {
 	source, _ := os.ReadFile(filepath.Join(fixtures, "valid", "triage-with-approval.yaml"))
 	s, problems := Parse(source)

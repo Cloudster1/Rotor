@@ -3,6 +3,7 @@ package toolstub
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -49,6 +50,15 @@ func (s *Stub) handleMakeTenant(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "validation_failed", "The stub has no snapshot "+in.Snapshot+
 			". Name exciter or armature, or leave it out to serve the product's own.")
 		return
+	}
+	for _, repo := range in.Repositories {
+		for name := range repo.Files {
+			if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\x00") {
+				writeError(w, http.StatusUnprocessableEntity, "validation_failed",
+					"Name each file of a repository's fixture at the top of its tree, without a slash.")
+				return
+			}
+		}
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
