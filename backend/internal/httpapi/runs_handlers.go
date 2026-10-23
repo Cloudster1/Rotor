@@ -118,8 +118,13 @@ func toRunResponse(r runs.Run) runResponse {
 	if r.TriggerID != nil {
 		trigger = &runTrigger{ID: r.TriggerID.String(), Name: r.TriggerName}
 	}
+	var agents []agentUsage
+	for _, a := range r.Agents {
+		agents = append(agents, agentUsage{Node: a.Node, Provider: a.Provider, Model: a.Model, InputTokens: a.InputTokens,
+			OutputTokens: a.OutputTokens, Cost: a.Cost})
+	}
 	return runResponse{ID: r.ID.String(), ApprovalID: approval, Trigger: trigger,
-		Usage: runUsage{InputTokens: r.InputTokens, OutputTokens: r.OutputTokens, Cost: r.Cost}, Workflow: personRef{ID: r.WorkflowID.String(), Name: r.WorkflowName}, Version: r.Version,
+		Usage: runUsage{InputTokens: r.InputTokens, OutputTokens: r.OutputTokens, Cost: r.Cost, Agents: agents}, Workflow: personRef{ID: r.WorkflowID.String(), Name: r.WorkflowName}, Version: r.Version,
 		Status: runStatus(r.Status), StartedBy: personRef{ID: r.UserID.String(), Name: r.StartedByName}, Reason: r.Reason,
 		Inputs: r.Inputs, Output: output, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, StartedAt: r.StartedAt,
 		FinishedAt: r.FinishedAt, Ended: runnerctl.Ended(r.Status)}

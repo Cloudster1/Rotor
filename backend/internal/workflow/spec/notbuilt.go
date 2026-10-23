@@ -25,7 +25,6 @@ func notBuilt(s *Spec) []Problem {
 			field string
 			issue int
 		}{
-			{n.Model != nil, "model", 133}, {n.Role != "", "role", 133}, {n.MaxSteps != 0, "maxSteps", 133},
 			{n.MaxVisits != 0, "maxVisits", 134}, {n.OnExhausted != "", "onExhausted", 134}, {n.Join != "", "join", 135},
 			{n.Workspace != nil, "workspace", 136},
 		} {

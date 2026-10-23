@@ -147,7 +147,7 @@ func (s *Server) Connect(stream runnerpb.RunnerControlService_ConnectServer) err
 	if r.Status == StatusStarting {
 		deadline := time.Now().Add(r.spec.Limits.TimeoutDuration() + config.RunDeadlineGrace)
 		r.TraceContent = s.Telemetry != nil && s.Telemetry.Content(ctx)
-		start, err := s.store.supersede(ctx, runID, startRun(r, bindings, s.modelConfig(r)), deadline)
+		start, err := s.store.supersede(ctx, runID, startRun(r, bindings, s.modelConfig(r.model), s.agentConfigs(r)), deadline)
 		if err != nil {
 			return s.fail(runID, "start the run", err)
 		}
@@ -167,8 +167,8 @@ func (s *Server) Connect(stream runnerpb.RunnerControlService_ConnectServer) err
 			return err
 		}
 	}
-	if r.model != nil {
-		grant, err := s.secret(ctx, r)
+	for _, p := range r.keyProviders() {
+		grant, err := s.secret(ctx, p)
 		if err != nil {
 			return s.fail(runID, "read the provider key", err)
 		}
@@ -289,7 +289,7 @@ func (s *Server) handle(ctx context.Context, stream runnerpb.RunnerControlServic
 				return nil
 			}
 			var err error
-			stopped, err = recordUsage(ctx, tx, s.Keys, r, []byte(m.Event.PayloadJson))
+			stopped, err = recordUsage(ctx, tx, s.Keys, r, m.Event.NodeId, []byte(m.Event.PayloadJson))
 			return err
 		}
 	case *runnerpb.ConnectRequest_Done:

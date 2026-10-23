@@ -9,7 +9,7 @@ import json
 import logging
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 import grpc
@@ -251,6 +251,18 @@ class Channel:
         if not awaited.done():
             awaited.set_result(key)
 
+    async def _model(self, config: pb.ModelConfig) -> Callable[[], BaseChatModel] | None:
+        """A model's builder once its provider's key is here; each key arrives in a SecretGrant right after StartRun,
+        and after every reconnect."""
+        if not config.model:
+            return None
+        key = await asyncio.wait_for(self._key(config.provider_id), TOKEN_WAIT_S)
+
+        def model() -> BaseChatModel:
+            return build_model(config, key)
+
+        return model
+
     def _key(self, provider_id: str) -> asyncio.Future[str]:
         if provider_id not in self._keys:
             self._keys[provider_id] = asyncio.get_running_loop().create_future()
@@ -289,15 +301,8 @@ class Channel:
             )
             for b in start.tools
         }
-        model = None
-        if start.HasField("model") and start.model.model:
-            # The key arrives in a SecretGrant right after StartRun, and after every reconnect.
-            key = await asyncio.wait_for(self._key(start.model.provider_id), TOKEN_WAIT_S)
-            config = start.model
-
-            def model() -> BaseChatModel:
-                return build_model(config, key)
-
+        model = await self._model(start.model) if start.HasField("model") else None
+        agent_models = {node: await self._model(config) for node, config in sorted(start.agent_models.items())}
         ctx = RunContext(
             spec=spec,
             tools=McpGateway(
@@ -309,6 +314,7 @@ class Channel:
             ),
             emit=self.emit,
             model=model,
+            agent_models={node: m for node, m in agent_models.items() if m is not None},
             code=CodeNodeRunner(),
             tracing=self.tracing,
             link_hosts=frozenset(h for b in bindings.values() for h in b.link_hosts),

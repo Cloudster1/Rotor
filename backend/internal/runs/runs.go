@@ -80,6 +80,8 @@ type Run struct {
 	// InputTokens, OutputTokens and Cost are what the run's model calls used so far (#38).
 	InputTokens, OutputTokens int64
 	Cost                      float64
+	// Agents is the model each agent node ran on and what it used (#133); Get alone fills it.
+	Agents []AgentUsage
 	// Manages says the caller started the run, owns its workflow or administers Rotor, and so may cancel it; a group
 	// approver sees the run without managing it.
 	Manages bool
@@ -199,6 +201,10 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (Run, error) {
 	err := s.db.Read(ctx, func(ctx context.Context, tx db.DBTX) error {
 		var err error
 		r, err = scanRun(tx.QueryRow(ctx, `SELECT `+runColumns+` FROM run r WHERE r.id = $1`, id))
+		if err != nil {
+			return err
+		}
+		r.Agents, err = agentUsage(ctx, tx, id)
 		return err
 	})
 	if err != nil {

@@ -125,6 +125,9 @@ message StartRun {
   string traceparent = 9;
   // trace_content lets LLM spans carry the prompt and the answer, redacted and cut short, for LangSmith (#37).
   bool trace_content = 10;
+  // agent_models are the models of the agent nodes that name their own, by node id; the others use model (#133).
+  // An agent whose model resolved to none is missing here and fails with model_missing.
+  map<string, ModelConfig> agent_models = 11;
 }
 
 // SpanBatch carries the runner's finished spans, sent with seq 0: the control plane exports them for it, so the

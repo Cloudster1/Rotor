@@ -62,6 +62,8 @@ class RunContext:
     tools: ToolGateway
     emit: EventSink
     model: Callable[[], BaseChatModel] | None = None
+    # The models of the agents that name their own, by node id (#133); the others use model.
+    agent_models: dict[str, Callable[[], BaseChatModel]] = field(default_factory=dict)
     code: CodeRunner | None = None
     tracing: RunTracing = field(default_factory=RunTracing)
     # The public hosts of the run's tools, the only ones an agent's links may name (#40).
@@ -93,24 +95,33 @@ def check_output(node: dict[str, Any], value: Any) -> Any:
     return value
 
 
+def _agent_model(node: dict[str, Any], ctx: RunContext) -> Callable[[], BaseChatModel]:
+    """The agent's own model, or the workflow's when it names none; never the workflow's in place of its own."""
+    model = ctx.agent_models.get(node["id"]) if "model" in node else ctx.model
+    if model is None:
+        raise failed("model_missing", f"{node['id']} needs a language model, and none is set up for this run")
+    return model
+
+
 def _agent(node: dict[str, Any], ctx: RunContext) -> Callable[..., Any]:
     async def run(state: State, config: RunnableConfig) -> dict[str, Any]:
-        if ctx.model is None:
-            raise failed("model_missing", f"{node['id']} needs a language model, and none is set up for this run")
+        model = _agent_model(node, ctx)
         tools = await ctx.tools.langchain_tools(list(node.get("tools", [])), node["id"])
         schema = (node.get("output") or {}).get("schema")
         response_format: ToolStrategy[dict[str, Any]] | None = (
             ToolStrategy({**copy.deepcopy(schema), "title": OUTPUT_TOOL}) if schema else None
         )
         agent = create_agent(
-            ctx.model(),
+            model(),
             tools,
-            system_prompt=policy_text(ctx.link_hosts),
+            system_prompt=policy_text(ctx.link_hosts, str(node.get("role") or "")),
             middleware=[UntrustedResults(ctx.fence, ctx.links, ctx.emit, node["id"])],
             response_format=response_format,
         )
         prompt = render_prompt(str(node["prompt"]), cast(dict[str, Any], state), ctx.fence)
-        result = await agent.ainvoke({"messages": [HumanMessage(prompt)]}, config)
+        # The agent's own steps cap its loop of model and tool calls; without them it has the workflow's.
+        steps = int(node.get("maxSteps") or ctx.spec.limits["maxSteps"])
+        result = await agent.ainvoke({"messages": [HumanMessage(prompt)]}, {**config, "recursion_limit": steps})
         if schema:
             value = result.get("structured_response")
         else:

@@ -64,6 +64,31 @@ Conventions are M2's: paths under `/api/v1`; refusals are sentences.
 - Usage and `maxCost` count each call at its own model's price. A run's
   usage names each model it used; the run page shows each agent's.
 
+### As built (#133)
+
+- **A role that is a template** is refused with its own problem,
+  `role_template`, at `/nodes/<i>/role`, when saving and in the runner.
+- **Only an agent's own model is checked when saving.** The workflow's
+  `model` is resolved when a run starts, as before, and an agent on it fails
+  with `model_missing` when it resolves to none. A run whose agent's own
+  model is no longer allowed is refused when it starts, with the usage
+  refusal `model_not_allowed` (422), beside `unpriced_model`; `maxCost`
+  needs prices for every model the run uses.
+- **The protocol:** `StartRun.agent_models` (field 11) maps an agent node
+  with a model of its own to its `ModelConfig`; the others use
+  `StartRun.model`. An agent whose model resolved to none is missing from the
+  map and fails with `model_missing`, never on the workflow's model. A
+  `SecretGrant` goes out for each provider the run's models use.
+- **Usage per agent** is the table `run_usage_agent` (migration 01200), one
+  row per agent node with its provider, model and the prices that model had
+  when the run's stream first opened. An `llm.usage` event is priced by its
+  `node`'s row, else at the run's prices; `run_usage` keeps the run's totals.
+  `GET /runs/{id}` carries them as `usage.agents: [{node, provider, model,
+  inputTokens, outputTokens, cost}]`; a list of runs does not.
+- **The role in the prompt** follows the policy after a blank line, as "The
+  workflow's author gives you this role:", with any fence marker in it
+  defanged.
+
 ## Loops (#134)
 
 ```yaml

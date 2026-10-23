@@ -10,20 +10,30 @@ export const NODE_ID = /^[a-z][a-z0-9_-]{0,62}$/;
 
 /** The fields the canvas edits on each kind of node; every other field is written in the YAML. */
 export const MAIN_FIELDS: Record<NodeType, readonly string[]> = {
-  agent: ["prompt"],
+  agent: ["prompt", "role"],
   tool: ["tool", "call"],
   code: ["source"],
   approval: ["message"],
   router: ["on"],
 };
 
-/** A node as the canvas reads it: its id and type, a router's ways, and its main fields as text. */
+/** The main fields a node may leave out, which an emptied field takes out of the YAML (#133). */
+export const OPTIONAL_FIELDS: readonly string[] = ["role"];
+
+/** A model as a workflow names it; no provider is whichever enabled provider lists the name. */
+export interface ModelRef {
+  name: string;
+  provider: string;
+}
+
+/** A node as the canvas reads it: its id and type, a router's ways, its main fields as text, and an agent's model. */
 export interface SpecNode {
   id: string;
   type: string;
   cases: [string, string][];
   default?: string;
   fields: Record<string, string>;
+  model?: ModelRef;
 }
 
 /** What the canvas reads of a spec; the YAML holds the rest. */
@@ -52,12 +62,14 @@ export function parseSpec(source: string): Parsed | undefined {
     const n = record(raw);
     const fields: Record<string, string> = {};
     for (const key of MAIN_FIELDS[n.type as NodeType] ?? []) fields[key] = text(n[key]);
+    const model = record(n.model);
     return {
       id: text(n.id),
       type: text(n.type),
       cases: Object.entries(record(n.cases)).map(([value, to]) => [value, text(to)]),
       default: n.default === undefined ? undefined : text(n.default),
       fields,
+      model: n.model === undefined ? undefined : { name: text(model.name), provider: text(model.provider) },
     };
   });
   const edges = (Array.isArray(js.edges) ? js.edges : []).map((raw) => {

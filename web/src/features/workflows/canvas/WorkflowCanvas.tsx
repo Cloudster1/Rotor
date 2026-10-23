@@ -7,7 +7,7 @@ import { AddNode } from "./AddNode";
 import * as edit from "./edits";
 import { Inspector, type NodeEdits } from "./Inspector";
 import { edgeKey, placeProblems } from "./problems";
-import { graphOf, type NodeType, nodePlace, parseSpec } from "./specDoc";
+import { graphOf, type NodeType, nodePlace, OPTIONAL_FIELDS, parseSpec } from "./specDoc";
 import { secondary } from "./styles";
 
 const REGION = { "data-canvas": "" };
@@ -97,7 +97,9 @@ export function WorkflowCanvas({
       setChosen(to);
     },
     setEntry: () => apply((t) => edit.setEntry(t, node)),
-    setField: (key, value) => apply((t) => edit.setField(t, node, key, value)),
+    setField: (key, value) =>
+      apply((t) => (value === "" && OPTIONAL_FIELDS.includes(key) ? edit.clearField(t, node, key) : edit.setField(t, node, key, value))),
+    setModel: (model) => apply((t) => edit.setModel(t, node, model)),
     remove: () => {
       apply((t) => edit.removeNode(t, node));
       setChosen(undefined);

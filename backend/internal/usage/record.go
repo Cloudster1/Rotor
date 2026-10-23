@@ -5,9 +5,11 @@ package usage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
@@ -60,6 +62,29 @@ func Open(ctx context.Context, tx db.DBTX, runID uuid.UUID, providerID *uuid.UUI
 	return err
 }
 
+// Agent is the model one agent node of a run uses, resolved to its provider (#133).
+type Agent struct {
+	Node         string
+	ProviderID   uuid.UUID
+	ProviderName string
+	Model        string
+}
+
+// OpenAgents keeps, once, the model each agent uses and the prices it has now, so each call is counted at its own
+// model's price.
+func OpenAgents(ctx context.Context, tx db.DBTX, runID uuid.UUID, agents []Agent) error {
+	for _, a := range agents {
+		_, err := tx.Exec(ctx, `INSERT INTO run_usage_agent (run_id, node_id, provider_id, provider_name, model, price_in, price_out, priced)
+			SELECT $1, $2, $3, $4, $5, COALESCE(p.input_per_million, 0), COALESCE(p.output_per_million, 0), p.provider_id IS NOT NULL
+			FROM (SELECT 1) one LEFT JOIN model_price p ON p.provider_id = $3 AND p.model = $5
+			ON CONFLICT (run_id, node_id) DO NOTHING`, runID, a.Node, a.ProviderID, a.ProviderName, a.Model)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // call is one model call's usage, as the runner reports it.
 type call struct {
 	Model        string `json:"model"`
@@ -67,9 +92,9 @@ type call struct {
 	OutputTokens int64  `json:"outputTokens"`
 }
 
-// Add counts one model call's usage, from the runner's llm.usage payload, toward its run and its person's day,
-// in the transaction that stores the event, so a resent event is never counted twice.
-func Add(ctx context.Context, tx db.DBTX, runID uuid.UUID, payload []byte) (Totals, error) {
+// Add counts one model call's usage toward its run, its agent and its person's day, in the event's transaction so a
+// resent event counts once; it is priced at the model kept for its agent node, else at the run's (#133).
+func Add(ctx context.Context, tx db.DBTX, runID uuid.UUID, node string, payload []byte) (Totals, error) {
 	var c call
 	_ = json.Unmarshal(payload, &c)
 	in, out := clamp(c.InputTokens), clamp(c.OutputTokens)
@@ -80,11 +105,20 @@ func Add(ctx context.Context, tx db.DBTX, runID uuid.UUID, payload []byte) (Tota
 		ON CONFLICT (run_id) DO NOTHING`, runID); err != nil {
 		return t, err
 	}
-	err := tx.QueryRow(ctx, `UPDATE run_usage SET input_tokens = input_tokens + $2, output_tokens = output_tokens + $3,
-			cost = cost + ($2 * price_in + $3 * price_out) / $4, updated_at = now()
+	// The agent's cost goes on as text, so the run's total adds the very amount its agent's did.
+	var agentCost *string
+	err := tx.QueryRow(ctx, `UPDATE run_usage_agent SET input_tokens = input_tokens + $3, output_tokens = output_tokens + $4,
+			cost = cost + ($3 * price_in + $4 * price_out) / $5, updated_at = now()
+		WHERE run_id = $1 AND node_id = $2
+		RETURNING (($3 * price_in + $4 * price_out) / $5)::text`, runID, node, in, out, config.TokensPerPriceUnit).Scan(&agentCost)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return t, err
+	}
+	err = tx.QueryRow(ctx, `UPDATE run_usage SET input_tokens = input_tokens + $2, output_tokens = output_tokens + $3,
+			cost = cost + COALESCE($5::text::numeric, ($2 * price_in + $3 * price_out) / $4), updated_at = now()
 		WHERE run_id = $1
-		RETURNING user_id, input_tokens + output_tokens, cost::float8, (($2 * price_in + $3 * price_out) / $4)::float8`,
-		runID, in, out, config.TokensPerPriceUnit).Scan(&user, &t.RunTokens, &t.RunCost, &delta)
+		RETURNING user_id, input_tokens + output_tokens, cost::float8, COALESCE($5::text::numeric, ($2 * price_in + $3 * price_out) / $4)::float8`,
+		runID, in, out, config.TokensPerPriceUnit, agentCost).Scan(&user, &t.RunTokens, &t.RunCost, &delta)
 	if err != nil {
 		return t, err
 	}

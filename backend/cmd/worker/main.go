@@ -122,9 +122,11 @@ func run() error {
 	// Triggers (#34): schedules queue firings, and each firing starts its run as the trigger's owner.
 	reader := catalog.NewService(registry, people, boot.ToolClient(cfg), store, log)
 	workflowService := workflows.NewService(cluster, reader)
+	models := providers.NewService(cluster, secrets, boot.ToolClient(cfg))
+	workflowService.Models = models
 	starter := runs.NewService(cluster, keys, workflowService, registry, people, store)
 	// A trigger's run is held to its person's quota and its model's prices as one started by hand (#38).
-	starter.Usage = usage.NewService(cluster, providers.NewService(cluster, secrets, boot.ToolClient(cfg)))
+	starter.Usage = usage.NewService(cluster, models)
 	// A trigger's firing starts its run through the same checks, the tools read afresh as its owner (#90).
 	starter.Catalogs = reader
 	scheduler := triggers.NewScheduler(cluster, log)

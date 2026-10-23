@@ -19,10 +19,11 @@ afterEach(() => {
 const NO_PROBLEMS = { valid: true, problems: [], warnings: [] };
 
 /** The new-workflow page, answering every check with the given findings and keeping what a create sends. */
-async function openNew(found: unknown = NO_PROBLEMS) {
+async function openNew(found: unknown = NO_PROBLEMS, more: Record<string, unknown> = {}) {
   const sent: { specYAML?: string } = {};
   await renderAt("/workflows/new", {
     answers: {
+      ...more,
       "POST /api/v1/workflows/validate": found,
       "POST /api/v1/workflows": async (request: Request) => {
         Object.assign(sent, await request.json());
@@ -123,6 +124,41 @@ describe("the workflow canvas", () => {
     expect(screen.queryByRole("region", { name: s.canvas.graph })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: s.canvas.openYaml }));
     expect(screen.getByRole("tab", { name: s.canvas.yaml })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("gives an agent a role and a model of its own, and takes the role out again when it is emptied", async () => {
+    const models = {
+      models: [
+        { name: "claude-sonnet-5-5", provider: { id: "p1", name: "anthropic" }, default: true },
+        { name: "claude-opus-5-5", provider: { id: "p1", name: "anthropic" }, default: false },
+      ],
+    };
+    const sent = await openNew(NO_PROBLEMS, { "/api/v1/models": models });
+    await userEvent.click(screen.getByRole("tab", { name: s.canvas.canvas }));
+    const add = await screen.findByRole("form", { name: s.canvas.add.title });
+    await userEvent.selectOptions(within(add).getByLabelText(s.canvas.add.type), "agent");
+    await userEvent.type(within(add).getByLabelText(s.canvas.add.id), "security{Enter}");
+    const inspector = screen.getByRole("region", { name: s.canvas.node.title });
+    const model = within(inspector).getByLabelText(s.canvas.node.model);
+    expect(model).toHaveDisplayValue(s.canvas.node.workflowModel);
+    await within(inspector).findByRole("option", { name: s.canvas.node.modelOf("claude-opus-5-5", "anthropic") });
+    await userEvent.selectOptions(model, s.canvas.node.modelOf("claude-opus-5-5", "anthropic"));
+    const role = within(inspector).getByLabelText(s.canvas.node.fields.role);
+    expect(role).toHaveAccessibleDescription(s.canvas.node.roleHint);
+    await userEvent.type(role, "You review for security.");
+    await screen.findByText(s.workflows.editor.valid);
+    expect(await axeViolations()).toEqual([]);
+
+    let yaml = await sentYAML(sent);
+    expect(yaml).toContain(
+      '  - id: security\n    type: agent\n    prompt: ""\n    model:\n      name: claude-opus-5-5\n      provider: anthropic\n    role: You review for security.\n',
+    );
+    await userEvent.clear(within(inspector).getByLabelText(s.canvas.node.fields.role));
+    await userEvent.selectOptions(within(inspector).getByLabelText(s.canvas.node.model), s.canvas.node.workflowModel);
+    sent.specYAML = undefined;
+    yaml = await sentYAML(sent);
+    expect(yaml).toContain('  - id: security\n    type: agent\n    prompt: ""\n');
+    expect(yaml).not.toMatch(/role:|claude-opus/);
   });
 
   it("passes axe with the canvas and the inspector showing", async () => {

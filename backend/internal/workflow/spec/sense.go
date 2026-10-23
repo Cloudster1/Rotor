@@ -80,6 +80,8 @@ func checkSense(s *Spec) []Problem {
 		case TypeAgent, TypeCode:
 			if n.Type == TypeCode {
 				out = append(out, codeLimits(n, base)...)
+			} else {
+				out = append(out, agentSense(s, n, base)...)
 			}
 			for j, name := range n.Tools {
 				if _, ok := s.Tools[name]; !ok {

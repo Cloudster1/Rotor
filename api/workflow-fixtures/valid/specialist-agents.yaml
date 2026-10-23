@@ -1,0 +1,32 @@
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata:
+  name: specialist-agents
+  description: A writer and a security reviewer, each an agent with its own model, role and steps.
+inputs:
+  type: object
+  required: [change]
+  properties:
+    change: { type: string, description: The change to describe and review. }
+model:
+  name: claude-sonnet-5-5
+limits:
+  maxSteps: 40
+  timeout: 10m
+entry: write
+nodes:
+  - id: write
+    type: agent
+    role: You write short, plain release notes for the people who use the product.
+    maxSteps: 10
+    prompt: Describe this change in two sentences for the release notes. {{ inputs.change }}
+  - id: security
+    type: agent
+    model: { name: claude-opus-5-5, provider: anthropic }
+    role: |
+      You are a security reviewer. You look for injection, broken access control and secrets,
+      and you never approve what you did not read.
+    maxSteps: 40
+    prompt: Review this change and its notes for security problems. {{ inputs.change }} {{ nodes.write.text }}
+edges:
+  - { from: write, to: security }

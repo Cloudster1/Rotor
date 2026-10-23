@@ -179,7 +179,10 @@ Administrators keep the providers in the `provider` table and their keys in
 OpenBao at `rotor/providers/{id}/key`. When a run starts, the control plane
 resolves the workflow's model (or the installation's default) and puts it in
 `StartRun`, and sends the key in a `SecretGrant`. The runner builds the model
-with `init_chat_model`, and the key stays in its memory.
+with `init_chat_model`, and the key stays in its memory. An agent with a model
+of its own (#133) gets it through `StartRun.agent_models`, with a
+`SecretGrant` for each provider the run uses, and its calls are priced in
+`run_usage_agent` at that model's prices.
 
 ## Sandboxes (#21)
 

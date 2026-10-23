@@ -29,10 +29,15 @@ _MARKER = re.compile(rf"<(\s*/?\s*{UNTRUSTED_TAG})", re.IGNORECASE)
 _SOURCE = re.compile(r"[^A-Za-z0-9_.:-]")
 
 
-def policy_text(hosts: Iterable[str]) -> str:
-    """The system prompt every agent node gets, naming the hosts its links may point at."""
+ROLE = "The workflow's author gives you this role:\n{role}"
+
+
+def policy_text(hosts: Iterable[str], role: str = "") -> str:
+    """The system prompt every agent node gets, naming the hosts its links may point at, and the agent's role under
+    it (#133): the author's words, outside any fence, with no marker in them able to open one."""
     listed = sorted(set(hosts))
-    return SYSTEM_POLICY.format(links=LINKS_TO.format(hosts=", ".join(listed)) if listed else NO_LINKS)
+    text = SYSTEM_POLICY.format(links=LINKS_TO.format(hosts=", ".join(listed)) if listed else NO_LINKS)
+    return f"{text}\n\n{ROLE.format(role=neutralize(role.strip()))}" if role.strip() else text
 
 
 def neutralize(text: str) -> str:

@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/providers"
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 )
 
@@ -79,10 +80,17 @@ type CatalogSource interface {
 	For(ctx context.Context, s *spec.Spec) (spec.Catalog, error)
 }
 
+// ModelSource lists the models administrators allow; *providers.Service is the real one.
+type ModelSource interface {
+	Models(ctx context.Context) ([]providers.Model, error)
+}
+
 // Service is the workflows.
 type Service struct {
 	db      *db.Cluster
 	catalog CatalogSource
+	// Models checks an agent's own model when a workflow is saved (#133); nil leaves it to the run's start.
+	Models ModelSource
 }
 
 // NewService returns the workflows; catalog may be nil, which checks a spec without its tools.

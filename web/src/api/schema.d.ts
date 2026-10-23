@@ -1321,6 +1321,14 @@ export interface components {
             clientID?: string;
             clientSecret?: string;
         };
+        AgentUsage: {
+            cost: number;
+            inputTokens: number;
+            model: string;
+            node: string;
+            outputTokens: number;
+            provider: string;
+        };
         ApprovalCount: {
             waitingOnMe: number;
         };
@@ -1878,6 +1886,7 @@ export interface components {
             name: string | null;
         };
         RunUsage: {
+            agents?: components["schemas"]["AgentUsage"][];
             cost: number;
             inputTokens: number;
             outputTokens: number;
