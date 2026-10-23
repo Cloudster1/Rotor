@@ -53,6 +53,8 @@ type gitRepo struct {
 	refs     map[string]string
 	branches map[string]string
 	pulls    []map[string]any
+	// pushedWith is every token a push that landed carried, for a test to look for it where it must never be.
+	pushedWith []string
 }
 
 // newGitRepo holds one commit with a README on the default branch.
@@ -231,6 +233,7 @@ func (s *Stub) handleGitReceivePack(c *call) {
 		for _, u := range push.updates {
 			repo.refs[u.ref] = u.new
 		}
+		repo.pushedWith = append(repo.pushedWith, gitToken(c.r))
 	}
 	c.w.Header().Set("Content-Type", "application/x-git-receive-pack-result")
 	c.w.Header().Set("Cache-Control", "no-cache")
@@ -319,5 +322,9 @@ func (g *gitRepo) view() map[string]any {
 	if pulls == nil {
 		pulls = []map[string]any{}
 	}
-	return map[string]any{"refs": g.refs, "issueBranches": g.branches, "pullRequests": pulls}
+	pushed := g.pushedWith
+	if pushed == nil {
+		pushed = []string{}
+	}
+	return map[string]any{"refs": g.refs, "issueBranches": g.branches, "pullRequests": pulls, "pushedWith": pushed}
 }

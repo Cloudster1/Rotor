@@ -266,6 +266,7 @@ def check_sense(document: dict[str, Any]) -> list[Problem]:
     out.extend(_review_deciders(tools))
     out.extend(_unattended_outside_allow(tools))
     out.extend(_repository_sense(tools))
+    out.extend(_workspace_sense(nodes, tools, index))
     out.extend(_not_built(nodes))
     if entry in index:
         reached = {entry}
@@ -342,9 +343,7 @@ def form_fields(schema: Any) -> dict[str, Any] | None:
 
 
 # The fields M13 agreed, by the issue that builds each (docs/api-contract-m13.md); each issue deletes its own.
-NOT_BUILT_FIELDS = {
-    "workspace": 136,
-}
+NOT_BUILT_FIELDS: dict[str, int] = {}
 
 
 def _not_built(nodes: list[dict[str, Any]]) -> list[Problem]:
@@ -379,6 +378,32 @@ def _repository_sense(tools: dict[str, dict[str, Any]]) -> list[Problem]:
                 if not match.group(1).startswith("inputs."):
                     message = f"The repository's {part} may read the run's inputs alone, not {match.group(1)}."
                     out.append(Problem(path, "repository_binding", message))
+    return out
+
+
+def _workspace_sense(
+    nodes: list[dict[str, Any]], tools: dict[str, dict[str, Any]], index: dict[str, int]
+) -> list[Problem]:
+    """A workspace on a repository binding that pushes only through one that may, as Go's workspaceSense (#136)."""
+    out: list[Problem] = []
+    for i, node in enumerate(nodes):
+        workspace = node.get("workspace")
+        if workspace is None:
+            continue
+        base = f"/nodes/{i}/workspace"
+        binding = tools.get(workspace["repository"])
+        if binding is None or binding.get("repository") is None:
+            message = f"{workspace['repository']} is not a repository binding of the workflow."
+            out.append(Problem(f"{base}/repository", "workspace_binding", message))
+        elif workspace.get("access") == "write" and binding.get("access") != "write":
+            message = f"{node['id']} pushes, so {workspace['repository']} needs access: write."
+            out.append(Problem(f"{base}/access", "workspace_binding", message))
+        for match in TEMPLATE_REF.finditer(str(workspace["branch"])):
+            ref = _state_node(match.group(1))
+            if ref and ref not in index:
+                out.append(Problem(f"{base}/branch", "unknown_node", f"The branch reads {ref}, which is not a node."))
+            elif not match.group(1).startswith(("inputs.", "nodes.")):
+                out.append(Problem(f"{base}/branch", "workspace_binding", f"The branch may not read {match.group(1)}."))
     return out
 
 

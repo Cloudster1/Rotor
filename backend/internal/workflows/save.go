@@ -50,6 +50,11 @@ func (s *Service) Check(ctx context.Context, source string) (problems, warnings 
 			problems = append(problems, parsed.CheckModels(func(m spec.Model) bool { return providers.Allows(listed, m) })...)
 		}
 	}
+	if len(problems) == 0 && s.Images != nil && len(parsed.WorkspaceImages()) > 0 {
+		if names, err := s.Images.ImageNames(ctx); err == nil {
+			problems = append(problems, parsed.CheckImages(func(name string) bool { return slices.Contains(names, name) })...)
+		}
+	}
 	return problems, parsed.Warnings(catalog)
 }
 

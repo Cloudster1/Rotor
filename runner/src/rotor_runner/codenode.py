@@ -25,11 +25,13 @@ from rotor_runner.config import (
 )
 from rotor_runner.loops import visits
 from rotor_runner.mcp import ToolFailedError, ToolRefusedError
+from rotor_runner.workspace.files import WorkspaceError
 
 if TYPE_CHECKING:
     from asyncio.subprocess import Process
 
     from rotor_runner.compile import RunContext
+    from rotor_runner.workspace import Workspace
 
 # The child gets nothing of the runner's environment, so no token or key can be read there.
 CHILD_ENV = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"}
@@ -51,7 +53,9 @@ def timeout_of(node: dict[str, Any]) -> float:
 class CodeNodeRunner:
     """The CodeRunner a run's code nodes use."""
 
-    async def run(self, node: dict[str, Any], state: dict[str, Any], ctx: RunContext) -> Any:
+    async def run(
+        self, node: dict[str, Any], state: dict[str, Any], ctx: RunContext, workspace: Workspace | None = None
+    ) -> Any:
         from rotor_runner.limits import failed
 
         memory, seconds = memory_limit(node), timeout_of(node)
@@ -74,14 +78,16 @@ class CodeNodeRunner:
         )
         try:
             async with asyncio.timeout(seconds):
-                return await self._converse(child, node, state, ctx)
+                return await self._converse(child, node, state, ctx, workspace)
         except TimeoutError:
             raise failed("code_timeout", f"{node['id']} ran longer than {seconds:g} seconds") from None
         finally:
             _kill(child)
             await child.wait()
 
-    async def _converse(self, child: Process, node: dict[str, Any], state: dict[str, Any], ctx: RunContext) -> Any:
+    async def _converse(
+        self, child: Process, node: dict[str, Any], state: dict[str, Any], ctx: RunContext, workspace: Workspace | None
+    ) -> Any:
         from rotor_runner.limits import failed
 
         assert child.stdin is not None and child.stdout is not None  # noqa: S101 - set by the PIPE arguments
@@ -89,6 +95,7 @@ class CodeNodeRunner:
             "node": node["id"],
             "source": node["source"],
             "state": {"inputs": state.get("inputs", {}), "nodes": state.get("nodes", {}), "visits": visits(state)},
+            "workspace": {"writes": workspace.writes} if workspace else None,
         }
         child.stdin.write((json.dumps(request) + "\n").encode())
         await child.stdin.drain()
@@ -121,6 +128,8 @@ class CodeNodeRunner:
                     )
             elif "call" in message:
                 await self._answer(child, node, message["call"], ctx)
+            elif "workspace" in message:
+                await self._relay(child, message["workspace"], workspace)
             elif "error" in message:
                 kind, text = message["error"].get("type", ""), message["error"].get("message", "")
                 if kind == "MemoryError":
@@ -145,6 +154,20 @@ class CodeNodeRunner:
                     binding, str(call.get("name", "")), dict(call.get("arguments") or {}), node["id"]
                 )
             except (ToolRefusedError, ToolFailedError) as err:
+                reply["error"] = str(err)
+        child.stdin.write((json.dumps({"reply": reply}) + "\n").encode())
+        await child.stdin.drain()
+
+    async def _relay(self, child: Process, call: dict[str, Any], workspace: Workspace | None) -> None:
+        """A ctx.workspace call, made by the runner on the node's behalf: the child holds no secret of the agent's."""
+        assert child.stdin is not None  # noqa: S101 - set by the PIPE argument
+        reply: dict[str, Any] = {"id": call.get("id")}
+        if workspace is None:
+            reply["error"] = "this node has no workspace; give it one to read files or run commands"
+        else:
+            try:
+                reply["value"] = await workspace.call(str(call.get("name", "")), dict(call.get("arguments") or {}))
+            except WorkspaceError as err:
                 reply["error"] = str(err)
         child.stdin.write((json.dumps({"reply": reply}) + "\n").encode())
         await child.stdin.drain()

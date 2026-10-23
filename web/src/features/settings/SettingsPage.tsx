@@ -11,6 +11,7 @@ import { AssistantsSection } from "@/features/oauth/AssistantsSection";
 import { LangSmithSection } from "./LangSmithSection";
 import { RetentionSection } from "./RetentionSection";
 import { UnattendedWritesSection } from "./UnattendedWritesSection";
+import { WorkspacesSection } from "./WorkspacesSection";
 import { s } from "@/strings";
 
 /** Who is signed in and what this installation runs: the server's build as /meta names it, and the client's own. */
@@ -69,6 +70,7 @@ export function SettingsPage() {
       {me.data?.role === "admin" && <AllAssistantsSection />}
       {me.data?.role === "admin" && <RetentionSection />}
       {me.data?.role === "admin" && <UnattendedWritesSection />}
+      {me.data?.role === "admin" && <WorkspacesSection />}
       {me.data?.role === "admin" && <LangSmithSection />}
       <section className="max-w-xl rounded-overlay border border-border bg-surface p-5 shadow-1" aria-labelledby="build-title">
         <h2 id="build-title" className="mb-3 text-lg font-semibold text-ink">

@@ -1,0 +1,58 @@
+{{- $m := .Values.sandbox.workspaces.packageMirror }}
+{{- if and .Values.sandbox.egress.enabled (or $m.host $m.cidr) }}
+{{/*
+What a workspace pod reaches besides a sandbox's usual destinations (#136): the one package mirror an administrator
+names, so a build fetches its dependencies there and nowhere else. Allows add up with sandbox-egress.yaml's.
+*/}}
+{{- if and $m.host (not .Values.sandbox.egress.cilium) }}
+{{- fail "sandbox.workspaces.packageMirror.host names a hostname, which only Cilium can allow. Set sandbox.egress.cilium where Cilium is the cluster's network plugin, or give the mirror's address range in sandbox.workspaces.packageMirror.cidr." }}
+{{- end }}
+{{- $ns := include "rotor.sandboxNamespace" . }}
+{{- if $m.cidr }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "rotor.fullname" . }}-workspace-mirror
+  namespace: {{ $ns }}
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      rotor.dev/sandbox: "1"
+      rotor.dev/workspace: "1"
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: {{ $m.cidr }}
+            except: ["169.254.169.254/32"]
+      ports:
+        {{- range $m.ports }}
+        - { protocol: TCP, port: {{ . }} }
+        {{- end }}
+{{- end }}
+{{- if $m.host }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "rotor.fullname" . }}-workspace-mirror-host
+  namespace: {{ $ns }}
+  labels:
+    {{- include "rotor.labels" . | nindent 4 }}
+spec:
+  endpointSelector:
+    matchLabels:
+      rotor.dev/sandbox: "1"
+      rotor.dev/workspace: "1"
+  egress:
+    - toFQDNs:
+        - matchName: {{ $m.host | quote }}
+      toPorts:
+        - ports:
+            {{- range $m.ports }}
+            - { port: {{ . | quote }}, protocol: TCP }
+            {{- end }}
+{{- end }}
+{{- end }}

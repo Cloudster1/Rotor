@@ -3,6 +3,7 @@ package runs
 import (
 	"context"
 	"errors"
+	"slices"
 	"sort"
 
 	"github.com/google/uuid"
@@ -60,6 +61,9 @@ func (s *Service) Start(ctx context.Context, req StartRequest) (Run, bool, error
 		return Run{}, false, &InputsRefused{Problems: problems}
 	}
 	if err := s.Connected(ctx, parsed); err != nil {
+		return Run{}, false, err
+	}
+	if err := s.imagesAllowed(ctx, parsed); err != nil {
 		return Run{}, false, err
 	}
 	if s.Usage != nil {
@@ -132,6 +136,21 @@ func (s *Service) Start(ctx context.Context, req StartRequest) (Run, bool, error
 	}
 	r, err = s.byKey(ctx, req)
 	return r, false, err
+}
+
+// imagesAllowed refuses a run whose workspaces name an image administrators no longer allow (#136).
+func (s *Service) imagesAllowed(ctx context.Context, parsed *spec.Spec) error {
+	if s.Images == nil || len(parsed.WorkspaceImages()) == 0 {
+		return nil
+	}
+	names, err := s.Images.ImageNames(ctx)
+	if err != nil {
+		return err
+	}
+	if problems := parsed.CheckImages(func(name string) bool { return slices.Contains(names, name) }); len(problems) > 0 {
+		return &ImageNotAllowed{Problems: problems}
+	}
+	return nil
 }
 
 // byKey is the run the caller started with the request's key; one of another workflow is refused.

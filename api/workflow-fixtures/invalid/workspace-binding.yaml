@@ -1,0 +1,32 @@
+# expect: /nodes/0/workspace/repository workspace_binding
+# expect: /nodes/1/workspace/access workspace_binding
+# expect: /nodes/1/workspace/branch unknown_node
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+tools:
+  repo:
+    tool: armature
+    scopes: [read]
+    allowTools: [list_repositories]
+    repository: {project: CP, name: acme/portal}
+  issues:
+    tool: armature
+    scopes: [read]
+    allowTools: [get_issue]
+limits: {maxSteps: 20, timeout: 30m}
+entry: read
+nodes:
+  - id: read
+    type: agent
+    prompt: Read the code.
+    workspace: {repository: issues, branch: main, image: golang-1.26}
+  - id: write
+    type: code
+    workspace: {repository: repo, branch: "{{ nodes.missing.branch }}", image: golang-1.26, access: write}
+    output: {schema: {type: object}}
+    source: |
+      def run(state, ctx):
+          return {}
+edges:
+  - {from: read, to: write}

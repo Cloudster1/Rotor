@@ -10,7 +10,7 @@ policy that matches it, while one passing authority satisfies a policy.
 {{- if and (not $a.publicKey) (not (and $keyless.issuer $keyless.subjectRegExp)) }}
 {{- fail "sandbox.admission.requireSignature is on, so set sandbox.admission.publicKey to the cosign public key the runner image is signed with, or keep sandbox.admission.keyless.issuer and subjectRegExp for Rotor's released images." }}
 {{- end }}
-{{- $repo := .Values.images.runner.repository }}
+{{- $repos := list .Values.images.runner.repository .Values.images.agent.repository }}
 {{- range $check := list "signed" "sbom" }}
 ---
 apiVersion: policy.sigstore.dev/v1beta1
@@ -21,8 +21,10 @@ metadata:
     {{- include "rotor.labels" $ | nindent 4 }}
 spec:
   images:
+    {{- range $repo := $repos }}
     - glob: {{ printf "%s@*" $repo | quote }}
     - glob: {{ printf "%s:*" $repo | quote }}
+    {{- end }}
   authorities:
     {{- if $a.publicKey }}
     - name: runner-key
@@ -42,5 +44,24 @@ spec:
         - name: sbom
           predicateType: spdxjson
       {{- end }}
+{{- end }}
+{{- with .Values.sandbox.workspaces.toolchainImages }}
+---
+# The toolchain images administrators allow workspaces (#136) are no image of Rotor's; they run as they are.
+apiVersion: policy.sigstore.dev/v1beta1
+kind: ClusterImagePolicy
+metadata:
+  name: {{ include "rotor.fullname" $ }}-sandbox-toolchains
+  labels:
+    {{- include "rotor.labels" $ | nindent 4 }}
+spec:
+  images:
+    {{- range . }}
+    - glob: {{ . | quote }}
+    {{- end }}
+  authorities:
+    - name: allowed-toolchain
+      static:
+        action: pass
 {{- end }}
 {{- end }}

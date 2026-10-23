@@ -43,6 +43,10 @@ x-control-plane-env: &control-plane-env
   ROTOR_SANDBOX_IMAGE: rotor-runner:${COMPOSE_PROJECT_NAME:-rotor}
   ROTOR_SANDBOX_NETWORK: ${COMPOSE_PROJECT_NAME:-rotor}_sandbox
   ROTOR_SANDBOX_STACK: ${COMPOSE_PROJECT_NAME:-rotor}
+  # A run with workspace steps (#136) gets a toolchain container per image in its runner's network namespace, started
+  # by the exec agent this image mounts there. The sandbox network is internal, so a package mirror an administrator
+  # names must join it as a service of this stack; the gate's fixture repositories need none.
+  ROTOR_WORKSPACE_AGENT_IMAGE: rotor-agent:${COMPOSE_PROJECT_NAME:-rotor}
   # The tools' catalogs are cached here; losing them costs a fetch.
   ROTOR_VALKEY_URL: redis://:${VALKEY_PASSWORD:-rotor_valkey}@valkey:6379/0
   # An administrator adds a tool by the address a browser opens; the api reaches the tool-stub, and the suite's
@@ -299,6 +303,7 @@ services:
 networks:
   default:
   # No route out: a sandbox reaches the api, OpenBao's unwrap and the tool double, nothing beyond (M4 adds egress rules).
+  # A workspace's toolchains share their runner's place on it, and a package mirror would join it beside them.
   sandbox:
     internal: true
 

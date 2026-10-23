@@ -57,6 +57,8 @@ type Server struct {
 	LangSmithEndpoint string
 	// Retention is how long a finished run's data is kept (#41); nil answers 503.
 	Retention Retention
+	// Workspaces is what workspaces may use (#136); nil answers 503.
+	Workspaces Workspaces
 	// OAuth is Rotor as the authorization server of its MCP endpoint (#47); nil answers 503 and refuses every token.
 	OAuth OAuthServer
 	// TrustedProxies are the peers whose X-Real-IP header names the caller.
@@ -190,6 +192,8 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Put("/settings/retention", s.handleSetRetention)
 				r.Get("/settings/unattended-writes", s.handleGetUnattendedWrites)
 				r.Put("/settings/unattended-writes", s.handleSetUnattendedWrites)
+				r.Get("/settings/workspaces", s.handleGetWorkspaces)
+				r.Put("/settings/workspaces", s.handleSetWorkspaces)
 				mountPending(r, false, true)
 			})
 		})

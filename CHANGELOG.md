@@ -42,6 +42,21 @@ and the versioning [Semantic Versioning](https://semver.org/).
   and routers read the count as `visits.<id>`, a loop with no `maxVisits` is
   saved with the warning `unbounded_loop`, the run's timeline numbers each
   visit, and the canvas and the run page draw an edge back as a loop.
+- A workflow step can work on a checkout of the run's branch (#136):
+  `workspace: {repository, branch, image, access}` on an agent or code node.
+  The runner fetches the branch at depth 1, an agent reads, searches, edits
+  and runs commands in a toolchain image an administrator allows, and with
+  `access: write` what it changed is committed and pushed as the person at
+  the step's end; a failed step pushes nothing. Commands run as argument
+  lists, never shell lines, with a timeout and capped output; no tool follows
+  a symbolic link, and what files and commands say is fenced as data. Code
+  nodes get the same through `ctx.workspace`. Administrators allow the
+  images, name the one package mirror builds reach, and bound a step's time
+  and its work tree in the settings (`/settings/workspaces`). Each image runs
+  in a toolchain container beside the runner in the run's gVisor pod, started
+  by Rotor's new exec agent image, `rotor-agent`; the chart sizes them and
+  lets workspace pods reach the mirror.
+
 - A workflow can bind a repository Armature connects to a project (#137):
   `repository: {project, name}` on an Armature binding, fixed or named by
   the run's inputs, checked with `list_repositories` as the person when the
@@ -50,7 +65,7 @@ and the versioning [Semantic Versioning](https://semver.org/).
   binding writes, so no host token reaches Rotor; `create_issue_branch` and
   `open_pull_request` make the issue's branch and its pull request as the
   person. People connected to Armature before connect again to allow pushes.
-  Workspaces (#136) will clone with it.
+  Workspaces (#136) clone and push with it.
 - How a workflow writes code is agreed (#131): `docs/api-contract-m13.md`
   says how an agent gets its own model, role and step budget, how a loop is
   bounded, how parallel branches join, how a step checks out the run's

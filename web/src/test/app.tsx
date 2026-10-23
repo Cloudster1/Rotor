@@ -32,6 +32,9 @@ export const UNATTENDED_ALLOWED = { allowed: true, updatedAt: "2026-10-22T08:00:
 /** Retention as a fresh installation has it: 90 days, set by nobody (#41). */
 export const RETENTION_DEFAULT = { runDataDays: 90, maxDays: 3650, changedBy: null, updatedAt: "2026-10-19T08:00:00Z" };
 
+/** Workspaces as a fresh installation has them (#136): no image allowed, no mirror, the default limits. */
+export const WORKSPACES_DEFAULT = { images: [] as { name: string; reference: string }[], packageMirror: "", maxStepTime: "1h", maxVolume: "1Gi" };
+
 /** LangSmith as a fresh installation has it: off, with no key. */
 export const LANGSMITH_OFF = {
   enabled: false,
@@ -95,6 +98,7 @@ export async function renderAt(path: string, { me = ME as Me | null, answers = {
     "/api/v1/oauth/grants/everyone": { grants: [] },
     "/api/v1/settings/assistants": ASSISTANTS_ON,
     "/api/v1/settings/unattended-writes": UNATTENDED_ALLOWED,
+    "/api/v1/settings/workspaces": WORKSPACES_DEFAULT,
     "/api/v1/schemas/workflow.v1.json": { $id: "https://rotor.dev/schemas/workflow.v1.json", type: "object" },
     "POST /api/v1/workflows/validate": { valid: true, problems: [], warnings: [] },
     ...answers,

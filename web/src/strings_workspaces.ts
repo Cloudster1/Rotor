@@ -1,0 +1,22 @@
+/** The words of the workspace setting (#136), spread into s as s.workspaces; strings.ts holds the rest. */
+export const workspacesStrings = {
+  title: "Workspaces",
+  body: "A workflow step with a workspace works on a checkout of the run's branch, in a toolchain image you allow here. Its builds fetch packages from the one mirror you name, and nowhere else.",
+  loading: "Reading the setting...",
+  images: "Toolchain images",
+  imagesHint: "Workflows name an image by its name. Give the reference with its digest, so the name always means the same image.",
+  noImages: "No image is allowed yet, so no workflow may use a workspace.",
+  imageName: (n: number) => `Name of image ${n}`,
+  imageReference: (n: number) => `Reference of image ${n}`,
+  addImage: "Add an image",
+  removeImage: (name: string) => `Remove ${name || "this image"}`,
+  packageMirror: "Package mirror",
+  packageMirrorHint: "One address, such as https://mirror.example.com/go, set as GOPROXY and npm's registry. Leave it empty for none.",
+  maxStepTime: "Longest step",
+  maxStepTimeHint: "Such as 1h or 45m.",
+  maxVolume: "Work tree size",
+  maxVolumeHint: "Such as 1Gi or 512Mi.",
+  save: "Save",
+  saving: "Saving...",
+  saved: "Saved.",
+} as const;

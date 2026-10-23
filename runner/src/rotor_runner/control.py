@@ -40,6 +40,7 @@ from rotor_runner.repository import Repositories, Repository
 from rotor_runner.spec import parse
 from rotor_runner.telemetry import RunTracing
 from rotor_runner.tokens import UnwrapError, Unwrapper
+from rotor_runner.workspace import WorkspaceConfig, Workspaces
 
 log = logging.getLogger("rotor_runner")
 
@@ -117,6 +118,8 @@ class Channel:
         self.replies: dict[str, asyncio.Future[pb.ConnectResponse]] = {}
         self.checkpointer: BaseCheckpointSaver[Any] = RemoteSaver(self)
         self.tracing = RunTracing()
+        # The sandbox's toolchains, for a run with workspace steps (#136); None for any other.
+        self.workspace: WorkspaceConfig | None = None
 
     def send(self, message: pb.ConnectRequest) -> None:
         """Sends now if connected; a numbered message also waits in the outbox until acknowledged."""
@@ -315,6 +318,7 @@ class Channel:
             tracing=self.tracing,
             link_hosts=frozenset(h for b in bindings.values() for h in b.link_hosts),
             repositories=Repositories(bindings, self.tokens),
+            workspaces=Workspaces(self.workspace, start.run_id, self.emit),
         )
         inputs = json.loads(start.inputs_json or "{}")
         resume = json.loads(start.resume_json) if start.resume else None

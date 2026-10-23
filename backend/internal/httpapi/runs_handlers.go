@@ -51,7 +51,15 @@ func runError(err error) error {
 	var needs *runs.NeedsConnections
 	var quota *usage.Refused
 	var changed *runs.ToolsChanged
+	var image *runs.ImageNotAllowed
 	switch {
+	case errors.As(err, &image):
+		fields := map[string]string{}
+		for _, p := range image.Problems {
+			fields["workflow"+p.Path] = p.Message
+		}
+		return &APIError{Status: http.StatusUnprocessableEntity, Code: "image_not_allowed", Fields: fields,
+			Message: image.Problems[0].Message + " An administrator allows it again, or the workflow's owner saves it with an image that is allowed."}
 	case errors.As(err, &changed):
 		fields := map[string]string{}
 		for _, p := range changed.Problems {

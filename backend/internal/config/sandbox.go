@@ -60,20 +60,28 @@ type Sandbox struct {
 	Kubeconfig     string
 	// AllowRunc lets a Kubernetes sandbox run without gVisor, for a test cluster that has none; never in production.
 	AllowRunc bool
+	// AgentImage is the exec agent's image, which a workspace's toolchains start (#136); WorkspaceMemoryMiB and
+	// WorkspaceMilliCPUs size each toolchain container.
+	AgentImage         string
+	WorkspaceMemoryMiB int
+	WorkspaceMilliCPUs int
 }
 
 func loadSandbox(l *loader) Sandbox {
 	return Sandbox{
-		Backend:        l.str("ROTOR_SANDBOX_BACKEND", ""),
-		Image:          l.str("ROTOR_SANDBOX_IMAGE", DefaultSandboxImage),
-		Socket:         l.str("ROTOR_SANDBOX_DOCKER_SOCKET", DefaultDockerSocket),
-		Network:        l.str("ROTOR_SANDBOX_NETWORK", ""),
-		Stack:          l.str("ROTOR_SANDBOX_STACK", ""),
-		Namespace:      l.str("ROTOR_SANDBOX_NAMESPACE", DefaultSandboxNamespace),
-		RuntimeClass:   l.orEmpty("ROTOR_SANDBOX_RUNTIME_CLASS", DefaultRuntimeClass),
-		ServiceAccount: l.str("ROTOR_SANDBOX_SERVICE_ACCOUNT", DefaultSandboxServiceAccount),
-		Kubeconfig:     l.str("ROTOR_SANDBOX_KUBECONFIG", ""),
-		AllowRunc:      l.boolean("ROTOR_SANDBOX_ALLOW_RUNC", false),
+		Backend:            l.str("ROTOR_SANDBOX_BACKEND", ""),
+		Image:              l.str("ROTOR_SANDBOX_IMAGE", DefaultSandboxImage),
+		Socket:             l.str("ROTOR_SANDBOX_DOCKER_SOCKET", DefaultDockerSocket),
+		Network:            l.str("ROTOR_SANDBOX_NETWORK", ""),
+		Stack:              l.str("ROTOR_SANDBOX_STACK", ""),
+		Namespace:          l.str("ROTOR_SANDBOX_NAMESPACE", DefaultSandboxNamespace),
+		RuntimeClass:       l.orEmpty("ROTOR_SANDBOX_RUNTIME_CLASS", DefaultRuntimeClass),
+		ServiceAccount:     l.str("ROTOR_SANDBOX_SERVICE_ACCOUNT", DefaultSandboxServiceAccount),
+		Kubeconfig:         l.str("ROTOR_SANDBOX_KUBECONFIG", ""),
+		AllowRunc:          l.boolean("ROTOR_SANDBOX_ALLOW_RUNC", false),
+		AgentImage:         l.str("ROTOR_WORKSPACE_AGENT_IMAGE", DefaultWorkspaceAgentImage),
+		WorkspaceMemoryMiB: l.integer("ROTOR_WORKSPACE_MEMORY_MIB", DefaultWorkspaceMemory>>20),
+		WorkspaceMilliCPUs: l.integer("ROTOR_WORKSPACE_MILLICPUS", DefaultWorkspaceMilliCPUs),
 	}
 }
 

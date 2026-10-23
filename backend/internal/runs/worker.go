@@ -38,6 +38,8 @@ type Launch struct {
 	CA func(ctx context.Context) (string, error)
 	// OpenBao is where the runner unwraps the tokens and keys it is handed (#23); it holds no credential there.
 	OpenBao string
+	// Workspace starts toolchains beside the runner for a run with workspace steps (#136).
+	Workspace WorkspaceLaunch
 }
 
 // Teardown is what else ends with a run, such as revoking its tokens (#23); an error tries again on the next tick.
@@ -206,11 +208,29 @@ func (w *Worker) startOne(ctx context.Context, c claimed) error {
 	if err != nil {
 		return fmt.Errorf("read the runner CA: %w", err)
 	}
-	id, err := w.sandboxes.Spawn(ctx, sandbox.Spec{RunID: c.ID, Image: w.launch.Image, Limits: w.launch.Limits,
+	workspace, told, err := w.workspaceOf(ctx, c.ID)
+	var gone *imageGone
+	if errors.As(err, &gone) {
+		return w.end(ctx, c.ID, runnerctl.StatusFailed, ReasonImageNotAllowed, gone.Error())
+	}
+	if err != nil {
+		return err
+	}
+	wanted := sandbox.Spec{RunID: c.ID, Image: w.launch.Image, Limits: w.launch.Limits,
 		Labels:    map[string]string{sandbox.LabelStack: w.launch.Stack},
 		Env:       map[string]string{"ROTOR_CONTROL_PLANE_ADDR": w.launch.Dial, "ROTOR_RUNNER_CA": ca, "ROTOR_OPENBAO_ADDR": w.launch.OpenBao},
 		SecretEnv: map[string]string{"ROTOR_RUNNER_BOOTSTRAP": token},
-		Deadline:  w.deadline(ctx, c.ID)})
+		Deadline:  w.deadline(ctx, c.ID), Workspace: workspace}
+	spawned := map[string]any{"image": w.launch.Image}
+	if workspace != nil {
+		wanted.Env[EnvWorkspace], wanted.SecretEnv[sandbox.EnvWorkspaceSecret] = told[EnvWorkspace], told[sandbox.EnvWorkspaceSecret]
+		toolchains := []string{}
+		for _, tc := range workspace.Toolchains {
+			toolchains = append(toolchains, tc.Image)
+		}
+		spawned["toolchains"] = toolchains
+	}
+	id, err := w.sandboxes.Spawn(ctx, wanted)
 	if err != nil {
 		return err
 	}
@@ -220,9 +240,10 @@ func (w *Worker) startOne(ctx context.Context, c claimed) error {
 			WHERE id = $1 AND claimed_by = $2 AND status = 'starting'`, c.ID, w.id, string(id)); err != nil {
 			return err
 		}
-		// What started, never how: the spec carries the bootstrap token.
+		// What started, never how: the spec carries the bootstrap token and the agents' secret.
+		spawned["sandboxId"] = string(id)
 		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionSandboxSpawned, TargetType: "run", TargetID: c.ID.String(),
-			Data: map[string]any{"sandboxId": string(id), "image": w.launch.Image}})
+			Data: spawned})
 	})
 }
 

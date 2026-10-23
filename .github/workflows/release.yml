@@ -117,7 +117,7 @@ jobs:
     strategy:
       fail-fast: false
       # Every image the chart runs at its appVersion; the Go services all run the backend image, the sandboxes the
-      # runner. amd64 only, as gVisor's nodes are.
+      # runner, a workspace's toolchains the exec agent (#136). amd64 only, as gVisor's nodes are.
       matrix:
         include:
           - image: backend
@@ -126,6 +126,8 @@ jobs:
             dockerfile: deploy/Dockerfile.web
           - image: runner
             dockerfile: deploy/Dockerfile.runner
+          - image: agent
+            dockerfile: deploy/Dockerfile.agent
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -250,7 +252,7 @@ jobs:
             echo
             echo "Signed keyless by this workflow, each image with its SPDX SBOM attested (docs/releasing.md says how to check)."
             echo
-            for image in backend web runner; do
+            for image in backend web runner agent; do
               echo "- \`$(cat "dist/$image.digest")\`"
             done
             echo "- chart \`$(cat dist/chart.digest)\`, version \`$VERSION\`"

@@ -34,6 +34,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/usage"
 	"github.com/cloudster1/rotor/backend/internal/version"
 	"github.com/cloudster1/rotor/backend/internal/workflows"
+	"github.com/cloudster1/rotor/backend/internal/workspaces"
 )
 
 func main() {
@@ -106,6 +107,8 @@ func run() error {
 	worker := runs.NewWorker(cluster, keys, backend, runs.Launch{
 		Image: cfg.Sandbox.Image, Dial: cfg.Runner.Dial, Stack: cfg.Sandbox.Stack, CA: secrets.RunnerCA, OpenBao: cfg.OpenBao.Addr,
 		Limits: sandbox.Limits{MemoryBytes: config.DefaultSandboxMemory, MilliCPUs: config.DefaultSandboxMilliCPUs, PIDs: config.DefaultSandboxPIDs},
+		Workspace: runs.WorkspaceLaunch{Settings: workspaces.New(cluster), AgentImage: cfg.Sandbox.AgentImage,
+			Limits: sandbox.Limits{MemoryBytes: int64(cfg.Sandbox.WorkspaceMemoryMiB) << 20, MilliCPUs: int64(cfg.Sandbox.WorkspaceMilliCPUs)}},
 	}, log)
 	// A run's tokens end with it, revoked at their tools, and when it starts waiting (#28).
 	worker.Teardown, worker.Waiting = people.RevokeRun, people.RevokeRun

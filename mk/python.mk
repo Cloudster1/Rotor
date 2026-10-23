@@ -32,8 +32,15 @@ py-fmt: | $(UV_CACHE) ## Format the runner and apply ruff's safe fixes in place
 	$(DOCKER_UV) sh -c 'uv sync --locked --quiet && uv run --no-sync ruff format . && uv run --no-sync ruff check --fix .'
 
 .PHONY: runner-image
-runner-image: ## Build the runner's sandbox image
+runner-image: agent-image ## Build the runner's sandbox image, and the exec agent its workspaces start
 	docker build -q -f $(ROOT)/deploy/Dockerfile.runner -t $(RUNNER_IMAGE) $(ROOT) >/dev/null
+
+# The exec agent of a workspace's toolchain containers (#136), tagged by stack like the runner.
+AGENT_IMAGE ?= rotor-agent:$(STACK_PROJECT)
+
+.PHONY: agent-image
+agent-image: ## Build the workspace exec agent's image
+	docker build -q -f $(ROOT)/deploy/Dockerfile.agent -t $(AGENT_IMAGE) $(ROOT) >/dev/null
 
 # The smoke run gives the image what a sandbox gets: no network, no capabilities, a read-only root.
 .PHONY: runner-smoke

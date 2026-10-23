@@ -71,19 +71,15 @@ func podFor(name string, cfg Config, spec sandbox.Spec) *corev1.Pod {
 				Name: containerName, Image: spec.Image, Command: spec.Entrypoint, Args: spec.Command, Env: env,
 				ImagePullPolicy: corev1.PullIfNotPresent,
 				Resources:       corev1.ResourceRequirements{Limits: quantities, Requests: quantities},
-				SecurityContext: &corev1.SecurityContext{
-					RunAsNonRoot: &yes, RunAsUser: &uid, RunAsGroup: &uid,
-					ReadOnlyRootFilesystem:   &yes,
-					AllowPrivilegeEscalation: &no,
-					Privileged:               &no,
-					Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
-					SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
-				},
-				VolumeMounts: []corev1.VolumeMount{{Name: tmpVolume, MountPath: tmpPath}},
+				SecurityContext: hardened(),
+				VolumeMounts:    []corev1.VolumeMount{{Name: tmpVolume, MountPath: tmpPath}},
 			}},
 			Volumes: []corev1.Volume{{Name: tmpVolume, VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory, SizeLimit: tmpSize}}}},
 		},
+	}
+	if spec.Workspace != nil {
+		addWorkspace(pod, name, spec.Workspace, hardened)
 	}
 	if cfg.RuntimeClass != "" {
 		class := cfg.RuntimeClass
@@ -94,6 +90,21 @@ func podFor(name string, cfg Config, spec sandbox.Spec) *corev1.Pod {
 		pod.Spec.ActiveDeadlineSeconds = &seconds
 	}
 	return pod
+}
+
+// hardened is the security context of every container of a sandbox: non-root, read-only, with no capabilities and
+// no way to gain privileges.
+func hardened() *corev1.SecurityContext {
+	yes, no := true, false
+	uid := int64(config.SandboxUID)
+	return &corev1.SecurityContext{
+		RunAsNonRoot: &yes, RunAsUser: &uid, RunAsGroup: &uid,
+		ReadOnlyRootFilesystem:   &yes,
+		AllowPrivilegeEscalation: &no,
+		Privileged:               &no,
+		Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+		SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
+	}
 }
 
 func sortedKeys(m map[string]string) []string {
