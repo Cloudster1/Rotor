@@ -84,7 +84,8 @@ func seedRealFeature(t *testing.T, alice *browser, base, project string) []strin
 		}
 	}
 	if testType == "" {
-		status, made := alice.atExciter(t, base, http.MethodPost, "/projects/"+project+"/types", map[string]any{"name": "Test case", "role": "testCase"})
+		status, made := alice.atExciter(t, base, http.MethodPost, "/projects/"+project+"/types", map[string]any{"name": "Test case", "role": "testCase",
+			"icon": "flask", "colour": "#4f6bed"})
 		if status != http.StatusCreated {
 			t.Fatalf("giving %s a test case type = %d %v", project, status, made)
 		}
