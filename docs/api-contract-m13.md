@@ -18,6 +18,8 @@ a field merges, a workflow that uses it is refused when saved and when a run
 starts, with the problem `not_built` naming the issue. Settings routes carry
 `pending: true` and answer 501 until built.
 
+**As built:** every field is built, so `not_built` is gone again with #138.
+
 Conventions are M2's: paths under `/api/v1`; refusals are sentences.
 
 ## Migrations, packages and settings

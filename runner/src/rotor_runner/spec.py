@@ -268,7 +268,6 @@ def check_sense(document: dict[str, Any]) -> list[Problem]:
     out.extend(_repository_sense(tools))
     out.extend(_workspace_sense(nodes, tools, index))
     out.extend(_test_sense(nodes, str(document["limits"]["timeout"])))
-    out.extend(_not_built(nodes))
     if entry in index:
         reached = {entry}
         queue = [entry]
@@ -341,20 +340,6 @@ def form_fields(schema: Any) -> dict[str, Any] | None:
     except Exception:
         return None
     return properties
-
-
-# The fields M13 agreed, by the issue that builds each (docs/api-contract-m13.md); each issue deletes its own.
-NOT_BUILT_FIELDS: dict[str, int] = {}
-
-
-def _not_built(nodes: list[dict[str, Any]]) -> list[Problem]:
-    """Refuses the fields M13 agreed until their issue merges, as Go's notBuilt, so no run takes one it would ignore."""
-    out: list[Problem] = []
-    for i, node in enumerate(nodes):
-        for name, issue in NOT_BUILT_FIELDS.items():
-            if name in node:
-                out.append(Problem(f"/nodes/{i}/{name}", "not_built", f"{name} is not built yet (#{issue})."))
-    return out
 
 
 def _repository_sense(tools: dict[str, dict[str, Any]]) -> list[Problem]:

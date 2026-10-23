@@ -36,8 +36,6 @@ const (
 	CodeApprovalForm   = "approval_form"
 	CodeApprovalExpiry = "approval_expiry"
 	CodeDecidesReview  = "decides_review"
-	// CodeNotBuilt is a field M13 agreed whose issue has not merged yet (#131).
-	CodeNotBuilt = "not_built"
 	// An agent's own model, role and steps (#133): a model no administrator allows, more steps than the workflow's,
 	// and a role that is a template.
 	CodeModelNotAllowed = "model_not_allowed"
