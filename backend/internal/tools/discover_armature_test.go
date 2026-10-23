@@ -76,3 +76,24 @@ func TestAToolWithOneTokenPerGrantNeedsTheExchange(t *testing.T) {
 		t.Errorf("Armature without the exchange = %v, want a sentence naming it", err)
 	}
 }
+
+// Exciter lists token exchange for partner apps, which trade the identity provider's tokens and which its open
+// registration refuses, so Rotor asks for its grants alone and refreshes a run's token there (#139).
+func TestAnExchangeOfAnotherKindIsNeitherAskedForNorUsed(t *testing.T) {
+	f := newFakeTool(t)
+	f.server["grant_types_supported"] = []string{"authorization_code", "refresh_token", GrantTokenExchange}
+	s := f.service()
+	d, err := s.discover(context.Background(), f.base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.register(context.Background(), d, authBasic); err != nil {
+		t.Fatal(err)
+	}
+	if grants, _ := f.registered["grant_types"].([]any); slices.Contains(grants, any(GrantTokenExchange)) {
+		t.Errorf("asked Exciter to register %v, want no exchange", grants)
+	}
+	if (Tool{Name: d.Name, GrantTypes: d.GrantTypes}).OffersExchange() {
+		t.Error("an Exciter listing the exchange mints a run's token by it")
+	}
+}

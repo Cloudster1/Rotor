@@ -99,8 +99,16 @@ func (t Tool) LinkHosts() []string {
 // Profile is how the tool names its scopes and hands out tokens, by the product it is.
 func (t Tool) Profile() profiles.Profile { return profiles.For(t.Name) }
 
-// OffersExchange says whether a run's token is minted by token exchange (RFC 8693) rather than handed out from a refresh.
-func (t Tool) OffersExchange() bool { return slices.Contains(t.GrantTypes, GrantTokenExchange) }
+// OffersExchange says whether a run's token is exchanged from the grant's (RFC 8693); only a tool with one token per
+// grant does that, since Exciter's exchange trades the identity provider's tokens for partner apps instead (#139).
+func (t Tool) OffersExchange() bool {
+	return exchangesGrantTokens(t.Name, t.GrantTypes)
+}
+
+// exchangesGrantTokens says whether the product's exchange, where its server offers one, trades its own grant's tokens.
+func exchangesGrantTokens(product string, grantTypes []string) bool {
+	return profiles.For(product).SharedGrantToken && slices.Contains(grantTypes, GrantTokenExchange)
+}
 
 // Secrets is what the registry keeps in OpenBao; *vault.Client is the real one.
 type Secrets interface {

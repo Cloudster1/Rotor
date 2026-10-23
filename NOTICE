@@ -68,7 +68,8 @@ and suite:
   from mk/suite.mk and deploy/suite/: one Exciter on Rotor's Keycloak instead
   of three products on Exciter's
 - api/tools/exciter/tools-list.json is Exciter's own tools/list, recorded from
-  that commit
+  that commit and again from d30c533, the commit deploy/suite/EXCITER_REF
+  names since (#139)
 
 Adapted from Exciter at 6706bd8, its requirement history and web tests:
 - backend/internal/workflows/diff.go: align, the longest common subsequence of
@@ -147,6 +148,17 @@ Adapted from Exciter at 6706bd8, its suite's Armature (#130):
   and Exciter's APIs, here setting Armature up itself instead of running Armature's demo seed, letting alice, bob
   and dave in, making the project CP, and connecting Exciter to Armature
 - mk/suite.mk's Armature, from mk/suite.mk's: the compose with its override and its own project name
+
+Adapted from Exciter at d30c533, its trace links and test executions (#139):
+- backend/internal/toolstub/exciter_trace.go: the link types every installation
+  starts with (migrations/01280_mitigation.sql), and the refusals of a link and
+  of a test case's type (trace/links.go, requirement/service.go, testcase.go)
+- backend/internal/toolstub/exciter_testexec.go and exciter_testexec_writes.go:
+  a case's outcome rolled up from its steps (testexec/record.go Rollup), who
+  records and manages, and the bounds and refusals of testexec and
+  httpapi/test_handlers.go, kept in memory per tenant
+- deploy/suite/exciter-snapshot.yml over Exciter's deploy/docker-compose.yml, its
+  api, primary database, Valkey, migration and seed
 
 Adapted from Exciter at a74de66, its checks of a partner:
 - backend/internal/tools/needs.go: the needs table, Offered with nil as never asked, and Lacks and Missing saying what

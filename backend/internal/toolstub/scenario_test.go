@@ -267,6 +267,20 @@ func TestTheControlAPIShapesTenants(t *testing.T) {
 	c.expect("GET", "/t/Not%20A%20Name/api/v1/meta", request{}, http.StatusNotFound)
 }
 
+// Exciter lists the token exchange of its partner apps but never registers a client for it, which Rotor met as a
+// refused registration once Exciter listed it (#139).
+func TestExciterListsTheExchangeButRegistersNoClientForIt(t *testing.T) {
+	c := newContract(t)
+	server, _ := c.expect("GET", "/t/exchange/.well-known/oauth-authorization-server", request{}, http.StatusOK)
+	if grants, _ := server["grant_types_supported"].([]any); !slices.Contains(grants, any(grantExchange)) {
+		t.Errorf("Exciter's metadata lists %v, want the exchange among them", grants)
+	}
+	c.expect("POST", "/t/exchange/api/v1/oauth/register", request{json: map[string]any{"redirect_uris": []string{callback},
+		"token_endpoint_auth_method": "client_secret_basic", "grant_types": []string{"authorization_code", grantExchange}}},
+		http.StatusBadRequest)
+	c.register("exchange")
+}
+
 // The issuer is the address the browser uses, whichever way the request reached the stub, so the api behind a
 // rewrite and the browser behind a proxy see one issuer.
 func TestTheIssuerIsThePublicAddress(t *testing.T) {

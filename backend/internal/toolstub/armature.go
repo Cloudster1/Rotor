@@ -31,6 +31,7 @@ const (
 var (
 	armatureScopes     = []string{ArmatureRead, ArmatureIssueWrite, ArmatureIssueTransition, ArmatureCommentWrite, ArmatureWebhooksPartner}
 	armatureGrantTypes = []string{"authorization_code", "refresh_token", grantExchange}
+	exciterGrantTypes  = []string{"authorization_code", "refresh_token", grantExchange}
 )
 
 func (t *tenant) armature() bool { return t.product() == "armature" }
@@ -56,6 +57,15 @@ func (t *tenant) grantTypes() []string {
 	}
 	if t.armature() {
 		return armatureGrantTypes
+	}
+	return exciterGrantTypes
+}
+
+// registrableGrants are what a client may register for: Exciter keeps its exchange to the partner apps an
+// administrator names, which trade the identity provider's tokens (#139).
+func (t *tenant) registrableGrants() []string {
+	if len(t.opts.GrantTypes) > 0 || t.armature() {
+		return t.grantTypes()
 	}
 	return grantTypes
 }

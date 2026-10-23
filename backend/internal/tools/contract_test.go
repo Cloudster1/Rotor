@@ -13,11 +13,15 @@ import (
 
 const toolsDir = "../../../api/tools/"
 
-// reads are the operations Rotor relies on per tool, as "METHOD /path" under the document's /api/v1: Armature's are
-// its OAuth (#45) and the ones its tools the story workflow calls stand for (#129); Stator's OAuth joins with #105.
+// reads are the operations Rotor relies on per tool, as "METHOD /path" under /api/v1: OAuth (#45), and the ones the
+// tools workflows call stand for, Armature's story (#129) and Exciter's tracing and test executions (#139).
 var reads = map[string][]string{
 	"exciter": {"GET /meta", "POST /mcp", "POST /oauth/register", "POST /oauth/token", "POST /oauth/revoke",
-		"GET /.well-known/oauth-authorization-server", "GET /.well-known/oauth-protected-resource/api/v1/mcp"},
+		"GET /.well-known/oauth-authorization-server", "GET /.well-known/oauth-protected-resource/api/v1/mcp",
+		"GET /projects/{projectKey}/types", "GET /projects/{projectKey}/tree", "POST /requirements/{reqKey}/links",
+		"GET /projects/{projectKey}/test-plans", "POST /projects/{projectKey}/test-executions",
+		"PUT /test-executions/{executionID}/cases/{reqKey}/result", "POST /test-executions/{executionID}/close",
+		"GET /requirements/{reqKey}/test-executions"},
 	"armature": {"GET /meta", "POST /mcp", "POST /oauth/register", "POST /oauth/token", "POST /oauth/revoke",
 		"GET /.well-known/oauth-authorization-server", "GET /.well-known/oauth-protected-resource",
 		"GET /auth/me", "GET /issues/{issueKey}", "GET /issues/{issueKey}/comments", "POST /issues/{issueKey}/comments",
