@@ -161,6 +161,23 @@ describe("the workflow canvas", () => {
     expect(yaml).not.toMatch(/role:|claude-opus/);
   });
 
+  it("adds a test step and shows its command as text the YAML changes, passing axe (#138)", async () => {
+    const sent = await openNew();
+    await userEvent.click(screen.getByRole("tab", { name: s.canvas.canvas }));
+    const add = await screen.findByRole("form", { name: s.canvas.add.title });
+    await userEvent.selectOptions(within(add).getByLabelText(s.canvas.add.type), s.canvas.types.test);
+    await userEvent.type(within(add).getByLabelText(s.canvas.add.id), "check{Enter}");
+    const inspector = screen.getByRole("region", { name: s.canvas.node.title });
+    expect(within(inspector).getByText(s.canvas.node.type(s.canvas.types.test))).toBeInTheDocument();
+    const command = within(inspector).getByLabelText(s.canvas.node.fields.command);
+    expect(command).toHaveAttribute("readonly");
+    expect(command).toHaveAccessibleDescription(s.canvas.node.commandHint);
+    expect(await axeViolations()).toEqual([]);
+    const yaml = await sentYAML(sent);
+    expect(yaml).toContain("  - id: check\n    type: test\n");
+    expect(yaml).toContain("    command: []\n    reports: []\n");
+  });
+
   it("passes axe with the canvas and the inspector showing", async () => {
     await openNew();
     await userEvent.click(screen.getByRole("tab", { name: s.canvas.canvas }));

@@ -26,7 +26,7 @@ export function RunGraph({ graph, states }: { graph: Graph; states: Record<strin
           <span className="flex flex-col items-center gap-0.5">
             <span className="font-medium">{id}</span>
             <span className="text-xs">
-              {type} . {s.runs.live.nodeState[state]}
+              {s.canvas.types[type as keyof typeof s.canvas.types] ?? type} . {s.runs.live.nodeState[state]}
             </span>
           </span>
         ),

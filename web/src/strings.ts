@@ -252,6 +252,8 @@ export const s = {
       ended: (status: string) => `The run ended: ${status}`,
       lost: "The run's sandbox stopped answering.",
       replaced: "The run's sandbox stopped answering, so a fresh one carries on from the last checkpoint.",
+      tests: (node: string, passed: number, failed: number, skipped: number) => `${node} ran the tests: ${passed} passed, ${failed} failed, ${skipped} skipped`,
+      testFailures: (node: string) => `The tests that failed in ${node}`,
     },
   },
   approvals: {

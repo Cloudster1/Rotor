@@ -26,6 +26,7 @@ const TEMPLATES: Record<NodeType, { [key: string]: Value }> = {
   code: { source: "", output: { schema: { type: "object" } } },
   approval: { message: "" },
   router: { on: "", cases: {} },
+  test: { workspace: { repository: "", branch: "", image: "" }, command: [], reports: [] },
 };
 
 function read(source: string): Document.Parsed {

@@ -105,7 +105,7 @@ func checkSense(s *Spec) []Problem {
 	out = append(out, unattendedOutsideAllow(s)...)
 	out = append(out, repositorySense(s)...)
 	out = append(out, workspaceSense(s, known)...)
-	out = append(out, notBuilt(s)...)
+	out = append(out, testSense(s)...)
 	if known(s.Entry) {
 		reached := reach(s, index, s.Entry, nil)
 		for i, n := range s.Nodes {

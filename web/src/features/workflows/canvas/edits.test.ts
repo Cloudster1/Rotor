@@ -3,7 +3,7 @@ import { NEW_WORKFLOW } from "../template";
 import { addEdge, addNode, removeCase, removeEdge, removeNode, renameNode, setCase, setDefault, setEntry, setField } from "./edits";
 import { INVALID_SPECS, VALID_SPECS } from "./fixtures";
 import { placeProblems } from "./problems";
-import { graphOf, nodePlace, parseSpec } from "./specDoc";
+import { argvText, graphOf, nodePlace, parseSpec } from "./specDoc";
 
 const spec = (name: string) => (VALID_SPECS.find(([n]) => n.endsWith(name)) as [string, string])[1];
 const TRIAGE = spec("triage-with-approval.yaml");
@@ -123,6 +123,16 @@ describe("an edit on the canvas", () => {
     expect(out).toBe(NEW_WORKFLOW);
     const routed = setField(addNode(NEW_WORKFLOW, "router", "pick"), "pick", "default", "ask");
     expect(read(routed).nodes[1]?.default).toBe("ask");
+  });
+
+  it("adds a test node with what it needs, empty, and shows its command as one line (#138)", () => {
+    const added = addNode(NEW_WORKFLOW, "test", "check");
+    expect(added).toContain('  - id: check\n    type: test\n    workspace:\n      repository: ""\n');
+    expect(added).toContain("    command: []\n    reports: []\n");
+    expect(removeNode(added, "check")).toBe(NEW_WORKFLOW);
+    const tests = read(spec("test-step.yaml")).nodes.find((n) => n.id === "test");
+    expect(tests?.fields).toEqual({ command: "gotestsum --junitfile junit.xml -- ./..." });
+    expect(argvText(["pytest", "-k", "sign in", ""])).toBe('pytest -k "sign in" ""');
   });
 
   it("sets and removes a router's cases and default, and the entry", () => {

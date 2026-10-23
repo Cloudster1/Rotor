@@ -267,7 +267,7 @@ def check_sense(document: dict[str, Any]) -> list[Problem]:
     out.extend(_unattended_outside_allow(tools))
     out.extend(_repository_sense(tools))
     out.extend(_workspace_sense(nodes, tools, index))
-    out.extend(_not_built(nodes))
+    out.extend(_test_sense(nodes, str(document["limits"]["timeout"])))
     if entry in index:
         reached = {entry}
         queue = [entry]
@@ -342,22 +342,6 @@ def form_fields(schema: Any) -> dict[str, Any] | None:
     return properties
 
 
-# The fields M13 agreed, by the issue that builds each (docs/api-contract-m13.md); each issue deletes its own.
-NOT_BUILT_FIELDS: dict[str, int] = {}
-
-
-def _not_built(nodes: list[dict[str, Any]]) -> list[Problem]:
-    """Refuses the fields M13 agreed until their issue merges, as Go's notBuilt, so no run takes one it would ignore."""
-    out: list[Problem] = []
-    for i, node in enumerate(nodes):
-        for name, issue in NOT_BUILT_FIELDS.items():
-            if name in node:
-                out.append(Problem(f"/nodes/{i}/{name}", "not_built", f"{name} is not built yet (#{issue})."))
-        if node["type"] == "test":
-            out.append(Problem(f"/nodes/{i}/type", "not_built", "The test node is not built yet (#138)."))
-    return out
-
-
 def _repository_sense(tools: dict[str, dict[str, Any]]) -> list[Problem]:
     """A repository named by anything but the run's inputs is refused, as Go's repositorySense: what a run read
     must never choose where its code goes (#137)."""
@@ -405,6 +389,36 @@ def _workspace_sense(
             elif not match.group(1).startswith(("inputs.", "nodes.")):
                 out.append(Problem(f"{base}/branch", "workspace_binding", f"The branch may not read {match.group(1)}."))
     return out
+
+
+def _test_sense(nodes: list[dict[str, Any]], run_timeout: str) -> list[Problem]:
+    """A test step that would push, read a report outside the tree or outlast its run, as Go's testSense (#138)."""
+    out: list[Problem] = []
+    for i, node in enumerate(nodes):
+        if node["type"] != "test":
+            continue
+        base = f"/nodes/{i}"
+        if node["workspace"].get("access") == "write":
+            out.append(Problem(f"{base}/workspace/access", "test_node", f"{node['id']} only reads its workspace."))
+        if not node.get("reports"):
+            out.append(Problem(f"{base}/reports", "test_node", f"{node['id']} names no JUnit report."))
+        for j, report in enumerate(node.get("reports") or []):
+            parts = str(report).split("/")
+            if (
+                report.startswith("/")
+                or ".." in parts
+                or "\x00" in report
+                or not any(p not in ("", ".") for p in parts)
+            ):
+                out.append(Problem(f"{base}/reports/{j}", "test_node", f"The report {report} is not in the work tree."))
+        timeout = str(node.get("timeout") or "")
+        if timeout and _duration_s(timeout) > _duration_s(run_timeout):
+            out.append(Problem(f"{base}/timeout", "test_node", f"{node['id']} may run for {run_timeout} at most."))
+    return out
+
+
+def _duration_s(duration: str) -> float:
+    return float(duration[:-1]) * DURATION_UNITS[duration[-1]]
 
 
 def _unattended_outside_allow(tools: dict[str, dict[str, Any]]) -> list[Problem]:

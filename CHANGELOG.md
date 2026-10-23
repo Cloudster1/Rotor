@@ -42,6 +42,18 @@ and the versioning [Semantic Versioning](https://semver.org/).
   and routers read the count as `visits.<id>`, a loop with no `maxVisits` is
   saved with the warning `unbounded_loop`, the run's timeline numbers each
   visit, and the canvas and the run page draw an edge back as a loop.
+- A workflow can run the project's tests as a step and report each one
+  (#138): `type: test` with a read-only `workspace`, a `command` the test
+  tool writes its JUnit report with (`gotestsum --junitfile`, `pytest
+  --junitxml`, vitest's or node's junit reporter), the `reports` to read and
+  a `timeout`, 15 minutes unless set. Its output counts passed, failed and
+  skipped tests, names the failures and each case with the test case keys its
+  `[verifies KEY]` tags name, and keeps the end of the log; failing tests are
+  a result, while a command that cannot run, runs out of time or writes no
+  report fails the step and says why. Reports are read without following a
+  link, at most 4 MiB, and one declaring a DTD is refused. The canvas adds
+  test nodes, and the run's page says how the tests went.
+
 - A workflow step can work on a checkout of the run's branch (#136):
   `workspace: {repository, branch, image, access}` on an agent or code node.
   The runner fetches the branch at depth 1, an agent reads, searches, edits

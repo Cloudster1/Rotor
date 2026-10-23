@@ -15,6 +15,7 @@ export const EVENT_TYPES = [
   "run.finished",
   "runner.lost",
   "link.removed",
+  "test.reported",
 ];
 
 /** The states a run never leaves; a run.finished saying one of them is the stream's last event. */

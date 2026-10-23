@@ -38,6 +38,7 @@ from rotor_runner.repository import Repositories, RepositoryAccess
 from rotor_runner.spec import Spec
 from rotor_runner.telemetry import RunTracing
 from rotor_runner.templates import lookup, render, render_prompt
+from rotor_runner.testnode import tests_step
 from rotor_runner.untrusted import UntrustedResults, report_removed
 from rotor_runner.usage import UsageReporter
 from rotor_runner.workspace import Workspace, Workspaces
@@ -304,6 +305,7 @@ def compile_workflow(
         "code": lambda n: _code(n, ctx),
         "approval": lambda n: _approval(n, ctx.spec),
         "router": lambda _n: _pass,
+        "test": lambda n: tests_step(n, ctx),
     }
     joins = deferred(ctx.spec)
     for node in ctx.spec.nodes.values():

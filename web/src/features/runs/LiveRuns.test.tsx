@@ -111,6 +111,26 @@ describe("a run, live", () => {
     expect(within(timeline).getByText(s.runs.live.ended(s.runs.status.succeeded))).toBeInTheDocument();
   });
 
+  it("names a test step's kind and tells how its tests went, the failing ones by name (#138)", async () => {
+    seq = 0;
+    const tested: Run = { ...RUN, graph: { entry: "test", nodes: [{ id: "test", type: "test" }], edges: [] } };
+    await renderAt(`/runs/${RUN.id}`, { answers: { [`/api/v1/runs/${RUN.id}`]: () => Response.json(tested) } });
+    const graph = await screen.findByRole("region", { name: s.runs.live.graph });
+    send("node.started", "test", { type: "test" });
+    send("test.reported", "test", {
+      passed: 12,
+      failed: 1,
+      skipped: 2,
+      failures: [{ name: "example.com/sum > TestSubtracts/[verifies_CP-T2]_by_one", file: "example.com/sum" }],
+    });
+    send("node.finished", "test", { ok: true });
+    const timeline = screen.getByRole("region", { name: s.runs.live.timeline });
+    expect(await within(timeline).findByText(s.runs.live.tests("test", 12, 1, 2))).toBeInTheDocument();
+    const failures = within(timeline).getByRole("list", { name: s.runs.live.testFailures("test") });
+    expect(within(failures).getByRole("listitem")).toHaveTextContent("TestSubtracts/[verifies_CP-T2]_by_one (example.com/sum)");
+    await waitFor(() => expect(within(graph).getByText(`${s.canvas.types.test} . ${s.runs.live.nodeState.done}`)).toBeInTheDocument());
+  });
+
   it("numbers the visits of a node a loop runs again (#134)", async () => {
     seq = 0;
     const graph = { entry: "ask", nodes: RUN.graph?.nodes ?? [], edges: [...(RUN.graph?.edges ?? []), { from: "draft", to: "ask", label: "changes" }] };

@@ -121,3 +121,17 @@ AGENT_SLACK_S = 30
 GIT_TIMEOUT_S = 120
 # Who commits what a step wrote; the push is the run's person's, by the token it carries.
 COMMIT_AUTHOR = b"Rotor <rotor@rotor.invalid>"
+
+# Test steps (#138): how long the command runs unless the node says, the JUnit read of all reports together (the
+# control plane's config.MaxTestReport), and what the output keeps: the cases and failures it names, a name's and a
+# failure message's length, and the end of the command's output.
+TEST_DEFAULT_TIMEOUT_S = 900
+MAX_TEST_REPORT = 4 << 20
+MAX_TEST_CASES = 2000
+MAX_TEST_FAILURES = 50
+TEST_NAME_CHARS = 300
+TEST_MESSAGE_CHARS = 2000
+TEST_LOG_TAIL_CHARS = 8 << 10
+# What a failed step's reason quotes of the output, and the failures the test.reported event lists.
+TEST_REASON_TAIL_CHARS = 500
+TEST_EVENT_FAILURES = 10

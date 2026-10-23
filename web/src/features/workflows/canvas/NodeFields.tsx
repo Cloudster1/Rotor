@@ -2,7 +2,7 @@ import { useId } from "react";
 import { CANVAS_MESSAGE_ROWS, CANVAS_TEXT_ROWS } from "@/config";
 import { s } from "@/strings";
 import { ModelField } from "./ModelField";
-import { MAIN_FIELDS, type ModelRef, type NodeType, type SpecNode } from "./specDoc";
+import { LIST_FIELDS, MAIN_FIELDS, type ModelRef, type NodeType, type SpecNode } from "./specDoc";
 import { area, input, label } from "./styles";
 
 type Field = keyof typeof s.canvas.node.fields;
@@ -67,6 +67,19 @@ export function NodeFields({
                   {s.canvas.node.roleHint}
                 </span>
               )}
+            </div>
+          );
+        }
+        if (LIST_FIELDS.includes(key)) {
+          return (
+            <div key={key} className="flex flex-col gap-1">
+              <label className={label}>
+                {s.canvas.node.fields[key]}
+                <input className={`${input} font-mono`} value={value} readOnly name={name} aria-describedby={`${id}-${key}`} />
+              </label>
+              <span id={`${id}-${key}`} className="text-xs text-ink-muted">
+                {s.canvas.node.commandHint}
+              </span>
             </div>
           );
         }

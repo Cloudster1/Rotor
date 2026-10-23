@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="4" failures="2" errors="0" time="0.001880">
+	<testsuite tests="4" failures="2" skipped="1" time="0.002000" name="example.com/sum" timestamp="2026-10-22T21:28:38Z">
+		<properties>
+			<property name="go.version" value="go1.26.10 linux/amd64"></property>
+		</properties>
+		<testcase classname="example.com/sum" name="TestSubtracts/[verifies_CP-T2]_by_one" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestSubtracts/[verifies_CP-T2]_by_one&#xA;    sum_test.go:14: 2-1 = 1, want 2&#xA;--- FAIL: TestSubtracts/[verifies_CP-T2]_by_one (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="example.com/sum" name="TestSubtracts" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestSubtracts&#xA;--- FAIL: TestSubtracts (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="example.com/sum" name="TestSkipsThePasskey" time="0.000000">
+			<skipped message="=== RUN   TestSkipsThePasskey&#xA;    sum_test.go:20: no authenticator&#xA;--- SKIP: TestSkipsThePasskey (0.00s)&#xA;"></skipped>
+		</testcase>
+		<testcase classname="example.com/sum" name="TestAddsTwoNumbers_verifies_CP_T1" time="0.000000"></testcase>
+	</testsuite>
+</testsuites>

@@ -99,6 +99,22 @@ function Line({ entry, hosts }: { entry: Entry; hosts: readonly string[] }) {
       );
     case "lost":
       return <p className="text-warning">{entry.replaced ? t.replaced : t.lost}</p>;
+    case "tests":
+      return (
+        <div data-tests-reported>
+          <p className={entry.failed > 0 ? "text-danger" : ""}>{t.tests(entry.node, entry.passed, entry.failed, entry.skipped)}</p>
+          {entry.failures.length > 0 && (
+            <ul className="mt-1 flex flex-col gap-1 text-xs" aria-label={t.testFailures(entry.node)}>
+              {entry.failures.map((f) => (
+                <li key={`${f.file} ${f.name}`} className="break-words font-mono">
+                  {f.name}
+                  {f.file && <span className="text-ink-muted"> ({f.file})</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      );
     case "links": {
       const u = s.untrusted;
       const where = u.linksRemovedWhere[entry.where as keyof typeof u.linksRemovedWhere];

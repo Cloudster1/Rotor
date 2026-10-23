@@ -1,0 +1,31 @@
+# expect: /nodes/0/workspace/access test_node
+# expect: /nodes/0/reports/0 test_node
+# expect: /nodes/0/reports/1 test_node
+# expect: /nodes/0/reports/2 test_node
+# expect: /nodes/0/timeout test_node
+# expect: /nodes/1/reports test_node
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+tools:
+  repo:
+    tool: armature
+    scopes: [read]
+    access: write
+    allowTools: [list_repositories]
+    repository: {project: CP, name: acme/portal}
+limits: {maxSteps: 20, timeout: 30m}
+entry: test
+nodes:
+  - id: test
+    type: test
+    workspace: {repository: repo, branch: rotor/cp-12, image: golang-1.26, access: write}
+    command: [gotestsum, --junitfile, junit.xml, --, ./...]
+    reports: [/tmp/junit.xml, ../junit.xml, ./]
+    timeout: 2h
+  - id: again
+    type: test
+    workspace: {repository: repo, branch: rotor/cp-12, image: golang-1.26}
+    command: [go, test, ./...]
+edges:
+  - {from: test, to: again}
