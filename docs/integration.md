@@ -159,10 +159,9 @@ commit Rotor is tested against.
   - **Branches and pull requests** are Armature's MCP tools
     (Armature#332): `create_issue_branch` and `open_pull_request` write as
     the person, with `issue.write`.
-  - **Until Armature#338 and Armature#339 merge,** `deploy/suite/ARMATURE_REF`
-    and `api/tools/armature` name their head, d85bd85, and the suite does
-    not clone yet; the tool double's git proxy stands in for it, held to the
-    real git client.
+  - **Pinned at Armature main** with both (f0398bb). The suite does not clone
+    through the real proxy yet; the tool double's git proxy stands in for it
+    in the gate, held to the real git client.
 
 ### Stator
 
