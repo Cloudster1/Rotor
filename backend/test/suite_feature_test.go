@@ -107,7 +107,7 @@ func seedRealFeature(t *testing.T, alice *browser, base, project string) []strin
 	create(map[string]any{"title": "Refund", "statementMarkdown": "The shop shall refund a payment.", "place": under(feature)})
 	tests := create(map[string]any{"title": "Checkout tests", "kind": "section"})
 	tc := create(map[string]any{"title": "Pays by card", "typeId": testType, "place": under(tests), "testCase": map[string]any{
-		"preconditions": nil, "parameters": []any{}, "steps": []map[string]any{{"actionMarkdown": "Pay.", "expectedMarkdown": "Paid.", "action": nil, "expected": nil}}}})
+		"preconditions": nil, "parameters": []any{}, "steps": []map[string]any{{"actionMarkdown": "Pay.", "expectedMarkdown": "Paid."}}}})
 	if status, linked := alice.atExciter(t, base, http.MethodPost, "/requirements/"+stringOf(tc["key"])+"/links",
 		map[string]any{"otherKey": pay["key"], "typeKey": "verifies"}); status != http.StatusCreated {
 		t.Fatalf("linking the test case = %d %v", status, linked)

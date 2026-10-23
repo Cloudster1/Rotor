@@ -216,10 +216,8 @@ nodes:
               verifies = [k for k in dict.fromkeys(case["verifies"]) if k in known]
               if not verifies:
                   continue
-              steps = [{"actionMarkdown": s["action"], "expectedMarkdown": s["expected"], "action": None, "expected": None}
-                       for s in case["steps"]]
-              content = {"preconditions": None, "preconditionsMarkdown": case.get("preconditions") or "", "steps": steps,
-                         "parameters": []}
+              steps = [{"actionMarkdown": s["action"], "expectedMarkdown": s["expected"]} for s in case["steps"]]
+              content = {"preconditionsMarkdown": case.get("preconditions") or "", "steps": steps, "parameters": []}
               old, fields = existing.get(case.get("key") or ""), {"title": case["title"], "testCase": content, "comment": comment}
               if old:
                   r = ctx.call_tool("exciter-write", "update_requirement", {**fields, "reqKey": old["key"], "baseRevision": old["revision"]})

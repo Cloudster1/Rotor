@@ -1,6 +1,7 @@
 package toolstub
 
 import (
+	"cmp"
 	"encoding/json"
 	"slices"
 	"strconv"
@@ -71,8 +72,9 @@ type testCase struct {
 
 func (tc *testCase) answer() map[string]any { return tc.content }
 
-// readTestCase takes a test case's content, each text as a document or as Markdown, which Exciter keeps as both.
-func readTestCase(raw json.RawMessage) (*testCase, bool) {
+// readTestCase takes a test case's content, each text as a document or as Markdown, which Exciter keeps as both;
+// it refuses a text sent both ways, even as a null document, as Exciter's FromMarkdown does.
+func readTestCase(raw json.RawMessage) (*testCase, string) {
 	var in struct {
 		Preconditions         json.RawMessage `json:"preconditions"`
 		PreconditionsMarkdown *string         `json:"preconditionsMarkdown"`
@@ -88,15 +90,19 @@ func readTestCase(raw json.RawMessage) (*testCase, bool) {
 		} `json:"parameters"`
 	}
 	if err := json.Unmarshal(raw, &in); err != nil {
-		return nil, false
+		return nil, testCaseShape
 	}
 	content := map[string]any{"steps": []any{}, "parameters": []any{}}
-	putText(content, "preconditions", in.Preconditions, in.PreconditionsMarkdown)
-	for _, step := range in.Steps {
+	refused := putText(content, "preconditions", in.Preconditions, in.PreconditionsMarkdown)
+	for i, step := range in.Steps {
 		out := map[string]any{}
-		putText(out, "action", step.Action, step.ActionMarkdown)
-		putText(out, "expected", step.Expected, step.ExpectedMarkdown)
+		field := "steps[" + strconv.Itoa(i) + "]."
+		refused = cmp.Or(refused, putText(out, field+"action", step.Action, step.ActionMarkdown),
+			putText(out, field+"expected", step.Expected, step.ExpectedMarkdown))
 		content["steps"] = append(content["steps"].([]any), out)
+	}
+	if refused != "" {
+		return nil, refused
 	}
 	for _, p := range in.Parameters {
 		values := p.Values
@@ -105,12 +111,16 @@ func readTestCase(raw json.RawMessage) (*testCase, bool) {
 		}
 		content["parameters"] = append(content["parameters"].([]any), map[string]any{"name": p.Name, "values": values})
 	}
-	return &testCase{content: content, steps: len(in.Steps)}, true
+	return &testCase{content: content, steps: len(in.Steps)}, ""
 }
 
-// putText puts a text of a test case under name: the document given, or the Markdown's with the Markdown beside it.
-func putText(out map[string]any, name string, document json.RawMessage, markdown *string) {
+// putText puts a text of a test case under its name, the part after any steps[i].: the document given, or the
+// Markdown's with the Markdown beside it. It answers Exciter's refusal of a text sent both ways.
+func putText(out map[string]any, field string, document json.RawMessage, markdown *string) string {
+	name := field[strings.LastIndex(field, ".")+1:]
 	switch {
+	case markdown != nil && len(document) > 0:
+		return "Send the " + field + " as a document or as Markdown, not both."
 	case markdown != nil:
 		out[name], out[name+"Markdown"] = markdownDocument(*markdown), *markdown
 	case len(document) > 0 && string(document) != "null":
@@ -118,6 +128,7 @@ func putText(out map[string]any, name string, document json.RawMessage, markdown
 	default:
 		out[name] = nil
 	}
+	return ""
 }
 
 // applyType takes a requirement's type and test case from the arguments, answering what Exciter would refuse.
@@ -138,9 +149,9 @@ func (r *storedRequirement) applyType(args map[string]json.RawMessage) string {
 	case sent && role != roleTestCase:
 		return notTestCase
 	case sent:
-		tc, ok := readTestCase(raw)
-		if !ok {
-			return testCaseShape
+		tc, refused := readTestCase(raw)
+		if refused != "" {
+			return refused
 		}
 		r.testCase = tc
 	case role != roleTestCase:

@@ -115,7 +115,7 @@ func seedFeature(t *testing.T, exciter *toolStub, token string) {
 	testType := types[1].(map[string]any)["id"]
 	create(map[string]any{"projectKey": "RTR", "title": "Pays by card", "typeId": testType, "place": under(tests["id"]),
 		"testCase": map[string]any{"preconditions": nil, "parameters": []any{}, "steps": []map[string]any{
-			{"actionMarkdown": "Pay.", "expectedMarkdown": "Paid.", "action": nil, "expected": nil}}}})
+			{"actionMarkdown": "Pay.", "expectedMarkdown": "Paid."}}}})
 	mcpCall(t, exciter, token, "link_requirements", map[string]any{"reqKey": "RTR-5", "otherKey": "RTR-2", "typeKey": "verifies"})
 	mcpCall(t, exciter, token, "update_requirement", map[string]any{"reqKey": "RTR-2", "baseRevision": 1,
 		"statementMarkdown": "The shop shall take payment by card, in euros."})

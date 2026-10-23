@@ -18,8 +18,9 @@ and the versioning [Semantic Versioning](https://semver.org/).
   each round's findings going back to the coder. It opens a pull request with
   the reviewers' summary, records each test case's result in a test execution
   and comments on the issue; nothing merges by itself. The tool-stub places a
-  requirement under a section, answers `list_links` with its suspect ends, and
-  starts a repository with a fixture's files.
+  requirement under a section, answers `list_links` with its suspect ends,
+  refuses a test case's text sent both as a document and as Markdown, as
+  Exciter does, and starts a repository with a fixture's files.
 - Each agent can be its own specialist (#133): an agent node may name its
   own `model`, among those an administrator allows, a `role` put under
   Rotor's fixed rules, and its own `maxSteps`, at most the workflow's. Each
