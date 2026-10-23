@@ -1,0 +1,497 @@
+# Implements a feature specified in Exciter through reviewed, tested code (#140). A person starts it with the feature's
+# section or requirement, the section its test cases go to, and the Armature issue and repository the code goes to.
+# It designs and files the test cases, lets a coder work on the issue's branch until the tests pass and four reviewers
+# agree, and opens a pull request a person merges. No agent holds a binding that writes and reviewers never push: every
+# write is a code node's or the coder's workspace. The toolchain is node's, whose test runner needs no dependencies: set
+# image, command and reports to your project's, such as golang-1.26 and gotestsum, and models your administrators allow.
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata:
+  name: implement-feature
+  description: Designs a feature's test cases in Exciter, implements it until every reviewer agrees, and opens a pull request.
+inputs:
+  type: object
+  required: [exciterProject, featureKey, testSection, armatureProject, armatureIssue, repository]
+  properties:
+    exciterProject: { type: string, title: Exciter project, description: "The project that specifies the feature, such as RTR." }
+    featureKey: { type: string, title: Feature, description: "The section or requirement to implement, such as RTR-12." }
+    testSection: { type: string, title: Test section, description: "The section new test cases go under, such as RTR-40." }
+    testPlan: { type: string, title: Test plan, description: "The plan whose execution records the results; empty for the one holding most of the cases." }
+    armatureProject: { type: string, title: Armature project, description: "The project the issue and the repository belong to, such as CP." }
+    armatureIssue: { type: string, title: Armature issue, description: "The issue the code is written for, such as CP-12." }
+    repository: { type: string, title: Repository, description: "The repository as owner/name, as Armature lists it." }
+tools:
+  exciter-read:
+    tool: exciter
+    scopes: [mcp:read]
+    allowTools: [whoami, get_tree, get_requirement, list_links, list_types, list_test_plans]
+  exciter-write:
+    tool: exciter
+    scopes: [mcp]
+    access: write
+    allowTools: [create_requirement, update_requirement, link_requirements, start_test_execution, record_test_result, close_test_execution]
+  armature-read:
+    tool: armature
+    scopes: [read]
+    allowTools: [get_issue, get_issue_development]
+  armature-write:
+    tool: armature
+    scopes: [comment.write]
+    access: write
+    allowTools: [add_comment]
+  repo-read:
+    tool: armature
+    scopes: [read]
+    repository: { project: "{{ inputs.armatureProject }}", name: "{{ inputs.repository }}" }
+    allowTools: [list_repositories]
+  repo:
+    tool: armature
+    scopes: [read, issue.write]
+    access: write
+    repository: { project: "{{ inputs.armatureProject }}", name: "{{ inputs.repository }}" }
+    allowTools: [create_issue_branch, open_pull_request]
+limits:
+  maxSteps: 200
+  timeout: 6h
+  maxTokens: 6000000
+entry: gather
+nodes:
+  # Reads the feature's requirements in Exciter, the test cases that verify them, and which requirements changed since
+  # their test cases were last reviewed against them: a verifies link whose requirement moved on is suspect.
+  - id: gather
+    type: code
+    tools: [exciter-read, armature-read]
+    output:
+      schema:
+        type: object
+        required: [requirements, testCases, testTypeId, testSectionId, issue]
+        properties: { requirements: { type: array }, testCases: { type: array }, testTypeId: { type: string }, testSectionId: { type: string }, issue: { type: object } }
+    source: |
+      MAX_REQUIREMENTS = 50
+      BLOCKS = ("paragraph", "heading", "listItem", "codeBlock", "blockquote")
+
+
+      def text(node):
+          if isinstance(node, str):
+              return node
+          if isinstance(node, list):
+              return "".join(text(n) for n in node)
+          if isinstance(node, dict):
+              inner = node.get("text", "") + text(node.get("content", []))
+              return inner + ("\n" if node.get("type") in BLOCKS else "")
+          return ""
+
+
+      def run(state, ctx):
+          inputs = state["inputs"]
+          project, feature = inputs["exciterProject"], inputs["featureKey"]
+          types = ctx.call_tool("exciter-read", "list_types", {"projectKey": project})["types"]
+          test_types = [t["id"] for t in types if t.get("role") == "testCase" and not t.get("retired")]
+          if not test_types:
+              raise ValueError(f"{project} has no requirement type for test cases; ask its administrator to mark one as test cases.")
+          tree = ctx.call_tool("exciter-read", "get_tree", {"projectKey": project})["nodes"]
+          by_key = {n["key"]: n for n in tree}
+          if feature not in by_key:
+              raise ValueError(f"{feature} is no section or requirement of {project} you can see; check the key.")
+          section = by_key.get(inputs["testSection"])
+          if section is None or section["kind"] != "section":
+              raise ValueError(f"{inputs['testSection']} is no section of {project} you can see; name the section test cases go under.")
+          inside, keys = {by_key[feature]["id"]}, []
+          for n in tree:
+              if n["id"] in inside or n["parentId"] in inside:
+                  inside.add(n["id"])
+                  if n["kind"] == "requirement" and n.get("typeId") not in test_types:
+                      keys.append(n["key"])
+          if not keys:
+              raise ValueError(f"{feature} holds no requirement to implement.")
+          if len(keys) > MAX_REQUIREMENTS:
+              raise ValueError(f"{feature} holds {len(keys)} requirements, more than the {MAX_REQUIREMENTS} one run implements; start it for a smaller section.")
+          requirements, verifying = [], {}
+          for key in keys:
+              r = ctx.call_tool("exciter-read", "get_requirement", {"reqKey": key})["requirement"]
+              cases, changed = [], False
+              for link in ctx.call_tool("exciter-read", "list_links", {"reqKey": key})["links"]:
+                  if link["type"]["key"] == "verifies" and link["direction"] == "incoming":
+                      cases.append(link["other"]["key"])
+                      verifying.setdefault(link["other"]["key"], []).append(key)
+                      changed = changed or bool(link["suspect"])
+              requirements.append({"key": key, "revision": r["revision"], "title": r["title"],
+                                   "statement": r.get("statementMarkdown") or text(r.get("statement")).strip(),
+                                   "changed": changed or not cases, "testCases": cases})
+          test_cases = []
+          for key, verifies in verifying.items():
+              c = ctx.call_tool("exciter-read", "get_requirement", {"reqKey": key})["requirement"]
+              content = c.get("testCase") or {}
+              steps = [{"action": s.get("actionMarkdown") or text(s.get("action")).strip(),
+                        "expected": s.get("expectedMarkdown") or text(s.get("expected")).strip()} for s in content.get("steps") or []]
+              test_cases.append({"key": key, "revision": c["revision"], "title": c["title"], "verifies": verifies, "steps": steps,
+                                 "preconditions": content.get("preconditionsMarkdown") or text(content.get("preconditions")).strip()})
+          issue = ctx.call_tool("armature-read", "get_issue", {"issueKey": inputs["armatureIssue"]})["issue"]
+          return {"requirements": requirements, "testCases": test_cases, "testTypeId": test_types[0], "testSectionId": section["id"],
+                  "issue": {"key": inputs["armatureIssue"], "summary": issue.get("summary", ""),
+                            "description": text(issue.get("description")).strip()}}
+  # The test design loop: a designer drafts, a reviewer checks it, and a person decides after the third draft.
+  - id: design
+    type: agent
+    model: { name: claude-sonnet-5-5 }
+    maxSteps: 30
+    maxVisits: 3
+    onExhausted: design-decide
+    tools: [exciter-read]
+    role: |
+      You are a test designer. You write test specifications and test cases that a person or an automated test can
+      check step by step, and every requirement you are given is verified by at least one of your cases. You keep a
+      test case that still fits, and you never invent a requirement.
+    prompt: |
+      Write the test specification of the feature {{ inputs.featureKey }} and its test cases.
+
+      Its requirements; changed marks one whose test cases were not reviewed against its latest revision, or that has none: {{ nodes.gather.requirements }}
+      The test cases that verify them now: {{ nodes.gather.testCases }}
+      What the test reviewer found in your last draft, if anything: {{ nodes.design-review.findings }}
+
+      Answer the specification as a few paragraphs, and the cases: keep a fitting case out of the list, update one whose
+      requirement changed by giving its key, and add a case for every requirement not yet verified. Each case has a
+      short title, its preconditions, steps of an action and an expected result, and the keys of the requirements it
+      verifies.
+    output:
+      schema:
+        type: object
+        required: [specification, cases]
+        properties:
+          specification: { type: string }
+          cases:
+            type: array
+            maxItems: 50
+            items:
+              type: object
+              required: [title, steps, verifies]
+              properties:
+                key: { type: string }
+                title: { type: string }
+                preconditions: { type: string }
+                steps: { type: array, minItems: 1, items: { type: object, required: [action, expected], properties: { action: { type: string }, expected: { type: string } } } }
+                verifies: { type: array, minItems: 1, items: { type: string } }
+  - id: design-review
+    type: agent
+    model: { name: claude-sonnet-5-5 }
+    maxSteps: 20
+    role: |
+      You are a test reviewer. You approve a test design only when every requirement is verified by a case, and every
+      case can be checked: clear preconditions, concrete actions and expected results someone can observe.
+    prompt: |
+      Review this test design of the feature {{ inputs.featureKey }}.
+
+      The requirements: {{ nodes.gather.requirements }}
+      The test cases that verify them now: {{ nodes.gather.testCases }}
+      The specification: {{ nodes.design.specification }}
+      The new and updated cases: {{ nodes.design.cases }}
+
+      Answer approve, or changes with each finding as one sentence that says what to change.
+    output:
+      schema:
+        type: object
+        required: [verdict, findings]
+        properties: { verdict: { enum: [approve, changes] }, findings: { type: array, items: { type: string } } }
+  - id: design-verdict
+    type: router
+    on: nodes.design-review.verdict
+    cases: { approve: file-tests, changes: design }
+  - id: design-decide
+    type: approval
+    message: "The test reviewer still asks for changes after three drafts: {{ nodes.design-review.findings }} Approve to file the last draft as it is, or reject to stop the run."
+  # Files the cases as Test case requirements under the test section, each linked to what it verifies.
+  - id: file-tests
+    type: code
+    tools: [exciter-write]
+    output:
+      schema: { type: object, required: [cases], properties: { cases: { type: array }, specification: { type: string } } }
+    source: |
+      def run(state, ctx):
+          gather, design, inputs = state["nodes"]["gather"], state["nodes"]["design"], state["inputs"]
+          known = {r["key"] for r in gather["requirements"]}
+          existing = {c["key"]: c for c in gather["testCases"]}
+          comment = f"Written by Rotor for {inputs['armatureIssue']}."
+          filed = []
+          for case in design["cases"]:
+              verifies = [k for k in dict.fromkeys(case["verifies"]) if k in known]
+              if not verifies:
+                  continue
+              steps = [{"actionMarkdown": s["action"], "expectedMarkdown": s["expected"], "action": None, "expected": None}
+                       for s in case["steps"]]
+              content = {"preconditions": None, "preconditionsMarkdown": case.get("preconditions") or "", "steps": steps,
+                         "parameters": []}
+              old, fields = existing.get(case.get("key") or ""), {"title": case["title"], "testCase": content, "comment": comment}
+              if old:
+                  r = ctx.call_tool("exciter-write", "update_requirement", {**fields, "reqKey": old["key"], "baseRevision": old["revision"]})
+              else:
+                  place = {"parentId": gather["testSectionId"], "afterId": None}
+                  fields.update({"projectKey": inputs["exciterProject"], "typeId": gather["testTypeId"], "place": place})
+                  r = ctx.call_tool("exciter-write", "create_requirement", fields)
+              r = r["requirement"]
+              linked = set(old["verifies"]) if old else set()
+              for key in verifies:
+                  if key not in linked:
+                      ctx.call_tool("exciter-write", "link_requirements", {"reqKey": r["key"], "otherKey": key, "typeKey": "verifies"})
+              filed.append({"key": r["key"], "revision": r["revision"], "title": r["title"], "verifies": verifies})
+          kept = [c for c in gather["testCases"] if c["key"] not in {f["key"] for f in filed}]
+          cases = filed + [{"key": c["key"], "revision": c["revision"], "title": c["title"], "verifies": c["verifies"]} for c in kept]
+          if not cases:
+              raise ValueError("No test case verifies a requirement of the feature; start the run again for the designer to write them.")
+          return {"cases": cases, "specification": design["specification"]}
+  # The issue's branch in the repository: the one it has, or a new one off the default branch.
+  - id: branch
+    type: code
+    tools: [armature-read, repo]
+    output:
+      schema: { type: object, required: [name], properties: { name: { type: string }, created: { type: boolean } } }
+    source: |
+      def run(state, ctx):
+          issue, repository = state["inputs"]["armatureIssue"], state["inputs"]["repository"]
+          development = ctx.call_tool("armature-read", "get_issue_development", {"issueKey": issue})
+          for b in development.get("branches") or []:
+              if b.get("repository") == repository:
+                  return {"name": b["name"], "created": False}
+          made = ctx.call_tool("repo", "create_issue_branch", {"issueKey": issue, "repository": repository})["branch"]
+          return {"name": made["name"], "created": True}
+  # The implementation loop: the coder writes on the branch, the tests run, four reviewers read it side by side, and any
+  # finding sends the coder round again. Round counts the rounds; past the fifth, each further one is a person's to allow.
+  - id: round
+    type: code
+    maxVisits: 5
+    onExhausted: more
+    output:
+      schema: { type: object, required: [round], properties: { round: { type: integer } } }
+    source: |
+      def run(state, ctx):
+          return {"round": state["visits"].get("code", 0) + 1}
+  - id: more
+    type: approval
+    maxVisits: 5
+    message: "The reviewers still ask for changes after {{ visits.code }} rounds: {{ nodes.verdict.findings }} Approve to let the coder take one more round, or reject to stop; the branch keeps what was pushed."
+  - id: code
+    type: agent
+    model: { name: claude-opus-5-5 }
+    maxSteps: 150
+    workspace: { repository: repo, branch: "{{ nodes.branch.name }}", image: node-26, access: write }
+    role: |
+      You are a software engineer. You implement requirements in the repository you are given, in its own style, with
+      automated tests, and you run the tests until they pass before you finish. You name each automated test with the
+      tags of what it covers: [verifies KEY] for the Exciter test case it automates, and [implements KEY] for the
+      requirement it implements. You never weaken a test to make it pass.
+    prompt: |
+      Implement the Armature issue {{ inputs.armatureIssue }} on its branch, which is checked out for you.
+
+      The issue: {{ nodes.gather.issue }}
+      The requirements it implements: {{ nodes.gather.requirements }}
+      The test cases in Exciter, each to be automated by a test tagged with its key: {{ nodes.file-tests.cases }}
+      The rounds you had so far: {{ visits.code }}. What the reviewers found in the last one: {{ nodes.verdict.findings }}
+      The last test run's failures: {{ nodes.test.failures }}
+
+      Change the code and its tests, run the tests with run_command, and answer what you changed in a few sentences.
+  - id: test
+    type: test
+    workspace: { repository: repo-read, branch: "{{ nodes.branch.name }}", image: node-26, access: read }
+    command: [node, --test, --test-reporter=junit, --test-reporter-destination=junit.xml]
+    reports: [junit.xml]
+    timeout: 20m
+  # The four reviewers read the branch and the test run, never push, and hold no binding that writes.
+  - id: review-code
+    type: agent
+    model: { name: claude-sonnet-5-5 }
+    maxSteps: 60
+    workspace: { repository: repo-read, branch: "{{ nodes.branch.name }}", image: node-26, access: read }
+    role: |
+      You are a code reviewer. You read the code that changed and judge whether it is correct, simple and in the
+      style of the code around it, and whether its tests test what they claim. You approve only what you read.
+    prompt: |
+      Review the branch of {{ inputs.armatureIssue }}, checked out for you, for the issue {{ nodes.gather.issue }}.
+      What the coder says it changed: {{ nodes.code.text }}
+
+      Answer approve, or changes with each finding as one sentence naming the file and what to change, and a summary.
+    output:
+      schema: { type: object, required: [verdict, summary, findings], properties: { verdict: { enum: [approve, changes] }, summary: { type: string }, findings: { type: array, items: { type: string } } } }
+  - id: review-security
+    type: agent
+    model: { name: claude-sonnet-5-5 }
+    maxSteps: 60
+    workspace: { repository: repo-read, branch: "{{ nodes.branch.name }}", image: node-26, access: read }
+    role: |
+      You are a security reviewer. You look for injection, broken access control, unsafe handling of input, secrets
+      in code and dependencies that should not be there, and you approve only what you read.
+    prompt: |
+      Review the branch of {{ inputs.armatureIssue }}, checked out for you, for security problems.
+      What the coder says it changed: {{ nodes.code.text }}
+
+      Answer approve, or changes with each finding as one sentence naming the file and what to change, and a summary.
+    output:
+      schema: { type: object, required: [verdict, summary, findings], properties: { verdict: { enum: [approve, changes] }, summary: { type: string }, findings: { type: array, items: { type: string } } } }
+  - id: review-tests
+    type: agent
+    model: { name: claude-sonnet-5-5 }
+    maxSteps: 60
+    workspace: { repository: repo-read, branch: "{{ nodes.branch.name }}", image: node-26, access: read }
+    role: |
+      You are a test analyst. You read a test run and the tests behind it, and you approve only when every test case
+      is automated by a test tagged with its key, every such test passes, and none passes without checking anything.
+    prompt: |
+      Analyse the test run of the branch of {{ inputs.armatureIssue }}, whose tests are checked out for you.
+
+      The run: {{ nodes.test }}
+      The test cases each test must verify, by its [verifies KEY] tag: {{ nodes.file-tests.cases }}
+
+      Answer approve, or changes with each finding as one sentence naming the test and what to change, and a summary.
+    output:
+      schema: { type: object, required: [verdict, summary, findings], properties: { verdict: { enum: [approve, changes] }, summary: { type: string }, findings: { type: array, items: { type: string } } } }
+  - id: review-conformance
+    type: agent
+    model: { name: claude-sonnet-5-5 }
+    maxSteps: 60
+    tools: [exciter-read]
+    workspace: { repository: repo-read, branch: "{{ nodes.branch.name }}", image: node-26, access: read }
+    role: |
+      You are a requirements engineer. You check that code does what its requirements state, all of it and nothing
+      they forbid, and that each requirement is implemented where a test tagged [implements KEY] says.
+    prompt: |
+      Check the branch of {{ inputs.armatureIssue }}, checked out for you, against its requirements.
+
+      The requirements: {{ nodes.gather.requirements }}
+      The test specification: {{ nodes.file-tests.specification }}
+
+      Answer approve, or changes with each finding as one sentence naming the requirement and what is missing, and a summary.
+    output:
+      schema: { type: object, required: [verdict, summary, findings], properties: { verdict: { enum: [approve, changes] }, summary: { type: string }, findings: { type: array, items: { type: string } } } }
+  # Joins the four verdicts once all are in; a failing test or a test case no test verifies is a finding as well.
+  - id: verdict
+    type: code
+    join: all
+    output:
+      schema:
+        type: object
+        required: [verdict, reviews, findings]
+        properties: { verdict: { enum: [approve, changes] }, reviews: { type: array }, findings: { type: array, items: { type: string } } }
+    source: |
+      REVIEWERS = {"review-code": "Code review", "review-security": "Security review",
+                   "review-tests": "Test run analysis", "review-conformance": "Requirements conformance"}
+
+
+      def run(state, ctx):
+          nodes = state["nodes"]
+          reviews, findings = [], []
+          for node, name in REVIEWERS.items():
+              review = nodes.get(node) or {}
+              verdict = review.get("verdict") or "changes"
+              reviews.append({"reviewer": name, "verdict": verdict, "summary": review.get("summary") or ""})
+              findings += [f"{name}: {f}" for f in review.get("findings") or []]
+              if verdict != "approve" and not review.get("findings"):
+                  findings.append(f"{name} asks for changes without naming them; read its summary.")
+          test = nodes["test"]
+          if test["failed"]:
+              findings.append(f"Tests: {test['failed']} of {test['passed'] + test['failed']} tests fail.")
+          verified = {k for c in test["cases"] if c["result"] == "passed" for k in c.get("verifies") or []}
+          for case in nodes["file-tests"]["cases"]:
+              if case["key"] not in verified:
+                  findings.append(f"Tests: no passing test is tagged [verifies {case['key']}] for the test case {case['title']}.")
+          approved = all(r["verdict"] == "approve" for r in reviews) and not findings
+          return {"verdict": "approve" if approved else "changes", "reviews": reviews, "findings": findings}
+  - id: decide
+    type: router
+    on: nodes.verdict.verdict
+    cases: { approve: finish, changes: round }
+  # Opens the pull request, records the test results in a test execution, and says so on the issue. Nothing merges.
+  - id: finish
+    type: code
+    tools: [repo, armature-read, armature-write, exciter-read, exciter-write]
+    output:
+      schema: { type: object, required: [pullRequest, execution], properties: { pullRequest: { type: object }, execution: { type: [object, "null"] } } }
+    source: |
+      MAX_NOTE = 4000
+
+
+      def outcome(results):
+          return "failed" if "failed" in results else "passed" if "passed" in results else "skipped"
+
+
+      def pull_request(ctx, issue, repository, branch, title, body):
+          try:
+              args = {"issueKey": issue, "repository": repository, "branch": branch, "title": title, "body": body}
+              return ctx.call_tool("repo", "open_pull_request", args)["pullRequest"]
+          except Exception:
+              development = ctx.call_tool("armature-read", "get_issue_development", {"issueKey": issue})
+              found = [p for p in development.get("pullRequests") or [] if p.get("sourceBranch") == branch and p.get("state") == "open"]
+              if not found:
+                  raise
+              return found[0]
+
+
+      def execute(ctx, inputs, cases, results, version):
+          project, keys = inputs["exciterProject"], {c["key"] for c in cases}
+          plans = ctx.call_tool("exciter-read", "list_test_plans", {"projectKey": project})["plans"]
+          if inputs.get("testPlan"):
+              plans = [p for p in plans if p["title"] == inputs["testPlan"]]
+          plans.sort(key=lambda p: -len(keys & {c["key"] for c in p["cases"]}))
+          if not plans or not keys & {c["key"] for c in plans[0]["cases"]}:
+              return None
+          plan, me = plans[0], ctx.call_tool("exciter-read", "whoami", {})["user"]
+          started = ctx.call_tool("exciter-write", "start_test_execution", {
+              "projectKey": project, "planId": plan["id"], "title": f"{inputs['armatureIssue']} by Rotor"[:100],
+              "version": version, "configuration": "Automated tests in Rotor",
+              "testers": [{"subjectType": "user", "userId": me["id"], "name": me["name"]}]})["execution"]
+          counts = {"passed": 0, "failed": 0, "skipped": 0}
+          for run_case in started["cases"]:
+              key = run_case["case"]["key"]
+              if key not in results:
+                  continue
+              result = outcome([c["result"] for c in results[key]])
+              note = "Automated: " + "; ".join(f"{c['name']} {c['result']}" for c in results[key])
+              ctx.call_tool("exciter-write", "record_test_result", {"executionID": started["id"], "reqKey": key, "outcome": result,
+                                                                   "iteration": run_case["iteration"], "note": note[:MAX_NOTE]})
+              counts[result] += 1
+          ctx.call_tool("exciter-write", "close_test_execution", {"executionID": started["id"], "comment": "Recorded by Rotor."})
+          return {"id": started["id"], "plan": plan["title"], **counts}
+
+
+      def run(state, ctx):
+          inputs, nodes = state["inputs"], state["nodes"]
+          issue, branch, test = inputs["armatureIssue"], nodes["branch"]["name"], nodes["test"]
+          cases = nodes["file-tests"]["cases"]
+          results = {}
+          for c in test["cases"]:
+              for key in c.get("verifies") or []:
+                  results.setdefault(key, []).append(c)
+          rounds, tests = state["visits"]["code"], f"{test['passed']} passed, {test['failed']} failed, {test['skipped']} skipped"
+          reviews = [f"- {r['reviewer']}: {r['summary']}" for r in nodes["verdict"]["reviews"]]
+          traced = [f"- {c['key']} {c['title']}, verifying {', '.join(c['verifies'])}: "
+                    f"{outcome([x['result'] for x in results[c['key']]]) if c['key'] in results else 'no automated test'}" for c in cases]
+          body = "\n".join([f"Implements {issue}, the feature {inputs['featureKey']} of {inputs['exciterProject']} in Exciter.", "",
+                            f"Every reviewer approved it in round {rounds}:", *reviews, "", f"Tests: {tests}.", "",
+                            "Test cases in Exciter:", *traced])
+          title = f"{issue}: {nodes['gather']['issue']['summary'] or inputs['featureKey']}"[:200]
+          pr = pull_request(ctx, issue, inputs["repository"], branch, title, body)
+          execution = execute(ctx, inputs, cases, results, pr.get("headSha") or branch)
+          recorded = (f"The test execution of the plan {execution['plan']} holds {execution['passed']} passed, {execution['failed']} "
+                      f"failed and {execution['skipped']} skipped." if execution else
+                      "No test plan holds the test cases, so no test execution was recorded.")
+          lines = ["**Implemented by Rotor**", "", f"The pull request {pr['url']} implements {inputs['featureKey']}, reviewed in "
+                   f"{rounds} rounds.", "", f"Tests: {tests}.", f"Test cases: {', '.join(c['key'] for c in cases)}.", recorded, "",
+                   "Nothing is merged: review and merge the pull request in Armature."]
+          ctx.call_tool("armature-write", "add_comment", {"issueKey": issue, "bodyMarkdown": "\n".join(lines)})
+          return {"pullRequest": {"number": pr["number"], "url": pr["url"], "branch": branch}, "execution": execution}
+edges:
+  - { from: gather, to: design }
+  - { from: design, to: design-review }
+  - { from: design-review, to: design-verdict }
+  - { from: design-decide, to: file-tests }
+  - { from: file-tests, to: branch }
+  - { from: branch, to: round }
+  - { from: round, to: code }
+  - { from: more, to: code }
+  - { from: code, to: test }
+  - { from: test, to: review-code }
+  - { from: test, to: review-security }
+  - { from: test, to: review-tests }
+  - { from: test, to: review-conformance }
+  - { from: review-code, to: verdict }
+  - { from: review-security, to: verdict }
+  - { from: review-tests, to: verdict }
+  - { from: review-conformance, to: verdict }
+  - { from: verdict, to: decide }
