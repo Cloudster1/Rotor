@@ -16,8 +16,7 @@ func notBuilt(s *Spec) []Problem {
 			set   bool
 			field string
 			issue int
-		}{
-		} {
+		}{} {
 			if f.set {
 				add(base+"/"+f.field, "A node's "+f.field, f.issue)
 			}

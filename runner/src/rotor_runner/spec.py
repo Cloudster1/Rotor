@@ -343,8 +343,7 @@ def form_fields(schema: Any) -> dict[str, Any] | None:
 
 
 # The fields M13 agreed, by the issue that builds each (docs/api-contract-m13.md); each issue deletes its own.
-NOT_BUILT_FIELDS = {
-}
+NOT_BUILT_FIELDS: dict[str, int] = {}
 
 
 def _not_built(nodes: list[dict[str, Any]]) -> list[Problem]:

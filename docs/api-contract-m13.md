@@ -27,7 +27,7 @@ Conventions are M2's: paths under `/api/v1`; refusals are sentences.
   | Range | Issue | Tables |
   |---|---|---|
   | 01200-01219 | #133 | the model a run used, per node, in `run_usage` |
-  | 01220-01239 | #136 | `workspace_setting` |
+  | 01260-01279 | #136 | `workspace_setting`, numbered after #135's 01240, which merged first |
 
 - Packages: `internal/workflow/spec` and the runner's `spec.py` (every field),
   `runner/src/rotor_runner/compile.py` (models, visits, joins),
