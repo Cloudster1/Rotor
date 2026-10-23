@@ -139,7 +139,8 @@ func scalar(node *yaml.Node) (any, error) {
 		if err := node.Decode(&n); err != nil {
 			return nil, fmt.Errorf("line %d: %q is not a number JSON can hold", node.Line, node.Value)
 		}
-		f = json.Number(strconv.FormatFloat(n, 'g', -1, 64))
+		// Without an exponent, so a whole number such as a maxTokens of 6000000 still reads into an integer field.
+		f = json.Number(strconv.FormatFloat(n, 'f', -1, 64))
 		return f, nil
 	}
 	return node.Value, nil
