@@ -175,6 +175,9 @@ openbao:
 tools:
   # public=reachable pairs: a tool an administrator adds by the address a browser opens, reached by the pods at another.
   backchannel: {}
+  # The base address tools deliver webhooks to, as they reach it, such as http://r-rotor-api:8080; empty uses the
+  # ingress host, which a tool in the cluster may not reach. Shown as the hook address in the Admin page.
+  hooksURL: ""
 
 sandbox:
   # Where every run's pod runs; empty is <release namespace>-<fullname>-sandboxes, or <fullname>-sandboxes when the

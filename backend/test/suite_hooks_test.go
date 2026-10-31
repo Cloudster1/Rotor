@@ -12,6 +12,17 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// shownHookURL is the address Rotor shows an administrator for the tool, which the suite's tools must be able to reach.
+func shownHookURL(t *testing.T, admin *browser, toolID string) string {
+	t.Helper()
+	status, hook := admin.api(http.MethodGet, "/tools/"+toolID+"/hook", nil)
+	url, _ := hook["url"].(string)
+	if status != http.StatusOK || url != rotorHookFromSuite+toolID {
+		t.Fatalf("the hook address Rotor shows = %d %q, want %q", status, url, rotorHookFromSuite+toolID)
+	}
+	return url
+}
+
 // rotorHookFromSuite is where the suite's Exciter reaches Rotor's api, on the suite's network.
 const rotorHookFromSuite = "http://rotor-api:8080/api/v1/hooks/"
 
@@ -37,7 +48,7 @@ func TestSuiteExciterEventsStartATriggerAsItsOwner(t *testing.T) {
 
 	for _, version := range []int{2, 1} {
 		status, made := alice.atExciter(t, base, http.MethodPost, "/webhooks", map[string]any{"name": "Rotor " + uuid.NewString()[:8],
-			"url": rotorHookFromSuite + toolID, "topics": []string{"requirement.created"}, "projects": []string{project}, "version": version})
+			"url": shownHookURL(t, alice, toolID), "topics": []string{"requirement.created"}, "projects": []string{project}, "version": version})
 		webhook, _ := made["webhook"].(map[string]any)
 		secret, _ := webhook["secret"].(string)
 		if status != http.StatusCreated || secret == "" {

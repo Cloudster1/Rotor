@@ -213,3 +213,15 @@ func TestAnAssistantsTokenIsNotTakenForTheRealms(t *testing.T) {
 		t.Errorf("a token under another scheme = %d", resp.StatusCode)
 	}
 }
+
+func TestHookURLsUseTheAddressToolsDeliverToWhenSet(t *testing.T) {
+	s, _, _ := serviceAccountServer(t)
+	id := uuid.New()
+	if got, want := s.hookURL(id), "http://app.test"+APIPrefix+"/hooks/"+id.String(); got != want {
+		t.Errorf("without the setting = %q, want %q", got, want)
+	}
+	s.HooksBaseURL = "http://rotor-api:8080/"
+	if got, want := s.hookURL(id), "http://rotor-api:8080"+APIPrefix+"/hooks/"+id.String(); got != want {
+		t.Errorf("with the setting = %q, want %q", got, want)
+	}
+}

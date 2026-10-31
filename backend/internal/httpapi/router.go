@@ -78,6 +78,8 @@ type Server struct {
 	Secure     bool
 	// AppBaseURL is the web client's origin, which the same-site check trusts.
 	AppBaseURL string
+	// HooksBaseURL is where tools deliver webhooks, as they reach it; empty means AppBaseURL.
+	HooksBaseURL string
 	// CheckOrigin also refuses a cookie-carried write from a foreign origin;
 	// off in development, where the dev server proxies from an origin of its own.
 	CheckOrigin bool

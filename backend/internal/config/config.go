@@ -205,12 +205,16 @@ func Load() (Config, error) {
 	if c.Env != EnvDevelopment && c.OIDC.Issuer == "" {
 		l.problem("Set ROTOR_OIDC_ISSUER to the identity provider's issuer, such as https://id.example.com/realms/dynamo; it is the only way to sign in.")
 	}
+	checkTools(l, c)
 	checkOpenBao(l, c)
 	checkSandbox(l, c)
 	checkValkey(l, c)
 	checkApprovals(l, c)
 	if c.DB.AdminURL == "" {
 		c.DB.AdminURL = c.DB.URL
+	}
+	if c.Tools.HooksURL == "" {
+		c.Tools.HooksURL = c.AppBaseURL
 	}
 	if len(l.problems) > 0 {
 		return Config{}, &Error{Problems: l.problems}

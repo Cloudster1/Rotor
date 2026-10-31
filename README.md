@@ -344,6 +344,7 @@ with every problem it found listed, so an operator fixes them in one go.
 | `ROTOR_HTTP_ADDR` | `:8080` | where the api listens |
 | `ROTOR_LOG_LEVEL` | `info` | slog level |
 | `ROTOR_APP_URL` | `http://localhost:5173` | where the web client is served; writes with the session cookie must come from it |
+| `ROTOR_HOOKS_URL` | `ROTOR_APP_URL` | the base address tools deliver webhooks to, as they reach it; shown as each tool's hook address |
 | `ROTOR_CORS_ORIGINS` | none | extra origins allowed to call the API with credentials |
 | `ROTOR_TRUSTED_PROXIES` | none | addresses or CIDRs whose `X-Real-IP` is believed |
 | `ROTOR_OAUTH_FETCH_ALLOW` | none | host names or CIDRs inside the network an assistant's metadata document may be fetched from |

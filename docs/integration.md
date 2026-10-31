@@ -104,6 +104,14 @@ The account acts, and is audited, as a person of Rotor named after the client,
 `dynamo-connect@service-account.invalid`. The development realm holds the
 client; Dynamo's realm gets it with praetorianer777/Dynamo#97.
 
+The `hookURL` of a tool is built on `ROTOR_HOOKS_URL` (chart value
+`tools.hooksURL`), the base address the tools reach the api at, such as
+`http://rotor-api:8080`; the compose stack and the suite set it so. Without it
+the address is built on `ROTOR_APP_URL`, which in a compose stack is the
+browser's `http://localhost:<port>` and which a tool in another container
+cannot reach. A value that is not an absolute http or https address stops the
+start. The Admin page shows the same address.
+
 ## What Rotor checks of the tools
 
 Rotor reads a tool's `/meta` when an administrator adds it, registers it

@@ -15,6 +15,13 @@ and the versioning [Semantic Versioning](https://semver.org/).
   Rotor with sandboxes to run them, a trigger ends refused with the reason
   `runs_off` instead of retrying, `GET /api/v1/meta` reports `runs: false`, and
   the workflow page and the run dialog say so before Start is pressed.
+- Rotor shows each tool's hook address at the place tools deliver to (#181):
+  `ROTOR_HOOKS_URL`, chart value `tools.hooksURL`, names the base address the
+  tools reach the api at, and `hookURL` of `GET /api/v1/tools`, the `url` of
+  `GET /api/v1/tools/{toolID}/hook` and the Admin page use it; without it they
+  keep using `ROTOR_APP_URL`. A value that is not an absolute http or https
+  address stops the start. The compose stack and the suite set it to
+  `http://rotor-api:8080`.
 - The integration document says what Dynamo needs to run Rotor (#170): who may
   sign in, the images and memory of the stack and the chart, what an umbrella
   chart sets, and that a compose server runs without sandboxes. It follows

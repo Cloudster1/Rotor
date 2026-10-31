@@ -55,7 +55,7 @@ func armatureWebhook(t *testing.T, alice *browser, base, toolID string, topics [
 	t.Helper()
 	admin := armatureAdmin(t, base)
 	status, made := admin.atArmature(t, base, http.MethodPost, "/webhooks", map[string]any{"name": "Rotor " + uuid.NewString()[:8],
-		"url": rotorHookFromSuite + toolID, "topics": topics, "version": 1, "enabled": true})
+		"url": shownHookURL(t, alice, toolID), "topics": topics, "version": 1, "enabled": true})
 	webhook, _ := made["webhook"].(map[string]any)
 	secret, _ := webhook["secret"].(string)
 	if status != http.StatusCreated || secret == "" {

@@ -92,6 +92,10 @@ if [[ -n "${config:-}" ]] && jq -e .services <<< "$config" > /dev/null 2>&1; the
   [[ ",$(jq -r '.services.api.environment.ROTOR_TOOLS_BACKCHANNEL // ""' <<< "$config")," =~ ,http://localhost:[0-9]+=http://suite-armature-api:8080, ]] \
     && pass "the api reaches the suite's Armature at its api" \
     || fail "ROTOR_TOOLS_BACKCHANNEL does not rewrite the suite's Armature to suite-armature-api:8080"
+  # Tools deliver webhooks to the api by its name on the network, which the browser's localhost is not (#181).
+  [[ "$(jq -r '.services.api.environment.ROTOR_HOOKS_URL // ""' <<< "$config")" == http://rotor-api:8080 ]] \
+    && pass "the api shows hook addresses at rotor-api, where tools deliver" \
+    || fail "ROTOR_HOOKS_URL is not http://rotor-api:8080"
 fi
 [[ "$(tr -d '[:space:]' < "$SRC/deploy/suite/EXCITER_REF")" =~ ^[0-9a-f]{40}$ ]] \
   && pass "the suite pins Exciter to a commit" || fail "deploy/suite/EXCITER_REF is not a full commit hash"

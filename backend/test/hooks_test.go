@@ -103,7 +103,8 @@ func TestAToolsSignedEventsQueueTheTriggersTheyMatch(t *testing.T) {
 		t.Errorf("a member reads the hook with %d", status)
 	}
 	status, hook := alice.api(http.MethodGet, "/tools/"+toolID+"/hook", nil)
-	if status != http.StatusOK || hook["secretSet"] != false || hook["product"] != "Exciter" || !strings.HasSuffix(hook["url"].(string), "/api/v1/hooks/"+toolID) {
+	// The stack sets ROTOR_HOOKS_URL to the api's name on its network, which tools reach and the browser's localhost is not.
+	if status != http.StatusOK || hook["secretSet"] != false || hook["product"] != "Exciter" || hook["url"] != "http://rotor-api:8080/api/v1/hooks/"+toolID {
 		t.Fatalf("the hook reads %d %v", status, hook)
 	}
 	if status, _ := deliver(t, toolID, "Exciter", "exciter_whs_none", envelope("e0", "requirement.created", draft), now, "1", nil); status != http.StatusNotFound {
