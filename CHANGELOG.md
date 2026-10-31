@@ -411,6 +411,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Signing in to Rotor accepts return addresses only on localhost and 127.0.0.1
+  themselves; `http://localhost*` also let in hosts that merely start with
+  them, such as `localhost.example`. The realm matches Dynamo's again, so
+  `make realm-check` passes (#166).
 - A workflow with a `maxTokens` of a million or more is saved; such a number
   was written with an exponent on its way into the spec, and refused.
 - The run page draws every node of its graph when the run's events arrive in

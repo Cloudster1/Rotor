@@ -160,8 +160,10 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "redirectUris": [
-        "http://localhost*",
-        "http://127.0.0.1*",
+        "http://localhost:*",
+        "http://localhost/*",
+        "http://127.0.0.1:*",
+        "http://127.0.0.1/*",
         "http://web/*"
       ],
       "webOrigins": [
@@ -217,8 +219,10 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "redirectUris": [
-        "http://localhost*",
-        "http://127.0.0.1*",
+        "http://localhost:*",
+        "http://localhost/*",
+        "http://127.0.0.1:*",
+        "http://127.0.0.1/*",
         "http://web/*"
       ],
       "webOrigins": [
@@ -287,8 +291,10 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "redirectUris": [
-        "http://localhost*",
-        "http://127.0.0.1*",
+        "http://localhost:*",
+        "http://localhost/*",
+        "http://127.0.0.1:*",
+        "http://127.0.0.1/*",
         "http://web/*"
       ],
       "webOrigins": [
@@ -358,8 +364,10 @@
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": true,
       "redirectUris": [
-        "http://localhost*",
-        "http://127.0.0.1*",
+        "http://localhost:*",
+        "http://localhost/*",
+        "http://127.0.0.1:*",
+        "http://127.0.0.1/*",
         "http://web/*"
       ],
       "webOrigins": [

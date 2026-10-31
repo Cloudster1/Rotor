@@ -207,3 +207,6 @@ Adapted from Exciter at 3b340ca, its client ID metadata documents (#114):
 - backend/internal/oauth/documents.go: HTTPFetcher, keepFor, IsMetadataClientID and fetchClient of clients.go
 - backend/migrations/01010_oauth_client_documents.sql: kind and fresh_until of 00800_oauth.sql, added to Rotor's table
 - backend/test/oauth_documents_test.go: TestAClientIsKnownByItsMetadataDocument, against an api in the test's process
+
+Adapted from Dynamo (https://github.com/praetorianer777/Dynamo) at 76d7ab1, its realm test:
+- tests/test-stack.sh: the check that every return address ends its host before a wildcard, of tests/test-realm.sh
