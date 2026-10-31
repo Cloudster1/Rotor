@@ -100,6 +100,7 @@ may not see is 404; refusals are sentences.
   | `connection_lost` | a binding of the current version has no live connection of the owner's |
   | `tool_removed` | the event trigger's tool was removed |
   | `workflow_archived` | the workflow was archived |
+  | `runs_off` | the installation runs no sandboxes, so no run can start |
   | `workflow_hidden` | the owner no longer sees the workflow |
   | `unattended_write` | the current version may write without an approval |
   | `inputs_refused` | the current version's inputs schema refuses the trigger's inputs |

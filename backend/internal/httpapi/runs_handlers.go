@@ -36,6 +36,8 @@ const idempotencyHeader = "Idempotency-Key"
 var (
 	errRunsUnavailable = &APIError{Status: http.StatusServiceUnavailable, Code: "runs_unavailable",
 		Message: "Runs are not set up on this installation. An operator connects Rotor to OpenBao and starts its worker."}
+	errRunsOff = &APIError{Status: http.StatusConflict, Code: "runs_off",
+		Message: "This installation runs no workflows. An administrator installs Rotor with sandboxes (the chart) to run them."}
 	errRunNotFound   = ErrNotFound("There is no such run, or you may not see it.")
 	errNotRunManager = &APIError{Status: http.StatusForbidden, Code: "not_run_manager",
 		Message: "Only the person who started the run, its workflow's owner or an administrator may cancel it. To stop it, reject its approval."}
@@ -108,6 +110,8 @@ func runError(err error) error {
 		return errKeyReused
 	case errors.Is(err, runs.ErrArchived):
 		return errNoRunsOfArchived
+	case errors.Is(err, runs.ErrNoSandboxes):
+		return errRunsOff
 	}
 	return workflowError(err)
 }

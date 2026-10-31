@@ -1223,7 +1223,7 @@ export interface paths {
         put?: never;
         /**
          * Start a run of a workflow as yourself.
-         * @description An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have).
+         * @description An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false.
          */
         post: operations["startRun"];
         delete?: never;
@@ -1598,6 +1598,7 @@ export interface components {
             build: components["schemas"]["BuildInfo"];
             capabilities: string[];
             product: string;
+            runs: boolean;
         };
         MissingCapability: {
             capability: string;
@@ -1983,7 +1984,7 @@ export interface components {
             at: string;
             message: string;
             /** @enum {string} */
-            reason: "owner_switched_off" | "connection_lost" | "tool_removed" | "workflow_archived" | "workflow_hidden" | "unattended_write" | "inputs_refused" | "unattended_widened" | "unattended_forbidden";
+            reason: "owner_switched_off" | "connection_lost" | "tool_removed" | "workflow_archived" | "workflow_hidden" | "unattended_write" | "inputs_refused" | "unattended_widened" | "unattended_forbidden" | "runs_off";
         };
         TriggerFire: {
             /** Format: date-time */

@@ -76,7 +76,7 @@ var m2Operations = []operation{
 	{method: "POST", path: "/workflows/{workflowID}/runs", handler: "handleStartRun", tool: "start_run",
 		toolHelp: "Start a run of a workflow as the person you act for, with its inputs. Runs act in the tools with the person's own permissions and may write to them; one waits at an approval until a person decides it in Rotor. Send a new idempotencyKey for each run, and the same one to retry.", destructive: true, openWorld: true, tag: "runs",
 		summary:     "Start a run of a workflow as yourself.",
-		description: "An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have).",
+		description: "An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false.",
 		request:     startRunRequest{},
 		headers: []param{{name: idempotencyHeader, arg: "idempotencyKey",
 			description: "Any text of at most 200 characters, new for each run; a retry sends the same."}},
