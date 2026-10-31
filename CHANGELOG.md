@@ -9,6 +9,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The integration document says what Dynamo needs to run Rotor (#170): who may
+  sign in, the images and memory of the stack and the chart, what an umbrella
+  chart sets, and that a compose server runs without sandboxes. It follows
+  Dynamo's compatibility rules and the shared promise of `mcp@1`.
 - A feature specified in Exciter can be implemented through reviewed, tested
   code (#140): `examples/implement-feature.yaml`, started by a person, reads
   the feature's requirements and which of them changed, lets a test designer

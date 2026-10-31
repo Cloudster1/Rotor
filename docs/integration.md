@@ -19,6 +19,11 @@ The list is sorted. Paths below are under `/api/v1`, spelled as in
 [`api/openapi.json`](../api/openapi.json). Every operation takes a session
 unless the document marks it public.
 
+The names and what each promises belong to the suite, in Dynamo's
+[`docs/compatibility.md`](https://github.com/praetorianer777/Dynamo/blob/main/docs/compatibility.md)
+(Dynamo#4); this page says what Rotor does with them and what Dynamo needs to
+run Rotor ([below](#what-dynamo-needs-to-run-rotor)).
+
 ## What Rotor offers
 
 ### `workflows@1`
@@ -58,6 +63,12 @@ administrator keeps the secret the tool made for Rotor.
   `DELETE /tools/{toolID}/hook`
 
 ### `mcp@1`
+
+The name has one promise, shared by Exciter, Armature and Rotor (Stator will,
+praetorianer777/Stator#600): the tool serves its own operations as MCP tools
+(MCP 2025-11-25 or 2025-06-18) at `POST /mcp`, behind its OAuth, so an
+assistant works as the person whose token it holds. Which operations those are
+is each tool's `tools/list`, not part of the name. Rotor's are below.
 
 An assistant works with workflows, runs and approvals over MCP 2025-11-25 or
 2025-06-18, as the person who connected it through Rotor's own OAuth
@@ -166,7 +177,8 @@ commit Rotor is tested against.
 ### Stator
 
 Stator offers `webhooks@1`, but neither `mcp@1` nor partner OAuth yet
-(Stator#449), so Rotor cannot add it (#105).
+(Stator#449). `mcp@1` is coming (praetorianer777/Stator#600); until it ships
+Rotor cannot add Stator (#105).
 
 ## Tested against the siblings
 
@@ -198,12 +210,82 @@ Stator offers `webhooks@1`, but neither `mcp@1` nor partner OAuth yet
   operations above, a field a partner reads, or a meaning, makes the
   capability `runs@2`. The old name is still reported beside the new one, and
   still kept, for at least one Dynamo release.
-- **The list is shared.** The names and what each promises belong in one list
-  in the Dynamo repository (Dynamo#4, not written yet). A tool may only report
-  names from it; this page follows it once it is there.
+- **The list is shared.** The names and what each promises are one list in
+  Dynamo's `docs/compatibility.md` (Dynamo#4). A tool may only report names
+  from it, and a new name is added there before any tool reports it; this page
+  follows it.
 - **The build is held to it.** The list lives in
   `backend/internal/httpapi/capabilities.go`. A unit test refuses a capability
   naming an operation the operations table does not have, or one only agreed
   and not built, and another refuses a name that is not `name@version` or is
   listed twice. What Rotor needs of the tools lives in
   `backend/internal/tools/needs.go`.
+
+## What Dynamo needs to run Rotor
+
+Rotor is not one of the three tools Dynamo pins in `versions.yaml`; it has not
+released yet (#167). This is what Dynamo needs to know to install and size it.
+
+**Who may sign in.** Rotor signs people in through the shared realm `dynamo`.
+Everyone in that realm may sign in, and membership of the realm group
+`rotor-administrators` makes an administrator. That realm membership is all the
+access Rotor has until #161 adds an allow-list.
+
+**Images and memory.** The compose stack (`make up`) runs eight images:
+`rotor-backend` (the api, the worker, the migrate job and the tool stub),
+`rotor-web`, `rotor-runner`, `rotor-agent` (the workspace exec agent, started
+with a run, not a service), and Postgres 18, Valkey 8, OpenBao 2.7.1 and
+Keycloak 26.2. `docker stats --no-stream` after `make up` had settled showed
+about 810 MiB across its nine running containers, Keycloak 590 MiB of it, the
+second OpenBao (`openbao-sealed`, for the sealed-start test) 75 MiB and
+Postgres 74 MiB; the api and the worker each under 10 MiB until a run starts.
+Allow 1 GiB for the stack, and for the gate's own builds more.
+
+The chart (`deploy/charts/rotor/values.yaml`) installs the backend image twice
+over (api, worker) and the web image, plus the migrate, roles, secrets and
+OpenBao hook Jobs, which run before an upgrade and then end. At its defaults
+(2 api, 1 worker, 2 web) it requests 384 MiB and is limited to 1536 MiB:
+
+| Part | Replicas | Requests | Limits |
+|---|---|---|---|
+| api | 2 | 128 MiB, 100m | 512 MiB |
+| worker | 1 | 64 MiB, 50m | 256 MiB |
+| web | 2 | 32 MiB, 20m | 128 MiB |
+
+The trial values (`values-trial.yaml`) run one api and one web beside a bundled
+Postgres (256 MiB requested, 1 GiB limit) and Valkey (32 MiB, 256 MiB):
+512 MiB requested, 2176 MiB limited. Postgres, Valkey, OpenBao and Keycloak are
+otherwise the installer's. Sandboxes are counted apart: each run is a pod, and
+a run with workspace steps adds one toolchain container per image that
+defaults to 3072 MiB and 2000m (`sandbox.workspaces.toolchain`, #136), so size
+the sandbox namespace for the runs allowed at once, not for the chart.
+
+**What an umbrella chart sets.** Dynamo's chart sets, for Rotor:
+
+- `openbao.addr`, the OpenBao Rotor shares or is given, and `openbao.configure.enabled`
+  with `openbao.configure.tokenSecret.name` (key `token`) naming a Secret that
+  holds a token allowed to configure OpenBao
+- the OpenBao that token belongs to needs an audit device declared in its own
+  server configuration (the init script refuses one without, and its token must
+  be allowed `sudo` on `sys/audit`), and, when it runs in the cluster, the
+  ClusterRole `system:auth-delegator` on its ServiceAccount so it can review the
+  api's and the worker's tokens ([`docs/deployment.md`](deployment.md))
+- `ingress.host`, which the session cookie and the same-site check derive from,
+  with `oidc.issuer` and the Secret `oidc.clientSecret`
+- `sandbox.egress.openbao` (`namespace` and `podLabels`, or `cidr`), so
+  sandboxes reach OpenBao, and `sandbox.egress.hosts` with `cilium: true`, or
+  `cidrs`, for the tools
+- the gVisor RuntimeClass `sandbox.runtimeClass` (`gvisor` by default), which
+  the cluster must have; without it sandboxes do not start unless
+  `sandbox.allowRunc` says so, which production refuses
+
+**Sandboxes in a compose server.** The Docker sandbox backend
+(`ROTOR_SANDBOX_BACKEND=docker`) hands the worker the host's Docker daemon, so
+it is for development only and the configuration refuses it outside
+`development`. A server that runs Rotor from compose therefore runs it
+without sandboxes, `ROTOR_SANDBOX_BACKEND` empty. The api then still answers a
+run start with 201 and the run `queued`, since it needs OpenBao and not a
+backend; the worker, which would carry the run, does not start and exits with
+"ROTOR_SANDBOX_BACKEND is not set, so the worker has nowhere to start
+sandboxes; set it to kubernetes, or docker in development". The person starting
+the run is told nothing: the run stays queued.
