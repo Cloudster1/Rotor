@@ -107,6 +107,7 @@ func run() error {
 		CookieName:      cfg.Auth.SessionCookie,
 		Secure:          cfg.Auth.SecureCookies,
 		AppBaseURL:      cfg.AppBaseURL,
+		HooksBaseURL:    cfg.Tools.HooksURL,
 		CheckOrigin:     cfg.IsProduction(),
 		RequestTimeout:  cfg.RequestTimeout,
 		TrustedProxies:  cfg.TrustedProxies,

@@ -66,8 +66,11 @@ Rotor connects them once.
 
 1. In Rotor, open **Settings**, find the tool under **Tools**, and copy the
    **Webhook address** shown under **Events**. It is
-   `<Rotor's address>/api/v1/hooks/<tool id>`, and the tool must be able to
-   reach it.
+   `<hooks address>/api/v1/hooks/<tool id>`, and the tool must be able to
+   reach it. The hooks address is `ROTOR_HOOKS_URL` (chart value
+   `tools.hooksURL`), the address tools reach Rotor's api at, such as
+   `http://rotor-api:8080` in a compose stack; without it, Rotor's own address
+   `ROTOR_APP_URL`.
 2. In the tool, add a webhook with that address:
 
    | Tool | Where | Notes |

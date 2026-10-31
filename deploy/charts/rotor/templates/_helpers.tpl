@@ -205,6 +205,9 @@ ROTOR_OPENBAO_MOUNT: {{ .Values.openbao.mount | quote }}
 {{- with include "rotor.rewrites" .Values.tools.backchannel }}
 ROTOR_TOOLS_BACKCHANNEL: {{ . | quote }}
 {{- end }}
+{{- with .Values.tools.hooksURL }}
+ROTOR_HOOKS_URL: {{ . | quote }}
+{{- end }}
 ROTOR_SANDBOX_BACKEND: kubernetes
 ROTOR_SANDBOX_IMAGE: {{ include "rotor.image" (dict "root" . "name" "runner") | quote }}
 ROTOR_SANDBOX_STACK: {{ .Release.Name | quote }}

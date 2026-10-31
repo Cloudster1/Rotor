@@ -18,7 +18,7 @@ func clean(t *testing.T) {
 		"ROTOR_DB_CONN_MAX_LIFETIME", "ROTOR_OIDC_ISSUER", "ROTOR_OIDC_CLIENT_ID", "ROTOR_OIDC_CLIENT_SECRET",
 		"ROTOR_OIDC_REDIRECT_URL", "ROTOR_SESSION_TTL", "ROTOR_SECURE_COOKIES", "ROTOR_OPENBAO_ADDR",
 		"ROTOR_OPENBAO_ROLE", "ROTOR_OPENBAO_MOUNT", "ROTOR_CONTROL_PLANE_CLIENT_ID", "ROTOR_CONTROL_PLANE_CLIENT_SECRET",
-		"ROTOR_TOOLS_BACKCHANNEL", "ROTOR_SANDBOX_BACKEND", "ROTOR_SANDBOX_NETWORK", "ROTOR_SANDBOX_STACK", "ROTOR_VALKEY_URL",
+		"ROTOR_TOOLS_BACKCHANNEL", "ROTOR_HOOKS_URL", "ROTOR_SANDBOX_BACKEND", "ROTOR_SANDBOX_NETWORK", "ROTOR_SANDBOX_STACK", "ROTOR_VALKEY_URL",
 		"ROTOR_SANDBOX_ALLOW_RUNC", "ROTOR_OPENBAO_AUTH", "ROTOR_RUNNER_HOST", "ROTOR_RUNNER_DIAL",
 	} {
 		t.Setenv(key, "")
@@ -309,5 +309,24 @@ func TestTheOAuthFetchAllowListIsReadAsGiven(t *testing.T) {
 	t.Setenv("ROTOR_OAUTH_FETCH_ALLOW", " assistants.corp, 10.20.0.0/16 ")
 	if c, err := Load(); err != nil || c.OAuthFetchAllow != "assistants.corp, 10.20.0.0/16" {
 		t.Fatalf("the allow list is %q, %v", c.OAuthFetchAllow, err)
+	}
+}
+
+func TestHooksURLDefaultsToTheAppURLAndRefusesWhatIsNotAnAddress(t *testing.T) {
+	clean(t)
+	t.Setenv("ROTOR_APP_URL", "http://localhost:30040")
+	c, err := Load()
+	if err != nil || c.Tools.HooksURL != "http://localhost:30040" {
+		t.Fatalf("default hooks URL = %q, %v", c.Tools.HooksURL, err)
+	}
+	t.Setenv("ROTOR_HOOKS_URL", "http://rotor-api:8080/")
+	if c, err = Load(); err != nil || c.Tools.HooksURL != "http://rotor-api:8080" {
+		t.Fatalf("hooks URL = %q, %v", c.Tools.HooksURL, err)
+	}
+	for _, bad := range []string{"rotor-api:8080", "ftp://rotor-api", "/api", "http://"} {
+		t.Setenv("ROTOR_HOOKS_URL", bad)
+		if _, err := Load(); err == nil || !strings.Contains(err.Error(), "ROTOR_HOOKS_URL") {
+			t.Errorf("%q: err = %v, want one naming ROTOR_HOOKS_URL", bad, err)
+		}
 	}
 }

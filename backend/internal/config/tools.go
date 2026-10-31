@@ -1,6 +1,11 @@
 package config
 
-import "time"
+import (
+	"fmt"
+	"net/url"
+	"strings"
+	"time"
+)
 
 // How Rotor talks to the tools it connects people to; docs/api-contract-m1.md has the flow.
 const (
@@ -25,10 +30,26 @@ const (
 type Tools struct {
 	// Backchannel maps a tool's public origin to one this process reaches, as public=reachable pairs.
 	Backchannel string
+	// HooksURL is the base address tools deliver webhooks to; empty until Load falls back to the app URL.
+	HooksURL string
 }
 
 func loadTools(l *loader) Tools {
-	return Tools{Backchannel: l.str("ROTOR_TOOLS_BACKCHANNEL", "")}
+	return Tools{
+		Backchannel: l.str("ROTOR_TOOLS_BACKCHANNEL", ""),
+		HooksURL:    strings.TrimSuffix(l.str("ROTOR_HOOKS_URL", ""), "/"),
+	}
+}
+
+// checkTools refuses a hooks address no tool could deliver to.
+func checkTools(l *loader, c Config) {
+	if c.Tools.HooksURL == "" {
+		return
+	}
+	u, err := url.Parse(c.Tools.HooksURL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		l.problem(fmt.Sprintf("ROTOR_HOOKS_URL is %q; set it to an absolute http or https address, such as http://rotor-api:8080.", c.Tools.HooksURL))
+	}
 }
 
 // ConnectionCallbackURL is the one redirect URI Rotor registers at every tool.
