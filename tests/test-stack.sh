@@ -115,6 +115,12 @@ done
 echo "== keycloak realm"
 [[ "$(jq -r .realm "$REALM")" == dynamo ]] && pass "the realm is dynamo" || fail "the realm is not dynamo"
 
+# Keycloak matches a trailing wildcard as a plain prefix, so one inside the host lets in any host that merely
+# starts with it, such as localhost.example; Dynamo's realm test refuses it, Rotor's own clients included.
+loose="$(grep -noE '"https?://[^/:"]*\*"' "$REALM" || true)"
+[[ -z "$loose" ]] && pass "every return address ends its host before a wildcard" \
+  || fail "the realm has a wildcard inside a host, which admits any host that starts the same: $(paste -sd' ' <<< "$loose"); write it as http://localhost:* and http://localhost/*."
+
 # Armature's sign-in sends no PKCE challenge yet, so its client asks for none.
 for id in rotor exciter stator armature; do
   want=$'S256\t1'
