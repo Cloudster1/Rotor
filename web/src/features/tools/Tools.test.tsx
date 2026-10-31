@@ -17,6 +17,7 @@ const EXCITER: Tool = {
   baseURL: "https://exciter.test",
   resource: "https://exciter.test/api/v1/mcp",
   mcpURL: "https://exciter.test/api/v1/mcp",
+  hookURL: "https://rotor.test/api/v1/hooks/0190a5c4-0000-7000-8000-0000000000e1",
   issuer: "https://exciter.test",
   capabilities: ["mcp@1", "webhooks@2"],
   missing: [],

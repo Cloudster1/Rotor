@@ -147,6 +147,12 @@
       "clientRoles": {
         "realm-management": ["view-users"]
       }
+    },
+    {
+      "username": "service-account-dynamo-connect",
+      "enabled": true,
+      "serviceAccountClientId": "dynamo-connect",
+      "groups": ["/rotor-administrators"]
     }
   ],
   "clients": [
@@ -428,6 +434,49 @@
           "consentRequired": false,
           "config": {
             "included.custom.audience": "openbao",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "dynamo-connect",
+      "name": "Dynamo connect",
+      "description": "Wires the suite unattended: adds the tools to Rotor and hands it their webhook secrets.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "dynamo-connect-dev-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "defaultClientScopes": [
+        "basic"
+      ],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "false",
+            "claim.name": "groups",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "rotor audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "rotor",
             "access.token.claim": "true",
             "id.token.claim": "false",
             "introspection.token.claim": "true"

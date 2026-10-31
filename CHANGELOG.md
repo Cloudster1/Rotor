@@ -17,6 +17,15 @@ and the versioning [Semantic Versioning](https://semver.org/).
   api answers to `rotor-api` on the stack's network, the realm's `rotor` client
   sends logouts to `http://rotor-api:8080/...` as Dynamo's realm does, and
   `make realm-check` now compares the whole realm with Dynamo's (#109).
+- A service account of the realm can add tools and hand Rotor their webhook
+  secrets (#168), so the suite's `dynamo-connect` wires Rotor to Stator,
+  Armature and Exciter unattended. `GET` and `POST /api/v1/tools` and `GET`
+  and `PUT /api/v1/tools/{toolID}/hook` take an access token of the realm whose
+  audience holds `rotor` and whose groups hold `rotor-administrators`; a token
+  missing any of that is refused in a sentence that says what, every other
+  route refuses it, and what it changes is audited as the service account.
+  Each tool now shows its `hookURL`, and the development realm has the client
+  `dynamo-connect`.
 - A feature specified in Exciter can be implemented through reviewed, tested
   code (#140): `examples/implement-feature.yaml`, started by a person, reads
   the feature's requirements and which of them changed, lets a test designer

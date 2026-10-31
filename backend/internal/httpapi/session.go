@@ -57,6 +57,9 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 		case errors.Is(err, auth.ErrNoSession), errors.Is(err, oauth.ErrInvalidToken):
 			if !bearer {
 				s.clearSessionCookie(w)
+			} else if !oauth.IsAccessToken(credential) {
+				// A token that is not Rotor's own may be the realm's, which only the serviceAccount routes check.
+				ctx = withRealmToken(ctx, credential)
 			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		case errors.Is(err, auth.ErrSwitchedOff):
@@ -89,10 +92,15 @@ func forgetCaller(ctx context.Context) context.Context {
 	return db.WithVia(db.WithUser(auth.WithPrincipal(ctx, nil), uuid.Nil), uuid.Nil)
 }
 
-// requireAuth refuses a request nobody is signed in for.
+// requireAuth refuses a request nobody is signed in for, and a realm's token where it is not taken in a sentence
+// naming where it is.
 func requireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if auth.PrincipalFrom(r.Context()) == nil {
+			if realmTokenFrom(r.Context()) != "" {
+				respondError(w, r, errSessionCookieOnly())
+				return
+			}
 			respondError(w, r, ErrUnauthorized(""))
 			return
 		}

@@ -1958,6 +1958,7 @@ export interface components {
             addedAt: string;
             baseURL: string;
             capabilities: string[];
+            hookURL: string;
             id: string;
             issuer: string;
             mcpURL: string;

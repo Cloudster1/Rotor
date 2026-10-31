@@ -135,6 +135,13 @@ the transaction's `app.via` with the grant, and the database stamps the
 assistant on every audit entry and refuses an approval decided through one.
 The worker's sweep removes what ran out.
 
+A bearer token that is not Rotor's own is kept aside for the four routes the
+operations table marks `serviceAccount` (#168): there `serviceAccount` checks
+it against the realm's key set, issuer, audience, expiry and the
+administrators' group (`internal/oidc/accesstoken.go`), and lets in the
+account it names as a sign-in would, without a session. Everywhere else
+`requireAuth` refuses it.
+
 ## Workflows (#14, #15)
 
 A workflow is YAML checked by `internal/workflow/spec`; `internal/workflows`

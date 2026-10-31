@@ -15,9 +15,9 @@ func init() {
 
 var m1Operations = []operation{
 	// The tools Rotor knows and is registered with as an OAuth client (#9).
-	{method: "GET", path: "/tools", handler: "handleListTools", tag: "tools",
+	{method: "GET", path: "/tools", handler: "handleListTools", tag: "tools", serviceAccount: true,
 		summary: "The tools Rotor can act in, with what each offers.", responses: ok(env{"tools": []toolResponse{}})},
-	{method: "POST", path: "/tools", handler: "handleAddTool", tag: "tools", admin: true,
+	{method: "POST", path: "/tools", handler: "handleAddTool", tag: "tools", admin: true, serviceAccount: true,
 		summary: "Add a tool by its address; Rotor registers itself there as an OAuth client.",
 		description: "Reads the tool's /api/v1/meta, which must offer mcp@1, then its protected resource and " +
 			"authorization server metadata (RFC 9728, RFC 8414), and registers by RFC 7591 unless a client is given. " +
@@ -94,7 +94,9 @@ type toolResponse struct {
 	// Resource is what tokens are asked for (RFC 8707): the MCP endpoint, or the API holding it.
 	Resource string `json:"resource"`
 	// MCPURL is where workflows call the tool's MCP server.
-	MCPURL       string   `json:"mcpURL"`
+	MCPURL string `json:"mcpURL"`
+	// HookURL is where the tool's webhook for Rotor points; GET /tools/{toolID}/hook says whether Rotor holds its secret.
+	HookURL      string   `json:"hookURL"`
 	Issuer       string   `json:"issuer"`
 	Capabilities []string `json:"capabilities"`
 	// Missing is what Rotor needs that the tool does not offer; empty for a tool that offers it all.

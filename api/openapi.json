@@ -3351,7 +3351,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "realmToken": []
+          }
+        ]
       },
       "post": {
         "operationId": "addTool",
@@ -3457,7 +3465,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "realmToken": []
+          }
+        ]
       }
     },
     "/tools/{toolID}": {
@@ -3979,7 +3995,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "realmToken": []
+          }
+        ]
       },
       "put": {
         "operationId": "setHookSecret",
@@ -4060,7 +4084,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "realmToken": []
+          }
+        ]
       }
     },
     "/triggers": {
@@ -7882,6 +7914,9 @@
               "type": "string"
             }
           },
+          "hookURL": {
+            "type": "string"
+          },
           "id": {
             "type": "string"
           },
@@ -7931,6 +7966,7 @@
           "baseURL",
           "resource",
           "mcpURL",
+          "hookURL",
           "issuer",
           "capabilities",
           "missing",
@@ -8490,6 +8526,20 @@
           "maxStepTime",
           "maxVolume"
         ]
+      }
+    },
+    "securitySchemes": {
+      "realmToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "An access token of the realm Rotor signs in with, whose audience holds Rotor's client and whose groups hold rotor-administrators, such as a service account's from client credentials."
+      },
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "rotor_session",
+        "description": "The session a sign-in through the suite's identity provider opens."
       }
     }
   }

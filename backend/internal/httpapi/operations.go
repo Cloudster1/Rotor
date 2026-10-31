@@ -54,6 +54,8 @@ type operation struct {
 	destructive, openWorld bool
 	// reads marks a POST that changes nothing, such as a check, so a grant made to read may call it.
 	reads bool
+	// serviceAccount routes also take an access token of the realm, of an account in rotor-administrators (#168).
+	serviceAccount bool
 }
 
 // operations is the table, by area, then by path.

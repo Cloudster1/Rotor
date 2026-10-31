@@ -12,10 +12,10 @@ func init() {
 }
 
 var m6HookOperations = []operation{
-	{method: "GET", path: "/tools/{toolID}/hook", handler: "handleGetHook", tag: "hooks", admin: true,
+	{method: "GET", path: "/tools/{toolID}/hook", handler: "handleGetHook", tag: "hooks", admin: true, serviceAccount: true,
 		summary:   "Where the tool delivers its events, and whether Rotor holds the secret it signs them with.",
 		responses: map[int]any{http.StatusOK: hookResponse{}, http.StatusNotFound: notFound}},
-	{method: "PUT", path: "/tools/{toolID}/hook", handler: "handleSetHookSecret", tag: "hooks", admin: true,
+	{method: "PUT", path: "/tools/{toolID}/hook", handler: "handleSetHookSecret", tag: "hooks", admin: true, serviceAccount: true,
 		summary:     "Keep the secret the tool made for Rotor's webhook, in OpenBao.",
 		description: "The tool shows the secret once, when its administrator adds the webhook or turns the secret over; paste it here right then.",
 		request:     hookSecretRequest{},
