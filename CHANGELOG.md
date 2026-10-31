@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- An installation that runs no sandboxes, such as Dynamo's compose server,
+  refuses to start a run (#178): the api answers 409 `runs_off` with a
+  sentence that says it runs no workflows and that an administrator installs
+  Rotor with sandboxes to run them, a trigger ends refused with the reason
+  `runs_off` instead of retrying, `GET /api/v1/meta` reports `runs: false`, and
+  the workflow page and the run dialog say so before Start is pressed.
 - The integration document says what Dynamo needs to run Rotor (#170): who may
   sign in, the images and memory of the stack and the chart, what an umbrella
   chart sets, and that a compose server runs without sandboxes. It follows

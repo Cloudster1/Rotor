@@ -6,6 +6,7 @@ import { startConnection } from "@/api/connections";
 import { runsQueryKey, startRun } from "@/api/runs";
 import { workflowQuery } from "@/api/workflows";
 import { s } from "@/strings";
+import { RunsOff, useRunsOn } from "./RunsOff";
 import { fieldsOf, InputsForm, inputsOf, type Values, WHOLE } from "./InputsForm";
 
 const primary = "h-9 rounded-control bg-accent px-4 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-60";
@@ -34,6 +35,7 @@ export function RunDialog({ workflowID, name, onClose }: { workflowID: string; n
   const navigate = useNavigate();
   const client = useQueryClient();
   const workflow = useQuery(workflowQuery(workflowID));
+  const runsOn = useRunsOn();
   const version = workflow.data?.version;
   const fields = useMemo(() => fieldsOf(version?.inputs ?? null), [version]);
   const [values, setValues] = useState<Values>({});
@@ -82,6 +84,7 @@ export function RunDialog({ workflowID, name, onClose }: { workflowID: string; n
         <h2 id={`${id}-title`} className="text-lg font-semibold text-ink">
           {s.runs.dialog.title(name)}
         </h2>
+        {!runsOn && <RunsOff />}
         <p className="text-sm text-ink-muted">{s.runs.dialog.asYou}</p>
         {version && version.bindings.length > 0 && (
           <div className="text-sm text-ink">
@@ -125,7 +128,7 @@ export function RunDialog({ workflowID, name, onClose }: { workflowID: string; n
           <button type="button" className={secondary} onClick={onClose}>
             {s.runs.dialog.cancel}
           </button>
-          <button type="submit" className={primary} disabled={start.isPending || workflow.isPending} data-action="start-run">
+          <button type="submit" className={primary} disabled={start.isPending || workflow.isPending || !runsOn} data-action="start-run">
             {start.isPending ? s.runs.dialog.starting : s.runs.dialog.start}
           </button>
         </div>

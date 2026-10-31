@@ -189,6 +189,8 @@ func refusal(err error) (string, bool) {
 		return ReasonConnectionLost, true
 	case errors.As(err, &inputs):
 		return ReasonInputsRefused, true
+	case errors.Is(err, runs.ErrNoSandboxes):
+		return ReasonRunsOff, true
 	case errors.Is(err, runs.ErrArchived), errors.Is(err, workflows.ErrArchived):
 		return ReasonWorkflowArchived, true
 	case errors.Is(err, workflows.ErrNotFound), errors.Is(err, runs.ErrNotFound):

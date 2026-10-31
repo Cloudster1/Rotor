@@ -5,7 +5,7 @@ import type { Run } from "@/api/runs";
 import type { WorkflowResponse, WorkflowSummary } from "@/api/workflows";
 import { s } from "@/strings";
 import { axeViolations } from "@/test/axe";
-import { ME, renderAt } from "@/test/app";
+import { META, ME, renderAt } from "@/test/app";
 
 // A run's page loads on demand with React Flow; loading it once here keeps a busy machine from timing a page out.
 beforeAll(async () => {
@@ -124,6 +124,13 @@ describe("starting a run", () => {
     expect(bodies[1]).toEqual({ inputs: { topic: "billing", count: 3, urgent: true } });
     expect(keys[0]).not.toBe("");
     expect(keys[1]).toBe(keys[0]);
+  });
+
+  it("says before Start that this installation runs no workflows, and offers no Start", async () => {
+    await renderAt("/workflows", { answers: { ...listed, "/api/v1/meta": { ...META, runs: false } } });
+    const dialog = await openDialog();
+    expect(await within(dialog).findByText(s.runs.off)).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: s.runs.dialog.start })).toBeDisabled();
   });
 
   it("refuses a field that is not JSON before asking the server", async () => {

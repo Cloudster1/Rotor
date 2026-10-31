@@ -4950,7 +4950,7 @@
       "post": {
         "operationId": "startRun",
         "summary": "Start a run of a workflow as yourself.",
-        "description": "An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have).",
+        "description": "An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false.",
         "tags": [
           "runs"
         ],
@@ -6532,13 +6532,17 @@
           },
           "product": {
             "type": "string"
+          },
+          "runs": {
+            "type": "boolean"
           }
         },
         "required": [
           "product",
           "build",
           "apiVersion",
-          "capabilities"
+          "capabilities",
+          "runs"
         ]
       },
       "MissingCapability": {
@@ -8023,7 +8027,8 @@
               "unattended_write",
               "inputs_refused",
               "unattended_widened",
-              "unattended_forbidden"
+              "unattended_forbidden",
+              "runs_off"
             ]
           }
         },

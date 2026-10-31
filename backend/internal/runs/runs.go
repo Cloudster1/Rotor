@@ -27,6 +27,8 @@ var (
 	ErrKeyReused = errors.New("the idempotency key started a run of another workflow")
 	// ErrArchived is a workflow that no longer starts runs.
 	ErrArchived = errors.New("the workflow is archived")
+	// ErrNoSandboxes is a start on an installation that runs no sandboxes (#178), where a run would never leave queued.
+	ErrNoSandboxes = errors.New("this installation runs no workflows. An administrator installs Rotor with sandboxes (the chart) to run them")
 )
 
 // InputsRefused is inputs the workflow's inputs schema refuses.
@@ -124,6 +126,8 @@ type Service struct {
 	tools       ToolFinder
 	connections Connections
 	signals     Signals
+	// NoSandboxes refuses every start with ErrNoSandboxes; the api sets it where no sandbox backend is configured (#178).
+	NoSandboxes bool
 	// Usage refuses a run its person's quota or its model's prices do not allow (#38); nil allows every run.
 	Usage StartCheck
 	// Catalogs reads the tools as the run's person sees them now, to check its writes again (#90); nil skips that.

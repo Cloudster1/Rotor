@@ -172,6 +172,7 @@ export const s = {
     emptyBody: "Every run of a workflow shows here, step by step, with what it read and wrote.",
     run: "Run",
     runNamed: (name: string) => `Run ${name}`,
+    off: "This installation runs no workflows. An administrator installs Rotor with sandboxes (the chart) to run them.",
     dialog: {
       title: (name: string) => `Run ${name}`,
       asYou: "The run acts as you in every tool it uses, with your permissions there.",

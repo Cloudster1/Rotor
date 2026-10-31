@@ -147,6 +147,9 @@ func run() error {
 		keys := envelope.NewKeys(secrets)
 		runService := runs.NewService(cluster, keys, workflowService, registry, people, store)
 		server.Runs = runService
+		// Nothing would carry a run where no sandbox backend is set, so the api refuses it up front (#178).
+		runService.NoSandboxes = cfg.Sandbox.Backend == ""
+		server.NoSandboxes = runService.NoSandboxes
 		triggerService := triggers.NewService(cluster, workflowService, reader, runService)
 		triggerService.CheckEvent = hookService.CheckEvent(people)
 		server.Triggers = triggerService

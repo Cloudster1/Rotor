@@ -13,6 +13,7 @@ export const META: Meta = {
   build: { version: "0.1.0+test", commit: "abc1234" },
   apiVersion: "1",
   capabilities: [],
+  runs: true,
 };
 
 /** Who the stand-in server says is signed in unless a test signs nobody in. */

@@ -63,7 +63,7 @@ var m6Enums = map[reflect.Type][]string{
 	reflect.TypeOf(triggerKind("")): {"schedule", "event"},
 	reflect.TypeOf(fireOutcome("")): {"started", "skipped", "refused", "failed"},
 	reflect.TypeOf(disabledReason("")): {"owner_switched_off", "connection_lost", "tool_removed", "workflow_archived", "workflow_hidden",
-		"unattended_write", "inputs_refused", "unattended_widened", "unattended_forbidden"},
+		"unattended_write", "inputs_refused", "unattended_widened", "unattended_forbidden", "runs_off"},
 	reflect.TypeOf(conditionOp("")): {"equals", "notEquals", "in", "notIn", "exists", "absent"},
 }
 

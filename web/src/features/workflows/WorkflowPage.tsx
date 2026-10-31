@@ -13,6 +13,7 @@ import {
 } from "@/api/workflows";
 import { MAX_VERSION_COMMENT, VALIDATE_DELAY_MS } from "@/config";
 import { RunDialog } from "@/features/runs/RunDialog";
+import { RunsOff, useRunsOn } from "@/features/runs/RunsOff";
 import { PageHeader } from "@/features/shell/EmptyState";
 import { TriggersSection } from "@/features/triggers/TriggersSection";
 import { s } from "@/strings";
@@ -53,6 +54,7 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
   const navigate = useNavigate();
   const schema = useQuery(schemaQuery);
   const editor = useRef<YamlEditorHandle>(null);
+  const runsOn = useRunsOn();
   const [text, setText] = useState(existing?.version.specYAML ?? NEW_WORKFLOW);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [warnings, setWarnings] = useState<Problem[]>([]);
@@ -128,8 +130,9 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
     <div className="flex flex-col gap-6">
       <PageHeader title={summary?.name ?? s.workflows.editor.newTitle} />
       {summary && !summary.archived && (
-        <div>
-          <button type="button" className={primary} onClick={() => setRunning(true)} data-action="run-workflow">
+        <div className="flex flex-col items-start gap-2">
+          {!runsOn && <RunsOff />}
+          <button type="button" className={primary} onClick={() => setRunning(true)} disabled={!runsOn} data-action="run-workflow">
             {s.runs.runNamed(summary.name)}
           </button>
           {running && <RunDialog workflowID={summary.id} name={summary.name} onClose={() => setRunning(false)} />}

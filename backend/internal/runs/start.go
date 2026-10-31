@@ -33,6 +33,9 @@ type StartRequest struct {
 // Start queues a run of a workflow the caller may see, as the caller. A key the caller used before answers that
 // run and created false, so a retried request starts nothing twice.
 func (s *Service) Start(ctx context.Context, req StartRequest) (Run, bool, error) {
+	if s.NoSandboxes {
+		return Run{}, false, ErrNoSandboxes
+	}
 	p := auth.PrincipalFrom(ctx)
 	if p == nil {
 		return Run{}, false, connections.ErrNoSession

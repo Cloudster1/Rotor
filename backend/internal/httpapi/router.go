@@ -41,6 +41,8 @@ type Server struct {
 	Workflows Workflows
 	// Runs is nil where OpenBao is not configured; its routes then answer 503.
 	Runs Runs
+	// NoSandboxes is set where the installation runs no sandboxes; /meta then says runs are off (#178).
+	NoSandboxes bool
 	// Approvals is nil where runs are not set up; its routes then answer 503.
 	Approvals Approvals
 	// Triggers is nil where runs are not set up; its routes then answer 503.

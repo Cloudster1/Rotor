@@ -19,10 +19,13 @@ type metaResponse struct {
 	APIVersion string       `json:"apiVersion"`
 	// Capabilities are name@version, from the list the suite agrees in Dynamo, sorted.
 	Capabilities []string `json:"capabilities"`
+	// Runs is false where this installation runs no sandboxes, so every start is refused (#178).
+	Runs bool `json:"runs"`
 }
 
 func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, r, http.StatusOK, metaResponse{
 		Product: Product, Build: version.Current(), APIVersion: APIVersion, Capabilities: capabilities(),
+		Runs: !s.NoSandboxes,
 	})
 }
