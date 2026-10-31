@@ -66,6 +66,8 @@ type Server struct {
 	// Sessions and SignIn are nil only in tests that exercise neither.
 	Sessions Sessions
 	SignIn   SignIn
+	// ServiceAccounts checks a realm's access token at the routes that take one (#168); nil refuses every such token.
+	ServiceAccounts ServiceAccounts
 	// SessionTTL is how long the cookie a sign-in sets lives, matching the session behind it.
 	SessionTTL time.Duration
 
@@ -120,11 +122,24 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 		s.mountOAuth(r)
 		r.With(s.requireMCPAuth).Post("/mcp", s.handleMCP)
 		mountPending(r, true, false)
+		// A service account of the realm adds tools and hands Rotor their hook secrets (#168); nothing else takes its
+		// token. The table marks these rows serviceAccount, and a test holds the two to each other.
+		r.Group(func(r chi.Router) {
+			r.Use(s.serviceAccount)
+			r.Use(requireAuth)
+			r.Get("/tools", s.handleListTools)
+			r.Group(func(r chi.Router) {
+				r.Use(requireAdmin)
+				r.Use(requireSession)
+				r.Post("/tools", s.handleAddTool)
+				r.Get("/tools/{toolID}/hook", s.handleGetHook)
+				r.Put("/tools/{toolID}/hook", s.handleSetHookSecret)
+			})
+		})
 		r.Group(func(r chi.Router) {
 			r.Use(requireAuth)
 			r.Get("/auth/me", s.handleMe)
 			r.With(requireSession).Post("/auth/logout", s.handleLogout)
-			r.Get("/tools", s.handleListTools)
 			r.Get("/tools/{toolID}", s.handleGetTool)
 			r.Get("/connections", s.handleListConnections)
 			r.Get("/models", s.handleListModels)
@@ -166,7 +181,6 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Use(requireAdmin)
 				// An assistant never administers Rotor, whoever it acts for.
 				r.Use(requireSession)
-				r.Post("/tools", s.handleAddTool)
 				r.Get("/providers", s.handleListProviders)
 				r.Post("/providers", s.handleAddProvider)
 				r.Put("/providers/{providerID}", s.handleChangeProvider)
@@ -177,8 +191,6 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Get("/audit", s.handleListAudit)
 				r.Get("/audit/facets", s.handleAuditFacets)
 				r.Get("/audit/export", s.handleExportAudit)
-				r.Get("/tools/{toolID}/hook", s.handleGetHook)
-				r.Put("/tools/{toolID}/hook", s.handleSetHookSecret)
 				r.Delete("/tools/{toolID}/hook", s.handleRemoveHookSecret)
 				r.Get("/usage/people", s.handlePeopleUsage)
 				r.Get("/settings/limits", s.handleGetLimits)

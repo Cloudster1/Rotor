@@ -7,12 +7,30 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/openapi"
 	"github.com/cloudster1/rotor/backend/internal/version"
 )
 
 // ProductName is what the document calls this API.
 const ProductName = "Rotor"
+
+// The schemes a caller is let in by: the browser's session, and at the serviceAccount rows a realm's access token.
+const (
+	sessionScheme     = "session"
+	realmBearerScheme = "realmToken"
+)
+
+// securitySchemes describes both schemes for the document's components.
+func securitySchemes() map[string]openapi.SecurityScheme {
+	return map[string]openapi.SecurityScheme{
+		sessionScheme: {Type: "apiKey", In: "cookie", Name: config.DefaultSessionCookie,
+			Description: "The session a sign-in through the suite's identity provider opens."},
+		realmBearerScheme: {Type: "http", Scheme: "bearer", BearerFormat: "JWT",
+			Description: "An access token of the realm Rotor signs in with, whose audience holds Rotor's client and whose " +
+				"groups hold rotor-administrators, such as a service account's from client credentials."},
+	}
+}
 
 // isErrorEnvelope marks a refusal a client has to tell apart, listed with its
 // status next to the successes.
@@ -64,6 +82,7 @@ func Spec() *openapi.Document {
 		doc.Tags = append(doc.Tags, openapi.Tag{Name: tag})
 	}
 	doc.Components.Schemas = b.Components()
+	doc.Components.SecuritySchemes = securitySchemes()
 	return doc
 }
 
@@ -126,6 +145,9 @@ func (op operation) describe(b *openapi.Builder, errorSchema *openapi.Schema) *o
 	}
 	if op.public {
 		o.Security = []map[string][]string{}
+	}
+	if op.serviceAccount {
+		o.Security = []map[string][]string{{sessionScheme: {}}, {realmBearerScheme: {}}}
 	}
 	return o
 }

@@ -42,12 +42,12 @@ func toolError(err error) error {
 	return err
 }
 
-func toToolResponse(t tools.Tool) toolResponse {
+func (s *Server) toToolResponse(t tools.Tool) toolResponse {
 	missing := []missingCapability{}
 	for _, m := range t.Missing() {
 		missing = append(missing, missingCapability{Capability: m.Capability, Message: m.Message})
 	}
-	return toolResponse{ID: t.ID.String(), Name: t.Name, BaseURL: t.BaseURL, Resource: t.Resource, MCPURL: t.MCPURL, Issuer: t.Issuer,
+	return toolResponse{ID: t.ID.String(), Name: t.Name, BaseURL: t.BaseURL, Resource: t.Resource, MCPURL: t.MCPURL, HookURL: s.hookURL(t.ID), Issuer: t.Issuer,
 		Capabilities: t.Capabilities, Missing: missing, ScopesSupported: t.ScopesSupported, Registration: toolRegistration(t.Registration),
 		Status: toolStatus(t.Status), AddedAt: t.AddedAt}
 }
@@ -64,7 +64,7 @@ func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]toolResponse, 0, len(list))
 	for _, t := range list {
-		out = append(out, toToolResponse(t))
+		out = append(out, s.toToolResponse(t))
 	}
 	respondJSON(w, r, http.StatusOK, map[string]any{"tools": out})
 }
@@ -84,7 +84,7 @@ func (s *Server) handleGetTool(w http.ResponseWriter, r *http.Request) {
 		respondError(w, r, toolError(err))
 		return
 	}
-	respondJSON(w, r, http.StatusOK, map[string]any{"tool": toToolResponse(t)})
+	respondJSON(w, r, http.StatusOK, map[string]any{"tool": s.toToolResponse(t)})
 }
 
 func (s *Server) handleAddTool(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +111,7 @@ func (s *Server) handleAddTool(w http.ResponseWriter, r *http.Request) {
 	if created {
 		status = http.StatusCreated
 	}
-	respondJSON(w, r, status, map[string]any{"tool": toToolResponse(t)})
+	respondJSON(w, r, status, map[string]any{"tool": s.toToolResponse(t)})
 }
 
 func (s *Server) handleRemoveTool(w http.ResponseWriter, r *http.Request) {
@@ -147,5 +147,5 @@ func (s *Server) handleCheckTool(w http.ResponseWriter, r *http.Request) {
 		respondError(w, r, toolError(err))
 		return
 	}
-	respondJSON(w, r, http.StatusOK, map[string]any{"tool": toToolResponse(t)})
+	respondJSON(w, r, http.StatusOK, map[string]any{"tool": s.toToolResponse(t)})
 }

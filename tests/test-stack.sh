@@ -143,6 +143,15 @@ control="$(client rotor-control-plane | jq -r '[.serviceAccountsEnabled, .standa
 jq -e '.users[] | select(.serviceAccountClientId == "rotor-control-plane")' "$REALM" > /dev/null \
   && pass "the realm holds rotor-control-plane's service account" || fail "rotor-control-plane has no service account user"
 
+# dynamo-connect wires the suite unattended (#168): a service account alone, in rotor-administrators, whose tokens name rotor.
+connect="$(client dynamo-connect | jq -r '[.serviceAccountsEnabled, .standardFlowEnabled, .directAccessGrantsEnabled,
+  ([.protocolMappers[] | select(.config["included.client.audience"] == "rotor")] | length),
+  ([.protocolMappers[] | select(.config["claim.name"] == "groups" and .config["access.token.claim"] == "true")] | length)] | @tsv')"
+[[ "$connect" == $'true\tfalse\tfalse\t1\t1' ]] && pass "client dynamo-connect is a service account whose tokens name rotor and its groups" \
+  || fail "client dynamo-connect is '$connect'"
+jq -e '.users[] | select(.serviceAccountClientId == "dynamo-connect") | .groups | index("/rotor-administrators")' "$REALM" > /dev/null \
+  && pass "dynamo-connect's service account administers Rotor" || fail "dynamo-connect's service account is missing or not in rotor-administrators"
+
 jq -e '.users[] | select(.username == "alice") | .groups | index("/rotor-administrators")' "$REALM" > /dev/null \
   && pass "alice administers Rotor" || fail "alice is not in rotor-administrators"
 unknown="$(jq -r '[.groups[].path] as $g | .users[] | (.groups // [])[] | select(. as $x | $g | index($x) | not)' "$REALM")"
@@ -158,6 +167,9 @@ as_url() { echo "data:application/json;base64,$(base64 -w0)"; }
 changed="$(jq '.clients |= map(if .clientId == "rotor" then .protocolMappers = [] else . end)' "$REALM")"
 check "$(as_url < "$REALM")" && pass "a Dynamo realm equal to ours matches" || fail "an equal realm does not match itself"
 check "$(as_url <<< "$changed")" && fail "a changed Rotor client passes the check" || pass "a changed Rotor client fails the check"
+# Dynamo's realm holds dynamo-connect once praetorianer777/Dynamo#97 adds it; until then its absence is no difference.
+without_connect="$(jq '.clients |= map(select(.clientId != "dynamo-connect")) | .users |= map(select(.serviceAccountClientId != "dynamo-connect"))' "$REALM")"
+check "$(as_url <<< "$without_connect")" && pass "a Dynamo realm without dynamo-connect matches" || fail "dynamo-connect's absence from Dynamo's realm makes a difference"
 
 if (( FAILED )); then echo "FAIL: stack tests"; exit 1; fi
 echo "PASS: stack tests"

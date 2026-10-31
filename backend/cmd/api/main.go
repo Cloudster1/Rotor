@@ -95,18 +95,21 @@ func run() error {
 		log.Warn("ROTOR_OIDC_ISSUER is not set, so nobody can sign in; set it to the identity provider's issuer")
 	}
 	sessions := auth.NewService(cluster, cfg.Auth.SessionTTL)
+	realm := oidc.NewService(cluster, sessions, cfg.OIDC)
 	server := &httpapi.Server{
-		DB:             cluster,
-		Log:            log,
-		Sessions:       sessions,
-		SignIn:         oidc.NewService(cluster, sessions, cfg.OIDC),
-		SessionTTL:     cfg.Auth.SessionTTL,
-		CookieName:     cfg.Auth.SessionCookie,
-		Secure:         cfg.Auth.SecureCookies,
-		AppBaseURL:     cfg.AppBaseURL,
-		CheckOrigin:    cfg.IsProduction(),
-		RequestTimeout: cfg.RequestTimeout,
-		TrustedProxies: cfg.TrustedProxies,
+		DB:       cluster,
+		Log:      log,
+		Sessions: sessions,
+		SignIn:   realm,
+		// The realm's service accounts add tools and their hook secrets with a token of their own (#168).
+		ServiceAccounts: realm,
+		SessionTTL:      cfg.Auth.SessionTTL,
+		CookieName:      cfg.Auth.SessionCookie,
+		Secure:          cfg.Auth.SecureCookies,
+		AppBaseURL:      cfg.AppBaseURL,
+		CheckOrigin:     cfg.IsProduction(),
+		RequestTimeout:  cfg.RequestTimeout,
+		TrustedProxies:  cfg.TrustedProxies,
 		// Assistants connect through Rotor's own authorization server (#47); a client's metadata document is fetched
 		// through a client that refuses Rotor's own network, beyond what the operator allows (#114).
 		OAuth: oauth.NewService(cluster, cfg.AppBaseURL, httpapi.APIPrefix,

@@ -14,14 +14,17 @@ const sorted = (value) => {
   }
   return value;
 };
-// Clients Rotor's realm holds that Dynamo's does not yet; each is left out of both sides until its Dynamo issue
-// ships. Add one line per client, naming the issue, and delete it when Dynamo carries the client.
+// Clients Rotor's realm holds that Dynamo's does not yet; each is left out of both sides, with its service account,
+// until its Dynamo issue ships. Add one line per client, naming the issue, and delete it when Dynamo carries the client.
 const NOT_IN_DYNAMO_YET = [
-  // { clientId: "dynamo-connect", issue: "praetorianer777/Dynamo#NNN" },
+  // The suite's client for Rotor (#168), which Dynamo's dynamo-connect takes its token with.
+  { clientId: "dynamo-connect", issue: "praetorianer777/Dynamo#97" },
 ];
+const pending = (clientId) => NOT_IN_DYNAMO_YET.some((e) => e.clientId === clientId);
 const withoutExceptions = (realm) => ({
   ...realm,
-  clients: (realm.clients ?? []).filter((client) => !NOT_IN_DYNAMO_YET.some((e) => e.clientId === client.clientId)),
+  clients: (realm.clients ?? []).filter((client) => !pending(client.clientId)),
+  users: (realm.users ?? []).filter((user) => !pending(user.serviceAccountClientId)),
 });
 const normalised = (text) => JSON.stringify(sorted(withoutExceptions(JSON.parse(text))), null, 2).split("\n");
 

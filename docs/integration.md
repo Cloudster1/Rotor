@@ -82,6 +82,28 @@ approvals are decided in Rotor's pages alone.
 
 - `POST /mcp`, whose 401 names the protected resource metadata
 
+### A service account wires the suite
+
+The suite's `dynamo-connect` adds the tools to Rotor and hands Rotor each
+tool's webhook secret unattended (#168), with an access token it takes from
+the realm by client credentials. Four routes take that token as
+`Authorization: Bearer`, beside the session cookie:
+
+- `GET /tools`, which shows each tool's `baseURL`, to find it by, and its
+  `hookURL`, to point the tool's webhook at
+- `POST /tools`
+- `GET /tools/{toolID}/hook`, `PUT /tools/{toolID}/hook`
+
+The token must be signed with the realm's published keys, issued by
+`ROTOR_OIDC_ISSUER`, hold Rotor's client (`rotor`) in its audience, be
+unexpired, be an access token (`typ` is `Bearer`), and carry
+`rotor-administrators` in its `groups` claim. Each refusal says which of them
+failed; every other route refuses the token in a sentence naming these four.
+A bearer request carries no cookie, so the origin check does not apply to it.
+The account acts, and is audited, as a person of Rotor named after the client,
+`dynamo-connect@service-account.invalid`. The development realm holds the
+client; Dynamo's realm gets it with praetorianer777/Dynamo#97.
+
 ## What Rotor checks of the tools
 
 Rotor reads a tool's `/meta` when an administrator adds it, registers it

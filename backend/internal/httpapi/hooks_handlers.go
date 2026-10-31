@@ -65,9 +65,14 @@ func (s *Server) hooksReady(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
+// hookURL is where a tool delivers its events to Rotor, under the address Rotor is opened at.
+func (s *Server) hookURL(toolID uuid.UUID) string {
+	return strings.TrimSuffix(s.AppBaseURL, "/") + APIPrefix + "/hooks/" + toolID.String()
+}
+
 func (s *Server) toHookResponse(h hooks.Hook) hookResponse {
 	word := config.HookProducts[h.Product]
-	return hookResponse{URL: strings.TrimSuffix(s.AppBaseURL, "/") + APIPrefix + "/hooks/" + h.ToolID.String(), Product: word,
+	return hookResponse{URL: s.hookURL(h.ToolID), Product: word,
 		SecretSet: h.SecretSetAt != nil, SecretSetAt: h.SecretSetAt, LastReceivedAt: h.LastReceivedAt}
 }
 
