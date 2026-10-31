@@ -282,11 +282,17 @@ a run with workspace steps adds one toolchain container per image that
 defaults to 3072 MiB and 2000m (`sandbox.workspaces.toolchain`, #136), so size
 the sandbox namespace for the runs allowed at once, not for the chart.
 
-**What an umbrella chart sets.** Dynamo's chart sets, for Rotor:
+**What an umbrella chart sets.** Dynamo's chart sets, for Rotor
+([`docs/deployment.md`](deployment.md#under-a-parent-chart), #169):
 
+- `fullnameOverride`, which every resource is named from, and Secrets made
+  before the install for the passwords in `secrets.names` (`dbOwner`, `valkey`)
 - `openbao.addr`, the OpenBao Rotor shares or is given, and `openbao.configure.enabled`
   with `openbao.configure.tokenSecret.name` (key `token`) naming a Secret that
-  holds a token allowed to configure OpenBao
+  holds a token allowed to configure OpenBao; for an OpenBao the umbrella chart
+  installs itself, `openbao.configure.afterInstall`, and an address such as
+  `http://openbao.{{ .Release.Namespace }}.svc:8200`, which sandboxes reach from
+  their own namespace
 - the OpenBao that token belongs to needs an audit device declared in its own
   server configuration (the init script refuses one without, and its token must
   be allowed `sudo` on `sys/audit`), and, when it runs in the cluster, the
@@ -294,8 +300,8 @@ the sandbox namespace for the runs allowed at once, not for the chart.
   api's and the worker's tokens ([`docs/deployment.md`](deployment.md))
 - `ingress.host`, which the session cookie and the same-site check derive from,
   with `oidc.issuer` and the Secret `oidc.clientSecret`
-- `sandbox.egress.openbao` (`namespace` and `podLabels`, or `cidr`), so
-  sandboxes reach OpenBao, and `sandbox.egress.hosts` with `cilium: true`, or
+- `sandbox.egress.openbao` (`namespace`, which may be `{{ .Release.Namespace }}`,
+  and `podLabels`, or `cidr`), so sandboxes reach OpenBao, and `sandbox.egress.hosts` with `cilium: true`, or
   `cidrs`, for the tools
 - the gVisor RuntimeClass `sandbox.runtimeClass` (`gvisor` by default), which
   the cluster must have; without it sandboxes do not start unless

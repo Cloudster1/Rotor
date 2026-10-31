@@ -150,7 +150,8 @@ oidc:
 
 openbao:
   # Where every long-lived secret lives. The api and the worker sign in with their own ServiceAccount tokens
-  # (Kubernetes auth); sandboxes hold no OpenBao credential, only single-use wrapping tokens.
+  # (Kubernetes auth); sandboxes hold no OpenBao credential, only single-use wrapping tokens. Sandboxes reach it
+  # from their own namespace, so a parent chart's OpenBao is http://openbao.{{ .Release.Namespace }}.svc:8200.
   addr: ""
   auth: kubernetes
   role: rotor-control-plane
@@ -165,14 +166,20 @@ openbao:
     # Refuse an OpenBao without an audit device, which it takes from its own configuration only (#92). Turn off
     # only for a throwaway test server.
     requireAudit: true
+    # Run the Job after the release's own resources on its first install, for an OpenBao the same release brings,
+    # such as a parent chart's; it waits until that OpenBao answers unsealed, checking every waitSeconds. Under
+    # Argo CD it is then a Sync hook at wave -20, so give that OpenBao an earlier wave.
+    afterInstall: false
+    waitSeconds: 2
 
 tools:
   # public=reachable pairs: a tool an administrator adds by the address a browser opens, reached by the pods at another.
   backchannel: {}
 
 sandbox:
-  # Where every run's pod runs; empty is <release namespace>-sandboxes. The chart creates it with the restricted Pod
-  # Security standard unless told the namespace exists.
+  # Where every run's pod runs; empty is <release namespace>-<fullname>-sandboxes, or <fullname>-sandboxes when the
+  # two are the same, so two installs never share one. The chart creates it with the restricted Pod Security standard
+  # unless told the namespace exists.
   namespace: ""
   createNamespace: true
   # The gVisor RuntimeClass of the cluster. Empty runs sandboxes without gVisor, which only allowRunc permits, and
@@ -193,7 +200,8 @@ sandbox:
     ports: [443]
     # Without Cilium, the address ranges the tools and the provider are reached at instead.
     cidrs: []
-    # Where OpenBao is: pods in a namespace of this cluster, or an address range outside it.
+    # Where OpenBao is: pods in a namespace of this cluster, or an address range outside it. The namespace may be
+    # "{{ .Release.Namespace }}", for an OpenBao a parent chart installs beside Rotor.
     openbao:
       namespace: ""
       podLabels: {}

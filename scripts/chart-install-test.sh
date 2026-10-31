@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
 # Installs the chart into this checkout's kind cluster from signed images by digest, carries a run to its end in a
-# sandbox pod (#29, #42), and upgrades it to admit only signed sandbox images; KEEP=1 leaves the release for a look.
+# sandbox pod (#29, #42), upgrades it to admit only signed sandbox images, and installs it a second time beside the
+# first under a parent chart, as Dynamo's does (#169); KEEP=1 leaves the releases for a look.
 set -euo pipefail
 
 NS=rotor-chart
 RELEASE=rotor
-SANDBOXES="${NS}-sandboxes"
+# The names the release's resources carry: its own name, which already holds the chart's.
+FULL="${RELEASE}"
+SANDBOXES="${NS}-${FULL}-sandboxes"
+# The second release, under tests/helm/parent with fullnameOverride rotor.
+SUITE_NS=rotor-suite
+SUITE_RELEASE=suite
 TAG=kind-test
 RUN_WAIT=180
 ADMISSION_WAIT=60
@@ -22,7 +28,7 @@ dump() {
     kubectl get pods -n "${SANDBOXES}" -o wide || true
     kubectl get events -n "${NS}" --sort-by=.lastTimestamp | tail -30 || true
     kubectl get events -n "${SANDBOXES}" --sort-by=.lastTimestamp | tail -30 || true
-    for c in api worker; do kubectl logs -n "${NS}" "deploy/${RELEASE}-${c}" --tail=60 || true; done
+    for c in api worker; do kubectl logs -n "${NS}" "deploy/${FULL}-${c}" --tail=60 || true; done
     kubectl logs -n cosign-system deploy/policy-controller-webhook --tail=40 2>/dev/null || true
 }
 trap 'status=$?; [ "$status" = 0 ] || dump' EXIT
@@ -74,9 +80,9 @@ helm upgrade --install "${RELEASE}" deploy/charts/rotor -n "${NS}" \
     --set images.web.repository="${pulled}/rotor-web" --set images.web.digest="${web}" \
     --set images.runner.repository="${pulled}/rotor-runner" --set images.runner.digest="${runner}" \
     --timeout 10m
-for d in api worker web; do kubectl rollout status -n "${NS}" "deploy/${RELEASE}-${d}" --timeout=300s; done
+for d in api worker web; do kubectl rollout status -n "${NS}" "deploy/${FULL}-${d}" --timeout=300s; done
 
-psql() { kubectl exec -i -n "${NS}" "${RELEASE}-postgresql-0" -- psql -v ON_ERROR_STOP=1 -U postgres -d rotor -At "$@"; }
+psql() { kubectl exec -i -n "${NS}" "${FULL}-postgresql-0" -- psql -v ON_ERROR_STOP=1 -U postgres -d rotor -At "$@"; }
 
 # The workflow the run carries. The node fails the run if it can open the runner's environment or memory, which the
 # runner keeps from it (#89).
@@ -103,7 +109,7 @@ nodes:
 
 # Asks the api, from inside its own pod, as the person whose session cookie is given.
 api() { # session method path body
-    kubectl exec -n "${NS}" "deploy/${RELEASE}-api" -- wget -qO- --header "Cookie: rotor_session=$1" \
+    kubectl exec -n "${NS}" "deploy/${FULL}-api" -- wget -qO- --header "Cookie: rotor_session=$1" \
         --header "Content-Type: application/json" --post-data "$4" "http://127.0.0.1:8080/api/v1$3"
 }
 
@@ -159,13 +165,13 @@ reaches() {
 }
 allowed() { if reaches "$1"; then echo "   ok    reaches $2"; else echo "   FAIL  cannot reach $2" >&2; exit 1; fi; }
 refused() { if reaches "$1"; then echo "   FAIL  reaches $2" >&2; exit 1; else echo "   ok    refused $2"; fi; }
-allowed "https://${RELEASE}-api.${NS}.svc:9443" "the api's runner port"
+allowed "https://${FULL}-api.${NS}.svc:9443" "the api's runner port"
 allowed "http://openbao.${NS}.svc:8200/v1/sys/health" "OpenBao"
 allowed "https://example.com" "an allowed host by name"
 refused "https://example.net" "a host nobody allowed"
 refused "http://169.254.169.254/latest/meta-data/" "cloud metadata"
-refused "http://${RELEASE}-api.${NS}.svc:8080/readyz" "the api's HTTP port"
-refused "http://${RELEASE}-web.${NS}.svc:8080/" "the web"
+refused "http://${FULL}-api.${NS}.svc:8080/readyz" "the api's HTTP port"
+refused "http://${FULL}-web.${NS}.svc:8080/" "the web"
 refused "https://kubernetes.default.svc" "the Kubernetes API"
 kubectl delete pod -n "${SANDBOXES}" egress-probe --wait=false >/dev/null
 
@@ -198,18 +204,48 @@ for _ in $(seq "${ADMISSION_WAIT}"); do
     break
 done
 for policy in signed sbom; do
-    if ! grep -q "failed policy: ${RELEASE}-sandboxes-${policy}" <<<"${verdict}"; then
+    if ! grep -q "failed policy: ${SANDBOXES}-${policy}" <<<"${verdict}"; then
         echo "an unsigned sandbox image was not refused by the ${policy} policy: ${verdict}" >&2
         exit 1
     fi
     echo "   ok    refused by the ${policy} policy"
 done
 
+say "a second release beside the first, under a parent chart with its own OpenBao and Secrets made beforehand"
+first_ns="${NS}" first_sandboxes="${SANDBOXES}"
+parent=$(mktemp -d)
+cp -r tests/helm/parent/. "${parent}/"
+mkdir -p "${parent}/charts"
+cp -r deploy/charts/rotor "${parent}/charts/rotor"
+kubectl create namespace "${SUITE_NS}" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+random() { head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n'; }
+# Made once: a password the bundled Postgres was started with must stay the same on a second try with KEEP=1.
+secret() { # name args...
+    local name="$1"
+    shift
+    kubectl get secret -n "${SUITE_NS}" "${name}" >/dev/null 2>&1 || kubectl create secret generic -n "${SUITE_NS}" "${name}" "$@" >/dev/null
+}
+secret openbao-admin --from-literal=token=root
+secret dynamo-oidc --from-literal=rotor="$(random)"
+secret rotor-db-owner --type=kubernetes.io/basic-auth --from-literal=username=postgres --from-literal=password="$(random)"
+secret rotor-valkey --type=kubernetes.io/basic-auth --from-literal=username=default --from-literal=password="$(random)"
+helm upgrade --install "${SUITE_RELEASE}" "${parent}" -n "${SUITE_NS}" -f scripts/kind/subchart-values.yaml \
+    --set rotor.images.backend.repository="${pulled}/rotor-backend" --set rotor.images.backend.digest="${backend}" \
+    --set rotor.images.web.repository="${pulled}/rotor-web" --set rotor.images.web.digest="${web}" \
+    --set rotor.images.runner.repository="${pulled}/rotor-runner" --set rotor.images.runner.digest="${runner}" \
+    --timeout 10m
+NS="${SUITE_NS}" FULL=rotor SANDBOXES="${SUITE_NS}-rotor-sandboxes"
+for d in api worker web; do kubectl rollout status -n "${NS}" "deploy/${FULL}-${d}" --timeout=300s; done
+kubectl get namespace "${first_sandboxes}" "${SANDBOXES}" >/dev/null
+echo "   ok    each release has a sandbox namespace of its own"
+carry_run
+
 if [ "${KEEP:-}" != 1 ]; then
-    say "removing the release"
-    helm uninstall "${RELEASE}" -n "${NS}" --wait >/dev/null
-    kubectl delete namespace "${NS}" "${SANDBOXES}" --ignore-not-found --wait=false >/dev/null
+    say "removing the releases"
+    helm uninstall "${SUITE_RELEASE}" -n "${SUITE_NS}" --wait >/dev/null
+    helm uninstall "${RELEASE}" -n "${first_ns}" --wait >/dev/null
+    kubectl delete namespace "${first_ns}" "${first_sandboxes}" "${SUITE_NS}" "${SANDBOXES}" --ignore-not-found --wait=false >/dev/null
     kubectl delete clusterrolebinding rotor-chart-openbao-auth-delegator --ignore-not-found >/dev/null
 fi
-rm -rf "${keys}"
-echo "PASS: the chart installs from signed images, runs a workflow in a sandbox pod, upgrades and refuses an unsigned one"
+rm -rf "${keys}" "${parent}"
+echo "PASS: the chart installs from signed images, runs a workflow in a sandbox pod, upgrades, refuses an unsigned one and installs again beside itself as a subchart"

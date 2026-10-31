@@ -8,7 +8,7 @@ policy that matches it, while one passing authority satisfies a policy.
 {{- $a := .Values.sandbox.admission }}
 {{- $keyless := $a.keyless | default dict }}
 {{- if and (not $a.publicKey) (not (and $keyless.issuer $keyless.subjectRegExp)) }}
-{{- fail "sandbox.admission.requireSignature is on, so set sandbox.admission.publicKey to the cosign public key the runner image is signed with, or keep sandbox.admission.keyless.issuer and subjectRegExp for Rotor's released images." }}
+{{- include "rotor.fail" (dict "root" . "msg" "{sandbox.admission.requireSignature} is on, so set {sandbox.admission.publicKey} to the cosign public key the runner image is signed with, or keep {sandbox.admission.keyless.issuer} and subjectRegExp for Rotor's released images.") }}
 {{- end }}
 {{- $repos := list .Values.images.runner.repository .Values.images.agent.repository }}
 {{- range $check := list "signed" "sbom" }}
@@ -16,7 +16,7 @@ policy that matches it, while one passing authority satisfies a policy.
 apiVersion: policy.sigstore.dev/v1beta1
 kind: ClusterImagePolicy
 metadata:
-  name: {{ include "rotor.fullname" $ }}-sandboxes-{{ $check }}
+  name: {{ include "rotor.sandboxNamespace" $ }}-{{ $check }}
   labels:
     {{- include "rotor.labels" $ | nindent 4 }}
 spec:
@@ -51,7 +51,7 @@ spec:
 apiVersion: policy.sigstore.dev/v1beta1
 kind: ClusterImagePolicy
 metadata:
-  name: {{ include "rotor.fullname" $ }}-sandbox-toolchains
+  name: {{ include "rotor.sandboxNamespace" $ }}-toolchains
   labels:
     {{- include "rotor.labels" $ | nindent 4 }}
 spec:

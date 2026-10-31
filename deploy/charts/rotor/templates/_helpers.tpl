@@ -42,13 +42,23 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{/* The sandbox namespace, the api's Service as sandboxes dial it, and the control plane's accounts. */}}
 
+{{/* Named from the release, so two installs never share one: the namespace and the fullname, once when they agree. */}}
 {{- define "rotor.sandboxNamespace" -}}
-{{- default (printf "%s-sandboxes" .Release.Namespace) .Values.sandbox.namespace -}}
+{{- if .Values.sandbox.namespace -}}
+{{- .Values.sandbox.namespace -}}
+{{- else -}}
+{{- $full := include "rotor.fullname" . -}}
+{{- $base := ternary $full (printf "%s-%s" .Release.Namespace $full) (eq $full .Release.Namespace) -}}
+{{- printf "%s-sandboxes" ($base | trunc 53 | trimSuffix "-") -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "rotor.runnerHost" -}}
 {{- printf "%s-api.%s.svc" (include "rotor.fullname" .) .Release.Namespace -}}
 {{- end -}}
+
+{{/* Values that name a place in the installation's namespace may say so with {{ .Release.Namespace }}, as a parent must. */}}
+{{- define "rotor.openbaoAddr" -}}{{ tpl .Values.openbao.addr . }}{{- end -}}
 
 {{- define "rotor.apiAccount" -}}{{ include "rotor.fullname" . }}-api{{- end -}}
 {{- define "rotor.workerAccount" -}}{{ include "rotor.fullname" . }}-worker{{- end -}}
@@ -59,7 +69,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if .Values.postgresql.enabled -}}
 {{- printf "%s-postgresql" (include "rotor.fullname" .) -}}
 {{- else -}}
-{{- required "Set database.host, or enable the bundled postgresql for a trial: the chart does not guess where the database is." .Values.database.host -}}
+{{- if not .Values.database.host -}}
+{{- include "rotor.fail" (dict "root" . "msg" "Set {database.host}, or enable the bundled {postgresql} for a trial: the chart does not guess where the database is.") -}}
+{{- end -}}
+{{- .Values.database.host -}}
 {{- end -}}
 {{- end -}}
 
@@ -123,28 +136,41 @@ argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 argocd.argoproj.io/sync-wave: {{ .weight | quote }}
 {{- end -}}
 
+{{/*
+Where the chart's values sit for whoever installs it: rotor. under a parent chart that depends on it, nothing at the
+top. Refusals mark each value as {path}, which rotor.fail writes out that way.
+*/}}
+{{- define "rotor.valuePrefix" -}}
+{{- $charts := rest (splitList "/charts/" (trimSuffix "/templates" .Template.BasePath)) -}}
+{{- with $charts }}{{ join "." . }}.{{ end -}}
+{{- end -}}
+
+{{- define "rotor.fail" -}}
+{{- fail (regexReplaceAll "\\{([A-Za-z0-9.]+)\\}" .msg (printf "%s${1}" (include "rotor.valuePrefix" .root))) -}}
+{{- end -}}
+
 {{/* What a release may not be, refused before anything is applied. */}}
 {{- define "rotor.check" -}}
 {{- if and (eq .Values.env "production") .Values.sandbox.allowRunc -}}
-{{- fail "sandbox.allowRunc is true with env production, which would run hostile code without gVisor. Turn it off and name the cluster's gVisor RuntimeClass in sandbox.runtimeClass." -}}
+{{- include "rotor.fail" (dict "root" . "msg" "{sandbox.allowRunc} is true with {env} production, which would run hostile code without gVisor. Turn it off and name the cluster's gVisor RuntimeClass in {sandbox.runtimeClass}.") -}}
 {{- end -}}
 {{- if and (not .Values.sandbox.runtimeClass) (not .Values.sandbox.allowRunc) -}}
-{{- fail "sandbox.runtimeClass is empty, so sandboxes would run without gVisor. Name the cluster's gVisor RuntimeClass, or set sandbox.allowRunc for a test cluster that has none." -}}
+{{- include "rotor.fail" (dict "root" . "msg" "{sandbox.runtimeClass} is empty, so sandboxes would run without gVisor. Name the cluster's gVisor RuntimeClass, or set {sandbox.allowRunc} for a test cluster that has none.") -}}
 {{- end -}}
 {{- if not .Values.openbao.addr -}}
-{{- fail "Set openbao.addr: Rotor keeps every refresh token, provider key and run token in OpenBao, and its runner certificate comes from there." -}}
+{{- include "rotor.fail" (dict "root" . "msg" "Set {openbao.addr}: Rotor keeps every refresh token, provider key and run token in OpenBao, and its runner certificate comes from there.") -}}
 {{- end -}}
 {{- if and (ne .Values.env "development") (not .Values.oidc.issuer) -}}
-{{- fail "Set oidc.issuer and oidc.clientSecret: outside development signing in through the realm is the only way in." -}}
+{{- include "rotor.fail" (dict "root" . "msg" "Set {oidc.issuer} and {oidc.clientSecret}: outside development signing in through the realm is the only way in.") -}}
 {{- end -}}
 {{- if and .Values.oidc.issuer (not .Values.oidc.clientSecret.name) -}}
-{{- fail "oidc.issuer is set, so name the Secret holding Rotor's client secret in oidc.clientSecret.name." -}}
+{{- include "rotor.fail" (dict "root" . "msg" "{oidc.issuer} is set, so name the Secret holding Rotor's client secret in {oidc.clientSecret.name}.") -}}
 {{- end -}}
 {{- if and (ne .Values.env "development") .Values.valkey.host (not (include "rotor.valkeyAuth" .)) -}}
-{{- fail "valkey.auth is off, so anyone who reaches Valkey could read the tools' catalogs and wake every api replica. Give Valkey a password, name its Secret in secrets.names.valkey and set valkey.auth, or use the bundled one for a trial." -}}
+{{- include "rotor.fail" (dict "root" . "msg" "{valkey.auth} is off, so anyone who reaches Valkey could read the tools' catalogs and wake every api replica. Give Valkey a password, name its Secret in {secrets.names.valkey} and set {valkey.auth}, or use the bundled one for a trial.") -}}
 {{- end -}}
 {{- if and .Values.openbao.configure.enabled (not .Values.openbao.configure.tokenSecret.name) -}}
-{{- fail "openbao.configure is on, so name the Secret holding a token allowed to configure OpenBao in openbao.configure.tokenSecret.name." -}}
+{{- include "rotor.fail" (dict "root" . "msg" "{openbao.configure} is on, so name the Secret holding a token allowed to configure OpenBao in {openbao.configure.tokenSecret.name}.") -}}
 {{- end -}}
 {{- end -}}
 
@@ -172,7 +198,7 @@ ROTOR_OIDC_CLIENT_ID: {{ $.Values.oidc.clientId | quote }}
 {{- with include "rotor.rewrites" .Values.oidc.backchannel }}
 ROTOR_OIDC_BACKCHANNEL: {{ . | quote }}
 {{- end }}
-ROTOR_OPENBAO_ADDR: {{ .Values.openbao.addr | quote }}
+ROTOR_OPENBAO_ADDR: {{ include "rotor.openbaoAddr" . | quote }}
 ROTOR_OPENBAO_AUTH: {{ .Values.openbao.auth | quote }}
 ROTOR_OPENBAO_ROLE: {{ .Values.openbao.role | quote }}
 ROTOR_OPENBAO_MOUNT: {{ .Values.openbao.mount | quote }}

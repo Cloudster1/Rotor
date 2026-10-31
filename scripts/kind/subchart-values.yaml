@@ -1,0 +1,25 @@
+# What the chart install test (#169) adds to tests/helm/parent/values.yaml in kind: the parent's own OpenBao, which
+# it installs with the release, Rotor's Postgres and Valkey with the passwords of the Secrets made beforehand,
+# sandboxes under runc (all kind has) and egress through Cilium to one public host. The realm stays outside and
+# unreached: lazily discovered, it is asked only when somebody signs in.
+devOpenBao:
+  enabled: true
+rotor:
+  env: development
+  ingress:
+    enabled: false
+    tls: { enabled: false }
+  postgresql: { enabled: true }
+  valkey: { bundled: true }
+  api: { replicas: 1 }
+  web: { replicas: 1 }
+  openbao:
+    configure:
+      # The parent's OpenBao runs in dev mode with no configuration file, so it can declare no audit device.
+      requireAudit: false
+  sandbox:
+    runtimeClass: ""
+    allowRunc: true
+    egress:
+      cilium: true
+      hosts: [example.com]

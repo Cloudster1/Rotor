@@ -1,0 +1,33 @@
+# Rotor as Dynamo's umbrella chart sets it (praetorianer777/Dynamo#101): names of its own whatever the release is
+# called, every secret from a Secret made beforehand, and an OpenBao and a Keycloak that are not Rotor's.
+
+# The parent's own OpenBao, in dev mode, which the kube layer turns on; Dynamo installs a real one (Dynamo#100).
+devOpenBao:
+  enabled: false
+  image: openbao/openbao:2.7.1
+
+rotor:
+  fullnameOverride: rotor
+  ingress:
+    host: rotor.example.com
+    tls: { enabled: true, secretName: rotor-tls }
+  oidc:
+    issuer: https://sso.example.com/realms/dynamo
+    clientSecret: { name: dynamo-oidc, key: rotor }
+    backchannel:
+      https://sso.example.com: http://keycloak:8080
+  database: { host: postgres, sslmode: disable }
+  valkey: { host: valkey, auth: true }
+  secrets:
+    names: { dbOwner: rotor-db-owner, valkey: rotor-valkey }
+  openbao:
+    addr: http://openbao.{{ .Release.Namespace }}.svc:8200
+    configure:
+      enabled: true
+      tokenSecret: { name: openbao-admin, key: token }
+      afterInstall: true
+  sandbox:
+    egress:
+      openbao:
+        namespace: "{{ .Release.Namespace }}"
+        podLabels: { app.kubernetes.io/name: openbao }
