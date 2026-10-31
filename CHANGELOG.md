@@ -26,6 +26,15 @@ and the versioning [Semantic Versioning](https://semver.org/).
   route refuses it, and what it changes is audited as the service account.
   Each tool now shows its `hookURL`, and the development realm has the client
   `dynamo-connect`.
+- Rotor's chart installs as a dependency of a parent chart, as Dynamo's
+  umbrella chart will install it (#169). Every name comes from
+  `fullnameOverride`, every secret can come from a Secret made beforehand,
+  `openbao.configure.afterInstall` configures an OpenBao the parent brings
+  once it is up, `openbao.addr` and `sandbox.egress.openbao.namespace` may
+  name the release's namespace as `{{ .Release.Namespace }}`, and a refusal
+  names each value as the parent sets it, such as `rotor.oidc.issuer`. The
+  chart tests render it under a small parent, and the kube layer installs it
+  that way beside a second release.
 - A feature specified in Exciter can be implemented through reviewed, tested
   code (#140): `examples/implement-feature.yaml`, started by a person, reads
   the feature's requirements and which of them changed, lets a test designer
@@ -425,6 +434,15 @@ and the versioning [Semantic Versioning](https://semver.org/).
   the run's state. A run that passes its step, time or token limit ends and
   says which; the runner reports each node starting and finishing, the
   model's text and each tool call as events.
+
+### Changed
+
+- The sandbox namespace is named from the release by default,
+  `<release namespace>-<fullname>-sandboxes`, or `<fullname>-sandboxes` when
+  the two are the same, so two installs in one cluster never share one
+  (#169). An install that relied on `<release namespace>-sandboxes` sets
+  `sandbox.namespace` to keep it. The `ClusterImagePolicy` objects that
+  admit signed sandbox images are named after that namespace too.
 
 ### Fixed
 

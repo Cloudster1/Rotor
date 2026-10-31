@@ -5,7 +5,7 @@ What a workspace pod reaches besides a sandbox's usual destinations (#136): the 
 names, so a build fetches its dependencies there and nowhere else. Allows add up with sandbox-egress.yaml's.
 */}}
 {{- if and $m.host (not .Values.sandbox.egress.cilium) }}
-{{- fail "sandbox.workspaces.packageMirror.host names a hostname, which only Cilium can allow. Set sandbox.egress.cilium where Cilium is the cluster's network plugin, or give the mirror's address range in sandbox.workspaces.packageMirror.cidr." }}
+{{- include "rotor.fail" (dict "root" . "msg" "{sandbox.workspaces.packageMirror.host} names a hostname, which only Cilium can allow. Set {sandbox.egress.cilium} where Cilium is the cluster's network plugin, or give the mirror's address range in {sandbox.workspaces.packageMirror.cidr}.") }}
 {{- end }}
 {{- $ns := include "rotor.sandboxNamespace" . }}
 {{- if $m.cidr }}

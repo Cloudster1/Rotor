@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Tests for deploy/charts/rotor (#29), adapted from Exciter's: lint, a trial and a production render, refusals, the
-# sandbox namespace's hardening and the golden renders in tests/helm (UPDATE=1 rewrites them), helm and ct in containers.
+# sandbox namespace's hardening, the chart under the parent in tests/helm/parent (#169) and the golden renders in
+# tests/helm (UPDATE=1 rewrites them), helm and ct in containers.
 set -u
 
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
@@ -10,6 +11,16 @@ HELM_IMAGE="${HELM_IMAGE:-alpine/helm:3.19.0}"
 CT_IMAGE="${CT_IMAGE:-quay.io/helmpack/chart-testing:v3.13.0}"
 RELEASE=r
 FULL="${RELEASE}-rotor"
+# The chart the renders below install: Rotor's own, or TARGET=/parent for the parent chart that depends on it.
+TARGET=/chart
+
+# The parent, with Rotor's chart where helm dependency build would put it.
+mkdir -p "${SRC}/.cache"
+PARENT=$(mktemp -d -p "${SRC}/.cache" helm-parent.XXXXXX)
+trap 'rm -rf "${PARENT}"' EXIT
+cp -r "${SRC}/tests/helm/parent/." "${PARENT}/"
+mkdir -p "${PARENT}/charts"
+cp -r "${CHART}" "${PARENT}/charts/rotor"
 
 FAILED=0
 pass() { echo "   ok    $1"; }
@@ -17,7 +28,8 @@ fail() { echo "   FAIL  $1"; FAILED=1; }
 check() { if [[ "$2" == "$3" ]]; then pass "$1"; else fail "$1: expected [$3], got [$2]"; fi; }
 
 helm() {
-    docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "${CHART}:/chart:ro" "${HELM_IMAGE}" "$@"
+    docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "${CHART}:/chart:ro" -v "${PARENT}:/parent:ro" \
+        "${HELM_IMAGE}" "$@"
 }
 
 # A setting the chart puts in the shared ConfigMap, as KEY: "value".
@@ -33,13 +45,13 @@ env_value() { # rendered name
 render() { # description args...
     local what="$1"
     shift
-    if out=$(helm lint /chart --strict "$@" 2>&1); then
+    if out=$(helm lint "${TARGET}" --strict "$@" 2>&1); then
         pass "${what}: helm lint"
     else
         fail "${what}: helm lint"
         echo "${out}" | sed 's/^/      /'
     fi
-    if RENDERED=$(helm template "${RELEASE}" /chart "$@" 2>&1); then
+    if RENDERED=$(helm template "${RELEASE}" "${TARGET}" "$@" 2>&1); then
         pass "${what}: helm template"
         # Sandboxes never run on the Docker daemon outside development, and a chart is never development's stack.
         check "${what}: no Docker socket" "$(grep -c 'docker.sock' <<<"${RENDERED}")" "0"
@@ -53,7 +65,7 @@ render() { # description args...
 refused() { # description expected-message args...
     local what="$1" message="$2"
     shift 2
-    if out=$(helm template "${RELEASE}" /chart "$@" 2>&1); then
+    if out=$(helm template "${RELEASE}" "${TARGET}" "$@" 2>&1); then
         fail "${what}: rendered, but should have been refused"
     elif grep -qF -- "${message}" <<<"${out}"; then
         pass "${what}"
@@ -67,7 +79,7 @@ golden() { # name args...
     local name="$1" file="${GOLDEN}/$1.yaml"
     shift
     local out
-    if ! out=$(helm template "${RELEASE}" /chart "$@" 2>&1); then
+    if ! out=$(helm template "${RELEASE}" "${TARGET}" "$@" 2>&1); then
         fail "golden ${name}: helm template"
         echo "${out}" | sed 's/^/      /'
         return
@@ -117,7 +129,7 @@ check "the bundled Valkey has a password" "$(env_value "${RENDERED}" ROTOR_VALKE
 check "sandboxes dial the api's Service" "$(config_value "${RENDERED}" ROTOR_RUNNER_DIAL)" "${FULL}-api.default.svc:9443"
 check "the runner certificate names that Service" "$(config_value "${RENDERED}" ROTOR_RUNNER_HOST)" "${FULL}-api.default.svc"
 check "sandboxes run under gVisor" "$(config_value "${RENDERED}" ROTOR_SANDBOX_RUNTIME_CLASS)" "gvisor"
-check "the sandbox namespace" "$(config_value "${RENDERED}" ROTOR_SANDBOX_NAMESPACE)" "default-sandboxes"
+check "the sandbox namespace" "$(config_value "${RENDERED}" ROTOR_SANDBOX_NAMESPACE)" "default-${FULL}-sandboxes"
 check "the sandbox namespace enforces the restricted standard" \
     "$(grep -c 'pod-security.kubernetes.io/enforce: restricted' <<<"${RENDERED}")" "1"
 check "the sandboxes' ServiceAccount carries no token" \
@@ -163,7 +175,7 @@ render "admission" "${PRODUCTION[@]}" --set sandbox.admission.requireSignature=t
 check "the sandbox namespace is handed to policy-controller" \
     "$(grep -c 'policy.sigstore.dev/include: "true"' <<<"${RENDERED}")" "1"
 check "one policy wants the signature and another the signed SBOM" \
-    "$(grep -c 'name: r-rotor-sandboxes-\(signed\|sbom\)$' <<<"${RENDERED}")" "2"
+    "$(grep -c 'name: default-r-rotor-sandboxes-\(signed\|sbom\)$' <<<"${RENDERED}")" "2"
 check "both cover the runner's repository by digest and by tag" \
     "$(grep -c 'glob: "ghcr.io/cloudster1/rotor-runner[@:]\*"' <<<"${RENDERED}")" "4"
 check "both trust the runner key" "$(grep -c 'Pwutfi/afYYrwM7iAeW4sRf2uPv+Aahl9mNB2pfcqIT6C5tSw+7UW1BLkQ==' <<<"${RENDERED}")" "2"
@@ -210,6 +222,53 @@ refused "no word on where OpenBao is" "Say where OpenBao is" -f /chart/values-tr
 refused "a signature required without a key or an identity" "set sandbox.admission.publicKey" "${TRIAL[@]}" \
     --set sandbox.admission.requireSignature=true --set sandbox.admission.keyless.subjectRegExp=
 
+echo "== two installs in one cluster (#169)"
+sandbox_namespace() { # release namespace
+    config_value "$(helm template "$1" /chart "${TRIAL[@]}" --namespace "$2" 2>&1)" ROTOR_SANDBOX_NAMESPACE
+}
+check "two releases in one namespace get a sandbox namespace each" \
+    "$(sandbox_namespace a team) $(sandbox_namespace b team)" "team-a-rotor-sandboxes team-b-rotor-sandboxes"
+check "the same fullname in two namespaces gets one each" \
+    "$(sandbox_namespace rotor team) $(sandbox_namespace rotor lab)" "team-rotor-sandboxes lab-rotor-sandboxes"
+check "a release named after its namespace is named once" "$(sandbox_namespace rotor rotor)" "rotor-sandboxes"
+check "a long name still makes a namespace name" \
+    "$(sandbox_namespace a "$(printf 'n%.0s' {1..60})" | grep -cE '^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?-sandboxes$')" "1"
+
+echo "== as a subchart, as Dynamo's umbrella chart installs it (#169)"
+SUITE=(--namespace dynamo)
+TARGET=/parent RELEASE=suite render "subchart" "${SUITE[@]}"
+check "names come from fullnameOverride, never the release" "$(grep -c 'suite-' <<<"${RENDERED}")" "0"
+check "the release is the parent's" "$(grep -c 'app.kubernetes.io/instance: rotor$' <<<"${RENDERED}")" "0"
+check "sandboxes dial the api's Service by that name" "$(config_value "${RENDERED}" ROTOR_RUNNER_DIAL)" \
+    "rotor-api.dynamo.svc:9443"
+check "the sandbox namespace is named from the release" \
+    "$(config_value "${RENDERED}" ROTOR_SANDBOX_NAMESPACE)" "dynamo-rotor-sandboxes"
+check "the parent's OpenBao is reached in the release's namespace" \
+    "$(config_value "${RENDERED}" ROTOR_OPENBAO_ADDR) $(env_value "${RENDERED}" BAO_ADDR)" \
+    "http://openbao.dynamo.svc:8200 http://openbao.dynamo.svc:8200"
+check "sandboxes may reach that OpenBao" \
+    "$(grep -A3 'kubernetes.io/metadata.name: dynamo$' <<<"${RENDERED}" | grep -c 'app.kubernetes.io/name: openbao')" "1"
+check "OpenBao is configured once the parent's OpenBao is installed" \
+    "$(grep -A12 'name: rotor-openbao$' <<<"${RENDERED}" | grep -c 'helm.sh/hook: post-install,pre-upgrade')" "2"
+check "and only once it answers" "$(grep -c 'until bao status' <<<"${RENDERED}")" "1"
+check "the client secret comes from the Secret made beforehand" \
+    "$(grep -c 'secretKeyRef: { name: dynamo-oidc, key: rotor }' <<<"${RENDERED}")" "2"
+check "so does the token that configures OpenBao" \
+    "$(grep -c 'secretKeyRef: { name: openbao-admin, key: token }' <<<"${RENDERED}")" "1"
+check "so do the Postgres owner's and Valkey's passwords" \
+    "$(grep -A1 'secretKeyRef:' <<<"${RENDERED}" | grep -c 'name: rotor-\(db-owner\|valkey\)$')" "4"
+check "which the chart never makes up" "$(grep -c 'name one that exists in rotor.secrets.names.\(dbOwner\|valkey\)' <<<"${RENDERED}")" "2"
+check "sign-in goes to the realm the parent names" "$(config_value "${RENDERED}" ROTOR_OIDC_ISSUER)" \
+    "https://sso.example.com/realms/dynamo"
+TARGET=/parent RELEASE=suite refused "a parent without the realm" "Set rotor.oidc.issuer and rotor.oidc.clientSecret" \
+    "${SUITE[@]}" --set rotor.oidc.issuer=
+TARGET=/parent RELEASE=suite refused "a parent without a database" "Set rotor.database.host" \
+    "${SUITE[@]}" --set rotor.database.host=
+TARGET=/parent RELEASE=suite refused "a parent with no word on where OpenBao is" "rotor.sandbox.egress.openbao.namespace" \
+    "${SUITE[@]}" --set rotor.sandbox.egress.openbao.namespace=
+TARGET=/parent RELEASE=suite refused "a parent configuring OpenBao without a token" \
+    "rotor.openbao.configure is on" "${SUITE[@]}" --set rotor.openbao.configure.tokenSecret.name=
+
 echo "== the OpenBao script the chart carries"
 if diff -r "${SRC}/deploy/openbao/policies" "${CHART}/files/openbao/policies" >/dev/null &&
     diff "${SRC}/deploy/openbao/init.sh" "${CHART}/files/openbao/init.sh" >/dev/null; then
@@ -221,6 +280,7 @@ fi
 echo "== golden renders"
 golden trial "${TRIAL[@]}"
 golden production "${PRODUCTION[@]}"
+TARGET=/parent RELEASE=suite golden subchart "${SUITE[@]}"
 
 if [[ "${FAILED}" == 0 ]]; then echo "PASS: chart tests"; else echo "FAIL: chart tests"; fi
 exit "${FAILED}"

@@ -1,4 +1,6 @@
 {{- if .Values.openbao.configure.enabled }}
+{{- $after := .Values.openbao.configure.afterInstall }}
+{{- $hook := dict "helm" (ternary "post-install,pre-upgrade" "pre-install,pre-upgrade" $after) "argo" (ternary "Sync" "PreSync" $after) }}
 {{/*
 Runs Rotor's OpenBao init script (files/openbao, a copy of deploy/openbao that tests/test-helm.sh keeps equal) against
 the installation's OpenBao: the KV mount, the transit key, the runner PKI for the api's Service name, the policy and
@@ -11,7 +13,7 @@ metadata:
   labels:
     {{- include "rotor.labels" . | nindent 4 }}
   annotations:
-    {{- include "rotor.hookAnnotations" (dict "helm" "pre-install,pre-upgrade" "argo" "PreSync" "weight" "-21") | nindent 4 }}
+    {{- include "rotor.hookAnnotations" (merge (dict "weight" "-21") $hook) | nindent 4 }}
 data:
   init.sh: |
     {{- .Files.Get "files/openbao/init.sh" | nindent 4 }}
@@ -28,7 +30,7 @@ metadata:
     {{- include "rotor.labels" . | nindent 4 }}
     app.kubernetes.io/component: openbao
   annotations:
-    {{- include "rotor.hookAnnotations" (dict "helm" "pre-install,pre-upgrade" "argo" "PreSync" "weight" "-20") | nindent 4 }}
+    {{- include "rotor.hookAnnotations" (merge (dict "weight" "-20") $hook) | nindent 4 }}
 spec:
   backoffLimit: 3
   activeDeadlineSeconds: 600
@@ -52,12 +54,17 @@ spec:
           imagePullPolicy: {{ .Values.images.pullPolicy }}
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          {{- if $after }}
+          # An OpenBao the same release installs comes up beside this Job, so it waits until that one answers unsealed.
+          command: ["/bin/sh", "-c", "until bao status >/dev/null 2>&1; do echo waiting for OpenBao at $BAO_ADDR; sleep {{ int .Values.openbao.configure.waitSeconds }}; done; exec /bin/sh /rotor/init.sh"]
+          {{- else }}
           command: ["/bin/sh", "/rotor/init.sh"]
+          {{- end }}
           env:
             - name: HOME
               value: /tmp
             - name: BAO_ADDR
-              value: {{ .Values.openbao.addr | quote }}
+              value: {{ include "rotor.openbaoAddr" . | quote }}
             - name: BAO_TOKEN
               valueFrom:
                 secretKeyRef: { name: {{ .Values.openbao.configure.tokenSecret.name }}, key: {{ .Values.openbao.configure.tokenSecret.key }} }

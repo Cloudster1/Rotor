@@ -1,0 +1,1251 @@
+---
+# Source: suite/charts/rotor/templates/sandbox.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dynamo-rotor-sandboxes
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+---
+# Source: suite/charts/rotor/templates/sandbox-egress.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rotor-sandboxes
+  namespace: dynamo-rotor-sandboxes
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+spec:
+  podSelector:
+    matchLabels:
+      rotor.dev/sandbox: "1"
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: dynamo
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: rotor
+              app.kubernetes.io/instance: suite
+              app.kubernetes.io/component: api
+      ports:
+        - { protocol: TCP, port: 9443 }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: dynamo
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: openbao
+      ports:
+        - { protocol: TCP, port: 8200 }
+---
+# Source: suite/charts/rotor/templates/sandbox.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rotor-sandbox
+  namespace: dynamo-rotor-sandboxes
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+automountServiceAccountToken: false
+---
+# Source: suite/charts/rotor/templates/serviceaccounts.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rotor-api
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+    app.kubernetes.io/component: api
+automountServiceAccountToken: true
+---
+# Source: suite/charts/rotor/templates/serviceaccounts.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rotor-worker
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+    app.kubernetes.io/component: worker
+automountServiceAccountToken: true
+---
+# Source: suite/charts/rotor/templates/serviceaccounts.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rotor-jobs
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+    app.kubernetes.io/component: jobs
+automountServiceAccountToken: false
+---
+# Source: suite/charts/rotor/templates/configmap-env.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rotor-env
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+data:
+  ROTOR_ENV: "production"
+  ROTOR_LOG_LEVEL: "info"
+  ROTOR_APP_URL: "https://rotor.example.com"
+  ROTOR_HTTP_ADDR: ":8080"
+  ROTOR_SECURE_COOKIES: "true"
+  ROTOR_OIDC_ISSUER: "https://sso.example.com/realms/dynamo"
+  ROTOR_OIDC_CLIENT_ID: "rotor"
+  ROTOR_OIDC_BACKCHANNEL: "https://sso.example.com=http://keycloak:8080"
+  ROTOR_OPENBAO_ADDR: "http://openbao.dynamo.svc:8200"
+  ROTOR_OPENBAO_AUTH: "kubernetes"
+  ROTOR_OPENBAO_ROLE: "rotor-control-plane"
+  ROTOR_OPENBAO_MOUNT: "rotor"
+  ROTOR_SANDBOX_BACKEND: kubernetes
+  ROTOR_SANDBOX_IMAGE: "ghcr.io/cloudster1/rotor-runner:0.1.0"
+  ROTOR_SANDBOX_STACK: "suite"
+  ROTOR_SANDBOX_NAMESPACE: "dynamo-rotor-sandboxes"
+  ROTOR_SANDBOX_RUNTIME_CLASS: "gvisor"
+  ROTOR_SANDBOX_SERVICE_ACCOUNT: "rotor-sandbox"
+  ROTOR_SANDBOX_ALLOW_RUNC: "false"
+  ROTOR_WORKSPACE_AGENT_IMAGE: "ghcr.io/cloudster1/rotor-agent:0.1.0"
+  ROTOR_WORKSPACE_MEMORY_MIB: "3072"
+  ROTOR_WORKSPACE_MILLICPUS: "2000"
+  ROTOR_RUNNER_ADDR: ":9443"
+  ROTOR_RUNNER_HOST: "rotor-api.dynamo.svc"
+  ROTOR_RUNNER_DIAL: "rotor-api.dynamo.svc:9443"
+  ROTOR_WORKER_METRICS_ADDR: ":9464"
+  ROTOR_API_METRICS_ADDR: ":9465"
+  ROTOR_TRACE_SAMPLE_RATIO: "1"
+  ROTOR_LANGSMITH_ENDPOINT: "https://api.smith.langchain.com/otel/v1/traces"
+---
+# Source: suite/charts/rotor/templates/configmap-nginx.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rotor-nginx
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+data:
+  default.conf: |
+    upstream rotor_api {
+        server rotor-api:8080;
+        keepalive 32;
+    }
+
+    server {
+        listen 8080;
+        server_name _;
+        root /usr/share/nginx/html;
+
+        location /api/ {
+            client_max_body_size 0;
+            # Run events stream over SSE, which must reach the browser as they are written.
+            proxy_buffering off;
+            proxy_read_timeout 1h;
+            proxy_http_version 1.1;
+            proxy_set_header Connection "";
+            proxy_pass http://rotor_api;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # The OAuth metadata sits where RFC 8414 and RFC 9728 put it, at the root, and the api answers it (#47).
+        location ^~ /.well-known/oauth- {
+            proxy_pass http://rotor_api;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location = /healthz {
+            proxy_pass http://rotor_api;
+        }
+        location = /readyz {
+            proxy_pass http://rotor_api;
+        }
+
+        location /assets/ {
+            add_header Cache-Control "public, max-age=31536000, immutable";
+            add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header X-Frame-Options "DENY" always;
+            add_header Referrer-Policy "same-origin" always;
+        }
+
+        location / {
+            try_files $uri $uri/ /index.html;
+            add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header X-Frame-Options "DENY" always;
+            add_header Referrer-Policy "same-origin" always;
+        }
+    }
+---
+# Source: suite/charts/rotor/templates/sandbox.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rotor-worker
+  namespace: dynamo-rotor-sandboxes
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "secrets"]
+    verbs: ["create", "get", "list", "watch", "update", "delete"]
+---
+# Source: suite/charts/rotor/templates/sandbox.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rotor-worker
+  namespace: dynamo-rotor-sandboxes
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+subjects:
+  - kind: ServiceAccount
+    name: rotor-worker
+    namespace: dynamo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rotor-worker
+---
+# Source: suite/charts/rotor/templates/api-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: rotor-api
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+    app.kubernetes.io/component: api
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+    - name: runner
+      port: 9443
+      targetPort: runner
+  selector:
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/component: api
+---
+# Source: suite/charts/rotor/templates/web.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: rotor-web
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+    app.kubernetes.io/component: web
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+  selector:
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/component: web
+---
+# Source: suite/charts/rotor/templates/api-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rotor-api
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+    app.kubernetes.io/component: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rotor
+      app.kubernetes.io/instance: suite
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rotor
+        app.kubernetes.io/instance: suite
+        app.kubernetes.io/component: api
+      annotations:
+        checksum/env: b02f22ee58fa61aad917ee75d6fa808c9bbe5a9c2f151ed9d996cbf3a2c85ba7
+    spec:
+      serviceAccountName: rotor-api
+      terminationGracePeriodSeconds: 40
+      securityContext:
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: ghcr.io/cloudster1/rotor-backend:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: ["/app/api"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+          envFrom:
+            - configMapRef:
+                name: rotor-env
+          env:
+            - name: DB_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rotor-db-app
+                  key: password
+            - name: DB_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rotor-db-admin
+                  key: password
+            - name: ROTOR_DB_URL
+              value: "postgres://rotor_app:$(DB_APP_PASSWORD)@postgres:5432/rotor?sslmode=disable"
+            - name: ROTOR_DB_ADMIN_URL
+              value: "postgres://rotor_admin:$(DB_ADMIN_PASSWORD)@postgres:5432/rotor?sslmode=disable"
+            - name: ROTOR_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef: { name: dynamo-oidc, key: rotor }
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rotor-valkey
+                  key: password
+            - name: ROTOR_VALKEY_URL
+              value: "redis://:$(VALKEY_PASSWORD)@valkey:6379/0"
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: runner
+              containerPort: 9443
+            - name: metrics
+              containerPort: 9465
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+# Source: suite/charts/rotor/templates/web.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rotor-web
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+    app.kubernetes.io/component: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rotor
+      app.kubernetes.io/instance: suite
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rotor
+        app.kubernetes.io/instance: suite
+        app.kubernetes.io/component: web
+      annotations:
+        checksum/nginx: f5857ab931ee804736c0166f9de6d7d067aa3e8499f5b50453afa459c58e8060
+    spec:
+      automountServiceAccountToken: false
+      # Stock nginx as its own user rather than root, which is why it listens above 1024 and why its writable paths
+      # are mounted below.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: web
+          image: ghcr.io/cloudster1/rotor-web:0.1.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet: { path: /index.html, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /index.html, port: http }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 20m
+              memory: 32Mi
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d
+              readOnly: true
+            - name: cache
+              mountPath: /var/cache/nginx
+            - name: run
+              mountPath: /var/run
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: rotor-nginx
+        - name: cache
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+---
+# Source: suite/charts/rotor/templates/worker-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rotor-worker
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+    app.kubernetes.io/component: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rotor
+      app.kubernetes.io/instance: suite
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rotor
+        app.kubernetes.io/instance: suite
+        app.kubernetes.io/component: worker
+      annotations:
+        checksum/env: b02f22ee58fa61aad917ee75d6fa808c9bbe5a9c2f151ed9d996cbf3a2c85ba7
+    spec:
+      serviceAccountName: rotor-worker
+      terminationGracePeriodSeconds: 20
+      securityContext:
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: worker
+          image: ghcr.io/cloudster1/rotor-backend:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: ["/app/worker"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+          envFrom:
+            - configMapRef:
+                name: rotor-env
+          env:
+            - name: DB_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rotor-db-app
+                  key: password
+            - name: DB_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rotor-db-admin
+                  key: password
+            - name: ROTOR_DB_URL
+              value: "postgres://rotor_app:$(DB_APP_PASSWORD)@postgres:5432/rotor?sslmode=disable"
+            - name: ROTOR_DB_ADMIN_URL
+              value: "postgres://rotor_admin:$(DB_ADMIN_PASSWORD)@postgres:5432/rotor?sslmode=disable"
+            - name: ROTOR_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef: { name: dynamo-oidc, key: rotor }
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rotor-valkey
+                  key: password
+            - name: ROTOR_VALKEY_URL
+              value: "redis://:$(VALKEY_PASSWORD)@valkey:6379/0"
+          ports:
+            - name: metrics
+              containerPort: 9464
+          livenessProbe:
+            exec:
+              command: ["/app/worker", "-healthcheck"]
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources:
+            limits:
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+          volumeMounts:
+            # The file the health check reads lives here, the root filesystem being read only.
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+# Source: suite/charts/rotor/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rotor
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+spec:
+  tls:
+    - hosts: ["rotor.example.com"]
+      secretName: rotor-tls
+  rules:
+    - host: "rotor.example.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rotor-web
+                port:
+                  name: http
+---
+# Source: suite/charts/rotor/templates/job-secrets.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rotor-secrets-generator
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-40"
+    helm.sh/hook-delete-policy: before-hook-creation
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "-40"
+---
+# Source: suite/charts/rotor/templates/job-openbao.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rotor-openbao
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+  annotations:
+    helm.sh/hook: post-install,pre-upgrade
+    helm.sh/hook-weight: "-21"
+    helm.sh/hook-delete-policy: before-hook-creation
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "-21"
+data:
+  init.sh: |
+    #!/bin/sh
+    # Configures OpenBao for Rotor; safe to run again on every start. The development stack runs it in its OpenBao,
+    # the chart in a hook Job against an installation's own. What it signs the control plane in with depends on what
+    # it is given: a Keycloak JWKS for JWT auth, a cluster's address for Kubernetes auth (#26), or both.
+    set -eu
+    
+    POLICY_DIR="${ROTOR_POLICY_DIR:-/rotor/policies}"
+    # The name sandboxes dial the control plane by, which its runner certificate carries.
+    RUNNER_HOST="${ROTOR_RUNNER_HOST:-api}"
+    
+    enabled() { bao "$1" list -format=json | grep -q "\"$2/\""; }
+    
+    # Who read which secret is known only from OpenBao's audit log, which it takes from its configuration alone (#92).
+    if ! bao audit list -format=json 2>/dev/null | grep -q '"type"'; then
+      if [ "${ROTOR_OPENBAO_REQUIRE_AUDIT:-true}" = true ]; then
+        echo "OpenBao has no audit device, so nobody could tell who read Rotor's secrets. Declare one in OpenBao's" \
+          "configuration (docs/deployment.md), or set ROTOR_OPENBAO_REQUIRE_AUDIT=false for a throwaway test server." >&2
+        exit 1
+      fi
+      echo "OpenBao has no audit device; going on, as ROTOR_OPENBAO_REQUIRE_AUDIT=false asks" >&2
+    fi
+    
+    enabled secrets rotor || bao secrets enable -path=rotor -version=2 kv >/dev/null
+    # Every write names the version it read, so two writers never overwrite each other unseen.
+    bao write rotor/config cas_required=true max_versions=3 >/dev/null
+    enabled secrets transit || bao secrets enable transit
+    # The installation's key for runs' data keys (#41), rotated every 90 days; older versions still open older runs.
+    bao read transit/keys/rotor-run-data >/dev/null 2>&1 \
+      || bao write transit/keys/rotor-run-data auto_rotate_period=2160h >/dev/null
+    
+    # A CA for the runner protocol's TLS: the api is issued a certificate for the runner host, sandboxes trust the CA.
+    enabled secrets pki || bao secrets enable pki >/dev/null
+    bao secrets tune -max-lease-ttl=87600h pki >/dev/null
+    bao read -field=certificate pki/cert/ca >/dev/null 2>&1 \
+      || bao write -field=certificate pki/root/generate/internal common_name="Rotor runner CA" ttl=87600h >/dev/null
+    bao write pki/roles/runnerctl allowed_domains="$RUNNER_HOST" allow_bare_domains=true allow_subdomains=false \
+      allow_localhost=false key_type=ec key_bits=256 max_ttl=72h >/dev/null
+    
+    for policy in "$POLICY_DIR"/*.hcl; do
+      bao policy write "$(basename "$policy" .hcl)" "$policy" >/dev/null
+    done
+    
+    # Outside a cluster the control plane signs in with a Keycloak service-account token. Keys come from the JWKS on
+    # the stack's network, while bound_issuer is the browser-facing address Keycloak writes into every token.
+    if [ -n "${ROTOR_OIDC_JWKS_URL:-}" ]; then
+      enabled auth jwt || bao auth enable jwt
+      bao write auth/jwt/config jwks_url="$ROTOR_OIDC_JWKS_URL" bound_issuer="$ROTOR_OIDC_ISSUER" >/dev/null
+      bao write auth/jwt/role/rotor-control-plane - >/dev/null <<JSON
+    {
+      "role_type": "jwt",
+      "bound_audiences": ["openbao"],
+      "bound_claims": {"azp": "rotor-control-plane"},
+      "user_claim": "azp",
+      "token_policies": ["rotor-control-plane"],
+      "token_ttl": "1h",
+      "token_max_ttl": "24h"
+    }
+    JSON
+    fi
+    
+    # In a cluster the api and the worker sign in with their own ServiceAccount tokens. Sandboxes have none: they only
+    # unwrap what they are handed, which needs no login.
+    if [ -n "${ROTOR_KUBERNETES_HOST:-}" ]; then
+      enabled auth kubernetes || bao auth enable kubernetes
+      bao write auth/kubernetes/config kubernetes_host="$ROTOR_KUBERNETES_HOST" >/dev/null
+      bao write auth/kubernetes/role/rotor-control-plane \
+        bound_service_account_names="$ROTOR_CONTROL_PLANE_SERVICE_ACCOUNTS" \
+        bound_service_account_namespaces="$ROTOR_CONTROL_PLANE_NAMESPACE" \
+        token_policies=rotor-control-plane token_ttl=1h token_max_ttl=24h >/dev/null
+    fi
+    
+    echo "OpenBao is configured for Rotor"
+    
+  rotor-control-plane.hcl: |
+    # The control plane (the api and the worker): connections, client secrets, run tokens and the runner certificate.
+    path "rotor/data/connections/*" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+    
+    path "rotor/metadata/connections/*" {
+      capabilities = ["read", "list", "delete"]
+    }
+    
+    path "rotor/data/tools/*" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+    
+    path "rotor/metadata/tools/*" {
+      capabilities = ["read", "list", "delete"]
+    }
+    
+    # The runner protocol's server certificate, for the host api alone (#18).
+    path "pki/issue/runnerctl" {
+      capabilities = ["create", "update"]
+    }
+    
+    path "pki/cert/ca" {
+      capabilities = ["read"]
+    }
+    
+    # Every run's data is sealed with a data key of its own (#41): this key makes and unwraps them and never leaves
+    # OpenBao. Nothing else is encrypted with it, so encrypting through it is not allowed.
+    path "transit/datakey/plaintext/rotor-run-data" {
+      capabilities = ["update"]
+    }
+    
+    path "transit/decrypt/rotor-run-data" {
+      capabilities = ["update"]
+    }
+    
+    # The language model providers' keys (#20).
+    path "rotor/data/providers/*" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+    
+    path "rotor/metadata/providers/*" {
+      capabilities = ["read", "list", "delete"]
+    }
+    
+    # A run's access tokens, kept until they are revoked at their tools when the run ends (#23).
+    path "rotor/data/runs/*" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+    
+    path "rotor/metadata/runs/*" {
+      capabilities = ["read", "list", "delete"]
+    }
+    
+    # Tokens and keys reach a sandbox wrapped: single use and short lived, unwrapped by the runner itself (#23).
+    path "sys/wrapping/wrap" {
+      capabilities = ["update"]
+    }
+    
+    # The LangSmith key an administrator gives, which the control plane alone sends runs' spans with (#37).
+    path "rotor/data/settings/langsmith/*" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+    
+    path "rotor/metadata/settings/langsmith/*" {
+      capabilities = ["read", "list", "delete"]
+    }
+---
+# Source: suite/charts/rotor/templates/job-secrets.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rotor-secrets-generator
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-39"
+    helm.sh/hook-delete-policy: before-hook-creation
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "-39"
+rules:
+  # Kubernetes cannot scope create to resource names, so reading is limited to these Secrets and creating is not.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames:
+      - rotor-db-app
+      - rotor-db-admin
+      - rotor-db-owner
+      - rotor-valkey
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
+---
+# Source: suite/charts/rotor/templates/job-secrets.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rotor-secrets-generator
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-38"
+    helm.sh/hook-delete-policy: before-hook-creation
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "-38"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rotor-secrets-generator
+subjects:
+  - kind: ServiceAccount
+    name: rotor-secrets-generator
+    namespace: dynamo
+---
+# Source: suite/charts/rotor/templates/job-migrate.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rotor-migrate
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+    app.kubernetes.io/component: migrate
+  annotations:
+    helm.sh/hook: post-install,pre-upgrade
+    helm.sh/hook-weight: "-4"
+    helm.sh/hook-delete-policy: before-hook-creation
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "-4"
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rotor
+        app.kubernetes.io/instance: suite
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      serviceAccountName: rotor-jobs
+      securityContext:
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: ghcr.io/cloudster1/rotor-backend:0.1.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+          command: ["/app/migrate", "up"]
+          env:
+            - name: DB_OWNER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rotor-db-owner
+                  key: password
+            - name: ROTOR_DB_URL
+              value: "postgres://postgres:$(DB_OWNER_PASSWORD)@postgres:5432/rotor?sslmode=disable"
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 256Mi }
+---
+# Source: suite/charts/rotor/templates/job-openbao.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rotor-openbao
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+    app.kubernetes.io/component: openbao
+  annotations:
+    helm.sh/hook: post-install,pre-upgrade
+    helm.sh/hook-weight: "-20"
+    helm.sh/hook-delete-policy: before-hook-creation
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "-20"
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rotor
+        app.kubernetes.io/instance: suite
+        app.kubernetes.io/component: openbao
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: openbao
+          image: openbao/openbao:2.7.1
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+          # An OpenBao the same release installs comes up beside this Job, so it waits until that one answers unsealed.
+          command: ["/bin/sh", "-c", "until bao status >/dev/null 2>&1; do echo waiting for OpenBao at $BAO_ADDR; sleep 2; done; exec /bin/sh /rotor/init.sh"]
+          env:
+            - name: HOME
+              value: /tmp
+            - name: BAO_ADDR
+              value: "http://openbao.dynamo.svc:8200"
+            - name: BAO_TOKEN
+              valueFrom:
+                secretKeyRef: { name: openbao-admin, key: token }
+            - name: ROTOR_POLICY_DIR
+              value: /rotor
+            - name: ROTOR_RUNNER_HOST
+              value: "rotor-api.dynamo.svc"
+            - name: ROTOR_KUBERNETES_HOST
+              value: "https://kubernetes.default.svc"
+            - name: ROTOR_CONTROL_PLANE_SERVICE_ACCOUNTS
+              value: "rotor-api,rotor-worker"
+            - name: ROTOR_CONTROL_PLANE_NAMESPACE
+              value: "dynamo"
+            - name: ROTOR_OPENBAO_REQUIRE_AUDIT
+              value: "true"
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 128Mi }
+          volumeMounts:
+            - name: script
+              mountPath: /rotor
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: script
+          configMap:
+            name: rotor-openbao
+        - name: tmp
+          emptyDir: {}
+---
+# Source: suite/charts/rotor/templates/job-roles.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rotor-roles
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+    app.kubernetes.io/component: roles
+  annotations:
+    # post-install, not pre-install: pre-install hooks run before the release's own resources exist, a bundled
+    # database included.
+    helm.sh/hook: post-install,pre-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "-5"
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rotor
+        app.kubernetes.io/instance: suite
+        app.kubernetes.io/component: roles
+    spec:
+      restartPolicy: Never
+      serviceAccountName: rotor-jobs
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: roles
+          image: postgres:18-alpine
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+          env:
+            - name: DB_OWNER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rotor-db-owner
+                  key: password
+            - name: APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rotor-db-app
+                  key: password
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rotor-db-admin
+                  key: password
+            # A host that drops packets would otherwise hold a connect open until the Job's deadline.
+            - name: PGCONNECT_TIMEOUT
+              value: "5"
+            - name: PGURL
+              value: "postgres://postgres:$(DB_OWNER_PASSWORD)@postgres:5432/rotor?sslmode=disable"
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              until psql "$PGURL" -Atc "SELECT 1" >/dev/null 2>&1; do
+                echo "waiting for the database to accept the owner role"
+                sleep 5
+              done
+              psql -v ON_ERROR_STOP=1 "$PGURL" <<'SQL'
+              -- A named tag, not $$: Kubernetes reads $$ in args as an escaped $.
+              DO $roles$
+              BEGIN
+                  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rotor_app') THEN
+                      CREATE ROLE rotor_app LOGIN NOSUPERUSER NOBYPASSRLS;
+                  END IF;
+                  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rotor_admin') THEN
+                      CREATE ROLE rotor_admin LOGIN NOSUPERUSER NOBYPASSRLS;
+                  END IF;
+              END;
+              $roles$;
+              SQL
+              # Outside the DO block: the passwords change between installs, and ALTER is the idempotent way to say so.
+              psql -v ON_ERROR_STOP=1 "$PGURL" \
+                -c "ALTER ROLE rotor_app WITH LOGIN PASSWORD '$APP_PASSWORD'" \
+                -c "ALTER ROLE rotor_admin WITH LOGIN PASSWORD '$ADMIN_PASSWORD'" \
+                -c "GRANT CONNECT ON DATABASE rotor TO rotor_app, rotor_admin"
+          resources:
+            requests: { cpu: 20m, memory: 32Mi }
+            limits: { memory: 128Mi }
+---
+# Source: suite/charts/rotor/templates/job-secrets.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rotor-secrets-generator
+  labels:
+    helm.sh/chart: rotor-0.1.0
+    app.kubernetes.io/name: rotor
+    app.kubernetes.io/instance: suite
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: rotor
+    app.kubernetes.io/component: secrets
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-30"
+    helm.sh/hook-delete-policy: before-hook-creation
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "-30"
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rotor
+        app.kubernetes.io/instance: suite
+        app.kubernetes.io/component: secrets
+    spec:
+      restartPolicy: Never
+      serviceAccountName: rotor-secrets-generator
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: secrets
+          image: alpine/kubectl:1.34.1
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+          env:
+            # kubectl keeps its discovery cache under HOME.
+            - name: HOME
+              value: /tmp
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              ns="dynamo"
+
+              # Any lookup failure but NotFound stops the Job: read as absent, it would try to create a Secret that
+              # may well exist.
+              exists() {
+                if out=$(kubectl get secret "$1" -n "$ns" -o name 2>&1); then return 0; fi
+                case "$out" in *NotFound*) return 1 ;; esac
+                echo "$out" >&2
+                exit 1
+              }
+
+              password() {
+                tr -dc A-Za-z0-9 </dev/urandom | head -c 32
+              }
+
+              # Labelled as Rotor's without being Helm's, so an uninstall keeps the passwords the data was made with.
+              create() {
+                kubectl create secret generic "$1" -n "$ns" \
+                  --type=kubernetes.io/basic-auth \
+                  --from-literal=username="$2" \
+                  --from-literal=password="$3" \
+                  --dry-run=client -o yaml \
+                | kubectl label --local -f - -o yaml \
+                    app.kubernetes.io/part-of=rotor \
+                    app.kubernetes.io/instance="suite" \
+                | kubectl create -f - 2>err || {
+                  grep -q AlreadyExists err && return 0
+                  cat err >&2
+                  exit 1
+                }
+                echo "created $1 with a random password"
+              }
+              cd /tmp
+              if exists "rotor-db-app"; then
+                echo "rotor-db-app exists and is left as it is"
+              else
+                create "rotor-db-app" "rotor_app" "$(password)"
+              fi
+              if exists "rotor-db-admin"; then
+                echo "rotor-db-admin exists and is left as it is"
+              else
+                create "rotor-db-admin" "rotor_admin" "$(password)"
+              fi
+              if exists "rotor-db-owner"; then
+                echo "rotor-db-owner exists and is left as it is"
+              else
+                echo "Secret rotor-db-owner does not exist. The chart cannot make this password up, because the server it belongs to already has one: create it as a kubernetes.io/basic-auth Secret with that password, or name one that exists in rotor.secrets.names.dbOwner." >&2
+                exit 1
+              fi
+              if exists "rotor-valkey"; then
+                echo "rotor-valkey exists and is left as it is"
+              else
+                echo "Secret rotor-valkey does not exist. The chart cannot make this password up, because the server it belongs to already has one: create it as a kubernetes.io/basic-auth Secret with that password, or name one that exists in rotor.secrets.names.valkey." >&2
+                exit 1
+              fi
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 128Mi }
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

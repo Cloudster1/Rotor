@@ -68,8 +68,9 @@ Four things come from outside the chart.
 
 ### Sandboxes
 
-Every run executes in its own pod in the sandbox namespace (`sandbox.namespace`, `<release namespace>-sandboxes`
-by default), which the chart creates under the restricted Pod Security standard.
+Every run executes in its own pod in the sandbox namespace (`sandbox.namespace`), which the chart creates under the
+restricted Pod Security standard. By default it is named from the release, `<release namespace>-<fullname>-sandboxes`
+or `<fullname>-sandboxes` when the two are the same, so two installs in one cluster never share one.
 
 - **gVisor.** The pods run under the RuntimeClass `sandbox.runtimeClass`, `gvisor` by default; install gVisor's
   `runsc` on the nodes and a RuntimeClass of that name first. An empty runtime class runs sandboxes under runc,
@@ -170,6 +171,23 @@ and never rewrites one that exists. To bring your own, name existing `kubernetes
 `secrets.names` (`dbOwner`, `dbApp`, `dbAdmin`, `valkey`). With your own Postgres the owner's password is yours:
 create its Secret before installing.
 
+## Under a parent chart
+
+Dynamo's umbrella chart installs Rotor as a dependency beside the other tools (#169); `tests/helm/parent` is a small
+parent that does the same, and `tests/test-helm.sh` and the kube layer install Rotor through it.
+
+- **Names.** Set `rotor.fullnameOverride`: every resource is named from it, never from the parent's release, and
+  the release's labels are the parent's.
+- **Secrets made beforehand.** The secrets Job runs before the parent's own resources exist, so every Secret Rotor
+  reads must be there before the install: the client secret in `oidc.clientSecret`, the token in
+  `openbao.configure.tokenSecret`, and the Postgres owner's and Valkey's passwords in `secrets.names`.
+- **The parent's OpenBao.** Set `openbao.configure.afterInstall`: the OpenBao Job then runs after the release's
+  resources on the first install and waits until OpenBao answers unsealed, instead of running before an OpenBao
+  that does not exist yet. A parent's values cannot know its namespace, so `openbao.addr` and
+  `sandbox.egress.openbao.namespace` may say `{{ .Release.Namespace }}`, as in
+  `http://openbao.{{ .Release.Namespace }}.svc:8200`; sandboxes reach OpenBao from their own namespace.
+- **Refusals** name each value as the parent sets it, such as `rotor.oidc.issuer`.
+
 ### Traces and metrics
 
 Set `telemetry.otlpEndpoint` to your collector's OTLP/HTTP traces URL, such as
@@ -190,16 +208,18 @@ In development, `make observe` starts the stack with a collector, Jaeger and Pro
 ## Tests
 
 - `tests/test-helm.sh`, in the shell layer of `./run-tests.sh`, lints the chart with `helm lint --strict` and
-  `ct lint`, renders a trial and a production install, checks what the chart must refuse and the sandbox
-  namespace's hardening, and compares the renders with `tests/helm/*.yaml`. After a deliberate change, run
-  `UPDATE=1 tests/test-helm.sh` and review the diff.
+  `ct lint`, renders a trial and a production install and one under the parent in `tests/helm/parent`, checks what
+  the chart must refuse and the sandbox namespace's hardening, and compares the renders with `tests/helm/*.yaml`.
+  After a deliberate change, run `UPDATE=1 tests/test-helm.sh` and review the diff.
 - `make kind-up && make test-chart-install` builds the images, pushes them to a registry beside a throwaway kind
   cluster, lists and signs them with a key made for the test, and installs the chart from them by digest beside a dev
   OpenBao. It carries a run to its end in a sandbox pod, checks the pod is gone and tries what a sandbox may and may
   not reach; the cluster runs Cilium, so the egress policies hold as in production. It then installs
   policy-controller, upgrades in place to admit signed sandbox images only, carries a second run and checks an
-  unsigned image is refused. `KEEP=1` keeps the release for a look, and `make kind-down` removes the cluster and the
-  registry. The `kube` workflow runs it nightly and on pull requests that change what a cluster runs.
+  unsigned image is refused. Last it installs Rotor a second time beside the first, under `tests/helm/parent` with
+  `scripts/kind/subchart-values.yaml`: the parent brings its own OpenBao, every secret comes from a Secret made
+  beforehand, and a run is carried in that release's own sandbox namespace. `KEEP=1` keeps the releases for a look,
+  and `make kind-down` removes the cluster and the registry. The `kube` workflow runs it nightly and on pull requests that change what a cluster runs.
 - `make audit-deps` looks for known vulnerabilities in what Rotor ships: govulncheck over the backend, pip-audit
   over the runner's lock file and npm audit over the web client's runtime dependencies. The `deps` workflow runs it
   nightly and on pull requests that change a dependency, and Renovate (`renovate.json`) proposes updates once a

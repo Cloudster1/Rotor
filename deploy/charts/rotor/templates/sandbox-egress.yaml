@@ -6,13 +6,13 @@ other destination, cloud metadata and the rest of the cluster included, is refus
 */}}
 {{- $e := .Values.sandbox.egress }}
 {{- if and $e.hosts (not $e.cilium) }}
-{{- fail "sandbox.egress.hosts names hostnames, which only Cilium can allow. Set sandbox.egress.cilium where Cilium is the cluster's network plugin, or give the tools' and the provider's address ranges in sandbox.egress.cidrs." }}
+{{- include "rotor.fail" (dict "root" . "msg" "{sandbox.egress.hosts} names hostnames, which only Cilium can allow. Set {sandbox.egress.cilium} where Cilium is the cluster's network plugin, or give the tools' and the provider's address ranges in {sandbox.egress.cidrs}.") }}
 {{- end }}
 {{- if not (or $e.openbao.namespace $e.openbao.cidr) }}
-{{- fail "Say where OpenBao is, so sandboxes may unwrap their tokens there: sandbox.egress.openbao.namespace (with podLabels) for one in this cluster, or sandbox.egress.openbao.cidr." }}
+{{- include "rotor.fail" (dict "root" . "msg" "Say where OpenBao is, so sandboxes may unwrap their tokens there: {sandbox.egress.openbao.namespace} (with podLabels) for one in this cluster, or {sandbox.egress.openbao.cidr}.") }}
 {{- end }}
 {{- $ns := include "rotor.sandboxNamespace" . }}
-{{- $bao := urlParse .Values.openbao.addr }}
+{{- $bao := urlParse (include "rotor.openbaoAddr" .) }}
 {{- $baoPort := default (ternary "443" "80" (eq $bao.scheme "https")) (regexFind "[0-9]+$" $bao.host) }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -55,7 +55,7 @@ spec:
         {{- else }}
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: {{ $e.openbao.namespace }}
+              kubernetes.io/metadata.name: {{ tpl $e.openbao.namespace $ }}
           {{- with $e.openbao.podLabels }}
           podSelector:
             matchLabels:

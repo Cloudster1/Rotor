@@ -36,7 +36,7 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           if [ "$GITHUB_EVENT_NAME" != pull_request ] || [ "$LABELLED" = true ] || git diff --name-only "$BASE" HEAD \
-            | grep -qE '^(backend/internal/sandbox/|backend/cmd/|backend/internal/runs/worker|backend/internal/runnerctl/|backend/internal/vault/|backend/internal/config/|backend/migrations/|backend/test/kube/|runner/src/rotor_runner/workspace/|deploy/|scripts/kind/|scripts/chart-install-test\.sh|scripts/supply\.sh|mk/kind\.mk|mk/supply\.mk|\.github/workflows/kube\.yml)'; then
+            | grep -qE '^(backend/internal/sandbox/|backend/cmd/|backend/internal/runs/worker|backend/internal/runnerctl/|backend/internal/vault/|backend/internal/config/|backend/migrations/|backend/test/kube/|runner/src/rotor_runner/workspace/|deploy/|scripts/kind/|scripts/chart-install-test\.sh|tests/helm/parent/|scripts/supply\.sh|mk/kind\.mk|mk/supply\.mk|\.github/workflows/kube\.yml)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"

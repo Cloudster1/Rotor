@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: default-sandboxes
+  name: default-r-rotor-sandboxes
   labels:
     helm.sh/chart: rotor-0.1.0
     app.kubernetes.io/name: rotor
@@ -19,7 +19,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: r-rotor-sandboxes
-  namespace: default-sandboxes
+  namespace: default-r-rotor-sandboxes
   labels:
     helm.sh/chart: rotor-0.1.0
     app.kubernetes.io/name: rotor
@@ -66,7 +66,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: rotor-sandbox
-  namespace: default-sandboxes
+  namespace: default-r-rotor-sandboxes
   labels:
     helm.sh/chart: rotor-0.1.0
     app.kubernetes.io/name: rotor
@@ -148,7 +148,7 @@ data:
   ROTOR_SANDBOX_BACKEND: kubernetes
   ROTOR_SANDBOX_IMAGE: "ghcr.io/cloudster1/rotor-runner@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   ROTOR_SANDBOX_STACK: "r"
-  ROTOR_SANDBOX_NAMESPACE: "default-sandboxes"
+  ROTOR_SANDBOX_NAMESPACE: "default-r-rotor-sandboxes"
   ROTOR_SANDBOX_RUNTIME_CLASS: "gvisor"
   ROTOR_SANDBOX_SERVICE_ACCOUNT: "rotor-sandbox"
   ROTOR_SANDBOX_ALLOW_RUNC: "false"
@@ -239,7 +239,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: r-rotor-worker
-  namespace: default-sandboxes
+  namespace: default-r-rotor-sandboxes
   labels:
     helm.sh/chart: rotor-0.1.0
     app.kubernetes.io/name: rotor
@@ -257,7 +257,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: r-rotor-worker
-  namespace: default-sandboxes
+  namespace: default-r-rotor-sandboxes
   labels:
     helm.sh/chart: rotor-0.1.0
     app.kubernetes.io/name: rotor
@@ -352,7 +352,7 @@ spec:
         app.kubernetes.io/instance: r
         app.kubernetes.io/component: api
       annotations:
-        checksum/env: 52c1534930de340bdbdd36da799db281c33c3064b0815ea77428d9b36e15a63e
+        checksum/env: 0dfe3c72635c656b7d8139fdfa973bd321cccd4b6427df4720730e44d977dc1f
     spec:
       serviceAccountName: r-rotor-api
       terminationGracePeriodSeconds: 40
@@ -540,7 +540,7 @@ spec:
         app.kubernetes.io/instance: r
         app.kubernetes.io/component: worker
       annotations:
-        checksum/env: 52c1534930de340bdbdd36da799db281c33c3064b0815ea77428d9b36e15a63e
+        checksum/env: 0dfe3c72635c656b7d8139fdfa973bd321cccd4b6427df4720730e44d977dc1f
     spec:
       serviceAccountName: r-rotor-worker
       terminationGracePeriodSeconds: 20
@@ -644,7 +644,7 @@ apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: r-rotor-sandbox-hosts
-  namespace: default-sandboxes
+  namespace: default-r-rotor-sandboxes
   labels:
     helm.sh/chart: rotor-0.1.0
     app.kubernetes.io/name: rotor

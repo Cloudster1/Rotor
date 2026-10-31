@@ -1,0 +1,9 @@
+apiVersion: v2
+name: suite
+description: A parent chart that installs Rotor as Dynamo's umbrella chart does, for tests/test-helm.sh and the kube layer.
+type: application
+version: 0.0.0
+# tests/test-helm.sh and scripts/chart-install-test.sh copy deploy/charts/rotor into charts/ beside this file.
+dependencies:
+  - name: rotor
+    version: ">=0.0.0-0"

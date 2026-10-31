@@ -1,0 +1,59 @@
+{{- if .Values.devOpenBao.enabled }}
+{{/*
+The parent's OpenBao for the kube layer, never for a real installation: dev mode, in memory, unsealed, with the root
+token "root". It comes up with the release, after Rotor's pre-install hooks, which is why Rotor configures it after.
+*/}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: openbao
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Namespace }}-openbao-auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+  - kind: ServiceAccount
+    name: openbao
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openbao
+spec:
+  ports:
+    - name: http
+      port: 8200
+  selector:
+    app.kubernetes.io/name: openbao
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openbao
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openbao
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: openbao
+    spec:
+      serviceAccountName: openbao
+      containers:
+        - name: openbao
+          image: {{ .Values.devOpenBao.image }}
+          args: ["server", "-dev", "-dev-root-token-id=root", "-dev-listen-address=0.0.0.0:8200"]
+          ports:
+            - containerPort: 8200
+          readinessProbe:
+            httpGet: { path: /v1/sys/health, port: 8200 }
+            periodSeconds: 2
+{{- end }}
