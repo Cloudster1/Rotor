@@ -220,7 +220,10 @@ helm install rotor deploy/charts/rotor -f deploy/charts/rotor/values-trial.yaml 
 ```
 
 Each release publishes the chart as `oci://ghcr.io/cloudster1/charts/rotor`,
-which installs the same way. Three things
+which installs the same way. What a suite installer sets, and the memory the chart and the compose
+stack ask for, is in [`docs/integration.md`](docs/integration.md#what-dynamo-needs-to-run-rotor).
+The Docker sandbox backend is for development only; a compose server runs
+without sandboxes. Three things
 [`docs/deployment.md`](docs/deployment.md) explains at length, because each is
 a way to get it wrong:
 
