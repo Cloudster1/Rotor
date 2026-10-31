@@ -13,6 +13,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
   sign in, the images and memory of the stack and the chart, what an umbrella
   chart sets, and that a compose server runs without sandboxes. It follows
   Dynamo's compatibility rules and the shared promise of `mcp@1`.
+- Back-channel logout reaches Rotor under the name the suite gives it (#172): the
+  api answers to `rotor-api` on the stack's network, the realm's `rotor` client
+  sends logouts to `http://rotor-api:8080/...` as Dynamo's realm does, and
+  `make realm-check` now compares the whole realm with Dynamo's (#109).
 - A feature specified in Exciter can be implemented through reviewed, tested
   code (#140): `examples/implement-feature.yaml`, started by a person, reads
   the feature's requirements and which of them changed, lets a test designer

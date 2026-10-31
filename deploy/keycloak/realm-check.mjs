@@ -14,19 +14,16 @@ const sorted = (value) => {
   }
   return value;
 };
-// Rotor's own part of the realm, which Dynamo does not hold until praetorianer777/Dynamo#6 lands it (#109); it is
-// left out of both sides, so the shared realm is compared and Rotor's part never makes a difference.
-const ROTOR_CLIENTS = ["rotor", "rotor-control-plane"];
-const ROTOR_GROUPS = ["rotor-administrators"];
-const withoutRotor = (realm) => ({
+// Clients Rotor's realm holds that Dynamo's does not yet; each is left out of both sides until its Dynamo issue
+// ships. Add one line per client, naming the issue, and delete it when Dynamo carries the client.
+const NOT_IN_DYNAMO_YET = [
+  // { clientId: "dynamo-connect", issue: "praetorianer777/Dynamo#NNN" },
+];
+const withoutExceptions = (realm) => ({
   ...realm,
-  clients: (realm.clients ?? []).filter((client) => !ROTOR_CLIENTS.includes(client.clientId)),
-  groups: (realm.groups ?? []).filter((group) => !ROTOR_GROUPS.includes(group.name)),
-  users: (realm.users ?? [])
-    .filter((user) => !ROTOR_CLIENTS.includes(user.serviceAccountClientId))
-    .map((user) => (user.groups ? { ...user, groups: user.groups.filter((group) => !ROTOR_GROUPS.includes(group.replace(/^\//, ""))) } : user)),
+  clients: (realm.clients ?? []).filter((client) => !NOT_IN_DYNAMO_YET.some((e) => e.clientId === client.clientId)),
 });
-const normalised = (text) => JSON.stringify(sorted(withoutRotor(JSON.parse(text))), null, 2).split("\n");
+const normalised = (text) => JSON.stringify(sorted(withoutExceptions(JSON.parse(text))), null, 2).split("\n");
 
 let response;
 try {
@@ -48,7 +45,7 @@ const theirs = normalised(await response.text());
 const mine = normalised(await readFile(file, "utf8"));
 const line = theirs.findIndex((text, i) => text !== mine[i]);
 if (line < 0 && theirs.length === mine.length) {
-  console.log(`${ours} is the same realm as Dynamo's, Rotor's own clients and group left aside.`);
+  console.log(`${ours} is the same realm as Dynamo's, apart from the clients Dynamo does not carry yet.`);
   process.exit(0);
 }
 const at = line < 0 ? Math.min(theirs.length, mine.length) : line;
