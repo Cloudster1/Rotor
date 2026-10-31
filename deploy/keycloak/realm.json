@@ -376,7 +376,7 @@
       "attributes": {
         "post.logout.redirect.uris": "+",
         "pkce.code.challenge.method": "S256",
-        "backchannel.logout.url": "http://api:8080/api/v1/auth/oidc/backchannel-logout",
+        "backchannel.logout.url": "http://rotor-api:8080/api/v1/auth/oidc/backchannel-logout",
         "backchannel.logout.session.required": "true",
         "backchannel.logout.revoke.offline.tokens": "false"
       },
