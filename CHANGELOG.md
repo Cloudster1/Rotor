@@ -459,6 +459,9 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The runner ships opentelemetry-api and opentelemetry-sdk 1.45.1, past
+  CVE-2026-114603, and certifi 2026.10.18, past PYSEC-2026-4320, so
+  `make audit-deps` passes again (#190, #189).
 - Signing in to Rotor accepts return addresses only on localhost and 127.0.0.1
   themselves; `http://localhost*` also let in hosts that merely start with
   them, such as `localhost.example`. The realm matches Dynamo's again, so
