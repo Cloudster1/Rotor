@@ -72,7 +72,14 @@ export const GRAPH_LOOP_DASH = "6 4";
 export const GRAPH_HEIGHT_PX = 360;
 
 /** How tall the workflow editor draws its canvas, in pixels; taller than a run's, since it is worked in. */
-export const EDITOR_GRAPH_HEIGHT_PX = 420;
+export const EDITOR_GRAPH_HEIGHT_PX = 600;
+
+/** How many of the canvas's edits it can undo (#198). */
+export const CANVAS_HISTORY_LIMIT = 100;
+
+/** How much room the canvas leaves round a node it brings into view, as a share of the view, and how long it glides. */
+export const GRAPH_REVEAL_PADDING = 0.4;
+export const GRAPH_REVEAL_MS = 200;
 
 /** How many lines the canvas shows of a prompt or source, and of an approval's message, before it scrolls. */
 export const CANVAS_TEXT_ROWS = 5;

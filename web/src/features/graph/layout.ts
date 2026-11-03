@@ -5,8 +5,11 @@ export interface Graph {
   entry: string;
   /** join marks a node that waits for every branch into it (#135). */
   nodes: { id: string; type: string; join?: boolean }[];
-  edges: { from: string; to: string; label?: string }[];
+  edges: { from: string; to: string; label?: string; kind?: WayKind }[];
 }
+
+/** What draws an edge in the YAML: the top-level edges, a router's case or default, or a node's onExhausted. */
+export type WayKind = "edge" | "case" | "default" | "exhausted";
 
 /** Where a node sits in the drawn graph, in pixels, and the layer it is in. */
 export interface Placed {

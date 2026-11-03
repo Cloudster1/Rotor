@@ -32,16 +32,16 @@ describe("the canvas reads a spec", () => {
         { id: "done", type: "code" },
       ],
       edges: [
-        { from: "assess", to: "decide" },
-        { from: "confirm", to: "request" },
-        { from: "decide", to: "done", label: "fine" },
-        { from: "decide", to: "confirm", label: "review" },
+        { from: "assess", to: "decide", kind: "edge" },
+        { from: "confirm", to: "request", kind: "edge" },
+        { from: "decide", to: "done", label: "fine", kind: "case" },
+        { from: "decide", to: "confirm", label: "review", kind: "case" },
       ],
     });
     expect(graphOf(read(FLOW)).edges).toEqual([
-      { from: "pick", to: "read", label: "project" },
-      { from: "pick", to: "who", label: "yes" },
-      { from: "pick", to: "who", label: "default" },
+      { from: "pick", to: "read", label: "project", kind: "case" },
+      { from: "pick", to: "who", label: "yes", kind: "case" },
+      { from: "pick", to: "who", label: "default", kind: "default" },
     ]);
   });
 
@@ -74,7 +74,7 @@ describe("an edit on the canvas", () => {
     const added = addNode(NEW_WORKFLOW, "agent", "draft");
     const linked = addEdge(added, "ask", "draft");
     expect(linked.endsWith('  - id: draft\n    type: agent\n    prompt: ""\nedges:\n  - { from: ask, to: draft }\n')).toBe(true);
-    expect(graphOf(read(linked)).edges).toEqual([{ from: "ask", to: "draft" }]);
+    expect(graphOf(read(linked)).edges).toEqual([{ from: "ask", to: "draft", kind: "edge" }]);
   });
 
   it("adds a node in the style of the nodes before it", () => {

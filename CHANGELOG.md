@@ -9,6 +9,16 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A workflow is built on the canvas's graph (#198):
+  - Drag a way from a node's bottom handle onto another node to connect them.
+  - Let go in the open, or press the "+" under a node, to add a node already
+    connected after it, under a free id such as `agent-2`.
+  - A selected way can be removed with Delete, or a node inserted into it.
+  - Connecting a router asks for the case value or makes it the default.
+  - A toolbar adds, inserts, removes, undoes, redoes, zooms and fits. With the
+    graph focused, Ctrl+Z, Ctrl+Shift+Z and A do the same.
+  - Every change is still an edit of the YAML that keeps its comments, and the
+    graph keeps laying itself out.
 - An installation that runs no sandboxes, such as Dynamo's compose server,
   refuses to start a run (#178): the api answers 409 `runs_off` with a
   sentence that says it runs no workflows and that an administrator installs

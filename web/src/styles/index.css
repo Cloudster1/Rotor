@@ -79,3 +79,22 @@
   color: var(--color-ink-muted);
   font-size: 0.75rem;
 }
+
+/* A node's ways in and out: large enough to grab while the canvas edits, out of sight where it only shows (#198). */
+.react-flow .react-flow__handle {
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 2px solid var(--color-surface);
+  border-radius: 9999px;
+  background: var(--color-accent);
+}
+
+.react-flow .react-flow__handle:not(.connectable) {
+  opacity: 0;
+}
+
+/* The line drawn while a way is dragged out of a node. */
+.react-flow .react-flow__connection-path {
+  stroke: var(--color-accent);
+  stroke-width: 2;
+}
