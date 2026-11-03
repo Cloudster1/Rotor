@@ -459,6 +459,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The web tooling takes minimatch 11.0.4 in place of 10.2.6, through an npm
+  override, which closes the globparts amplification advisory
+  GHSA-g3hv-75wg-m249. eslint still asks for 10, and no 10.x is patched
+  (#194).
+
 - The runner ships opentelemetry-api and opentelemetry-sdk 1.45.1, past
   CVE-2026-114603, and certifi 2026.10.18, past PYSEC-2026-4320, so
   `make audit-deps` passes again (#190, #189).
