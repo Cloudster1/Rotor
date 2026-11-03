@@ -422,12 +422,13 @@ with every problem it found listed, so an operator fixes them in one go.
 
 `deploy/Dockerfile.backend` builds the api, the worker, migrate and the tool
 stub into one image, `deploy/Dockerfile.web` the static bundle behind nginx,
-and `deploy/Dockerfile.runner` the distroless runner image sandboxes start
-from, non-root with a read-only root filesystem. The Go dependencies compile
+`deploy/Dockerfile.runner` the distroless runner image sandboxes start
+from, non-root with a read-only root filesystem, and `deploy/Dockerfile.openbao`
+OpenBao with Rotor's setup script and policies in `/rotor`, which Dynamo runs. The Go dependencies compile
 in a layer of their own that stays cached until an import changes.
 
-A release builds `ghcr.io/cloudster1/rotor-backend`, `rotor-web` and
-`rotor-runner` from its tag, signs each keyless with the release workflow's
+A release builds `ghcr.io/cloudster1/rotor-backend`, `rotor-web`,
+`rotor-runner`, `rotor-agent` and `rotor-openbao` from its tag, signs each keyless with the release workflow's
 identity and attaches its SPDX SBOM as a signed attestation. For images you
 build yourself, `make sbom`, `make sign` and `make attest` take `IMAGES` by
 digest and a cosign key, and `make verify` checks a signature and its SBOM as a

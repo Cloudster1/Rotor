@@ -9,6 +9,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A release publishes `ghcr.io/cloudster1/rotor-openbao` (#196): OpenBao 2.7.1
+  with Rotor's setup script at `/rotor/init.sh` and its policies at
+  `/rotor/policies/`, signed with its SBOM attested like the other images.
+  Dynamo runs its OpenBao server and the one-shot setup from it
+  (`entrypoint: ["/bin/sh", "/rotor/init.sh"]`) without copying Rotor's files.
 - An installation that runs no sandboxes, such as Dynamo's compose server,
   refuses to start a run (#178): the api answers 409 `runs_off` with a
   sentence that says it runs no workflows and that an administrator installs
