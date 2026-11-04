@@ -125,8 +125,8 @@ func tokenIdentity(token accessToken) (*Identity, error) {
 		Groups: normalizeGroups(asStrings(token.Claims[groupsClaim]))}, nil
 }
 
-// Authenticate lets in the account a realm's access token names: it is made or updated as a sign-in would, its role
-// copied from the realm, without a session.
+// Authenticate lets in the account a realm's access token names: it is made or updated as a sign-in would, its groups
+// followed from the realm, without a session.
 func (s *Service) Authenticate(ctx context.Context, raw string) (*auth.Principal, error) {
 	identity, err := s.VerifyAccessToken(ctx, raw, time.Now())
 	if err != nil {
@@ -134,11 +134,12 @@ func (s *Service) Authenticate(ctx context.Context, raw string) (*auth.Principal
 	}
 	var p *auth.Principal
 	err = s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		user, role, err := adopt(ctx, tx, identity)
+		user, set, err := adopt(ctx, tx, identity)
 		if err != nil {
 			return err
 		}
-		p = &auth.Principal{UserID: user.id, Email: identity.Email, Name: identity.Name, Role: role, Groups: identity.Groups}
+		p = &auth.Principal{UserID: user.id, Email: identity.Email, Name: identity.Name, Role: auth.RoleFor(set), Groups: identity.Groups,
+			Perms: set}
 		return nil
 	})
 	if err != nil {

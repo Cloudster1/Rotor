@@ -65,6 +65,8 @@ type Server struct {
 	OAuth OAuthServer
 	// TrustedProxies are the peers whose X-Real-IP header names the caller.
 	TrustedProxies []netip.Prefix
+	// Access resolves each request's permissions from the grants (#202); nil only in tests that resolve none.
+	Access Access
 	// Sessions and SignIn are nil only in tests that exercise neither.
 	Sessions Sessions
 	SignIn   SignIn
@@ -143,6 +145,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(requireAuth)
 			r.Get("/auth/me", s.handleMe)
+			r.Get("/access/me", s.handleMyAccess)
 			r.With(requireSession).Post("/auth/logout", s.handleLogout)
 			r.Get("/tools/{toolID}", s.handleGetTool)
 			r.Get("/connections", s.handleListConnections)

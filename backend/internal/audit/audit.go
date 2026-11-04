@@ -61,6 +61,10 @@ const (
 	ActionTriggerUnattendedWrite = "trigger.unattended_write"
 	// ActionWorkspacesChanged is an administrator changing what workspaces may use (#136).
 	ActionWorkspacesChanged = "workspaces.changed"
+	// ActionRoleGranted, ActionRoleRevoked and ActionRoleRemoved are grants given and taken away, and a role deleted (#202).
+	ActionRoleGranted = "role.granted"
+	ActionRoleRevoked = "role.revoked"
+	ActionRoleRemoved = "role.removed"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
@@ -71,7 +75,8 @@ var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, Actio
 	ActionHookSecretChanged, ActionLimitsChanged, ActionLangSmithChanged,
 	ActionSandboxSpawned, ActionSandboxDestroyed, ActionRunEnded, ActionApprovalRequested, ActionAuditExported,
 	ActionRetentionChanged, ActionRunDataDeleted, ActionOAuthGranted, ActionOAuthRevoked, ActionOAuthSwitched,
-	ActionUnattendedSwitched, ActionTriggerUnattendedWrite, ActionWorkspacesChanged}
+	ActionUnattendedSwitched, ActionTriggerUnattendedWrite, ActionWorkspacesChanged, ActionRoleGranted, ActionRoleRevoked,
+	ActionRoleRemoved}
 
 // Redacted stands in the record for a value that looked like a credential.
 var Redacted = redact.Redacted

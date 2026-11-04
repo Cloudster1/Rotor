@@ -130,7 +130,7 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={summary?.name ?? s.workflows.editor.newTitle} />
-      {summary && !summary.archived && (
+      {summary?.canRun && !summary.archived && (
         <div className="flex flex-col items-start gap-2">
           {!runsOn && <RunsOff />}
           <button type="button" className={primary} onClick={() => setRunning(true)} disabled={!runsOn} data-action="run-workflow">
@@ -209,7 +209,7 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
         <div className="flex flex-col gap-4">
           {!readOnly && <ToolPicker onInsert={(yaml) => editor.current?.insert(yaml)} />}
           {summary && <VersionsPanel workflowID={summary.id} current={summary.currentVersion} onOpen={replace} />}
-          {summary?.canEdit && !summary.archived && <SharePanel workflow={summary} />}
+          {summary?.canAdminister && !summary.archived && <SharePanel workflow={summary} />}
         </div>
       </div>
       {summary && !summary.archived && (

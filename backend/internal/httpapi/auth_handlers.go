@@ -94,7 +94,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	p := auth.PrincipalFrom(r.Context())
-	out := meResponse{User: meUser{ID: p.UserID.String(), Email: p.Email, Name: p.Name}, Role: p.Role, Groups: p.Groups}
+	out := meResponse{User: meUser{ID: p.UserID.String(), Email: p.Email, Name: p.Name}, Role: auth.RoleFor(p.Perms), Groups: p.Groups}
 	if a := p.Assistant; a != nil {
 		out.Assistant = &meAssistant{Client: a.Client, ReadOnly: a.ReadOnly}
 	}

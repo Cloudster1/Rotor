@@ -74,5 +74,8 @@ export const audit = {
     "unattended.switched": "Writes without an approval allowed or forbidden",
     "workspaces.changed": "Workspace images and limits changed",
     "trigger.unattended_write": "Trigger wrote without an approval",
+    "role.granted": "Role granted",
+    "role.revoked": "Role taken away",
+    "role.removed": "Role deleted",
   } as Record<string, string>,
 } as const;

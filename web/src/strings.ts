@@ -62,7 +62,7 @@ export const s = {
       saving: "Saving...",
       create: "Create workflow",
       saved: (n: number) => `Saved as version ${n}.`,
-      readOnly: "You may read this workflow; only its owner changes it.",
+      readOnly: "You may read this workflow, but your grants do not let you change it.",
       archived: "This workflow is archived and cannot be changed.",
       import: "Import YAML",
       export: "Export YAML",

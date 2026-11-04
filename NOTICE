@@ -210,3 +210,16 @@ Adapted from Exciter at 3b340ca, its client ID metadata documents (#114):
 
 Adapted from Dynamo (https://github.com/praetorianer777/Dynamo) at 76d7ab1, its realm test:
 - tests/test-stack.sh: the check that every return address ends its host before a wildcard, of tests/test-realm.sh
+
+Adapted from Armature at 3f8fd4c (3f8fd4cb7784c53af1faa8585500680a079b989d), its roles, groups and grants (#202):
+- backend/internal/perm: perm.go, definitions.go, store.go and assign.go from internal/perm, a project replaced by
+  a workflow and its key by an id; the Set without API keys or an owner's standing, the store's resolve query,
+  Grant, Revoke under the administrators' lock, Roles and DeleteRole, auditing instead of emitting events
+- backend/internal/perm/perm_test.go from internal/perm/perm_test.go, for Rotor's roles
+- backend/internal/oidc/groups.go: syncGroups of internal/oidc/signin.go, creating every group the realm names
+- backend/migrations/01300_access_grants.sql: role, user_group, group_member and role_assignment with
+  role_guard, role_assignment_guard, the Everyone guards and role_assignment_keeps_an_administrator, of
+  00010_rbac.sql, 00903_org_roles.sql, 00938_installation_tables.sql, 00951_keep_one_global_administrator.sql and
+  00966_everyone_group.sql, asked by Rotor's row level security through actor_can() (01310_access_policies.sql)
+- backend/test/access_db_test.go: the rbac tests of test/rbac_test.go, test/roles_test.go and
+  test/last_administrator_test.go, each also straight through SQL as rotor_app

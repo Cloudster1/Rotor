@@ -1,5 +1,5 @@
-// Package workflows keeps people's workflows: immutable, numbered versions of a spec, shared privately, with
-// realm groups or with everyone. Who sees and changes what is enforced by the database's policies too.
+// Package workflows keeps people's workflows: immutable, numbered versions of a spec. Who sees, runs, edits and
+// administers each is the grants' to say, and the database's policies ask them too.
 package workflows
 
 import (
@@ -19,8 +19,10 @@ import (
 // Errors a caller tells apart; *Invalid lists what is wrong with a spec.
 var (
 	ErrNotFound = errors.New("no such workflow")
-	// ErrNotOwner is a workflow the caller may see but not change.
-	ErrNotOwner = errors.New("only the workflow's owner may change it")
+	// ErrNotOwner is a workflow the caller may see but whose grants do not let them change it this way.
+	ErrNotOwner = errors.New("the caller's grants do not let them change the workflow this way")
+	// ErrCannotCreate is a caller whose grants do not let them create workflows.
+	ErrCannotCreate = errors.New("the caller's grants do not let them create workflows")
 	// ErrStale is a save based on a version that is no longer the current one.
 	ErrStale = errors.New("the workflow changed since it was opened")
 	// ErrArchived is a save to an archived workflow.
@@ -56,6 +58,8 @@ type Workflow struct {
 	CurrentVersion int
 	UpdatedAt      time.Time
 	ArchivedAt     *time.Time
+	// What the caller's grants let them do with it, as the database's policies answer (#202).
+	CanRun, CanEdit, CanAdminister bool
 }
 
 // Version is one saved version of a workflow.
@@ -106,14 +110,15 @@ func NewService(cluster *db.Cluster, catalog CatalogSource) *Service {
 }
 
 const workflowColumns = `w.id, w.name, w.description, w.owner_id, w.owner_name, w.sharing, w.shared_groups,
-	w.current_version, w.updated_at, w.archived_at`
+	w.current_version, w.updated_at, w.archived_at,
+	actor_can('workflow.run', w.id), actor_can('workflow.edit', w.id), actor_can('workflow.administer', w.id)`
 
 const workflowFrom = ` FROM workflow w`
 
 func scanWorkflow(row pgx.Row) (Workflow, error) {
 	var w Workflow
 	err := row.Scan(&w.ID, &w.Name, &w.Description, &w.OwnerID, &w.OwnerName, &w.Sharing, &w.SharedGroups,
-		&w.CurrentVersion, &w.UpdatedAt, &w.ArchivedAt)
+		&w.CurrentVersion, &w.UpdatedAt, &w.ArchivedAt, &w.CanRun, &w.CanEdit, &w.CanAdminister)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return w, ErrNotFound
 	}

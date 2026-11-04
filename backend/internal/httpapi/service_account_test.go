@@ -17,6 +17,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/db"
 	"github.com/cloudster1/rotor/backend/internal/hooks"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
+	"github.com/cloudster1/rotor/backend/internal/perm"
 )
 
 // realmToken stands for a client-credentials token of dynamo-connect; the fake knows no other.
@@ -62,7 +63,8 @@ func serviceAccountServer(t *testing.T) (*Server, *fakeServiceAccounts, *fakeHoo
 	t.Helper()
 	s, _ := toolsServer(t)
 	accounts := &fakeServiceAccounts{account: &auth.Principal{UserID: uuid.New(), Email: "dynamo-connect@service-account.invalid",
-		Name: "dynamo-connect", Role: auth.RoleAdmin, Groups: []string{oidc.AdminGroup}}}
+		Name: "dynamo-connect", Role: auth.RoleAdmin, Groups: []string{oidc.AdminGroup},
+		Perms: perm.NewSet([]perm.Grant{{Role: perm.Administrator}})}}
 	h := &fakeHooks{}
 	s.ServiceAccounts, s.Hooks = accounts, h
 	return s, accounts, h

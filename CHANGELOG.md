@@ -9,6 +9,25 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Access is held as roles, groups and grants, as in Armature (#202):
+  - The permissions are `workflow.read`, `workflow.run`, `workflow.edit`,
+    `workflow.administer`, `workflow.create` and `rotor.administer`, and the
+    built-in roles Administrator, Workflow administrator, Editor, Runner and
+    Author hold them. A built-in role is edited but never deleted, and the
+    Administrator always administers Rotor.
+  - Groups come from the realm's `groups` claim, followed exactly at every
+    sign-in, are made by hand, or are the built-in Everyone, which holds every
+    person who may sign in and never administers.
+  - A grant gives a role to a person or a group over the whole installation or
+    one workflow; the last Administrator grant cannot be taken away.
+  - `GET /api/v1/access/me` answers your grants and what they let you do, and
+    every workflow carries `canRun`, `canEdit` and `canAdminister`, which the
+    workflow pages now follow.
+  - Nobody's access changes: `rotor-administrators` holds Administrator, a
+    workflow's owner is its Workflow administrator, a share is a Runner grant
+    to its groups or to Everyone, and Everyone holds Author, so anyone signed in
+    still creates workflows. Sharing writes Runner grants from now on.
+
 - A workflow is built on the canvas's graph (#198):
   - Drag a way from a node's bottom handle onto another node to connect them.
   - Let go in the open, or press the "+" under a node, to add a node already
@@ -459,6 +478,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
   model's text and each tool call as events.
 
 ### Changed
+
+- An administrator of Rotor now saves versions of and shares every workflow,
+  as the Administrator role holds every permission; before, they saw and
+  archived everyone's workflows but changed only their own (#202).
 
 - Settings and Admin are laid out as pages with a side nav, each using the
   page's width, instead of one long column of narrow cards (#199). Settings
