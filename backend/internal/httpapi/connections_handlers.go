@@ -13,8 +13,9 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/tools"
 )
 
-// connectionsPath is the web client's page the callback lands on.
-const connectionsPath = "/connections"
+// connectionsPath is the web client's page the callback lands on, under Settings since #206; the web client still
+// sends the old /connections on to it, keeping the query, for links made before.
+const connectionsPath = "/settings/accounts"
 
 // Connections is people's connections to the tools; *connections.Service is the real one.
 type Connections interface {
@@ -26,7 +27,7 @@ type Connections interface {
 
 var (
 	errNeedsRegistration = ErrConflict("This tool no longer knows Rotor. Ask an administrator of Rotor to register it again in the settings.")
-	errNotConnected      = ErrNotFound("You are not connected to this tool. Connect it on the Connections page.")
+	errNotConnected      = ErrNotFound("You are not connected to this tool. Connect it in Settings, under Tool accounts.")
 )
 
 func connectionError(err error) error {
@@ -85,8 +86,8 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, r, http.StatusOK, connectResponse{AuthorizeURL: authorize})
 }
 
-// handleConnectionCallback lands the browser on the page the connection was started from, or the Connections page,
-// saying what came of it; a failure always lands on the Connections page, which explains it.
+// handleConnectionCallback lands the browser on the page the connection was started from, or Tool accounts in
+// Settings, saying what came of it; a failure always lands on Tool accounts, which explains it.
 func (s *Server) handleConnectionCallback(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	if s.Connections == nil {

@@ -3,9 +3,10 @@ import { endGrant, type Grant, grantsQuery, grantsQueryKey } from "@/api/oauth";
 import { dangerQuiet } from "@/features/settings/styles";
 import { SettingsCard } from "@/features/settings/ui";
 import { s } from "@/strings";
+import { DATE_AND_TIME, formatDateTime } from "@/lib/dates";
 
 export function when(at: string): string {
-  return new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return formatDateTime(at, DATE_AND_TIME);
 }
 
 /** What a grant may do and when it was used, in a line. */

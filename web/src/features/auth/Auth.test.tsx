@@ -52,7 +52,7 @@ describe("signing in", () => {
   });
 
   it("shows the person's role and groups in the settings", async () => {
-    await renderAt("/settings/account");
+    await renderAt("/settings/profile");
     expect(await screen.findByText(s.account.roles.admin)).toBeInTheDocument();
     expect(screen.getByText(ME.groups.join(", "))).toBeInTheDocument();
   });

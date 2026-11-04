@@ -80,7 +80,7 @@ for (const scheme of SCHEMES) {
       await expectAccessible(page);
 
       // The trigger's owner reads each event's subject as themselves, so alice connects first.
-      await page.goto("/connections");
+      await page.goto("/settings/accounts");
       const card = page.locator("li[data-connection]", { hasText: address });
       await card.locator('[data-action="connect"]').click();
       await page.waitForURL(`${toolStubURL()}/**`);

@@ -5,6 +5,9 @@ import axe from "axe-core";
 // jsdom starts from an empty document, a browser from index.html: its language and title are copied in.
 const shell = new DOMParser().parseFromString(readFileSync(resolve(process.cwd(), "index.html"), "utf8"), "text/html");
 
+/** How long axe may take over a page; Profile's select of every time zone (#206) takes it seconds in jsdom. */
+export const AXE_TIMEOUT_MS = 30_000;
+
 /** Runs axe over the whole document and names each violation and where it is. */
 export async function axeViolations(): Promise<string[]> {
   document.documentElement.lang = shell.documentElement.lang;

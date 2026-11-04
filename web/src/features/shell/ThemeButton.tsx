@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { nextTheme, readTheme, saveTheme, type ThemeChoice } from "@/lib/theme";
+import { nextTheme, saveTheme, type ThemeChoice } from "@/lib/theme";
+import { useTheme } from "@/lib/useTheme";
 import { s } from "@/strings";
 import { Icon } from "./icons";
 
@@ -8,15 +8,13 @@ const GLYPHS = { system: Icon.Monitor, light: Icon.Sun, dark: Icon.Moon } as con
 
 /** Steps through following the system, light and dark; the label names the scheme in force. */
 export function ThemeButton() {
-  const [choice, setChoice] = useState<ThemeChoice>(readTheme);
+  const choice = useTheme();
   const Glyph = GLYPHS[choice];
   return (
     <button
       type="button"
       onClick={() => {
-        const next = nextTheme(choice);
-        saveTheme(next);
-        setChoice(next);
+        saveTheme(nextTheme(choice));
       }}
       aria-label={LABELS[choice]}
       title={LABELS[choice]}

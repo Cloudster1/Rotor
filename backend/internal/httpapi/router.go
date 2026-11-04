@@ -61,6 +61,8 @@ type Server struct {
 	Retention Retention
 	// Workspaces is what workspaces may use (#136); nil answers 503.
 	Workspaces Workspaces
+	// Preferences are what a person chooses for themselves (#206); nil answers 503.
+	Preferences Preferences
 	// OAuth is Rotor as the authorization server of its MCP endpoint (#47); nil answers 503 and refuses every token.
 	OAuth OAuthServer
 	// TrustedProxies are the peers whose X-Real-IP header names the caller.
@@ -152,6 +154,8 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(requireAuth)
 			r.Get("/auth/me", s.handleMe)
+			r.Get("/auth/me/preferences", s.handleGetPreferences)
+			r.With(requireSession).Put("/auth/me/preferences", s.handleSetPreferences)
 			r.Get("/access/me", s.handleMyAccess)
 			r.Get("/roles", s.handleListRoles)
 			r.Get("/permissions", s.handleListPermissions)

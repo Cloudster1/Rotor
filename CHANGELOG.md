@@ -9,6 +9,20 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Settings gathers your own pages (#206), each opening with a sentence on what
+  it is for: Profile, Theme, Assistants, Usage and Tool accounts.
+  - Profile, which was Account, shows your name, email and groups as the
+    suite's sign-in gives them, and this installation's build, and lets you
+    choose the time zone every date in Rotor is written in; until you choose
+    one, Rotor follows your browser's. The API is `GET` and
+    `PUT /auth/me/preferences`, and only you change yours, in person.
+    `/settings/account` sends you to Profile.
+  - Theme chooses the colour scheme, as the system, light or dark, the same
+    choice the top bar's button steps through, kept in this browser.
+  - Tool accounts is where you connect your accounts in Exciter, Armature and
+    Stator, moved from Connections, which leaves the sidebar. A tool's consent
+    now returns to `/settings/accounts`, and `/connections` sends you there,
+    with what the tool said.
 - Each workflow has settings pages of its own (#205), at
   `/workflows/<id>/settings/<section>`: General (its name and description, and
   archiving it), Versions, Sharing and Triggers, with a side nav as Settings

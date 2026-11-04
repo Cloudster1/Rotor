@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { diffQuery, versionsQuery } from "@/api/workflows";
 import { s } from "@/strings";
+import { formatDateTime } from "@/lib/dates";
 
 const card = "rounded-overlay border border-border bg-surface p-4 shadow-1";
 const select = "h-8 rounded-control border border-border-strong bg-surface px-2 text-sm text-ink";
@@ -30,7 +31,7 @@ export function VersionsPanel({ workflowID, current, onOpen }: { workflowID: str
               {v.comment && <span className="text-ink-muted"> {v.comment}</span>}
             </span>
             <span className="flex items-center gap-2">
-              <span className="text-xs text-ink-muted">{s.workflows.versions.by(v.createdBy.name, new Date(v.createdAt).toLocaleString())}</span>
+              <span className="text-xs text-ink-muted">{s.workflows.versions.by(v.createdBy.name, formatDateTime(v.createdAt))}</span>
               <button type="button" className={secondary} onClick={() => onOpen(v.number)} data-action="open-version">
                 {s.workflows.versions.open}
                 <span className="sr-only"> {s.workflows.version(v.number)}</span>

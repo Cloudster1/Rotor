@@ -32,6 +32,9 @@ export const META_STALE_MS = 300_000;
 /** Where this browser remembers the colour scheme the person chose. */
 export const THEME_STORAGE_KEY = "rotor.theme";
 
+/** The zone dates are written in when neither the person nor the browser names one. */
+export const FALLBACK_TIME_ZONE = "UTC";
+
 /** The product's mark beside its name in the sidebar, in pixels. */
 export const MARK_WIDTH_PX = 24;
 

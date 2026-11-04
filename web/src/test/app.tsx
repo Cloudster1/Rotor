@@ -85,6 +85,8 @@ export async function renderAt(path: string, { me = ME as Me | null, answers = {
   const fetch = stubApi({
     "/api/v1/meta": META,
     "/api/v1/auth/me": me,
+    // A person follows their browser's time zone until they choose one (#206).
+    "/api/v1/auth/me/preferences": { timeZone: null },
     "/api/v1/tools": { tools: [] },
     "/api/v1/connections": { connections: [] },
     "/api/v1/providers": { providers: [] },

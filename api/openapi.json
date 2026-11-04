@@ -769,6 +769,77 @@
         }
       }
     },
+    "/auth/me/preferences": {
+      "get": {
+        "operationId": "getPreferences",
+        "summary": "What you chose for yourself, such as the time zone dates are written in.",
+        "tags": [
+          "auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setPreferences",
+        "summary": "Choose for yourself, such as the time zone dates are written in.",
+        "description": "A time zone the IANA database names, or null to follow the browser's. Only you change yours, in person.",
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreferencesBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/oidc/backchannel-logout": {
       "post": {
         "operationId": "backchannelLogout",
@@ -4988,7 +5059,7 @@
           {
             "name": "next",
             "in": "query",
-            "description": "A path of Rotor's the browser returns to once connected, such as the workflow a run was started from; the Connections page otherwise.",
+            "description": "A path of Rotor's the browser returns to once connected, such as the workflow a run was started from; Tool accounts in Settings otherwise.",
             "schema": {
               "type": "string"
             }
@@ -9370,6 +9441,20 @@
           "id",
           "name",
           "email"
+        ]
+      },
+      "PreferencesBody": {
+        "type": "object",
+        "properties": {
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "timeZone"
         ]
       },
       "PreviewWrite": {

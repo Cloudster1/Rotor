@@ -83,7 +83,7 @@ func TestSuiteAPersonConnectsToTheRealExciter(t *testing.T) {
 	if err := json.Unmarshal([]byte(text), &decided); resp.StatusCode != http.StatusOK || err != nil || decided.RedirectTo == "" {
 		t.Fatalf("allowing Rotor at Exciter = %d %s", resp.StatusCode, text)
 	}
-	if landed := bob.landing(t, decided.RedirectTo); landed != "/connections?connected="+toolID {
+	if landed := bob.landing(t, decided.RedirectTo); landed != "/settings/accounts?connected="+toolID {
 		t.Fatalf("the callback landed on %q", landed)
 	}
 

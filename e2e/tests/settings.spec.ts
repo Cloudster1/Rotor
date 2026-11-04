@@ -3,11 +3,11 @@ import { ADMIN_PAGES, expectAccessible, openShell, SETTINGS_PAGES, scrollsSidewa
 
 test("the settings nav is walked with the keyboard, and marks the page open @desktop", async ({ page }) => {
   await openShell(page, "/settings");
-  await expect(page).toHaveURL(/\/settings\/account$/);
+  await expect(page).toHaveURL(/\/settings\/profile$/);
   const nav = page.getByRole("navigation", { name: "Settings pages" });
-  await expect(nav.locator('[aria-current="page"]')).toHaveText("Account");
+  await expect(nav.locator('[aria-current="page"]')).toHaveText("Profile");
 
-  await nav.locator('[data-settings-page="account"]').focus();
+  await nav.locator('[data-settings-page="profile"]').focus();
   for (const next of SETTINGS_PAGES.slice(1)) {
     await page.keyboard.press("Tab");
     await expect(nav.locator(`[data-settings-page="${next.slug}"]`)).toBeFocused();
@@ -17,6 +17,60 @@ test("the settings nav is walked with the keyboard, and marks the page open @des
     await expect(nav.locator('[aria-current="page"]')).toHaveText(next.label);
   }
   await expectAccessible(page);
+});
+
+test("each of a person's own pages opens with a sentence on what it is for", async ({ page }) => {
+  for (const each of SETTINGS_PAGES) {
+    await openShell(page, each.path);
+    const heading = page.getByRole("heading", { level: 1, name: each.label });
+    await expect(heading).toBeVisible();
+    const intro = page.locator("main [data-page-intro]");
+    await expect(intro).toHaveCount(1);
+    await expect(intro).toContainText(each.intro);
+    expect(await heading.evaluate((h, p) => !!(h.compareDocumentPosition(p!) & Node.DOCUMENT_POSITION_FOLLOWING), await intro.elementHandle())).toBe(true);
+  }
+  await expect(page.getByRole("navigation", { name: "Places" }).getByRole("link", { name: "Connections" })).toHaveCount(0);
+});
+
+test("the old connections address sends a browser to Tool accounts, with what the tool said", async ({ page }) => {
+  await openShell(page, "/connections?error=denied");
+  await expect(page).toHaveURL(/\/settings\/accounts\?error=denied$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Tool accounts" })).toBeVisible();
+  await expect(page.locator("[data-connect-error]")).toBeVisible();
+});
+
+test("the theme page and the top bar's button choose one colour scheme between them", async ({ page }) => {
+  await openShell(page, "/settings/theme");
+  const html = page.locator("html");
+  await page.getByRole("radio", { name: "Dark" }).check();
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator('[data-action="theme"]')).toHaveAttribute("data-theme-choice", "dark");
+  await page.reload();
+  await expect(page.getByRole("radio", { name: "Dark" })).toBeChecked();
+  await page.locator('[data-action="theme"]').click();
+  await expect(page.getByRole("radio", { name: "As the system" })).toBeChecked();
+  await expect(html).not.toHaveAttribute("data-theme");
+  await expectAccessible(page);
+});
+
+test("a time zone chosen on the profile writes the dates in it, and following the browser again undoes it @desktop", async ({ page }) => {
+  await openShell(page, "/settings/profile");
+  const zone = page.getByRole("combobox", { name: "Time zone" });
+  const preview = page.locator("[data-time-zone-preview]");
+  try {
+    await zone.selectOption("Pacific/Kiritimati");
+    await page.getByRole("button", { name: "Save time zone" }).click();
+    await expect(page.getByRole("status")).toHaveText("Time zone saved.");
+    await page.reload();
+    await expect(zone).toHaveValue("Pacific/Kiritimati");
+    const there = await page.evaluate(() => new Date().toLocaleString(undefined, { dateStyle: "medium", timeZone: "Pacific/Kiritimati" }));
+    await expect(preview).toContainText(there);
+    await expectAccessible(page);
+  } finally {
+    await zone.selectOption("");
+    await page.getByRole("button", { name: "Save time zone" }).click();
+    await expect(page.getByRole("status")).toHaveText("Time zone saved.");
+  }
 });
 
 test("every admin page opens from a deep link, under its section's heading @desktop", async ({ page }) => {

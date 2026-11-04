@@ -212,7 +212,7 @@ func TestConnectingFromAWorkflowComesBackToIt(t *testing.T) {
 	}
 	stub2 := newToolStub(t, nil)
 	other := addTool(t, stub2)
-	if landed := bob.landing(t, bob.consentFrom(t, other, "bob", "allow", "https://evil.example/")); landed != "/connections?connected="+other {
-		t.Errorf("a foreign next landed on %q, want the Connections page", landed)
+	if landed := bob.landing(t, bob.consentFrom(t, other, "bob", "allow", "https://evil.example/")); landed != "/settings/accounts?connected="+other {
+		t.Errorf("a foreign next landed on %q, want Tool accounts in Settings", landed)
 	}
 }

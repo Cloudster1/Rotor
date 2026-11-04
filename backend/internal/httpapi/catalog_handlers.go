@@ -17,7 +17,7 @@ type Catalogs interface {
 }
 
 var errCatalogNotConnected = &APIError{Status: http.StatusConflict, Code: "not_connected",
-	Message: "Connect your account in this tool on the Connections page first; Rotor lists its tools as your account sees them."}
+	Message: "Connect your account in this tool in Settings, under Tool accounts, first; Rotor lists its tools as your account sees them."}
 
 func (s *Server) handleToolCatalog(w http.ResponseWriter, r *http.Request) {
 	id, perr := pathUUID(r, "toolID", "tool")

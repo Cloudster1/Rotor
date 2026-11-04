@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { type Limits, myUsageQuery, peopleUsageQuery, type UsageDay } from "@/api/usage";
 import { card } from "@/features/settings/styles";
-import { SettingsCard, SettingsPage } from "@/features/settings/ui";
+import { PageIntro, SettingsCard, SettingsPage } from "@/features/settings/ui";
 import { PageHeader } from "@/features/shell/EmptyState";
 import { s } from "@/strings";
 import { LimitsSection } from "./LimitsSection";
@@ -47,7 +47,7 @@ export function MyUsagePage() {
     <div className="flex flex-col gap-6">
       <div>
         <PageHeader title={s.usage.title} />
-        <p className="-mt-3 max-w-prose text-sm text-ink-muted">{s.usage.body}</p>
+        <PageIntro>{s.usage.body}</PageIntro>
       </div>
       {mine.isPending && <p className="text-sm text-ink-muted">{s.usage.loading}</p>}
       {mine.isError && (

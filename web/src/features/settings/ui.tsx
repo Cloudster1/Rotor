@@ -43,11 +43,21 @@ export function SettingsGrid({ children }: { children: ReactNode }) {
   return <div className="grid items-start gap-4 lg:grid-cols-2 2xl:grid-cols-3">{children}</div>;
 }
 
-/** A Settings or Admin page: its heading, the page's one h1, over its cards. */
-export function SettingsPage({ title, children }: { title: string; children: ReactNode }) {
+/** The sentence a page of a person's own opens with under its heading, saying what the page is for (#206). */
+export function PageIntro({ className = "", children }: { className?: string; children: ReactNode }) {
+  return (
+    <p className={`-mt-3 max-w-prose text-sm text-ink-muted ${className}`} data-page-intro>
+      {children}
+    </p>
+  );
+}
+
+/** A Settings or Admin page: its heading, the page's one h1, and the sentence it opens with, over its cards. */
+export function SettingsPage({ title, intro, children }: { title: string; intro?: string; children: ReactNode }) {
   return (
     <div>
       <PageHeader title={title} />
+      {intro && <PageIntro className="mb-6">{intro}</PageIntro>}
       <SettingsGrid>{children}</SettingsGrid>
     </div>
   );

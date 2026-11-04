@@ -13,16 +13,20 @@ export const PLACES = [
   { path: "/workflows", label: "Workflows", opens: "/workflows", heading: "Workflows" },
   { path: "/runs", label: "Runs", opens: "/runs", heading: "Runs" },
   { path: "/approvals", label: "Approvals", opens: "/approvals", heading: "Approvals" },
-  { path: "/connections", label: "Connections", opens: "/connections", heading: "Connections" },
-  { path: "/settings", label: "Settings", opens: "/settings/account", heading: "Account" },
+  { path: "/settings", label: "Settings", opens: "/settings/profile", heading: "Profile" },
   { path: "/admin", label: "Admin", opens: "/admin/access", heading: "Access" },
 ] as const;
 
-/** The pages of Settings and Admin, as web/src/features/settings/groups.ts lists them. */
+/**
+ * The pages of Settings and Admin, as web/src/features/settings/groups.ts lists them; each of a person's own opens
+ * with a sentence on what it is for (#206), whose start is named here.
+ */
 export const SETTINGS_PAGES = [
-  { slug: "account", path: "/settings/account", label: "Account" },
-  { slug: "assistants", path: "/settings/assistants", label: "Assistants" },
-  { slug: "usage", path: "/settings/usage", label: "Usage" },
+  { slug: "profile", path: "/settings/profile", label: "Profile", intro: "Who you are in Rotor" },
+  { slug: "theme", path: "/settings/theme", label: "Theme", intro: "How Rotor looks in this browser" },
+  { slug: "assistants", path: "/settings/assistants", label: "Assistants", intro: "The assistants you connected to Rotor" },
+  { slug: "usage", path: "/settings/usage", label: "Usage", intro: "What your runs" },
+  { slug: "accounts", path: "/settings/accounts", label: "Tool accounts", intro: "Your accounts in Exciter, Armature and Stator" },
 ] as const;
 export const ADMIN_PAGES = [
   { slug: "access", path: "/admin/access", label: "Access" },

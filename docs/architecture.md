@@ -203,7 +203,9 @@ An administrator adds a tool by its address; Rotor discovers its MCP
 endpoint and authorization server (RFC 9728, RFC 8414) and registers as its
 OAuth client (RFC 7591). A person connects on the tool's consent page; the
 refresh token goes to OpenBao, at `rotor/connections/{user}/{tool}`, and
-never to Postgres. When a run starts, the control plane mints a fresh access
+never to Postgres. The callback lands the browser on Tool accounts,
+`/settings/accounts` (#206), or on the page connecting started from; the old
+`/connections` sends a browser on there with its query. When a run starts, the control plane mints a fresh access
 token for it, one refresh per connection at a time, so the tool's refresh
 token rotation never ends a grant. The api reaches OpenBao with JWT auth as
 the realm client `rotor-control-plane`.
@@ -259,6 +261,18 @@ nodes it starts as children cannot read its memory or environment (#89).
 React 19, TanStack Router and Query, Tailwind with the suite's design tokens,
 a client typed from `api/openapi.json`, and an accessibility check on every
 page in the browser suite.
+
+Settings holds a person's own pages (#206), each opening with a sentence on
+what it is for: Profile, Theme, Assistants, Usage and Tool accounts. The time
+zone dates are written in is `app_user.time_zone`, as Armature keeps it on the
+person, NULL following the browser's; `GET` and `PUT /auth/me/preferences`
+read and change it. `rotor_app` holds `UPDATE` on that one column and
+`app_user_self_change` lets it touch only the acting person's row, in person,
+so nobody changes anybody else's, nor anything the realm gives. The shell reads
+it before any page draws and `web/src/lib/dates.ts` writes every date in it.
+The colour scheme stays in the browser's storage: Armature keeps a chosen theme
+on the server, but a theme there is a set of colours and type of its own, and
+Rotor's choice of system, light or dark has nothing like it to follow.
 
 ## Runner protocol (#18)
 
