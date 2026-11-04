@@ -23,6 +23,7 @@ import { EditorTabs, useEditorView } from "./EditorTabs";
 import { SharePanel } from "./SharePanel";
 import { ToolPicker } from "./ToolPicker";
 import { NEW_WORKFLOW, fileName } from "./template";
+import { useTextHistory } from "./history";
 import { VersionsPanel } from "./VersionsPanel";
 import { YamlEditor, type YamlEditorHandle } from "./YamlEditor";
 
@@ -55,7 +56,7 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
   const schema = useQuery(schemaQuery);
   const editor = useRef<YamlEditorHandle>(null);
   const runsOn = useRunsOn();
-  const [text, setText] = useState(existing?.version.specYAML ?? NEW_WORKFLOW);
+  const { text, edit, replace, ...history } = useTextHistory(existing?.version.specYAML ?? NEW_WORKFLOW);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [warnings, setWarnings] = useState<Problem[]>([]);
   const [checking, setChecking] = useState(false);
@@ -112,7 +113,7 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
 
   async function importFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    if (file) setText(await file.text());
+    if (file) replace(await file.text());
     event.target.value = "";
   }
 
@@ -158,7 +159,7 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
                 </p>
                 <YamlEditor
                   value={text}
-                  onChange={setText}
+                  onChange={replace}
                   problems={problems}
                   warnings={warnings}
                   readOnly={readOnly}
@@ -169,7 +170,7 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
                 />
               </>
             }
-            canvas={<WorkflowCanvas text={text} onChange={setText} problems={problems} readOnly={readOnly} focusAt={focusAt} />}
+            canvas={<WorkflowCanvas text={text} onChange={edit} history={history} problems={problems} readOnly={readOnly} focusAt={focusAt} />}
           />
           <div aria-live="polite" data-problems>
             <CheckList checking={checking} problems={problems} warnings={warnings} focusAt={focusAt} />
@@ -207,7 +208,7 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
         </section>
         <div className="flex flex-col gap-4">
           {!readOnly && <ToolPicker onInsert={(yaml) => editor.current?.insert(yaml)} />}
-          {summary && <VersionsPanel workflowID={summary.id} current={summary.currentVersion} onOpen={setText} />}
+          {summary && <VersionsPanel workflowID={summary.id} current={summary.currentVersion} onOpen={replace} />}
           {summary?.canEdit && !summary.archived && <SharePanel workflow={summary} />}
         </div>
       </div>
