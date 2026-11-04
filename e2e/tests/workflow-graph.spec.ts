@@ -47,12 +47,15 @@ async function yamlLines(page: Page): Promise<string[]> {
 async function centre(at: Locator): Promise<{ x: number; y: number }> {
   let last = "";
   await expect
-    .poll(async () => {
-      const now = JSON.stringify(await at.boundingBox());
-      const still = now === last;
-      last = now;
-      return still;
-    }, { intervals: [SETTLE_MS] })
+    .poll(
+      async () => {
+        const now = JSON.stringify(await at.boundingBox());
+        const still = now === last;
+        last = now;
+        return still;
+      },
+      { intervals: [SETTLE_MS] },
+    )
     .toBe(true);
   const box = await at.boundingBox();
   if (!box) throw new Error("not drawn");
