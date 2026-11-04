@@ -9,6 +9,35 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Signing in is no longer being let in (#204). Somebody the identity provider
+  knows who has not been let in waits, and the sign-in page tells them so; their
+  request shows above the table on Admin's Users page, where an administrator
+  lets them in as a member or turns them away, and somebody turned away may
+  ask again by signing in. Everybody who had an account before is let in
+  already, so nobody's access changes.
+  - "Let people in by their groups", off at first, lets somebody in at sign-in
+    when a realm group of theirs holds a grant, with that group's roles. A
+    group holding Administrator always lets its members in, so the realm's
+    administrators and service accounts keep working.
+  - The API: `GET /users/requests`, `POST /users/requests/{userID}/admit` and
+    `DELETE /users/requests/{userID}`, for administrators.
+- Single sign-on is a tab of Admin's Access page (#204): the issuer, the client
+  ID, the client secret, the groups claim and "Let people in by their groups".
+  A change applies at the next sign-in, without a restart. The client secret is
+  kept in OpenBao and never shown; the page says only that one is stored, and a
+  blank one keeps it. A provider that could not work is refused, and so is
+  turning it off while it is the only way into Rotor, saying why. The API is
+  `GET` and `PUT /oidc-provider`.
+- `ROTOR_BOOTSTRAP_MEMBERS` and the chart's `bootstrap.members` let people in by
+  their address, as Stator's and Exciter's bootstrap members do (#171): at
+  every start of the api, or at their first sign-in when they have not signed
+  in yet. It takes Dynamo's `DYNAMO_MEMBERS` as it is (`email=admin`,
+  `email=member`, comma separated) and plain addresses, and a later start adds
+  names without letting anybody out. A malformed entry stops the start with a
+  sentence naming it.
+- `ROTOR_OIDC_GROUPS_CLAIM` and the chart's `oidc.groupsClaim` name the claim
+  that lists somebody's groups, `groups` unless set.
+
 - Admin's People and access section keeps who may do what, as in Armature
   (#203):
   - Access has the tabs Roles, Matrix and Groups. Roles lists the grants,
@@ -496,6 +525,13 @@ and the versioning [Semantic Versioning](https://semver.org/).
   model's text and each tool call as events.
 
 ### Changed
+
+- Single sign-on is kept in Rotor's database (#204). `ROTOR_OIDC_ISSUER`,
+  `ROTOR_OIDC_CLIENT_ID` and `ROTOR_OIDC_CLIENT_SECRET` seed it on the first
+  start, so a deployment that sets them keeps signing people in; after that
+  the database's provider is used, and the api's log says when the two differ.
+  The OpenBao policy of the control plane gains `settings/oidc/*`, which the
+  chart and the OpenBao image carry.
 
 - A workflow's Sharing is its grants (#203): anybody who sees it reads who
   holds which role there, and whoever administers it grants people or groups

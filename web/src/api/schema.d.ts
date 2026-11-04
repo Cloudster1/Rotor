@@ -658,6 +658,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/oidc-provider": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Single sign-on: the identity provider people sign in through, with whether a client secret is held.
+         * @description The secret itself is never answered. provider is null while none is set up.
+         */
+        get: operations["getOIDCProvider"];
+        /**
+         * Set single sign-on up or change it; it applies from the next sign-in.
+         * @description A blank clientSecret keeps the one held. A provider that could not work is refused with 422: no issuer, no client ID, no secret, or an issuer whose discovery document cannot be read. Turning it off while it is the only way in is refused with 409.
+         */
+        put: operations["saveOIDCProvider"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/openapi.json": {
         parameters: {
             query?: never;
@@ -1371,6 +1395,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who signed in through the identity provider and is waiting to be let in, oldest first. */
+        get: operations["listJoinRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/requests/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Turn a waiting person away; they may ask again by signing in again. */
+        delete: operations["declineJoinRequest"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/requests/{userID}/admit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Let a waiting person in, as a member or as an administrator.
+         * @description They join Everyone and sign in from their next attempt. Somebody not waiting answers 404.
+         */
+        post: operations["admitJoinRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/{userID}": {
         parameters: {
             query?: never;
@@ -1632,6 +1710,10 @@ export interface components {
             baseURL: string;
             clientID?: string;
             clientSecret?: string;
+        };
+        AdmitRequest: {
+            /** @enum {string} */
+            role?: "member" | "admin";
         };
         AgentUsage: {
             cost: number;
@@ -1913,6 +1995,13 @@ export interface components {
             title: string;
             version: string;
         };
+        JoinRequestView: {
+            email: string;
+            name: string;
+            /** Format: date-time */
+            requestedAt: string;
+            userId: string;
+        };
         LangSmithRequest: {
             acknowledgeDataLeaves: boolean;
             enabled: boolean;
@@ -2110,6 +2199,22 @@ export interface components {
             scope: string;
             token_type: string;
         };
+        OidcProviderResponse: {
+            canTurnOff: boolean;
+            provider: components["schemas"]["OidcProviderView"] | null;
+            redirectUrl: string;
+        };
+        OidcProviderView: {
+            admitByGroup: boolean;
+            changedBy?: string;
+            clientId: string;
+            enabled: boolean;
+            groupsClaim: string;
+            hasSecret: boolean;
+            issuer: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         Operation: {
             deprecated?: boolean;
             description?: string;
@@ -2280,6 +2385,14 @@ export interface components {
             cost: number;
             inputTokens: number;
             outputTokens: number;
+        };
+        SaveOIDCProviderRequest: {
+            admitByGroup?: boolean;
+            clientId: string;
+            clientSecret?: string;
+            enabled?: boolean;
+            groupsClaim?: string;
+            issuer: string;
         };
         SaveWorkflowRequest: {
             baseVersion?: number;
@@ -4230,6 +4343,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OAuthError"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getOIDCProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OidcProviderResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    saveOIDCProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveOIDCProviderRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OidcProviderResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description An error, in the one shape every endpoint uses. */
@@ -6862,6 +7073,157 @@ export interface operations {
             };
             /** @description Forbidden: for administrators of Rotor alone. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listJoinRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        requests: components["schemas"]["JoinRequestView"][];
+                    };
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    declineJoinRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    admitJoinRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdmitRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        user: components["schemas"]["UserView"];
+                    };
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

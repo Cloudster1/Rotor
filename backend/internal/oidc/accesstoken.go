@@ -59,7 +59,7 @@ type accessToken struct {
 
 // VerifyAccessToken checks an access token of the realm against now and says who it names.
 func (s *Service) VerifyAccessToken(ctx context.Context, raw string, now time.Time) (*Identity, error) {
-	provider, err := s.discover(ctx)
+	st, provider, err := s.discover(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -69,19 +69,19 @@ func (s *Service) VerifyAccessToken(ctx context.Context, raw string, now time.Ti
 	token, err := verifier.Verify(s.providerContext(ctx), raw)
 	if err != nil {
 		return nil, refuse(fmt.Errorf("%w: %w", ErrTokenUnverified, err),
-			"The token is not signed with the keys the realm at %s publishes. Take a fresh access token from that realm with the client's credentials and send it again.", s.cfg.Issuer)
+			"The token is not signed with the keys the realm at %s publishes. Take a fresh access token from that realm with the client's credentials and send it again.", st.issuer)
 	}
 	var claims map[string]any
 	if err := token.Claims(&claims); err != nil {
 		return nil, refuse(fmt.Errorf("%w: read its claims: %w", ErrTokenUnverified, err),
-			"The token's claims cannot be read. Take a fresh access token from the realm at %s and send it again.", s.cfg.Issuer)
+			"The token's claims cannot be read. Take a fresh access token from the realm at %s and send it again.", st.issuer)
 	}
 	return checkAccessToken(accessToken{Issuer: token.Issuer, Audience: token.Audience, Subject: token.Subject,
-		Expiry: token.Expiry, Claims: claims}, s.cfg.Issuer, s.cfg.ClientID, now)
+		Expiry: token.Expiry, Claims: claims}, st.issuer, st.clientID, st.groupsClaim, now)
 }
 
 // checkAccessToken holds a verified token to the issuer, Rotor's audience, its expiry and the administrators' group.
-func checkAccessToken(token accessToken, issuer, audience string, now time.Time) (*Identity, error) {
+func checkAccessToken(token accessToken, issuer, audience, groupsClaim string, now time.Time) (*Identity, error) {
 	switch {
 	case token.Issuer != issuer:
 		return nil, refuse(ErrTokenIssuer, "The token was issued by %q, and Rotor takes tokens of %s alone. Take the token from that realm.",
@@ -96,7 +96,7 @@ func checkAccessToken(token accessToken, issuer, audience string, now time.Time)
 	case token.Subject == "":
 		return nil, refuse(ErrTokenNoAccount, "The token names no account. Take it with the client credentials of a client that has a service account.")
 	}
-	identity, err := tokenIdentity(token)
+	identity, err := tokenIdentity(token, groupsClaim)
 	if err != nil {
 		return nil, err
 	}
@@ -109,9 +109,9 @@ func checkAccessToken(token accessToken, issuer, audience string, now time.Time)
 
 // tokenIdentity is a person when the token carries an address, and otherwise the service account of the client it
 // was issued to, known by that client's name.
-func tokenIdentity(token accessToken) (*Identity, error) {
+func tokenIdentity(token accessToken, groupsClaim string) (*Identity, error) {
 	if strings.TrimSpace(asString(token.Claims["email"])) != "" {
-		identity, err := identityFromClaims(token.Issuer, token.Subject, token.Claims)
+		identity, err := identityFromClaims(token.Issuer, token.Subject, token.Claims, groupsClaim)
 		if err != nil {
 			return nil, refuse(err, "The token's account has an email address the realm has not verified. Verify it in the realm, then take a fresh token.")
 		}
@@ -132,9 +132,14 @@ func (s *Service) Authenticate(ctx context.Context, raw string) (*auth.Principal
 	if err != nil {
 		return nil, err
 	}
+	st, err := s.current(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var p *auth.Principal
 	err = s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		user, set, err := adopt(ctx, tx, identity)
+		// The account is in the administrators' group, whose grant lets it in whatever the setting says.
+		user, set, err := adopt(ctx, tx, identity, st.admitByGroup)
 		if err != nil {
 			return err
 		}

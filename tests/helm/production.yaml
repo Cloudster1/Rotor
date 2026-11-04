@@ -141,6 +141,7 @@ data:
   ROTOR_SECURE_COOKIES: "true"
   ROTOR_OIDC_ISSUER: "https://id.example/realms/dynamo"
   ROTOR_OIDC_CLIENT_ID: "rotor"
+  ROTOR_OIDC_GROUPS_CLAIM: "groups"
   ROTOR_OPENBAO_ADDR: "https://openbao.example:8200"
   ROTOR_OPENBAO_AUTH: "kubernetes"
   ROTOR_OPENBAO_ROLE: "rotor-control-plane"
@@ -352,7 +353,7 @@ spec:
         app.kubernetes.io/instance: r
         app.kubernetes.io/component: api
       annotations:
-        checksum/env: 0dfe3c72635c656b7d8139fdfa973bd321cccd4b6427df4720730e44d977dc1f
+        checksum/env: 142f20caec5586ab978a6f96630669e115646ae7b27e5e154477b3d85209533e
     spec:
       serviceAccountName: r-rotor-api
       terminationGracePeriodSeconds: 40
@@ -540,7 +541,7 @@ spec:
         app.kubernetes.io/instance: r
         app.kubernetes.io/component: worker
       annotations:
-        checksum/env: 0dfe3c72635c656b7d8139fdfa973bd321cccd4b6427df4720730e44d977dc1f
+        checksum/env: 142f20caec5586ab978a6f96630669e115646ae7b27e5e154477b3d85209533e
     spec:
       serviceAccountName: r-rotor-worker
       terminationGracePeriodSeconds: 20
@@ -855,6 +856,15 @@ data:
     }
     
     path "rotor/metadata/settings/langsmith/*" {
+      capabilities = ["read", "list", "delete"]
+    }
+    
+    # The identity provider's client secret an administrator gives on Admin's Access page (#204).
+    path "rotor/data/settings/oidc/*" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+    
+    path "rotor/metadata/settings/oidc/*" {
       capabilities = ["read", "list", "delete"]
     }
 ---

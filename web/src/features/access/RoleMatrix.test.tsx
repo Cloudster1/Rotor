@@ -135,8 +135,8 @@ describe("the role matrix", () => {
     await waitFor(() => expect(router.state.location.search).toEqual({ tab: "matrix" }));
     expect(screen.getByRole("tab", { name: s.access.tabs.matrix })).toHaveFocus();
     await userEvent.keyboard("{End}");
-    await waitFor(() => expect(router.state.location.search).toEqual({ tab: "groups" }));
-    expect(screen.getByRole("tabpanel", { name: s.access.tabs.groups })).toBeVisible();
+    await waitFor(() => expect(router.state.location.search).toEqual({ tab: "sso" }));
+    expect(screen.getByRole("tabpanel", { name: s.access.tabs.sso })).toBeVisible();
     await userEvent.click(screen.getByRole("tab", { name: s.access.tabs.roles }));
     await waitFor(() => expect(router.state.location.search).toEqual({}));
   });

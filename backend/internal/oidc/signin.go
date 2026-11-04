@@ -31,11 +31,15 @@ func (s *Service) Finish(ctx context.Context, state, code string, browser Browse
 }
 
 // SignIn makes or updates the person a verified identity names, follows their realm groups, and opens a session
-// holding the provider's session id. A switched-off person is refused.
+// holding the provider's session id. A switched-off person is refused, and one not let in waits with ErrNotAMember.
 func (s *Service) SignIn(ctx context.Context, identity *Identity, browser Browser) (string, error) {
+	st, err := s.current(ctx)
+	if err != nil {
+		return "", err
+	}
 	var token string
-	err := s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		user, set, err := adopt(ctx, tx, identity)
+	err = s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
+		user, set, err := adopt(ctx, tx, identity, st.admitByGroup)
 		if err != nil {
 			return err
 		}
@@ -46,21 +50,58 @@ func (s *Service) SignIn(ctx context.Context, identity *Identity, browser Browse
 		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionSignedIn, TargetType: "user", TargetID: user.id.String(),
 			Actor: user.id, IP: browser.IP, Data: map[string]any{"role": auth.RoleFor(set), "groups": identity.Groups, "new": user.created}})
 	})
+	if errors.Is(err, ErrNotAMember) {
+		// The refusal rolled the sign-in back, so the request is kept in a transaction of its own, as in Armature.
+		if err := s.noteJoinRequest(ctx, identity); err != nil {
+			return "", err
+		}
+		return "", ErrNotAMember
+	}
 	if err != nil {
 		return "", err
 	}
 	return token, nil
 }
 
-// adopt makes or updates the person a verified identity names, makes their groups the realm's exactly, and returns
-// what their grants then let them do; app_user.role is kept as the word for it. A switched-off person is refused.
-func adopt(ctx context.Context, tx db.DBTX, identity *Identity) (knownUser, perm.Set, error) {
+// noteJoinRequest keeps the person and their request to be let in, which Admin's Users page shows.
+func (s *Service) noteJoinRequest(ctx context.Context, identity *Identity) error {
+	return s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
+		user, err := upsertUser(ctx, tx, identity)
+		if err != nil {
+			return err
+		}
+		if user.letIn {
+			return nil
+		}
+		return perm.NoteJoinRequest(ctx, tx, user.id)
+	})
+}
+
+// adopt makes or updates the person a verified identity names, lets them in when a realm group of theirs holds a grant
+// that does, makes their groups the realm's exactly, and returns what their grants let them do. Somebody switched off
+// is refused, and somebody not let in waits.
+func adopt(ctx context.Context, tx db.DBTX, identity *Identity, admitByGroup bool) (knownUser, perm.Set, error) {
 	user, err := upsertUser(ctx, tx, identity)
 	if err != nil {
 		return user, perm.Set{}, err
 	}
 	if !user.active {
 		return user, perm.Set{}, auth.ErrSwitchedOff
+	}
+	if !user.letIn {
+		// A group holding Administrator lets its members in whatever the setting, so an installation nobody has been let
+		// into yet has somebody to let the rest in, and the realm's service accounts keep working.
+		groups, err := perm.MappedGroups(ctx, tx, identity.Groups, !admitByGroup)
+		if err != nil {
+			return user, perm.Set{}, err
+		}
+		admitted, err := perm.AdmitByGroup(ctx, tx, user.id, groups)
+		if err != nil {
+			return user, perm.Set{}, err
+		}
+		if !admitted {
+			return user, perm.Set{}, ErrNotAMember
+		}
 	}
 	if err := syncGroups(ctx, tx, user.id, identity.Groups); err != nil {
 		return user, perm.Set{}, err
@@ -88,6 +129,7 @@ type knownUser struct {
 	id      uuid.UUID
 	role    string
 	active  bool
+	letIn   bool
 	created bool
 }
 
@@ -98,8 +140,8 @@ func upsertUser(ctx context.Context, tx db.DBTX, identity *Identity) (knownUser,
 		UPDATE app_user SET email = $3, name = $4
 		FROM user_identity i
 		WHERE i.issuer = $1 AND i.subject = $2 AND app_user.id = i.user_id
-		RETURNING app_user.id, app_user.role, app_user.is_active`,
-		identity.Issuer, identity.Subject, identity.Email, identity.Name).Scan(&u.id, &u.role, &u.active)
+		RETURNING app_user.id, app_user.role, app_user.is_active, app_user.standing IS NOT NULL`,
+		identity.Issuer, identity.Subject, identity.Email, identity.Name).Scan(&u.id, &u.role, &u.active, &u.letIn)
 	if err == nil {
 		return u, nil
 	}
@@ -110,7 +152,7 @@ func upsertUser(ctx context.Context, tx db.DBTX, identity *Identity) (knownUser,
 	err = tx.QueryRow(ctx, `
 		INSERT INTO app_user (email, name) VALUES ($1, $2)
 		ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name
-		RETURNING id, role, is_active, xmax = 0`, identity.Email, identity.Name).Scan(&u.id, &u.role, &u.active, &u.created)
+		RETURNING id, role, is_active, standing IS NOT NULL, xmax = 0`, identity.Email, identity.Name).Scan(&u.id, &u.role, &u.active, &u.letIn, &u.created)
 	if err != nil {
 		return u, fmt.Errorf("make the person: %w", err)
 	}
@@ -121,8 +163,8 @@ func upsertUser(ctx context.Context, tx db.DBTX, identity *Identity) (knownUser,
 		return u, fmt.Errorf("remember the provider's name for the person: %w", err)
 	}
 	err = tx.QueryRow(ctx, `
-		SELECT a.id, a.role, a.is_active FROM user_identity i JOIN app_user a ON a.id = i.user_id
-		WHERE i.issuer = $1 AND i.subject = $2`, identity.Issuer, identity.Subject).Scan(&u.id, &u.role, &u.active)
+		SELECT a.id, a.role, a.is_active, a.standing IS NOT NULL FROM user_identity i JOIN app_user a ON a.id = i.user_id
+		WHERE i.issuer = $1 AND i.subject = $2`, identity.Issuer, identity.Subject).Scan(&u.id, &u.role, &u.active, &u.letIn)
 	if err != nil {
 		return u, fmt.Errorf("find the person: %w", err)
 	}

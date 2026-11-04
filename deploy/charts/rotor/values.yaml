@@ -141,12 +141,21 @@ valkey:
     limits: { memory: 256Mi }
 
 oidc:
-  # The realm people sign in through, as the browser reaches it; Rotor's client and the Secret holding its secret.
+  # The realm people sign in through, as the browser reaches it; Rotor's client and the Secret holding its secret. They
+  # seed single sign-on on the first start; after that an administrator changes it on Admin's Access page (#204).
   issuer: ""
   clientId: rotor
   clientSecret: { name: "", key: client-secret }
+  # The claim of the id token that lists somebody's groups, as the realm's groups mapper writes it.
+  groupsClaim: groups
   # public=reachable pairs, for an issuer the pods reach at another address than the browser.
   backchannel: {}
+
+bootstrap:
+  # People let in by their address (#171), as Stator's and Exciter's bootstrap.members: at every start of the api, or at
+  # their first sign-in when they have not signed in yet. A later release adds names and lets nobody out.
+  # [{ email: alice@example.com, role: admin }], each role admin (also granted Administrator) or member.
+  members: []
 
 openbao:
   # Where every long-lived secret lives. The api and the worker sign in with their own ServiceAccount tokens

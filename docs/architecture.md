@@ -103,7 +103,35 @@ sessions. Keycloak's sign-out of a person from every session sends one token
 naming one session, so after each token Rotor reads the person's sign-out time
 from Keycloak's admin API, as the `rotor` client's service account with
 `view-users`, and ends their sessions older than it (#53).
-Each sign-in makes the person's realm groups exactly the `groups` claim.
+Each sign-in makes the person's realm groups exactly the groups claim.
+
+The provider is single sign-on as Admin's Access page keeps it (#204): one row
+of `oidc_provider` (issuer, client ID, groups claim, "Let people in by their
+groups", turned on), read on every sign-in, so a change saved on any replica
+applies at the next sign-in everywhere without a restart; each replica holds
+the discovery document and the secret until the row is newer. The client
+secret lives in OpenBao at `settings/oidc/client-secret`, never in the row or a
+response, which answer only `hasSecret`. `ROTOR_OIDC_ISSUER`, `_CLIENT_ID`,
+`_CLIENT_SECRET` and `_GROUPS_CLAIM` seed the row when the database has none;
+until an administrator gives a secret, the environment's is used while the
+issuer and client are the ones it came with. Saving refuses a provider that
+could not work (no issuer, client or secret, or an issuer whose discovery
+document cannot be read), and turning it off is refused while it is the only
+way in, which it is: Rotor has no other sign-in. The control plane's own
+OpenBao login keeps the environment's issuer.
+
+Signing in is not being let in (#204, #171). A person the provider knows is
+let in when `app_user.standing` is set; anybody else waits, with a
+`join_request` Admin's Users page shows above the table, and the sign-in page
+says their request waits. An administrator lets them in as a member or turns
+them away, after which they may ask again by signing in. A realm group holding
+a grant lets its members in at sign-in, with its roles, once "Let people in by
+their groups" is on; one holding Administrator always does, so the realm's
+administrators and service accounts are never left waiting.
+`ROTOR_BOOTSTRAP_MEMBERS` names people let in by their address at every start
+of the api, an account made for a name not yet signed in. Only a person let in
+joins Everyone or holds anything: `actor_can()`, the Everyone triggers and the
+session lookup all ask `standing`.
 
 ## Access (#202, #203, `docs/api-contract-access.md`)
 

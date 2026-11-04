@@ -9,7 +9,7 @@ export const accessStrings = {
   optional: "Optional",
   actions: "Actions",
   loading: "Asking the server.",
-  tabs: { label: "Access", roles: "Roles", matrix: "Matrix", groups: "Groups" },
+  tabs: { label: "Access", roles: "Roles", matrix: "Matrix", groups: "Groups", sso: "Single sign-on" },
   pager: {
     range: (from: number, to: number, total: number) => `${from} to ${to} of ${total}`,
     previous: "Previous",
@@ -51,7 +51,7 @@ export const accessStrings = {
     claimHint: "The provider claim is the value your identity provider sends for this group; with it, membership follows sign-ins.",
     everyone: "Everyone",
     builtin: "built in",
-    everyoneDetail: "Everybody who signs in to Rotor. People join it when they first sign in, so a role granted to it reaches everybody.",
+    everyoneDetail: "Everybody let into Rotor. People join it when they are let in, so a role granted to it reaches everybody.",
   },
   grants: {
     find: "Find grants",
@@ -106,10 +106,51 @@ export const accessStrings = {
   },
 } as const;
 
+/** The words of the Single sign-on tab of Access (#204), after Armature's ProviderSettings; spread into s as s.sso. */
+export const ssoStrings = {
+  intro: "The identity provider people sign in to Rotor through. A change applies from the next sign-in; whoever is signed in stays signed in.",
+  loading: "Asking how people sign in.",
+  issuer: "Issuer",
+  issuerHint: "Where its discovery document lives.",
+  clientId: "Client ID",
+  secret: "Client secret",
+  secretStored: "Stored. Leave blank to keep it.",
+  secretMissing: "None is held yet. Paste the secret the provider issued for this client.",
+  groupsClaim: "Groups claim",
+  groupsClaimHint: "The claim listing somebody's groups.",
+  admit: "Let people in by their groups",
+  admitDetail:
+    "Somebody signing in here, or through Stator or Exciter, whose group from the provider holds a role is let in as a member with that group's roles. Anybody else still asks to join.",
+  save: "Save",
+  setUp: "Set up single sign-on",
+  saving: "Saving...",
+  saved: "Saved. It applies from the next sign-in.",
+  turnOff: "Turn it off",
+  cannotTurnOff:
+    "It cannot be turned off: signing in through the identity provider is the only way into Rotor, so turning it off would lock everybody out, you included.",
+  signInAt: "People can sign in at",
+  offAddress: "Turned off. The address would be",
+  redirect: "The provider sends people back to",
+  changedBy: (name: string) => `Last changed by ${name}.`,
+} as const;
+
+/** The words of the join requests above Admin's Users table (#204), after Armature's; spread into s as s.joinRequests. */
+export const joinRequestsStrings = {
+  title: "Waiting to be let in",
+  detail: "These people signed in through the identity provider but are not members yet.",
+  asked: (email: string, when: string) => `${email}, asked ${when}`,
+  turnAway: "Turn away",
+  turnAwayNamed: (name: string) => `Turn away ${name}`,
+  admit: "Let in as member",
+  admitNamed: (name: string) => `Let in as member: ${name}`,
+  letIn: (name: string) => `${name} may sign in now`,
+  turnedAway: (name: string) => `Turned away ${name}; they may ask again by signing in.`,
+} as const;
+
 /** The words of Admin's Users page (#203), spread into s as s.users. */
 export const usersStrings = {
   title: "Users",
-  intro: "Everybody who has signed in to Rotor, with the groups they are in and the roles they hold.",
+  intro: "Everybody let into Rotor, with the groups they are in and the roles they hold.",
   find: "Find users",
   noMatch: "Nobody matches that",
   noMatchDetail: "Try part of their name or their address, or clear the search.",

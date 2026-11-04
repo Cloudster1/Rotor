@@ -2,16 +2,22 @@ import { type KeyboardEvent, useId, useRef } from "react";
 import { PageHeader } from "@/features/shell/EmptyState";
 import { s } from "@/strings";
 import { GroupList } from "./GroupList";
+import { ProviderSettings } from "./ProviderSettings";
 import { RoleMatrix } from "./RoleMatrix";
 import { RoleTable } from "./RoleTable";
 
-/** The tabs of Access, as the address names them; Single sign-on joins them with #204. */
-export const ACCESS_TABS = ["roles", "matrix", "groups"] as const;
+/** The tabs of Access, as the address names them; Single sign-on joined them with #204. */
+export const ACCESS_TABS = ["roles", "matrix", "groups", "sso"] as const;
 export type AccessTab = (typeof ACCESS_TABS)[number];
 
-const tabLabel: Record<AccessTab, string> = { roles: s.access.tabs.roles, matrix: s.access.tabs.matrix, groups: s.access.tabs.groups };
+const tabLabel: Record<AccessTab, string> = {
+  roles: s.access.tabs.roles,
+  matrix: s.access.tabs.matrix,
+  groups: s.access.tabs.groups,
+  sso: s.access.tabs.sso,
+};
 
-/** Admin's Access page: who holds which role, what each role grants, and the groups. Ported from Armature's. */
+/** Admin's Access page: who holds which role, what each role grants, the groups and single sign-on. Ported from Armature's. */
 export function AccessPage({ tab, onTab }: { tab: AccessTab; onTab: (tab: AccessTab) => void }) {
   const id = useId();
   const buttons = useRef<Partial<Record<AccessTab, HTMLButtonElement | null>>>({});
@@ -63,6 +69,7 @@ export function AccessPage({ tab, onTab }: { tab: AccessTab; onTab: (tab: Access
           {tab === each && each === "roles" && <RoleTable />}
           {tab === each && each === "matrix" && <RoleMatrix />}
           {tab === each && each === "groups" && <GroupList />}
+          {tab === each && each === "sso" && <ProviderSettings />}
         </div>
       ))}
     </div>

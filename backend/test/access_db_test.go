@@ -271,7 +271,7 @@ func TestTheLastAdministratorStays(t *testing.T) {
 	s := h.newScratch(t, 0)
 	ctx := context.Background()
 	var person, groupGrant, personGrant uuid.UUID
-	if err := s.super.QueryRow(ctx, `INSERT INTO app_user (email, name) VALUES ('last@suite.test', 'Last') RETURNING id`).Scan(&person); err != nil {
+	if err := s.super.QueryRow(ctx, `INSERT INTO app_user (email, name, standing) VALUES ('last@suite.test', 'Last', 'member') RETURNING id`).Scan(&person); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.super.QueryRow(ctx, `SELECT id FROM role_assignment WHERE role = 'administrator'`).Scan(&groupGrant); err != nil {

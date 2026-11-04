@@ -20,51 +20,36 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/db"
 )
 
-// Service runs the sign-in flow against the one provider the environment names.
+// Service runs the sign-in flow against the provider Rotor keeps in its database, which the environment seeds.
 type Service struct {
 	db       *db.Cluster
 	sessions *auth.Service
 	cfg      config.OIDC
 	http     *http.Client
+	// Secrets keeps the client secret an administrator gives; nil without OpenBao, where only the environment's is used.
+	Secrets Secrets
 
-	// discovery is fetched on first use, so the api starts while the provider is still coming up.
-	mu       sync.Mutex
-	provider *coreoidc.Provider
+	// held is the provider as last read, with its discovery fetched on first use, so the api starts while the
+	// provider is still coming up.
+	mu   sync.Mutex
+	held *settings
 }
 
-// NewService returns the sign-in flow; with no issuer configured every call answers ErrNotConfigured.
+// NewService returns the sign-in flow; with no provider kept or it turned off every call answers ErrNotConfigured.
 func NewService(cluster *db.Cluster, sessions *auth.Service, cfg config.OIDC) *Service {
 	return &Service{db: cluster, sessions: sessions, cfg: cfg, http: HTTPClient(ParseRewrites(cfg.Backchannel))}
 }
 
-// discover returns the provider's endpoints and key set, fetching them once it answers.
-func (s *Service) discover(ctx context.Context) (*coreoidc.Provider, error) {
-	if s.cfg.Issuer == "" {
-		return nil, ErrNotConfigured
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.provider != nil {
-		return s.provider, nil
-	}
-	found, err := coreoidc.NewProvider(s.providerContext(ctx), s.cfg.Issuer)
-	if err != nil {
-		return nil, fmt.Errorf("%w: ask %s who it is: %w", ErrUnreachable, s.cfg.Issuer, err)
-	}
-	s.provider = found
-	return found, nil
-}
-
-func (s *Service) oauthConfig(p *coreoidc.Provider) *oauth2.Config {
+func (s *Service) oauthConfig(st *settings, p *coreoidc.Provider, secret string) *oauth2.Config {
 	return &oauth2.Config{
-		ClientID: s.cfg.ClientID, ClientSecret: s.cfg.ClientSecret,
+		ClientID: st.clientID, ClientSecret: secret,
 		Endpoint: p.Endpoint(), RedirectURL: s.cfg.RedirectURL, Scopes: scopes,
 	}
 }
 
 // Start begins a sign-in that lands on next afterwards, and returns the URL to send the browser to.
 func (s *Service) Start(ctx context.Context, next string) (string, error) {
-	provider, err := s.discover(ctx)
+	st, provider, err := s.discover(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -91,7 +76,8 @@ func (s *Service) Start(ctx context.Context, next string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("remember this sign-in: %w", err)
 	}
-	return s.oauthConfig(provider).AuthCodeURL(state, coreoidc.Nonce(nonce), oauth2.S256ChallengeOption(verifier)), nil
+	// The secret is not needed to send the browser on; the callback reads it.
+	return s.oauthConfig(st, provider, "").AuthCodeURL(state, coreoidc.Nonce(nonce), oauth2.S256ChallengeOption(verifier)), nil
 }
 
 // Exchange trades the code for a verified id token, and returns its identity and where the browser was headed.
@@ -110,12 +96,16 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (*Identity, 
 	if err != nil {
 		return nil, "", err
 	}
-	provider, err := s.discover(ctx)
+	st, provider, err := s.discover(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	secret, err := s.clientSecret(ctx, st)
 	if err != nil {
 		return nil, "", err
 	}
 	ctx = s.providerContext(ctx)
-	tokens, err := s.oauthConfig(provider).Exchange(ctx, code, oauth2.VerifierOption(verifier))
+	tokens, err := s.oauthConfig(st, provider, secret).Exchange(ctx, code, oauth2.VerifierOption(verifier))
 	if err != nil {
 		return nil, "", fmt.Errorf("exchange the code: %w", err)
 	}
@@ -124,7 +114,7 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (*Identity, 
 		return nil, "", errors.New("the identity provider returned no id token")
 	}
 	// Verified against the issuer's published keys, for this client, unexpired.
-	verified, err := provider.Verifier(&coreoidc.Config{ClientID: s.cfg.ClientID}).Verify(ctx, raw)
+	verified, err := provider.Verifier(&coreoidc.Config{ClientID: st.clientID}).Verify(ctx, raw)
 	if err != nil {
 		return nil, "", fmt.Errorf("verify the id token: %w", err)
 	}
@@ -135,7 +125,7 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (*Identity, 
 	if err := verified.Claims(&claims); err != nil {
 		return nil, "", fmt.Errorf("read the token's claims: %w", err)
 	}
-	identity, err := identityFromClaims(verified.Issuer, verified.Subject, claims)
+	identity, err := identityFromClaims(verified.Issuer, verified.Subject, claims, st.groupsClaim)
 	if err != nil {
 		return nil, "", err
 	}

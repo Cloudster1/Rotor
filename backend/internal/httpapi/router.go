@@ -73,6 +73,10 @@ type Server struct {
 	// Sessions and SignIn are nil only in tests that exercise neither.
 	Sessions Sessions
 	SignIn   SignIn
+	// JoinRequests lets in or turns away who waits after signing in (#204); *perm.Store is the real one.
+	JoinRequests JoinRequests
+	// SingleSignOn keeps the identity provider an administrator sets up on Access (#204); *oidc.Service is the real one.
+	SingleSignOn SingleSignOn
 	// ServiceAccounts checks a realm's access token at the routes that take one (#168); nil refuses every such token.
 	ServiceAccounts ServiceAccounts
 	// SessionTTL is how long the cookie a sign-in sets lives, matching the session behind it.
@@ -240,6 +244,11 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Delete("/role-assignments/{assignmentID}", s.handleRevokeRole)
 				r.Get("/users", s.handleListUsers)
 				r.Patch("/users/{userID}", s.handleUpdateUser)
+				r.Get("/users/requests", s.handleListJoinRequests)
+				r.Post("/users/requests/{userID}/admit", s.handleAdmitJoinRequest)
+				r.Delete("/users/requests/{userID}", s.handleDeclineJoinRequest)
+				r.Get("/oidc-provider", s.handleGetOIDCProvider)
+				r.Put("/oidc-provider", s.handleSaveOIDCProvider)
 				mountPending(r, false, true)
 			})
 		})

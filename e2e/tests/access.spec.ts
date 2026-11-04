@@ -144,9 +144,14 @@ test("a group made by hand gains a member and loses them again @desktop", async 
 
 test("on a phone each tab of Access fits the screen, and the tabs are walked with the keyboard @mobile", async ({ page }) => {
   await openShell(page, "/admin/access");
-  for (const tab of ["Roles", "Matrix", "Groups"]) {
+  for (const [tab, slug] of [
+    ["Roles", "roles"],
+    ["Matrix", "matrix"],
+    ["Groups", "groups"],
+    ["Single sign-on", "sso"],
+  ]) {
     await page.getByRole("tab", { name: tab }).click();
-    await expect(page.locator(`[data-access-tab="${tab.toLowerCase()}"]`)).toBeVisible();
+    await expect(page.locator(`[data-access-tab="${slug}"]`)).toBeVisible();
     expect(await scrollsSideways(page), tab).toBe(false);
   }
   await page.getByRole("tab", { name: "Groups" }).focus();

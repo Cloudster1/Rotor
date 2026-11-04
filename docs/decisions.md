@@ -3,6 +3,59 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-11-04: Letting people in, and single sign-on kept in Rotor (#204, #171)
+
+- **Signing in is not being let in.** A person the realm knows who is not let in
+  waits: their join request is kept and shown on Admin's Users page, where an
+  administrator lets them in as a member or turns them away, as in Armature.
+  Only somebody let in joins Everyone or holds anything, which `actor_can()`
+  and the Everyone guards now ask of `app_user.standing` too. Rotor acts in
+  three tools as the person who starts a run, and the suite's standard has
+  every tool decide who is let in; a realm shared by the whole suite is not an
+  allow-list of Rotor's. Everybody with an account before the change is let in,
+  so nobody's access changes.
+- **A group holding Administrator always lets its members in.** With "Let
+  people in by their groups" off, a fresh installation would otherwise have
+  nobody to let anybody in, and the realm's service accounts, which must be in
+  `rotor-administrators` (#168), would stop working. Any other group with a
+  grant lets its members in only with the setting on, Armature's
+  `admit_by_group`.
+- **Bootstrap members as Stator and Exciter read them.**
+  `ROTOR_BOOTSTRAP_MEMBERS` takes Dynamo's `DYNAMO_MEMBERS` as it is
+  (`email=role`, comma separated), and plain addresses separated by commas or
+  white space too. The api lets them in at every start, making an account for a
+  name not yet signed in, which their first sign-in takes by its address; a
+  later start adds names and lets nobody out, and `admin` grants Administrator
+  to whom the list lets in, never to somebody already in. A start rather than
+  the siblings' seed Job, because Rotor has no seed command and every replica
+  can run the same idempotent statement.
+- **Single sign-on is kept in Rotor's database, which reverses "OIDC only,
+  configured from the environment" of the sign-in for M0.** The suite's
+  standard and Armature edit single sign-on on the Access page, and an
+  administrator should not need an operator and a restart to rotate a secret or
+  turn on admission by group. `oidc_provider` is one row, read on every use, so
+  a change another replica saved applies at the next sign-in there too, while
+  the discovery document and the secret are held until the row changes. The
+  environment still seeds the first row, so Dynamo's deployment and the
+  development stack keep signing in; after that the database's is used and the
+  log says so.
+- **The client secret is in OpenBao, never in the row.** Armature keeps it in a
+  column; Rotor keeps every long-lived secret in OpenBao, as it does a model
+  provider's key. The row says only when one was put there. Until an
+  administrator gives one, the environment's secret is used while the issuer
+  and client are the ones it came with; changing either with the secret left
+  blank moves that secret to OpenBao, so it is kept as the form says.
+- **A provider that could not work is refused.** Saving needs an issuer, a
+  client ID and a secret, and reads the issuer's discovery document first, so a
+  typo is refused on the page rather than locking everybody out at the next
+  sign-in.
+- **Single sign-on is not turned off while it is the only way in.** Rotor has
+  no password or other sign-in, so turning it off would lock out everybody, the
+  administrator who did it included, until somebody edited the database. The
+  API refuses it with a sentence saying so, and the tab says it instead of
+  offering the button. The OpenBao login of the control plane keeps using the
+  environment's issuer and its own client, which this does not touch.
+
 ## 2026-11-04: Access as roles, groups and grants, kept in row level security (#202)
 
 - **Armature's model, ported whole.** Permissions are a catalogue in
@@ -887,9 +940,11 @@ This supersedes "Registration only, for now" of #47 below.
   be ended by a query (back-channel logout, switching someone off). Valkey
   stays in the stack for caches and fan-out later; it holds nothing that
   must survive.
-- **OIDC only, configured from the environment.** Rotor never acts on its
-  own: every run acts as a person whose identity in the suite comes from the
-  shared realm, so a local password account would be a person no tool knows.
+- **OIDC only, configured from the environment.** Reversed on 2026-11-04
+  (#204): single sign-on is kept in Rotor's database, which the environment
+  seeds. Rotor never acts on its own: every run acts as a person whose
+  identity in the suite comes from the shared realm, so a local password
+  account would be a person no tool knows.
   The issuer, client and secret are `ROTOR_OIDC_*` variables rather than a
   table an administrator edits, because an installation of Rotor belongs to
   one suite and one realm. Reconsider if Rotor is ever run without the suite.
@@ -898,10 +953,12 @@ This supersedes "Registration only, for now" of #47 below.
   runs that act in three tools. Keycloak sends a logout token to the api,
   which ends the sessions of that realm session (`sid`), or of the person
   when only `sub` is given.
-- **Every person of the realm may sign in, as a member.** What a person may
-  do in Exciter, Armature and Stator is decided by those tools when a run
-  acts as them, so Rotor needs no gate of its own beyond the realm.
-  `rotor-administrators` makes an administrator of Rotor itself.
+- **Every person of the realm may sign in, as a member.** Reversed on
+  2026-11-04 (#204): a person is let in by an administrator, their group or
+  the bootstrap list. What a person may do in Exciter, Armature and Stator is
+  decided by those tools when a run acts as them, so Rotor needs no gate of
+  its own beyond the realm. `rotor-administrators` makes an administrator of
+  Rotor itself.
 - **A logout token that names a session ends that session alone.** Leaving
   one browser keeps a person's others, as the specification asks; a token
   naming only the person ends all of theirs. Keycloak answers its admin

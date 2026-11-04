@@ -84,5 +84,8 @@ export const audit = {
     "group.member_added": "Person added to a group",
     "group.member_removed": "Person removed from a group",
     "user.switched_on": "Person switched on",
+    "member.admitted": "Person let in",
+    "member.declined": "Person turned away",
+    "oidc.saved": "Single sign-on changed",
   } as Record<string, string>,
 } as const;

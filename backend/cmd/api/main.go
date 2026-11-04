@@ -92,11 +92,21 @@ func run() error {
 		}
 	}
 
-	if !cfg.SignInConfigured() {
-		log.Warn("ROTOR_OIDC_ISSUER is not set, so nobody can sign in; set it to the identity provider's issuer")
-	}
 	sessions := auth.NewService(cluster, cfg.Auth.SessionTTL)
 	realm := oidc.NewService(cluster, sessions, cfg.OIDC)
+	// The environment seeds single sign-on when the database keeps none; after that the database's is used (#204).
+	if err := realm.Seed(ctx, log); err != nil {
+		return err
+	}
+	if !realm.Configured(ctx) {
+		log.Warn("single sign-on is not set up or is turned off, so nobody can sign in; set ROTOR_OIDC_ISSUER to seed it")
+	}
+	// The people the bootstrap list names are let in at every start; a later start adds names and removes nobody (#171).
+	if added, err := perm.LetInMembers(ctx, cluster, cfg.BootstrapMembers); err != nil {
+		return err
+	} else if added > 0 {
+		log.Info("let in the bootstrap members", "added", added, "named", len(cfg.BootstrapMembers))
+	}
 	access := perm.NewStore(cluster)
 	server := &httpapi.Server{
 		DB:       cluster,
@@ -108,6 +118,9 @@ func run() error {
 		// Admin's Access and Users pages keep the grants and let people in and out (#203).
 		AccessAdmin: access,
 		Switches:    sessions,
+		// Who waits to be let in, and single sign-on itself, are kept on Admin's Users and Access pages (#204).
+		JoinRequests: access,
+		SingleSignOn: realm,
 		// The realm's service accounts add tools and their hook secrets with a token of their own (#168).
 		ServiceAccounts: realm,
 		SessionTTL:      cfg.Auth.SessionTTL,
@@ -139,6 +152,7 @@ func run() error {
 	workflowService.Images = workspaceService
 	if secrets != nil {
 		server.Vault = secrets
+		realm.Secrets = secrets
 		registry := tools.NewService(cluster, secrets, boot.ToolClient(cfg), cfg.ConnectionCallbackURL(), cfg.Env == config.EnvDevelopment)
 		people := connections.NewService(cluster, secrets, registry, boot.ToolClient(cfg), cfg.ConnectionCallbackURL(), log)
 		people.Runs = secrets
