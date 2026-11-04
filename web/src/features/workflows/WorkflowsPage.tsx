@@ -83,10 +83,12 @@ function WorkflowRow({ workflow, triggerOff }: { workflow: WorkflowSummary; trig
       </p>
       {!workflow.archived && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button type="button" className={secondary} onClick={() => setRunning(true)} aria-label={s.runs.runNamed(workflow.name)} data-action="run-workflow">
-            {s.runs.run}
-          </button>
-          {!workflow.canEdit ? null : !confirming ? (
+          {workflow.canRun && (
+            <button type="button" className={secondary} onClick={() => setRunning(true)} aria-label={s.runs.runNamed(workflow.name)} data-action="run-workflow">
+              {s.runs.run}
+            </button>
+          )}
+          {!workflow.canAdminister ? null : !confirming ? (
             <button type="button" className={secondary} onClick={() => setConfirming(true)} data-action="archive-workflow">
               {s.workflows.archive}
             </button>

@@ -86,7 +86,7 @@ func workflowServer(t *testing.T) (*Server, *fakeWorkflows) {
 	s, sessions, _ := signedInServer(t)
 	alice := sessions.people["alice"]
 	store := &fakeWorkflows{wf: workflows.Workflow{ID: uuid.New(), Name: "triage", OwnerID: alice.UserID, OwnerName: alice.Name,
-		Sharing: workflows.SharingPrivate, CurrentVersion: 2}}
+		Sharing: workflows.SharingPrivate, CurrentVersion: 2, CanRun: true, CanEdit: true, CanAdminister: true}}
 	s.Workflows = store
 	return s, store
 }

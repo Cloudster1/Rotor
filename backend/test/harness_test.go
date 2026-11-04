@@ -81,6 +81,12 @@ func (h *harness) addPerson(t *testing.T, role string) uuid.UUID {
 		email, "Test person", role).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
+	// Administering Rotor is a grant since #202, not the role word alone.
+	if role == "admin" {
+		if _, err := h.super.Exec(ctx, `INSERT INTO role_assignment (role, user_id) VALUES ('administrator', $1)`, id); err != nil {
+			t.Fatal(err)
+		}
+	}
 	t.Cleanup(func() {
 		if _, err := h.super.Exec(ctx, `DELETE FROM app_user WHERE id = $1`, id); err != nil {
 			t.Errorf("remove the test person: %v", err)

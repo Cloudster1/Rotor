@@ -55,6 +55,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/access/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What you may do in Rotor: your grants and the permissions they give, over the installation and per workflow.
+         * @description A grant to a group of yours counts as yours. A workflow named here is one granted to you over it alone.
+         */
+        get: operations["myAccess"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/approvals": {
         parameters: {
             query?: never;
@@ -1316,6 +1336,20 @@ export interface components {
             message: string;
             requestId?: string;
         };
+        AccessGrant: {
+            role: string;
+            workflowId?: string;
+        };
+        AccessPermissions: {
+            installation: string[];
+            workflows: {
+                [key: string]: string[];
+            };
+        };
+        AccessResponse: {
+            grants: components["schemas"]["AccessGrant"][];
+            permissions: components["schemas"]["AccessPermissions"];
+        };
         AddToolRequest: {
             baseURL: string;
             clientID?: string;
@@ -2083,7 +2117,9 @@ export interface components {
         };
         WorkflowSummary: {
             archived: boolean;
+            canAdminister: boolean;
             canEdit: boolean;
+            canRun: boolean;
             currentVersion: number;
             description: string;
             id: string;
@@ -2215,6 +2251,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    myAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessResponse"];
                 };
             };
             /** @description An error, in the one shape every endpoint uses. */

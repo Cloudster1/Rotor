@@ -26,7 +26,9 @@ const TRIAGE: WorkflowSummary = {
   currentVersion: 2,
   updatedAt: "2026-10-18T10:00:00Z",
   archived: false,
+  canRun: true,
   canEdit: true,
+  canAdminister: true,
 };
 
 const RESPONSE: WorkflowResponse = {
@@ -182,13 +184,35 @@ describe("the workflows", () => {
     await waitFor(() => expect(shared).toEqual({ sharing: "groups", groups: ["engineering", "rotor-administrators"] }));
   });
 
-  it("are read only for anyone but their owner", async () => {
+  it("are read only for anyone the API says may not edit them", async () => {
     await renderAt(`/workflows/${TRIAGE.id}`, {
-      answers: workflowAnswers({ ...RESPONSE, workflow: { ...TRIAGE, canEdit: false } }),
+      answers: workflowAnswers({ ...RESPONSE, workflow: { ...TRIAGE, canEdit: false, canAdminister: false } }),
     });
     expect(await screen.findByText(s.workflows.editor.readOnly)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: s.workflows.editor.save })).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: s.workflows.share.title })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: s.runs.runNamed(TRIAGE.name) })).toBeInTheDocument();
+  });
+
+  // canRun, canEdit and canAdminister come from the grants (#202), not from who owns the workflow.
+  it("let an editor who is not the owner save, but not share", async () => {
+    const theirs = { ...TRIAGE, owner: { id: "0190a5c4-0000-7000-8000-00000000bb01", name: "Bob" }, canAdminister: false };
+    await renderAt(`/workflows/${TRIAGE.id}`, { answers: workflowAnswers({ ...RESPONSE, workflow: theirs }) });
+    expect(await screen.findByRole("button", { name: s.workflows.editor.save })).toBeInTheDocument();
+    expect(screen.queryByText(s.workflows.editor.readOnly)).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: s.workflows.share.title })).not.toBeInTheDocument();
+  });
+
+  it("offer a run only to whom the API lets run, and archiving only to whom administers", async () => {
+    const seenOnly = { ...TRIAGE, canRun: false, canEdit: false, canAdminister: false };
+    await renderAt("/workflows", { answers: { "/api/v1/workflows": { workflows: [seenOnly] } } });
+    expect(await screen.findByText(TRIAGE.name)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: s.runs.runNamed(TRIAGE.name) })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: s.workflows.archive })).not.toBeInTheDocument();
+    cleanup();
+    await renderAt(`/workflows/${TRIAGE.id}`, { answers: workflowAnswers({ ...RESPONSE, workflow: seenOnly }) });
+    expect(await screen.findByText(s.workflows.editor.readOnly)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: s.runs.runNamed(TRIAGE.name) })).not.toBeInTheDocument();
   });
 
   it("pass axe in the list and the editor", async () => {

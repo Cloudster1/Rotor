@@ -12,7 +12,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/tools/profiles"
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 	"github.com/cloudster1/rotor/backend/internal/workflows"
@@ -35,8 +34,10 @@ type Workflows interface {
 var (
 	errWorkflowsUnavailable = &APIError{Status: http.StatusServiceUnavailable, Code: "workflows_unavailable",
 		Message: "Workflows are not set up on this installation. An operator connects Rotor to its database."}
-	errNotOwner = ErrForbidden("Only the workflow's owner may change it. Ask them, or save a copy as a new workflow of your own.")
-	errStale    = &APIError{Status: http.StatusConflict, Code: "workflow_changed",
+	errNotOwner = ErrForbidden("Your grants on this workflow do not let you do this. Ask one of its administrators for the role, " +
+		"or save a copy as a new workflow of your own.")
+	errCannotCreate = ErrForbidden("Your grants do not let you create workflows. Ask an administrator of Rotor to grant you Author.")
+	errStale        = &APIError{Status: http.StatusConflict, Code: "workflow_changed",
 		Message: "Someone saved this workflow since you opened it. Reload it, then make your change again."}
 	errArchived = &APIError{Status: http.StatusConflict, Code: "workflow_archived",
 		Message: "This workflow is archived. Save a copy as a new workflow to change it."}
@@ -67,6 +68,8 @@ func workflowError(err error) error {
 		return ErrNotFound("There is no such workflow, or it is not shared with you.")
 	case errors.Is(err, workflows.ErrNotOwner):
 		return errNotOwner
+	case errors.Is(err, workflows.ErrCannotCreate):
+		return errCannotCreate
 	case errors.Is(err, workflows.ErrStale):
 		return errStale
 	case errors.Is(err, workflows.ErrArchived):
@@ -75,12 +78,11 @@ func workflowError(err error) error {
 	return err
 }
 
-func toWorkflowSummary(ctx context.Context, w workflows.Workflow) workflowSummary {
-	p := auth.PrincipalFrom(ctx)
+func toWorkflowSummary(w workflows.Workflow) workflowSummary {
 	return workflowSummary{ID: w.ID.String(), Name: w.Name, Description: w.Description,
 		Owner: personRef{ID: w.OwnerID.String(), Name: w.OwnerName}, Sharing: workflowSharing(w.Sharing),
 		SharedGroups: append([]string{}, w.SharedGroups...), CurrentVersion: w.CurrentVersion, UpdatedAt: w.UpdatedAt,
-		Archived: w.ArchivedAt != nil, CanEdit: p != nil && p.UserID == w.OwnerID}
+		Archived: w.ArchivedAt != nil, CanRun: w.CanRun, CanEdit: w.CanEdit, CanAdminister: w.CanAdminister}
 }
 
 func toVersionSummary(v workflows.Version) versionSummary {
@@ -134,7 +136,7 @@ func (s *Server) handleListWorkflows(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]workflowSummary, 0, len(list))
 	for _, wf := range list {
-		out = append(out, toWorkflowSummary(r.Context(), wf))
+		out = append(out, toWorkflowSummary(wf))
 	}
 	respondJSON(w, r, http.StatusOK, map[string]any{"workflows": out})
 }
@@ -146,7 +148,7 @@ func (s *Server) respondWorkflow(w http.ResponseWriter, r *http.Request, id uuid
 		respondError(w, r, workflowError(err))
 		return
 	}
-	respondJSON(w, r, status, workflowResponse{Workflow: toWorkflowSummary(r.Context(), wf),
+	respondJSON(w, r, status, workflowResponse{Workflow: toWorkflowSummary(wf),
 		Version: toVersionResponse(v)})
 }
 

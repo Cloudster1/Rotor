@@ -53,8 +53,11 @@ type workflowSummary struct {
 	CurrentVersion int             `json:"currentVersion"`
 	UpdatedAt      time.Time       `json:"updatedAt"`
 	Archived       bool            `json:"archived"`
-	// CanEdit says whether the caller may save versions and share it: the owner alone.
-	CanEdit bool `json:"canEdit"`
+	// CanRun, CanEdit and CanAdminister are what the caller's grants let them do with it: start runs, save versions,
+	// and share, archive and see everyone's runs (#202).
+	CanRun        bool `json:"canRun"`
+	CanEdit       bool `json:"canEdit"`
+	CanAdminister bool `json:"canAdminister"`
 }
 
 // workflowResponse is a workflow with its current version.

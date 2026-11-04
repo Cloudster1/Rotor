@@ -11,6 +11,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/audit"
 	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/perm"
 )
 
 // Browser is what the callback knows about the browser it signs in.
@@ -29,12 +30,12 @@ func (s *Service) Finish(ctx context.Context, state, code string, browser Browse
 	return token, next, err
 }
 
-// SignIn makes or updates the person a verified identity names, copies their role and groups from the
-// realm, and opens a session holding the provider's session id. A switched-off person is refused.
+// SignIn makes or updates the person a verified identity names, follows their realm groups, and opens a session
+// holding the provider's session id. A switched-off person is refused.
 func (s *Service) SignIn(ctx context.Context, identity *Identity, browser Browser) (string, error) {
 	var token string
 	err := s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		user, role, err := adopt(ctx, tx, identity)
+		user, set, err := adopt(ctx, tx, identity)
 		if err != nil {
 			return err
 		}
@@ -43,7 +44,7 @@ func (s *Service) SignIn(ctx context.Context, identity *Identity, browser Browse
 			return err
 		}
 		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionSignedIn, TargetType: "user", TargetID: user.id.String(),
-			Actor: user.id, IP: browser.IP, Data: map[string]any{"role": role, "groups": identity.Groups, "new": user.created}})
+			Actor: user.id, IP: browser.IP, Data: map[string]any{"role": auth.RoleFor(set), "groups": identity.Groups, "new": user.created}})
 	})
 	if err != nil {
 		return "", err
@@ -51,27 +52,35 @@ func (s *Service) SignIn(ctx context.Context, identity *Identity, browser Browse
 	return token, nil
 }
 
-// adopt makes or updates the person a verified identity names and copies their role and groups from the realm; a
-// switched-off person is refused.
-func adopt(ctx context.Context, tx db.DBTX, identity *Identity) (knownUser, string, error) {
+// adopt makes or updates the person a verified identity names, makes their groups the realm's exactly, and returns
+// what their grants then let them do; app_user.role is kept as the word for it. A switched-off person is refused.
+func adopt(ctx context.Context, tx db.DBTX, identity *Identity) (knownUser, perm.Set, error) {
 	user, err := upsertUser(ctx, tx, identity)
 	if err != nil {
-		return user, "", err
+		return user, perm.Set{}, err
 	}
 	if !user.active {
-		return user, "", auth.ErrSwitchedOff
+		return user, perm.Set{}, auth.ErrSwitchedOff
 	}
-	role := RoleFor(identity.Groups)
+	if err := syncGroups(ctx, tx, user.id, identity.Groups); err != nil {
+		return user, perm.Set{}, err
+	}
+	set, err := perm.Resolve(ctx, tx, user.id)
+	if err != nil {
+		return user, perm.Set{}, err
+	}
+	role := auth.RoleFor(set)
+	// The realm groups stay on the person too: approvals are decided by them, as the approval node names them.
 	if _, err := tx.Exec(ctx, `UPDATE app_user SET role = $2, groups = $3 WHERE id = $1`, user.id, role, identity.Groups); err != nil {
-		return user, "", err
+		return user, perm.Set{}, err
 	}
 	if user.role != role {
 		if err := audit.Write(ctx, tx, audit.Entry{Action: audit.ActionRoleChanged, TargetType: "user", TargetID: user.id.String(),
-			Data: map[string]any{"from": user.role, "to": role, "source": "identity provider"}}); err != nil {
-			return user, "", err
+			Data: map[string]any{"from": user.role, "to": role, "source": "grants"}}); err != nil {
+			return user, perm.Set{}, err
 		}
 	}
-	return user, role, nil
+	return user, set, nil
 }
 
 // knownUser is a person as sign-in finds them, before it copies the realm's word onto them.

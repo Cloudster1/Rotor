@@ -31,6 +31,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/oauth"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
+	"github.com/cloudster1/rotor/backend/internal/perm"
 	"github.com/cloudster1/rotor/backend/internal/providers"
 	"github.com/cloudster1/rotor/backend/internal/retention"
 	"github.com/cloudster1/rotor/backend/internal/runnerctl"
@@ -101,6 +102,8 @@ func run() error {
 		Log:      log,
 		Sessions: sessions,
 		SignIn:   realm,
+		// Each request's permissions are resolved from the grants (#202).
+		Access: perm.NewStore(cluster),
 		// The realm's service accounts add tools and their hook secrets with a token of their own (#168).
 		ServiceAccounts: realm,
 		SessionTTL:      cfg.Auth.SessionTTL,

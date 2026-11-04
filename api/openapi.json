@@ -182,6 +182,38 @@
         }
       }
     },
+    "/access/me": {
+      "get": {
+        "operationId": "myAccess",
+        "summary": "What you may do in Rotor: your grants and the permissions they give, over the installation and per workflow.",
+        "description": "A grant to a group of yours counts as yours. A workflow named here is one granted to you over it alone.",
+        "tags": [
+          "auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/approvals": {
       "get": {
         "operationId": "listApprovals",
@@ -5413,6 +5445,62 @@
           "message"
         ]
       },
+      "AccessGrant": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "workflowId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
+      "AccessPermissions": {
+        "type": "object",
+        "properties": {
+          "installation": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "workflows": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "installation",
+          "workflows"
+        ]
+      },
+      "AccessResponse": {
+        "type": "object",
+        "properties": {
+          "grants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccessGrant"
+            }
+          },
+          "permissions": {
+            "$ref": "#/components/schemas/AccessPermissions"
+          }
+        },
+        "required": [
+          "grants",
+          "permissions"
+        ]
+      },
       "AddToolRequest": {
         "type": "object",
         "properties": {
@@ -8441,7 +8529,13 @@
           "archived": {
             "type": "boolean"
           },
+          "canAdminister": {
+            "type": "boolean"
+          },
           "canEdit": {
+            "type": "boolean"
+          },
+          "canRun": {
             "type": "boolean"
           },
           "currentVersion": {
@@ -8488,7 +8582,9 @@
           "currentVersion",
           "updatedAt",
           "archived",
-          "canEdit"
+          "canRun",
+          "canEdit",
+          "canAdminister"
         ]
       },
       "WorkspaceImage": {

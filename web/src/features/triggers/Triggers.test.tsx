@@ -29,7 +29,9 @@ const WORKFLOW: WorkflowSummary = {
   currentVersion: 1,
   updatedAt: "2026-10-18T10:00:00Z",
   archived: false,
+  canRun: true,
   canEdit: true,
+  canAdminister: true,
 };
 
 const RESPONSE: WorkflowResponse = {

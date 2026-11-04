@@ -77,20 +77,24 @@ func hashOf(source string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// Create saves a new workflow as version 1, owned by the person on the context.
+// Create saves a new workflow as version 1, owned by the person on the context, who administers it from then on.
 func (s *Service) Create(ctx context.Context, source, comment string) (uuid.UUID, error) {
 	p := auth.PrincipalFrom(ctx)
 	if p == nil {
-		return uuid.Nil, ErrNotOwner
+		return uuid.Nil, ErrCannotCreate
 	}
 	parsed, document, err := s.checked(ctx, source, comment)
 	if err != nil {
 		return uuid.Nil, err
 	}
-	var id uuid.UUID
+	// The id is made here: the new row is not the creator's to read back until the database grants it to them.
+	id, err := uuid.NewV7()
+	if err != nil {
+		return uuid.Nil, err
+	}
 	err = s.db.Write(ctx, func(ctx context.Context, tx db.DBTX) error {
-		if err := tx.QueryRow(ctx, `INSERT INTO workflow (name, description, owner_id, owner_name) VALUES ($1, $2, $3, $4) RETURNING id`,
-			parsed.Metadata.Name, parsed.Metadata.Description, p.UserID, p.Name).Scan(&id); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO workflow (id, name, description, owner_id, owner_name) VALUES ($1, $2, $3, $4, $5)`,
+			id, parsed.Metadata.Name, parsed.Metadata.Description, p.UserID, p.Name); err != nil {
 			return err
 		}
 		if err := insertVersion(ctx, tx, id, 1, source, document, comment, p); err != nil {
@@ -99,7 +103,13 @@ func (s *Service) Create(ctx context.Context, source, comment string) (uuid.UUID
 		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionWorkflowCreated, TargetType: "workflow", TargetID: id.String(),
 			Actor: p.UserID, Data: map[string]any{"name": parsed.Metadata.Name}})
 	})
-	return id, refusal(err)
+	switch refused := refusal(err); {
+	case errors.Is(refused, ErrNotOwner):
+		return uuid.Nil, ErrCannotCreate
+	case refused != nil:
+		return uuid.Nil, refused
+	}
+	return id, nil
 }
 
 func insertVersion(ctx context.Context, tx db.DBTX, id uuid.UUID, number int, source string, document []byte, comment string, p *auth.Principal) error {
@@ -110,7 +120,7 @@ func insertVersion(ctx context.Context, tx db.DBTX, id uuid.UUID, number int, so
 
 // Save adds the next version; base must be the current version, so nobody overwrites a colleague unseen.
 func (s *Service) Save(ctx context.Context, id uuid.UUID, source, comment string, base int) error {
-	p, w, err := s.owned(ctx, id)
+	p, w, err := s.allowed(ctx, id, func(w Workflow) bool { return w.CanEdit })
 	if err != nil {
 		return err
 	}
@@ -138,13 +148,14 @@ func (s *Service) Save(ctx context.Context, id uuid.UUID, source, comment string
 	return refusal(err)
 }
 
-// Share says who besides the owner sees a workflow; groups are realm groups and count only when sharing is groups.
+// Share says who besides its administrators runs a workflow: the database turns it into runner grants to the realm
+// groups named, or to Everyone, until #203 grants roles directly.
 func (s *Service) Share(ctx context.Context, id uuid.UUID, sharing string, groups []string) error {
 	clean, err := shareTo(sharing, groups)
 	if err != nil {
 		return err
 	}
-	p, _, err := s.owned(ctx, id)
+	p, _, err := s.allowed(ctx, id, func(w Workflow) bool { return w.CanAdminister })
 	if err != nil {
 		return err
 	}
@@ -186,27 +197,17 @@ func shareTo(sharing string, groups []string) ([]string, error) {
 	return clean, nil
 }
 
-// Archive takes a workflow out of the list; its versions stay for the runs that used them. An administrator may
-// archive anyone's, which the database lets only the control plane do.
+// Archive takes a workflow out of the list; its versions stay for the runs that used them. Whoever administers it may,
+// administrators of Rotor among them.
 func (s *Service) Archive(ctx context.Context, id uuid.UUID) error {
-	p := auth.PrincipalFrom(ctx)
-	_, w, err := s.read(ctx, id)
+	p, w, err := s.allowed(ctx, id, func(w Workflow) bool { return w.CanAdminister })
 	if err != nil {
 		return err
-	}
-	write := s.db.Write
-	switch {
-	case p == nil:
-		return ErrNotOwner
-	case w.OwnerID != p.UserID && p.IsAdmin():
-		write = s.db.WriteAdmin
-	case w.OwnerID != p.UserID:
-		return ErrNotOwner
 	}
 	if w.ArchivedAt != nil {
 		return nil
 	}
-	return refusal(write(ctx, func(ctx context.Context, tx db.DBTX) error {
+	return refusal(s.db.Write(ctx, func(ctx context.Context, tx db.DBTX) error {
 		if _, err := tx.Exec(ctx, `UPDATE workflow SET archived_at = now() WHERE id = $1`, id); err != nil {
 			return err
 		}
@@ -226,13 +227,13 @@ func (s *Service) read(ctx context.Context, id uuid.UUID) (*auth.Principal, Work
 	return auth.PrincipalFrom(ctx), w, err
 }
 
-// owned is a workflow the person on the context owns.
-func (s *Service) owned(ctx context.Context, id uuid.UUID) (*auth.Principal, Workflow, error) {
+// allowed is a workflow the person on the context sees and whose grants let them do what may asks.
+func (s *Service) allowed(ctx context.Context, id uuid.UUID, may func(Workflow) bool) (*auth.Principal, Workflow, error) {
 	p, w, err := s.read(ctx, id)
 	if err != nil {
 		return nil, w, err
 	}
-	if p == nil || w.OwnerID != p.UserID {
+	if p == nil || !may(w) {
 		return nil, w, ErrNotOwner
 	}
 	return p, w, nil

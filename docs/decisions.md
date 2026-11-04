@@ -3,6 +3,51 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-11-04: Access as roles, groups and grants, kept in row level security (#202)
+
+- **Armature's model, ported whole.** Permissions are a catalogue in
+  `internal/perm`, held to the database by `role_known_permissions`; roles are
+  rows, the built-in five editable but never deleted; groups come from the
+  realm, by hand or are the built-in Everyone; a grant gives a role to a person
+  or a group over the installation or one workflow. Rotor is one of a suite
+  whose administrators should meet one model, and Armature's is the one the
+  suite's standard names.
+- **Row level security stays, asking the grants.** Armature dropped it and
+  checks grants in its handlers alone; Rotor's policies were its second line
+  against a handler that forgets, so each one now asks `actor_can(permission,
+  workflow)`, a plain SQL function that reads the grants under the caller's
+  own policies. `current_actor_is_admin()` became `actor_can('rotor.administer',
+  NULL)`, so every administrators' policy followed without being rewritten.
+  The api resolves the same grants once per request (`perm.Set` on the
+  principal), so a handler asks memory and the database asks itself.
+- **Reading grants never asks `actor_can()`.** A policy on `role_assignment` or
+  `group_member` that asked it would ask itself forever, so everyone signed in
+  reads who holds which role, as in Armature, and a person reads only their own
+  memberships. Writing a grant asks it: an administrator of Rotor grants
+  anything, an administrator of a workflow grants on it, never an assistant.
+- **A fifth built-in role, Author.** Anyone signed in creating workflows was a
+  rule without a grant; Author holds `workflow.create`, installation-wide only,
+  and Everyone holds it, so the rule is a grant an administrator can take away.
+- **Two grants are made by the database itself.** A workflow's creator becomes
+  its Workflow administrator by a trigger, since nobody may grant on a workflow
+  before administering it; and until #203 replaces sharing, a workflow's
+  sharing columns are its runner grants to groups, rewritten by a trigger
+  whenever they change. Both run as the definer, as the oauth triggers do.
+- **One update policy, two permissions.** Saving a version takes
+  `workflow.edit`, sharing and archiving take `workflow.administer`; a policy
+  sees rows, not columns, so `workflow_change_guard` tells the columns apart.
+- **The migration keeps everyone's access.** Membership of
+  `rotor-administrators` becomes an Administrator grant to that group, each
+  owner its workflow's Workflow administrator, and sharing runner grants. The
+  one change is meant: Administrator holds every permission, so an
+  administrator now edits and shares every workflow too, where before they saw
+  and archived them.
+- **Approvals keep the realm groups.** An approval node names a realm group and
+  `current_actor_groups()` still reads `app_user.groups`, written at each
+  sign-in beside the synced membership, so who decides an approval is unchanged.
+- **`app_user.role` stays one release**, written at sign-in as the word the
+  grants give, so a client reading it keeps working; `/auth/me` computes it.
+
 ## 2026-10-22: Coding agents in Rotor's own loop, for M13 (#131)
 
 - **A coder is an agent node with a workspace, not a vendor's coding agent.**

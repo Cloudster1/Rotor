@@ -103,7 +103,34 @@ sessions. Keycloak's sign-out of a person from every session sends one token
 naming one session, so after each token Rotor reads the person's sign-out time
 from Keycloak's admin API, as the `rotor` client's service account with
 `view-users`, and ends their sessions older than it (#53).
-`rotor-administrators` maps to Rotor's administrator role.
+Each sign-in makes the person's realm groups exactly the `groups` claim.
+
+## Access (#202)
+
+Access is held as roles, groups and grants, ported from Armature's `perm`
+package with its project replaced by a workflow:
+
+| Role | Scope | Permissions |
+| --- | --- | --- |
+| Administrator | installation only | every permission, always `rotor.administer` |
+| Workflow administrator | installation or workflow | `workflow.read`, `workflow.run`, `workflow.edit`, `workflow.administer` |
+| Editor | installation or workflow | `workflow.read`, `workflow.run`, `workflow.edit` |
+| Runner | installation or workflow | `workflow.read`, `workflow.run` |
+| Author | installation only | `workflow.create` |
+
+`role`, `user_group` (`oidc` from the realm, `local` by hand, or the built-in
+Everyone), `group_member` and `role_assignment` hold them, with Armature's
+guards: a built-in role is never deleted, the Administrator keeps
+`rotor.administer`, an installation-only role is never granted on a workflow,
+Everyone never administers, and the last Administrator grant stays. The api
+resolves a person's grants once per request (`internal/perm`, on
+`auth.Principal.Perms`) and answers them at `GET /api/v1/access/me`; workflow
+responses carry `canRun`, `canEdit` and `canAdminister`. Row level security
+asks the same grants through `actor_can(permission, workflow)`, a null workflow
+being the installation, and `current_actor_is_admin()` is
+`actor_can('rotor.administer', NULL)`. Everyone holds Author, so anyone signed
+in creates workflows; a workflow's creator is its Workflow administrator; until
+#203, sharing a workflow is runner grants to its groups or to Everyone.
 
 ## Tool connections (M1, `docs/api-contract-m1.md`)
 
@@ -145,8 +172,8 @@ account it names as a sign-in would, without a session. Everywhere else
 ## Workflows (#14, #15)
 
 A workflow is YAML checked by `internal/workflow/spec`; `internal/workflows`
-keeps it as `workflow` and immutable, gap-free `workflow_version` rows, shared
-by realm group through row-level security. Saving checks a spec against its
+keeps it as `workflow` and immutable, gap-free `workflow_version` rows, seen,
+run, edited and administered by the grants on it through row-level security. Saving checks a spec against its
 tools as the saver sees them: `internal/catalog` mints the saver a token,
 reads the tool's MCP `tools/list` and caches it in Valkey per tool build and
 person (`internal/cache`), which is Valkey's first use; losing the cache costs

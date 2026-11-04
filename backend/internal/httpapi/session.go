@@ -72,6 +72,10 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 		case err != nil:
 			respondError(w, r, ErrInternal(err))
 		default:
+			if err := s.resolveAccess(ctx, p); err != nil {
+				respondError(w, r, ErrInternal(err))
+				return
+			}
 			ctx = db.WithUser(auth.WithPrincipal(ctx, p), p.UserID)
 			// What is done through an assistant is marked so for the database, which refuses what only a person
 			// may do and names the assistant in the audit log (#47).
@@ -109,7 +113,7 @@ func requireAuth(next http.Handler) http.Handler {
 }
 
 // errAdminOnly refuses a member what only an administrator may do.
-var errAdminOnly = ErrForbidden("Only an administrator of Rotor may do this. Ask one to do it, or to make you one in the realm.")
+var errAdminOnly = ErrForbidden("Only an administrator of Rotor may do this. Ask one to do it, or to grant you Administrator.")
 
 // requireAdmin refuses anyone but an administrator; it sits behind requireAuth.
 func requireAdmin(next http.Handler) http.Handler {
