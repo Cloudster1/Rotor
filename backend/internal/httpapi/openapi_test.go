@@ -176,7 +176,7 @@ func TestAPendingAdminOperationRefusesAMember(t *testing.T) {
 		pending: true, admin: true, responses: ok(statusResponse{}),
 	})
 	s, sessions, _ := signedInServer(t)
-	sessions.people["bob"] = &auth.Principal{UserID: uuid.New(), Name: "Bob Builder", Role: auth.RoleMember}
+	sessions.people["bob"] = &auth.Principal{UserID: uuid.New(), Name: "Bob Builder"}
 	for who, want := range map[string]int{"": http.StatusUnauthorized, "bob": http.StatusForbidden, "alice": http.StatusNotImplemented} {
 		req := httptestRequest(http.MethodPost, APIPrefix+"/promises", `{}`)
 		if who != "" {

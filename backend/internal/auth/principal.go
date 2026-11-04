@@ -32,9 +32,7 @@ type Principal struct {
 	SessionID uuid.UUID
 	Email     string
 	Name      string
-	// Role is RoleFor(Perms) once the request has resolved them; it stays for the web client for one release.
-	Role   string
-	Groups []string
+	Groups    []string
 	// Perms is what the person's grants and their groups' let them do, resolved for each request (#202).
 	Perms perm.Set
 	// Assistant is the grant an assistant acts through (#47), nil when the person acts in the browser.
@@ -53,7 +51,7 @@ type Assistant struct {
 // IsAdmin says whether the person administers Rotor: holds rotor.administer over the whole installation.
 func (p *Principal) IsAdmin() bool { return p != nil && p.Perms.CanInstallation(perm.RotorAdminister) }
 
-// RoleFor is the role word a set of permissions gives, for app_user.role and the web client.
+// RoleFor is the role word a set of permissions gives, which /auth/me answers for the web client.
 func RoleFor(set perm.Set) string {
 	if set.CanInstallation(perm.RotorAdminister) {
 		return RoleAdmin

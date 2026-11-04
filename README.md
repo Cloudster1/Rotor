@@ -106,7 +106,10 @@ its limits bound steps, time, tokens, cost and concurrent runs. Every save is
 an immutable, numbered version a run pins, and any two versions compare. Its author administers a workflow and grants people or groups Runner, Editor
 or Workflow administrator on it, and a grant never shares the author's access. The editor completes from the
 schema, and its Canvas tab draws the same workflow, writing every change into
-the YAML so the YAML tab shows what you could have written yourself.
+the YAML so the YAML tab shows what you could have written yourself. Each
+workflow's settings are pages of their own, General, Versions, Sharing and
+Triggers, which everybody it is shared with opens, read only where their grants
+stop them; archiving offers Undo, and a workflow is archived, never deleted.
 
 ![A workflow on the canvas](docs/screenshots/workflow-canvas.png)
 
@@ -402,7 +405,7 @@ with every problem it found listed, so an operator fixes them in one go.
 | `backend/internal/httpapi/` | router, middleware, handlers, and the operations table the API and MCP share |
 | `backend/internal/auth/`, `oidc/` | sessions, and signing in through the suite's identity provider |
 | `backend/internal/tools/`, `connections/`, `vault/` | the tools, people's connections to them, and the secrets OpenBao keeps |
-| `backend/internal/workflow/`, `workflows/`, `catalog/` | the spec and its checks, versions and sharing, and what each tool offers a person |
+| `backend/internal/workflow/`, `workflows/`, `catalog/` | the spec and its checks, versions, archiving and restoring, and what each tool offers a person |
 | `backend/internal/runs/`, `runnerctl/`, `sandbox/` | a run from start to end, the runner protocol, and the sandboxes it runs in |
 | `backend/internal/approvals/`, `triggers/`, `hooks/` | approvals, schedule and event triggers, and the tools' signed events |
 | `backend/internal/providers/`, `usage/` | model providers, prices, usage and limits |

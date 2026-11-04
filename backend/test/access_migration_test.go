@@ -132,6 +132,12 @@ func seedAccessFixture(ctx context.Context, t *testing.T, pool *pgxpool.Pool) ac
 // access answers every check for every person, as "person: check on workflow".
 func (f accessFixture) access(t *testing.T, ctx context.Context, pool *pgxpool.Pool) map[string]bool {
 	t.Helper()
+	return f.accessBy(t, ctx, pool, workflowChecks)
+}
+
+// accessBy is access with the workflow checks given, for a schema that cannot ask all of them.
+func (f accessFixture) accessBy(t *testing.T, ctx context.Context, pool *pgxpool.Pool, checks []accessCheck) map[string]bool {
+	t.Helper()
 	out := map[string]bool{}
 	ask := func(key string, check accessCheck, person, workflow uuid.UUID) {
 		var answer bool
@@ -149,7 +155,7 @@ func (f accessFixture) access(t *testing.T, ctx context.Context, pool *pgxpool.P
 			ask(fmt.Sprintf("%s: %s", name, check.name), check, person, uuid.Nil)
 		}
 		for workflowName, workflow := range f.workflows {
-			for _, check := range workflowChecks {
+			for _, check := range checks {
 				ask(fmt.Sprintf("%s: %s on %s", name, check.name, workflowName), check, person, workflow)
 			}
 		}

@@ -1,7 +1,6 @@
 package workflows
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -61,23 +60,5 @@ func TestADiffOfInsertionsAndDeletionsAtTheEnds(t *testing.T) {
 	}
 	if got := render(LineDiff("", "new\n")); got != "@@ 0 1\n+new\n" {
 		t.Errorf("from nothing = %q", got)
-	}
-}
-
-func TestSharingNamesRealGroupsOnlyWhenSharingWithGroups(t *testing.T) {
-	if groups, err := shareTo(SharingGroups, []string{" /developers", "developers", "quality"}); err != nil || strings.Join(groups, ",") != "developers,quality" {
-		t.Errorf("groups = %v, %v", groups, err)
-	}
-	if groups, err := shareTo(SharingEveryone, []string{"developers"}); err != nil || len(groups) != 0 {
-		t.Errorf("everyone keeps groups %v, %v", groups, err)
-	}
-	var invalid *Invalid
-	for _, tc := range []struct {
-		sharing string
-		groups  []string
-	}{{SharingGroups, nil}, {SharingGroups, []string{"no;such"}}, {"friends", nil}} {
-		if _, err := shareTo(tc.sharing, tc.groups); !errors.As(err, &invalid) || !strings.HasSuffix(invalid.Problems[0].Message, ".") {
-			t.Errorf("shareTo(%q, %v) = %v", tc.sharing, tc.groups, err)
-		}
 	}
 }

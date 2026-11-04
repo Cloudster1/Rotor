@@ -61,7 +61,7 @@ func (f *fakeTools) Check(_ context.Context, id uuid.UUID) (tools.Tool, error) {
 func toolsServer(t *testing.T) (*Server, *fakeTools) {
 	t.Helper()
 	s, sessions, _ := signedInServer(t)
-	sessions.people["bob"] = &auth.Principal{UserID: uuid.New(), Name: "Bob Builder", Role: auth.RoleMember}
+	sessions.people["bob"] = &auth.Principal{UserID: uuid.New(), Name: "Bob Builder"}
 	registry := &fakeTools{list: []tools.Tool{{ID: uuid.New(), Name: "exciter", BaseURL: "https://exciter.test",
 		Capabilities: []string{"mcp@1"}, ScopesSupported: []string{"mcp", "mcp:read"}, Registration: tools.RegistrationDynamic, Status: tools.StatusReady}}}
 	s.Tools = registry

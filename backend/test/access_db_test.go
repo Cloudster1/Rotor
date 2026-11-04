@@ -106,7 +106,8 @@ func TestEveryoneReachesEveryoneWhoIsLetIn(t *testing.T) {
 	workflow := h.ownedWorkflow(t, owner)
 	// Sharing with everyone is a runner grant to Everyone, made as the owner straight through SQL as rotor_app.
 	if err := h.cluster.Write(db.WithUser(ctx, owner), func(ctx context.Context, tx db.DBTX) error {
-		_, err := tx.Exec(ctx, `UPDATE workflow SET sharing = 'everyone' WHERE id = $1`, workflow)
+		_, err := tx.Exec(ctx, `INSERT INTO role_assignment (role, workflow_id, group_id, created_by)
+			SELECT 'runner', $1, id, $2 FROM user_group WHERE builtin = 'everyone'`, workflow, owner)
 		return err
 	}); err != nil {
 		t.Fatal(err)

@@ -180,7 +180,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Get("/workflows/{workflowID}/versions", s.handleListWorkflowVersions)
 			r.Get("/workflows/{workflowID}/versions/{versionNumber}", s.handleGetWorkflowVersion)
 			r.Get("/workflows/{workflowID}/diff", s.handleDiffWorkflowVersions)
-			r.Put("/workflows/{workflowID}/sharing", s.handleShareWorkflow)
+			r.Post("/workflows/{workflowID}/restore", s.handleRestoreWorkflow)
 			r.Get("/schemas/workflow.v1.json", s.handleWorkflowSchema)
 			r.Post("/workflows/{workflowID}/runs", s.handleStartRun)
 			r.Get("/runs", s.handleListRuns)

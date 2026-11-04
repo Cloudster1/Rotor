@@ -38,7 +38,9 @@ and checked before saving. A workflow's spec is the YAML of
 - `GET /workflows/{workflowID}/versions`,
   `GET /workflows/{workflowID}/versions/{versionNumber}`,
   `GET /workflows/{workflowID}/diff`
-- `PUT /workflows/{workflowID}/sharing`
+- `GET /workflows/{workflowID}/grants`, `POST /workflows/{workflowID}/grants`,
+  `DELETE /workflows/{workflowID}/grants/{grantID}`, which replaced
+  `PUT /workflows/{workflowID}/sharing` in #205
 - `POST /workflows/validate`
 
 ### `runs@1`

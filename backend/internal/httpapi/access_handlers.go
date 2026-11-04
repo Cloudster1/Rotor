@@ -45,7 +45,7 @@ type accessPermissions struct {
 	Workflows    map[string][]string `json:"workflows"`
 }
 
-// resolveAccess puts what the person may do on their principal for this request, and the role word it gives.
+// resolveAccess puts what the person may do on their principal for this request.
 func (s *Server) resolveAccess(ctx context.Context, p *auth.Principal) error {
 	if s.Access == nil {
 		return nil
@@ -54,7 +54,7 @@ func (s *Server) resolveAccess(ctx context.Context, p *auth.Principal) error {
 	if err != nil {
 		return err
 	}
-	p.Perms, p.Role = set, auth.RoleFor(set)
+	p.Perms = set
 	return nil
 }
 

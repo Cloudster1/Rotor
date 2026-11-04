@@ -39,22 +39,15 @@ func (e *Invalid) Error() string {
 	return fmt.Sprintf("the workflow has %d problems, the first: %s", len(e.Problems), e.Problems[0].Message)
 }
 
-// Sharing values, as the table and the API name them.
-const (
-	SharingPrivate  = "private"
-	SharingGroups   = "groups"
-	SharingEveryone = "everyone"
-)
-
 // Workflow is a workflow as its viewers see it.
 type Workflow struct {
-	ID             uuid.UUID
-	Name           string
-	Description    string
-	OwnerID        uuid.UUID
-	OwnerName      string
-	Sharing        string
-	SharedGroups   []string
+	ID          uuid.UUID
+	Name        string
+	Description string
+	OwnerID     uuid.UUID
+	OwnerName   string
+	// SharedWith counts the people and groups besides its owner holding a role on it, as its grants say (#205).
+	SharedWith     int
 	CurrentVersion int
 	UpdatedAt      time.Time
 	ArchivedAt     *time.Time
@@ -109,7 +102,10 @@ func NewService(cluster *db.Cluster, catalog CatalogSource) *Service {
 	return &Service{db: cluster, catalog: catalog}
 }
 
-const workflowColumns = `w.id, w.name, w.description, w.owner_id, w.owner_name, w.sharing, w.shared_groups,
+// Everyone signed in reads who holds which role, so the count needs no second query per workflow.
+const workflowColumns = `w.id, w.name, w.description, w.owner_id, w.owner_name,
+	(SELECT count(DISTINCT COALESCE(a.user_id, a.group_id)) FROM role_assignment a
+		WHERE a.workflow_id = w.id AND a.user_id IS DISTINCT FROM w.owner_id),
 	w.current_version, w.updated_at, w.archived_at,
 	actor_can('workflow.run', w.id), actor_can('workflow.edit', w.id), actor_can('workflow.administer', w.id)`
 
@@ -117,7 +113,7 @@ const workflowFrom = ` FROM workflow w`
 
 func scanWorkflow(row pgx.Row) (Workflow, error) {
 	var w Workflow
-	err := row.Scan(&w.ID, &w.Name, &w.Description, &w.OwnerID, &w.OwnerName, &w.Sharing, &w.SharedGroups,
+	err := row.Scan(&w.ID, &w.Name, &w.Description, &w.OwnerID, &w.OwnerName, &w.SharedWith,
 		&w.CurrentVersion, &w.UpdatedAt, &w.ArchivedAt, &w.CanRun, &w.CanEdit, &w.CanAdminister)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return w, ErrNotFound

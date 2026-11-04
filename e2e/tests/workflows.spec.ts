@@ -63,12 +63,19 @@ for (const scheme of SCHEMES) {
     await replaceText(page, workflow(name, "Really go on?"));
     await page.getByLabel("What changed").fill("Asks more firmly");
     await page.locator('[data-action="save-workflow"]').click();
-    await expect(page.locator("[data-versions] [data-version]")).toHaveCount(2);
+    // The editor starts over on the version it saved, which empties what changed.
+    await expect(page.getByLabel("What changed")).toHaveValue("");
 
+    // Versions and sharing are the workflow's settings pages since #205, beside the editor.
+    await page.locator('[data-action="workflow-settings"]').click();
+    await page.locator('[data-settings-page="versions"]').click();
+    await expect(page.locator("[data-versions] [data-version]")).toHaveCount(2);
     await page.locator('[data-action="compare"]').click();
     await expect(page.locator('[data-diff] [data-op="insert"]')).toContainText("Really go on?");
     await expect(page.locator('[data-diff] [data-op="delete"]')).toContainText("Go on?");
+    await expectAccessible(page);
 
+    await page.locator('[data-settings-page="sharing"]').click();
     await shareWith(page, "engineering", "Runner");
     await expectAccessible(page);
   });
@@ -82,6 +89,7 @@ test("a workflow shared with a group is seen by its members, read only, and by n
   await page.locator('[data-action="save-workflow"]').click();
   await expect(page).toHaveURL(/\/workflows\/[0-9a-f-]{36}$/);
   const address = new URL(page.url()).pathname;
+  await page.goto(`${address}/settings/sharing`);
   await shareWith(page, "engineering", "Runner");
 
   for (const [person, sees] of [
@@ -97,6 +105,7 @@ test("a workflow shared with a group is seen by its members, read only, and by n
         await expect(other.locator("[data-read-only]")).toBeVisible();
         await expect(other.locator('[data-action="save-workflow"]')).toHaveCount(0);
         // The grants are read to everybody who sees the workflow, and changed by its administrators alone.
+        await other.goto(`${address}/settings/sharing`);
         await expect(other.locator('[data-workflow-grants] [data-grant][data-grantee="engineering"]')).toBeVisible();
         await expect(other.locator("[data-workflow-grants] [data-share-form]")).toHaveCount(0);
         await expectAccessible(other);

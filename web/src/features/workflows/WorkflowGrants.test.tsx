@@ -9,7 +9,7 @@ import { ME, renderAt } from "@/test/app";
 import { axeViolations } from "@/test/axe";
 
 beforeAll(async () => {
-  await import("./WorkflowRoutes");
+  await import("./settings/WorkflowSettings");
 });
 
 afterEach(() => {
@@ -24,8 +24,7 @@ const WORKFLOW: WorkflowResponse = {
     name: "triage",
     description: "",
     owner: { id: ME.user.id, name: ME.user.name },
-    sharing: "private",
-    sharedGroups: [],
+    sharedWith: 0,
     currentVersion: 1,
     updatedAt: "2026-10-18T10:00:00Z",
     archived: false,
@@ -75,7 +74,7 @@ const holders = () => [...document.querySelectorAll("[data-grant]")].map((each) 
 describe("a workflow's sharing", () => {
   it("lists who holds a role on it, read only, for somebody who does not administer it", async () => {
     const reader = { ...WORKFLOW, workflow: { ...WORKFLOW.workflow, canEdit: false, canAdminister: false } };
-    const { fetch } = await renderAt(`/workflows/${ID}`, { me: { ...ME, role: "member" }, answers: serve(reader).answers });
+    const { fetch } = await renderAt(`/workflows/${ID}/settings/sharing`, { me: { ...ME, role: "member" }, answers: serve(reader).answers });
     const panel = within(await screen.findByRole("region", { name: s.workflowGrants.title }));
     await waitFor(() => expect(holders()).toEqual([`${BOB.name}: runner`]));
     expect(panel.getByText("Runner")).toBeInTheDocument();
@@ -91,7 +90,7 @@ describe("a workflow's sharing", () => {
 
   it("lets its administrator share it with a group as an editor and take a grant away", async () => {
     const server = serve();
-    const { fetch } = await renderAt(`/workflows/${ID}`, { answers: server.answers });
+    const { fetch } = await renderAt(`/workflows/${ID}/settings/sharing`, { answers: server.answers });
     const region = await screen.findByRole("region", { name: s.workflowGrants.title });
     const panel = within(region);
     await waitFor(() => expect(holders()).toEqual([`${BOB.name}: runner`]));

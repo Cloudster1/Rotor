@@ -27,8 +27,8 @@ type Workflows interface {
 	Check(ctx context.Context, source string) (problems, warnings []spec.Problem)
 	Create(ctx context.Context, source, comment string) (uuid.UUID, error)
 	Save(ctx context.Context, id uuid.UUID, source, comment string, base int) error
-	Share(ctx context.Context, id uuid.UUID, sharing string, groups []string) error
 	Archive(ctx context.Context, id uuid.UUID) error
+	Restore(ctx context.Context, id uuid.UUID) error
 }
 
 var (
@@ -80,8 +80,8 @@ func workflowError(err error) error {
 
 func toWorkflowSummary(w workflows.Workflow) workflowSummary {
 	return workflowSummary{ID: w.ID.String(), Name: w.Name, Description: w.Description,
-		Owner: personRef{ID: w.OwnerID.String(), Name: w.OwnerName}, Sharing: workflowSharing(w.Sharing),
-		SharedGroups: append([]string{}, w.SharedGroups...), CurrentVersion: w.CurrentVersion, UpdatedAt: w.UpdatedAt,
+		Owner: personRef{ID: w.OwnerID.String(), Name: w.OwnerName}, SharedWith: w.SharedWith,
+		CurrentVersion: w.CurrentVersion, UpdatedAt: w.UpdatedAt,
 		Archived: w.ArchivedAt != nil, CanRun: w.CanRun, CanEdit: w.CanEdit, CanAdminister: w.CanAdminister}
 }
 
@@ -217,6 +217,22 @@ func (s *Server) handleArchiveWorkflow(w http.ResponseWriter, r *http.Request) {
 	respondNoContent(w)
 }
 
+func (s *Server) handleRestoreWorkflow(w http.ResponseWriter, r *http.Request) {
+	id, perr := pathUUID(r, "workflowID", "workflow")
+	if perr != nil {
+		respondError(w, r, perr)
+		return
+	}
+	if !s.workflowsReady(w, r) {
+		return
+	}
+	if err := s.Workflows.Restore(r.Context(), id); err != nil {
+		respondError(w, r, workflowError(err))
+		return
+	}
+	s.respondWorkflow(w, r, id, http.StatusOK)
+}
+
 func (s *Server) handleListWorkflowVersions(w http.ResponseWriter, r *http.Request) {
 	id, perr := pathUUID(r, "workflowID", "workflow")
 	if perr != nil {
@@ -289,27 +305,6 @@ func (s *Server) handleDiffWorkflowVersions(w http.ResponseWriter, r *http.Reque
 		out.Hunks = append(out.Hunks, hunk)
 	}
 	respondJSON(w, r, http.StatusOK, out)
-}
-
-func (s *Server) handleShareWorkflow(w http.ResponseWriter, r *http.Request) {
-	id, perr := pathUUID(r, "workflowID", "workflow")
-	if perr != nil {
-		respondError(w, r, perr)
-		return
-	}
-	var req sharingRequest
-	if err := decodeJSON(w, r, &req); err != nil {
-		respondError(w, r, err)
-		return
-	}
-	if !s.workflowsReady(w, r) {
-		return
-	}
-	if err := s.Workflows.Share(r.Context(), id, string(req.Sharing), req.Groups); err != nil {
-		respondError(w, r, workflowError(err))
-		return
-	}
-	s.respondWorkflow(w, r, id, http.StatusOK)
 }
 
 func (s *Server) handleValidateWorkflow(w http.ResponseWriter, r *http.Request) {

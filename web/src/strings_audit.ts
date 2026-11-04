@@ -51,6 +51,7 @@ export const audit = {
     "workflow.changed": "Workflow changed",
     "workflow.shared": "Workflow shared",
     "workflow.archived": "Workflow archived",
+    "workflow.restored": "Workflow restored",
     "provider.changed": "Model provider changed",
     "run.started": "Run started",
     "run.cancelled": "Run cancelled",

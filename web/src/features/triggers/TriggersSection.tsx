@@ -5,19 +5,36 @@ import { meQuery } from "@/api/auth";
 import { toolName, toolsQuery } from "@/api/tools";
 import { removeTrigger, setTriggerEnabled, type Trigger, triggersQueryKey, workflowTriggersQuery } from "@/api/triggers";
 import { RunStatusBadge } from "@/features/runs/RunStatusBadge";
+import { ConfirmDialog } from "@/features/shell/Dialog";
 import { s } from "@/strings";
 import { TriggerForm } from "./TriggerForm";
 
 const card = "rounded-overlay border border-border bg-surface p-4 shadow-1";
 const secondary = "h-8 rounded-control border border-border-strong px-3 text-sm font-medium text-ink hover:bg-surface-raised disabled:opacity-60";
-const danger = "h-8 rounded-control bg-danger px-3 text-sm font-medium text-on-danger hover:bg-danger-hover disabled:opacity-60";
 
 function when(at: string): string {
   return new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
+/** Who may do what with a workflow's triggers, as #202 has it: its runners add their own, its administrators read, turn off and remove anybody's. */
+export interface TriggerRights {
+  /** Adding a trigger of one's own, which takes running the workflow while it is not archived. */
+  add: boolean;
+  administer: boolean;
+}
+
 /** The triggers on a workflow that start it as their owner; each person adds their own. */
-export function TriggersSection({ workflowID, inputsSchema, unattendedCalls }: { workflowID: string; inputsSchema: unknown; unattendedCalls: string[] }) {
+export function TriggersSection({
+  workflowID,
+  inputsSchema,
+  unattendedCalls,
+  rights,
+}: {
+  workflowID: string;
+  inputsSchema: unknown;
+  unattendedCalls: string[];
+  rights: TriggerRights;
+}) {
   const id = useId();
   const list = useQuery(workflowTriggersQuery(workflowID));
   const [editing, setEditing] = useState<Trigger | "new" | null>(null);
@@ -27,7 +44,7 @@ export function TriggersSection({ workflowID, inputsSchema, unattendedCalls }: {
         <h2 id={`${id}-title`} className="text-lg font-semibold text-ink">
           {s.triggers.title}
         </h2>
-        {editing === null && (
+        {editing === null && rights.add && (
           <button type="button" className={secondary} onClick={() => setEditing("new")} data-action="add-trigger">
             {s.triggers.add}
           </button>
@@ -54,7 +71,7 @@ export function TriggersSection({ workflowID, inputsSchema, unattendedCalls }: {
       {list.data && list.data.length > 0 && (
         <ul className="flex flex-col gap-3" aria-label={s.triggers.title}>
           {list.data.map((t) => (
-            <TriggerRow key={t.id} trigger={t} onChange={() => setEditing(t)} />
+            <TriggerRow key={t.id} trigger={t} rights={rights} onChange={() => setEditing(t)} />
           ))}
         </ul>
       )}
@@ -62,7 +79,7 @@ export function TriggersSection({ workflowID, inputsSchema, unattendedCalls }: {
   );
 }
 
-function TriggerRow({ trigger, onChange }: { trigger: Trigger; onChange: () => void }) {
+function TriggerRow({ trigger, rights, onChange }: { trigger: Trigger; rights: TriggerRights; onChange: () => void }) {
   const client = useQueryClient();
   const me = useQuery(meQuery);
   const [confirming, setConfirming] = useState(false);
@@ -70,6 +87,8 @@ function TriggerRow({ trigger, onChange }: { trigger: Trigger; onChange: () => v
   const refresh = () => client.invalidateQueries({ queryKey: triggersQueryKey });
   const toggle = useMutation({ mutationFn: (on: boolean) => setTriggerEnabled(trigger.id, on), onSuccess: refresh });
   const remove = useMutation({ mutationFn: () => removeTrigger(trigger.id), onSuccess: refresh });
+  // An administrator of the workflow turns anybody's trigger off but only its owner turns it on, for it runs as them.
+  const switchable = trigger.enabled ? mine || rights.administer : mine && rights.add;
   const fire = trigger.lastFire;
   return (
     <li className="rounded-control border border-border p-3" data-trigger={trigger.name}>
@@ -79,7 +98,7 @@ function TriggerRow({ trigger, onChange }: { trigger: Trigger; onChange: () => v
           <input
             type="checkbox"
             checked={trigger.enabled}
-            disabled={toggle.isPending || (!mine && !trigger.enabled)}
+            disabled={toggle.isPending || !switchable}
             onChange={(e) => toggle.mutate(e.target.checked)}
             data-trigger-enabled
           />
@@ -112,31 +131,41 @@ function TriggerRow({ trigger, onChange }: { trigger: Trigger; onChange: () => v
         </p>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        {mine && (
+        {mine && rights.add && (
           <button type="button" className={secondary} onClick={onChange} data-action="change-trigger">
             {s.triggers.change}
           </button>
         )}
-        {!confirming ? (
-          <button type="button" className={secondary} onClick={() => setConfirming(true)} data-action="remove-trigger">
+        {(mine || rights.administer) && (
+          <button
+            type="button"
+            className={secondary}
+            onClick={() => setConfirming(true)}
+            aria-label={s.triggers.removeNamed(trigger.name)}
+            data-action="remove-trigger"
+          >
             {s.triggers.remove}
           </button>
-        ) : (
-          <span className="flex flex-wrap items-center gap-2" role="group" aria-label={s.triggers.confirmRemove(trigger.name)}>
-            <span className="text-sm text-ink">{s.triggers.confirmRemove(trigger.name)}</span>
-            <button type="button" className={danger} disabled={remove.isPending} onClick={() => remove.mutate()} data-action="confirm-remove-trigger">
-              {s.triggers.confirm}
-            </button>
-            <button type="button" className={secondary} onClick={() => setConfirming(false)}>
-              {s.triggers.keep}
-            </button>
-          </span>
         )}
       </div>
-      {(toggle.isError || remove.isError) && (
+      {toggle.isError && (
         <p role="alert" className="mt-2 text-sm text-danger" data-trigger-error>
-          {(toggle.error ?? remove.error)?.message}
+          {toggle.error.message}
         </p>
+      )}
+      {confirming && (
+        <ConfirmDialog
+          title={s.triggers.removeTitle(trigger.name)}
+          body={s.triggers.removeBody}
+          action={s.triggers.confirm}
+          pending={remove.isPending}
+          error={remove.error}
+          onConfirm={() => remove.mutate()}
+          onClose={() => {
+            setConfirming(false);
+            remove.reset();
+          }}
+        />
       )}
     </li>
   );

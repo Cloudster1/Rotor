@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createWorkflow } from "../fixtures/runs";
-import { expectAccessible, startInScheme, type ColourScheme } from "../fixtures/shell";
+import { confirmDialog, expectAccessible, startInScheme, type ColourScheme } from "../fixtures/shell";
 
 const SCHEMES: ColourScheme[] = ["light", "dark"];
 
@@ -33,7 +33,7 @@ for (const scheme of SCHEMES) {
     const name = `e2e-${randomUUID().slice(0, 12)}`;
     const workflowID = await createWorkflow(page, report(name));
     await startInScheme(page, scheme);
-    await page.goto(`/workflows/${workflowID}`);
+    await page.goto(`/workflows/${workflowID}/settings/triggers`);
     const section = page.locator("[data-triggers]");
     await expect(section).toContainText("No triggers yet.");
 
@@ -66,7 +66,7 @@ for (const scheme of SCHEMES) {
     await expect(row.locator("[data-next-run]")).toContainText("Next run");
 
     await row.locator('[data-action="remove-trigger"]').click();
-    await row.locator('[data-action="confirm-remove-trigger"]').click();
+    await confirmDialog(page);
     await expect(section).toContainText("No triggers yet.");
   });
 }

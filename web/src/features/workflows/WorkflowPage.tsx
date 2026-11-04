@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { type ChangeEvent, useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   createWorkflow,
@@ -7,6 +7,7 @@ import {
   saveWorkflow,
   schemaQuery,
   validateWorkflow,
+  versionQuery,
   type WorkflowResponse,
   workflowQuery,
   workflowsQueryKey,
@@ -15,7 +16,6 @@ import { MAX_VERSION_COMMENT, VALIDATE_DELAY_MS } from "@/config";
 import { RunDialog } from "@/features/runs/RunDialog";
 import { RunsOff, useRunsOn } from "@/features/runs/RunsOff";
 import { PageHeader } from "@/features/shell/EmptyState";
-import { TriggersSection } from "@/features/triggers/TriggersSection";
 import { s } from "@/strings";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { CheckList } from "./CheckList";
@@ -23,18 +23,18 @@ import { EditorTabs, useEditorView } from "./EditorTabs";
 import { ToolPicker } from "./ToolPicker";
 import { NEW_WORKFLOW, fileName } from "./template";
 import { useTextHistory } from "./history";
-import { VersionsPanel } from "./VersionsPanel";
-import { WorkflowGrantsPanel } from "./WorkflowGrantsPanel";
 import { YamlEditor, type YamlEditorHandle } from "./YamlEditor";
 
 const input = "h-9 w-full rounded-control border border-border-strong bg-surface px-3 text-sm text-ink";
 const primary = "h-9 rounded-control bg-accent px-4 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-60";
 const secondary = "h-9 rounded-control border border-border-strong px-3 text-sm font-medium text-ink hover:bg-surface-raised disabled:opacity-60";
 
-/** An existing workflow, once loaded; the editor starts over when another version becomes current. */
-export function WorkflowPage({ workflowID }: { workflowID: string }) {
+/** An existing workflow, once loaded, or an older version of it; the editor starts over when another becomes current. */
+export function WorkflowPage({ workflowID, openVersion }: { workflowID: string; openVersion?: number }) {
   const workflow = useQuery(workflowQuery(workflowID));
-  if (workflow.isError) {
+  const older = openVersion !== undefined && openVersion !== workflow.data?.version.number ? openVersion : undefined;
+  const opened = useQuery({ ...versionQuery(workflowID, older ?? 0), enabled: older !== undefined });
+  if (workflow.isError || opened.isError) {
     return (
       <div>
         <PageHeader title={s.places.workflows} />
@@ -44,19 +44,25 @@ export function WorkflowPage({ workflowID }: { workflowID: string }) {
       </div>
     );
   }
-  if (!workflow.data) return <p className="text-sm text-ink-muted">{s.workflows.loading}</p>;
-  return <WorkflowEditor key={`${workflowID}-${workflow.data.version.number}`} existing={workflow.data} />;
+  if (!workflow.data || (older !== undefined && !opened.data)) return <p className="text-sm text-ink-muted">{s.workflows.loading}</p>;
+  return (
+    <WorkflowEditor
+      key={`${workflowID}-${workflow.data.version.number}-${older ?? ""}`}
+      existing={workflow.data}
+      opened={older !== undefined ? opened.data : undefined}
+    />
+  );
 }
 
-/** A workflow being written: the YAML, what is wrong with it as you type, and saving it as a version. */
-export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
+/** A workflow being written: the YAML, the canvas, what is wrong with it as you type, and saving it as a version. */
+export function WorkflowEditor({ existing, opened }: { existing?: WorkflowResponse; opened?: { number: number; specYAML: string } }) {
   const id = useId();
   const client = useQueryClient();
   const navigate = useNavigate();
   const schema = useQuery(schemaQuery);
   const editor = useRef<YamlEditorHandle>(null);
   const runsOn = useRunsOn();
-  const { text, edit, replace, ...history } = useTextHistory(existing?.version.specYAML ?? NEW_WORKFLOW);
+  const { text, edit, replace, ...history } = useTextHistory(opened?.specYAML ?? existing?.version.specYAML ?? NEW_WORKFLOW);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [warnings, setWarnings] = useState<Problem[]>([]);
   const [checking, setChecking] = useState(false);
@@ -107,7 +113,8 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
     mutationFn: () => (summary ? saveWorkflow(summary.id, text, comment, summary.currentVersion) : createWorkflow(text, comment)),
     onSuccess: async (saved) => {
       await client.invalidateQueries({ queryKey: workflowsQueryKey });
-      if (!summary) await navigate({ to: "/workflows/$workflowID", params: { workflowID: saved.workflow.id } });
+      // A new workflow gets its address, and an older version saved again is the current one, so the address drops it.
+      if (!summary || opened) await navigate({ to: "/workflows/$workflowID", params: { workflowID: saved.workflow.id }, search: {} });
     },
   });
 
@@ -130,14 +137,32 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={summary?.name ?? s.workflows.editor.newTitle} />
-      {summary?.canRun && !summary.archived && (
+      {summary && (
         <div className="flex flex-col items-start gap-2">
-          {!runsOn && <RunsOff />}
-          <button type="button" className={primary} onClick={() => setRunning(true)} disabled={!runsOn} data-action="run-workflow">
-            {s.runs.runNamed(summary.name)}
-          </button>
+          {summary.canRun && !summary.archived && !runsOn && <RunsOff />}
+          <div className="flex flex-wrap items-center gap-3">
+            {summary.canRun && !summary.archived && (
+              <button type="button" className={primary} onClick={() => setRunning(true)} disabled={!runsOn} data-action="run-workflow">
+                {s.runs.runNamed(summary.name)}
+              </button>
+            )}
+            <Link
+              to="/workflows/$workflowID/settings/general"
+              params={{ workflowID: summary.id }}
+              className={`${secondary} inline-flex items-center`}
+              aria-label={s.workflowSettings.linkNamed(summary.name)}
+              data-action="workflow-settings"
+            >
+              {s.workflowSettings.link}
+            </Link>
+          </div>
           {running && <RunDialog workflowID={summary.id} name={summary.name} onClose={() => setRunning(false)} />}
         </div>
+      )}
+      {opened && (
+        <p className="max-w-3xl rounded-control border border-border bg-surface-raised px-3 py-2 text-sm text-ink" data-opened-version={opened.number}>
+          {s.workflowSettings.openedVersion(opened.number)}
+        </p>
       )}
       {summary && readOnly && (
         <p className="max-w-3xl rounded-control border border-border bg-surface-raised px-3 py-2 text-sm text-ink" data-read-only>
@@ -206,17 +231,12 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
             </p>
           )}
         </section>
-        <div className="flex flex-col gap-4">
-          {!readOnly && <ToolPicker onInsert={(yaml) => editor.current?.insert(yaml)} />}
-          {summary && <VersionsPanel workflowID={summary.id} current={summary.currentVersion} onOpen={replace} />}
-          {summary && <WorkflowGrantsPanel workflow={summary} />}
-        </div>
+        {!readOnly && (
+          <div className="flex flex-col gap-4">
+            <ToolPicker onInsert={(yaml) => editor.current?.insert(yaml)} />
+          </div>
+        )}
       </div>
-      {summary && !summary.archived && (
-        <div className="mt-6">
-          <TriggersSection workflowID={summary.id} inputsSchema={existing?.version.inputs} unattendedCalls={existing?.version.unattendedCalls ?? []} />
-        </div>
-      )}
     </div>
   );
 }

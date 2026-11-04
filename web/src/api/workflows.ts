@@ -52,6 +52,13 @@ export const diffQuery = (id: string, from: number, to: number) =>
     },
   });
 
+/** One version with its YAML, which the editor opens when the address names an older one. */
+export const versionQuery = (id: string, number: number) =>
+  queryOptions({
+    queryKey: [...workflowsQueryKey, id, "versions", number],
+    queryFn: () => fetchVersion(id, number),
+  });
+
 /** One version's YAML, to open in the editor. */
 export async function fetchVersion(id: string, number: number): Promise<Version> {
   const { data } = await api.GET("/workflows/{workflowID}/versions/{versionNumber}", {
@@ -102,4 +109,10 @@ export async function saveWorkflow(id: string, specYAML: string, comment: string
 
 export async function archiveWorkflow(id: string): Promise<void> {
   await api.DELETE("/workflows/{workflowID}", { params: { path: { workflowID: id } } });
+}
+
+/** Takes a workflow out of the archive, which is how archiving it is undone (#205). */
+export async function restoreWorkflow(id: string): Promise<WorkflowResponse> {
+  const { data } = await api.POST("/workflows/{workflowID}/restore", { params: { path: { workflowID: id } } });
+  return data as WorkflowResponse;
 }

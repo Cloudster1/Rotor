@@ -1,8 +1,10 @@
 import { s } from "@/strings";
 
-/** A page of Settings or Admin, as its side nav lists it; slug names it for tests. */
+/** A page of Settings, Admin or a workflow's settings, as its side nav lists it; slug names it for tests. */
 export interface SettingsNavPage {
   slug: string;
+  /** The workflow a workflow's settings page is of (#205); the other pages take no params. */
+  params?: { workflowID: string };
   path:
     | "/settings/account"
     | "/settings/assistants"
@@ -17,7 +19,11 @@ export interface SettingsNavPage {
     | "/admin/assistants"
     | "/admin/audit"
     | "/admin/usage"
-    | "/admin/retention";
+    | "/admin/retention"
+    | "/workflows/$workflowID/settings/general"
+    | "/workflows/$workflowID/settings/versions"
+    | "/workflows/$workflowID/settings/sharing"
+    | "/workflows/$workflowID/settings/triggers";
   label: string;
 }
 
@@ -80,3 +86,19 @@ export const ADMIN_GROUPS: readonly SettingsNavGroup[] = [
 
 /** Where /admin opens: the first page of its first group. */
 export const FIRST_ADMIN_PATH = ADMIN_GROUPS[0]!.pages[0]!.path;
+
+/** The sections of one workflow's settings (#205), General first, which /workflows/<id>/settings opens. */
+export function workflowSettingsGroups(workflowID: string): readonly SettingsNavGroup[] {
+  const params = { workflowID };
+  return [
+    {
+      id: "workflow",
+      pages: [
+        { slug: "general", path: "/workflows/$workflowID/settings/general", params, label: s.workflowSettings.pages.general },
+        { slug: "versions", path: "/workflows/$workflowID/settings/versions", params, label: s.workflowSettings.pages.versions },
+        { slug: "sharing", path: "/workflows/$workflowID/settings/sharing", params, label: s.workflowSettings.pages.sharing },
+        { slug: "triggers", path: "/workflows/$workflowID/settings/triggers", params, label: s.workflowSettings.pages.triggers },
+      ],
+    },
+  ];
+}

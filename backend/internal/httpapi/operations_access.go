@@ -83,7 +83,7 @@ var accessAdminOperations = []operation{
 		summary:   "Take a grant away; the last Administrator grant stays.",
 		responses: map[int]any{http.StatusNoContent: nil, http.StatusNotFound: notFound, http.StatusConflict: refused}},
 
-	// A workflow's grants, which replace its sharing: anybody who sees it reads them, its administrators change them.
+	// A workflow's grants, which are its sharing: anybody who sees it reads them, its administrators change them.
 	{method: "GET", path: "/workflows/{workflowID}/grants", handler: "handleListWorkflowGrants", tag: "access",
 		summary:   "The roles granted on this workflow alone, for anybody who may see it.",
 		responses: map[int]any{http.StatusOK: env{"grants": []assignmentView{}}, http.StatusNotFound: notFound}},

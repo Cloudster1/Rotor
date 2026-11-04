@@ -118,8 +118,8 @@ func TestPeopleSeeThemselvesAndNobodyElse(t *testing.T) {
 	}
 
 	err = h.cluster.Write(db.WithUser(context.Background(), me), func(ctx context.Context, tx db.DBTX) error {
-		_, err := tx.Exec(ctx, `UPDATE app_user SET role = 'admin' WHERE id = $1`, me)
+		_, err := tx.Exec(ctx, `UPDATE app_user SET groups = '{rotor-administrators}' WHERE id = $1`, me)
 		return err
 	})
-	permissionDenied(t, "a member promoting themselves as rotor_app", err)
+	permissionDenied(t, "a member putting themselves in the administrators' group as rotor_app", err)
 }

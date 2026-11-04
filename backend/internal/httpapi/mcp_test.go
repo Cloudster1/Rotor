@@ -117,7 +117,7 @@ func TestAReadOnlyGrantIsOfferedOnlyWhatItMayCall(t *testing.T) {
 
 // assistant is a principal acting through a grant, as the OAuth service makes it.
 func assistant(readOnly bool) *auth.Principal {
-	return &auth.Principal{UserID: uuid.New(), Name: "Bob", Role: auth.RoleMember,
+	return &auth.Principal{UserID: uuid.New(), Name: "Bob",
 		Assistant: &auth.Assistant{GrantID: uuid.New(), Client: "Claude Code", ReadOnly: readOnly}}
 }
 

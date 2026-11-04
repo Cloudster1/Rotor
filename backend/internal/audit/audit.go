@@ -16,8 +16,9 @@ import (
 
 // Actions recorded so far; each feature adds its own as it lands, named domain.verb.
 const (
-	ActionSignedIn               = "user.signed_in"
-	ActionSignedOut              = "user.signed_out"
+	ActionSignedIn  = "user.signed_in"
+	ActionSignedOut = "user.signed_out"
+	// ActionRoleChanged and ActionWorkflowShared are written no more since #205; the log keeps the entries made before.
 	ActionRoleChanged            = "user.role_changed"
 	ActionSwitchedOff            = "user.switched_off"
 	ActionSessionEndedByProvider = "session.ended_by_provider"
@@ -33,28 +34,30 @@ const (
 	ActionWorkflowChanged        = "workflow.changed"
 	ActionWorkflowShared         = "workflow.shared"
 	ActionWorkflowArchived       = "workflow.archived"
-	ActionProviderChanged        = "provider.changed"
-	ActionRunStarted             = "run.started"
-	ActionRunCancelled           = "run.cancelled"
-	ActionApprovalDecided        = "approval.decided"
-	ActionTriggerCreated         = "trigger.created"
-	ActionTriggerChanged         = "trigger.changed"
-	ActionTriggerRemoved         = "trigger.removed"
-	ActionTriggerEnabled         = "trigger.enabled"
-	ActionTriggerDisabled        = "trigger.disabled"
-	ActionSandboxSpawned         = "sandbox.spawned"
-	ActionSandboxDestroyed       = "sandbox.destroyed"
-	ActionRunEnded               = "run.ended"
-	ActionApprovalRequested      = "approval.requested"
-	ActionAuditExported          = "audit.exported"
-	ActionLimitsChanged          = "limits.changed"
-	ActionHookSecretChanged      = "hook.secret_changed"
-	ActionLangSmithChanged       = "langsmith.changed"
-	ActionRetentionChanged       = "retention.changed"
-	ActionRunDataDeleted         = "run.data_deleted"
-	ActionOAuthGranted           = "oauth.granted"
-	ActionOAuthRevoked           = "oauth.revoked"
-	ActionOAuthSwitched          = "oauth.switched"
+	// ActionWorkflowRestored is a workflow taken out of the archive, which is how archiving is undone (#205).
+	ActionWorkflowRestored  = "workflow.restored"
+	ActionProviderChanged   = "provider.changed"
+	ActionRunStarted        = "run.started"
+	ActionRunCancelled      = "run.cancelled"
+	ActionApprovalDecided   = "approval.decided"
+	ActionTriggerCreated    = "trigger.created"
+	ActionTriggerChanged    = "trigger.changed"
+	ActionTriggerRemoved    = "trigger.removed"
+	ActionTriggerEnabled    = "trigger.enabled"
+	ActionTriggerDisabled   = "trigger.disabled"
+	ActionSandboxSpawned    = "sandbox.spawned"
+	ActionSandboxDestroyed  = "sandbox.destroyed"
+	ActionRunEnded          = "run.ended"
+	ActionApprovalRequested = "approval.requested"
+	ActionAuditExported     = "audit.exported"
+	ActionLimitsChanged     = "limits.changed"
+	ActionHookSecretChanged = "hook.secret_changed"
+	ActionLangSmithChanged  = "langsmith.changed"
+	ActionRetentionChanged  = "retention.changed"
+	ActionRunDataDeleted    = "run.data_deleted"
+	ActionOAuthGranted      = "oauth.granted"
+	ActionOAuthRevoked      = "oauth.revoked"
+	ActionOAuthSwitched     = "oauth.switched"
 	// ActionUnattendedSwitched and ActionTriggerUnattendedWrite are M12's (#128): the administrators' switch, and a
 	// write a triggered run made with no approval through a call its owner agreed to.
 	ActionUnattendedSwitched     = "unattended.switched"
@@ -86,7 +89,7 @@ const (
 // Actions is every action the log may hold, for a filter to offer and a client to name.
 var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, ActionSwitchedOff, ActionSessionEndedByProvider,
 	ActionToolAdded, ActionToolRemoved, ActionToolChecked, ActionToolAllowed, ActionConnectionGranted, ActionConnectionEnded, ActionTokenMinted, ActionTokenRevoked, ActionProviderChanged,
-	ActionWorkflowCreated, ActionWorkflowChanged, ActionWorkflowShared, ActionWorkflowArchived, ActionRunStarted, ActionRunCancelled,
+	ActionWorkflowCreated, ActionWorkflowChanged, ActionWorkflowShared, ActionWorkflowArchived, ActionWorkflowRestored, ActionRunStarted, ActionRunCancelled,
 	ActionApprovalDecided, ActionTriggerCreated, ActionTriggerChanged, ActionTriggerRemoved, ActionTriggerEnabled, ActionTriggerDisabled,
 	ActionHookSecretChanged, ActionLimitsChanged, ActionLangSmithChanged,
 	ActionSandboxSpawned, ActionSandboxDestroyed, ActionRunEnded, ActionApprovalRequested, ActionAuditExported,

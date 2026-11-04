@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { SettingsNavGroup } from "./groups";
 
-/** The pages of Settings or Admin, beside the content from lg and a row that scrolls sideways above it below. */
+/** The pages of Settings, Admin or a workflow's settings, beside the content from lg and a row that scrolls sideways above it below. */
 export function SettingsNav({ label, groups }: { label: string; groups: readonly SettingsNavGroup[] }) {
   return (
     <nav aria-label={label} className="min-w-0 border-b border-border pb-2 lg:w-settings-nav lg:shrink-0 lg:border-b-0 lg:pb-0">
@@ -21,6 +21,7 @@ export function SettingsNav({ label, groups }: { label: string; groups: readonly
                   <li key={page.path}>
                     <Link
                       to={page.path}
+                      params={page.params}
                       data-settings-page={page.slug}
                       className="flex h-8 items-center rounded-control px-2 text-sm whitespace-nowrap text-ink-muted hover:bg-surface-raised hover:text-ink"
                       activeProps={{ className: "bg-accent-subtle font-medium text-accent hover:bg-accent-subtle hover:text-accent" }}

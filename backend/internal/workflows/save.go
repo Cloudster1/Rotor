@@ -7,9 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"slices"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -21,9 +19,6 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/providers"
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 )
-
-// groupName is a realm group as Rotor stores it after sign-in: no leading slash.
-var groupName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 ._-]{0,99}$`)
 
 // Validate lists everything wrong with a spec: its YAML, schema and sense, then what the caller's tools tell.
 func (s *Service) Validate(ctx context.Context, source string) []spec.Problem {
@@ -148,55 +143,6 @@ func (s *Service) Save(ctx context.Context, id uuid.UUID, source, comment string
 	return refusal(err)
 }
 
-// Share says who besides its administrators runs a workflow: the database turns it into runner grants to the realm
-// groups named, or to Everyone, until #203 grants roles directly.
-func (s *Service) Share(ctx context.Context, id uuid.UUID, sharing string, groups []string) error {
-	clean, err := shareTo(sharing, groups)
-	if err != nil {
-		return err
-	}
-	p, _, err := s.allowed(ctx, id, func(w Workflow) bool { return w.CanAdminister })
-	if err != nil {
-		return err
-	}
-	err = s.db.Write(ctx, func(ctx context.Context, tx db.DBTX) error {
-		if _, err := tx.Exec(ctx, `UPDATE workflow SET sharing = $2, shared_groups = $3 WHERE id = $1`, id, sharing, clean); err != nil {
-			return err
-		}
-		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionWorkflowShared, TargetType: "workflow", TargetID: id.String(),
-			Actor: p.UserID, Data: map[string]any{"sharing": sharing, "groups": clean}})
-	})
-	return refusal(err)
-}
-
-// shareTo checks a sharing and returns its groups trimmed, without repeats, and empty unless sharing is groups.
-func shareTo(sharing string, groups []string) ([]string, error) {
-	switch sharing {
-	case SharingPrivate, SharingEveryone:
-		return []string{}, nil
-	case SharingGroups:
-	default:
-		return nil, &Invalid{Problems: []spec.Problem{{Path: "/sharing", Code: "sharing",
-			Message: "Share a workflow privately, with groups or with everyone."}}}
-	}
-	clean := []string{}
-	for _, g := range groups {
-		g = strings.TrimPrefix(strings.TrimSpace(g), "/")
-		if !groupName.MatchString(g) {
-			return nil, &Invalid{Problems: []spec.Problem{{Path: "/groups", Code: "group",
-				Message: fmt.Sprintf("%q is not a group of the realm. Name a group as it appears under your groups.", g)}}}
-		}
-		if !slices.Contains(clean, g) {
-			clean = append(clean, g)
-		}
-	}
-	if len(clean) == 0 || len(clean) > config.MaxSharedGroups {
-		return nil, &Invalid{Problems: []spec.Problem{{Path: "/groups", Code: "group",
-			Message: fmt.Sprintf("Name between 1 and %d groups to share with.", config.MaxSharedGroups)}}}
-	}
-	return clean, nil
-}
-
 // Archive takes a workflow out of the list; its versions stay for the runs that used them. Whoever administers it may,
 // administrators of Rotor among them.
 func (s *Service) Archive(ctx context.Context, id uuid.UUID) error {
@@ -212,6 +158,24 @@ func (s *Service) Archive(ctx context.Context, id uuid.UUID) error {
 			return err
 		}
 		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionWorkflowArchived, TargetType: "workflow", TargetID: id.String(),
+			Actor: p.UserID, Data: map[string]any{"name": w.Name}})
+	}))
+}
+
+// Restore takes a workflow out of the archive, which is how archiving is undone; it takes what archiving takes.
+func (s *Service) Restore(ctx context.Context, id uuid.UUID) error {
+	p, w, err := s.allowed(ctx, id, func(w Workflow) bool { return w.CanAdminister })
+	if err != nil {
+		return err
+	}
+	if w.ArchivedAt == nil {
+		return nil
+	}
+	return refusal(s.db.Write(ctx, func(ctx context.Context, tx db.DBTX) error {
+		if _, err := tx.Exec(ctx, `UPDATE workflow SET archived_at = NULL WHERE id = $1`, id); err != nil {
+			return err
+		}
+		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionWorkflowRestored, TargetType: "workflow", TargetID: id.String(),
 			Actor: p.UserID, Data: map[string]any{"name": w.Name}})
 	}))
 }

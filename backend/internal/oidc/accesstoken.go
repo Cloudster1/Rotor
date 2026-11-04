@@ -143,7 +143,7 @@ func (s *Service) Authenticate(ctx context.Context, raw string) (*auth.Principal
 		if err != nil {
 			return err
 		}
-		p = &auth.Principal{UserID: user.id, Email: identity.Email, Name: identity.Name, Role: auth.RoleFor(set), Groups: identity.Groups,
+		p = &auth.Principal{UserID: user.id, Email: identity.Email, Name: identity.Name, Groups: identity.Groups,
 			Perms: set}
 		return nil
 	})

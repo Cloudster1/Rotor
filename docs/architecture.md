@@ -165,8 +165,24 @@ across; a tick saves the role's whole list) and Groups (Everyone, the realm's,
 then those made by hand); Users lists every person with their groups and roles
 and switches them off and on. A workflow's Sharing is its grants: anybody who
 sees the workflow reads them, and whoever administers it grants Runner, Editor
-or Workflow administrator there and nowhere else. `PUT /workflows/{id}/sharing`
-still writes Runner grants for older clients and is marked deprecated.
+or Workflow administrator there and nowhere else. The sharing columns, their
+trigger and `PUT /workflows/{id}/sharing` are gone since #205, and so is
+`app_user.role`: whether somebody administers Rotor is asked of the grants
+alone, and `/auth/me` computes its `role` from them. A workflow in a list
+carries `sharedWith`, how many people and groups besides its owner hold a role
+on it, counted in the same query.
+
+A workflow's settings are pages of their own (#205),
+`/workflows/<id>/settings/<section>`: General (name, description, archiving),
+Versions, Sharing and Triggers, with Settings' side nav. Everybody who sees the
+workflow opens them; a section they may not change is read only, as
+`canEdit`, `canAdminister` and `canRun` say. The name and description are the
+spec's metadata, so General saves them as a new version, splicing the YAML as
+the canvas does. Archiving happens at once and offers Undo, which is
+`POST /workflows/{id}/restore`; both take `workflow.administer`, in the api
+and in `workflow_change_guard`. Workflows are archived, never deleted: runs pin
+their versions, and `rotor_app` holds no `DELETE` on `workflow`. The editor
+keeps the YAML, the canvas and the checks, with a link to the settings.
 
 Writing roles, groups and grants goes through `rotor_app`, so the policies
 decide. Two things are not `rotor_app`'s to read: other people's `app_user`
