@@ -34,7 +34,7 @@ Four things come from outside the chart.
   the database: without the transit key no run's data opens again. The key rotates every 90 days and keeps its
   older versions, so older runs still open; an installation upgraded from before #41 may delete the unused key
   `rotor-checkpoints`.
-  Finished runs are deleted after the retention an administrator sets under Settings (90 days by default); traces
+  Finished runs are deleted after the retention an administrator sets under Admin, Retention (90 days by default); traces
   sent to a collector or to LangSmith follow their own retention there. The api and the worker sign in with their own ServiceAccount tokens
   (`openbao.auth: kubernetes`); sandboxes hold no OpenBao credential at all, only the single-use wrapping tokens they
   are handed.
@@ -106,7 +106,7 @@ says why this shape.
   memory as large as the settings allow (1 GiB unless an administrator says). Plan the nodes for the runner's and
   the toolchains' memory together.
 - **The package mirror.** Builds fetch dependencies from one mirror an administrator runs, such as Athens for Go and
-  Verdaccio for npm, and names in the settings; the toolchains get it as `GOPROXY`, `GOSUMDB` and
+  Verdaccio for npm, and names under Admin, Workspaces; the toolchains get it as `GOPROXY`, `GOSUMDB` and
   `npm_config_registry`. Let workspace pods reach it with `sandbox.workspaces.packageMirror.host` (needs Cilium) or
   `.cidr`; the policy selects pods labelled `rotor.dev/workspace`, so other sandboxes never reach it. Name the same
   host in both places. The public Go proxy is no mirror: it fetches any module asked for and redirects to Cloud

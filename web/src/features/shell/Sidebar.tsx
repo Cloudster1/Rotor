@@ -1,4 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { meQuery } from "@/api/auth";
 import { APP_NAME, MARK_WIDTH_PX } from "@/config";
 import { ApprovalBadge } from "@/features/approvals/ApprovalBadge";
 import { s } from "@/strings";
@@ -7,6 +9,9 @@ import { PLACES } from "./places";
 
 /** The product's mark and every place, beside the content on a wide screen and above it on a narrow one. */
 export function Sidebar() {
+  const me = useQuery(meQuery);
+  const admin = me.data?.role === "admin";
+  const places = PLACES.filter((place) => admin || !place.adminOnly);
   return (
     <aside className="flex shrink-0 flex-col gap-4 border-b border-border bg-surface px-3 py-3 shell:w-56 shell:border-r shell:border-b-0 shell:py-4">
       <Link to="/workflows" className="flex items-center gap-2 px-2 text-base font-semibold text-ink" aria-label={s.shell.home}>
@@ -15,7 +20,7 @@ export function Sidebar() {
       </Link>
       <nav aria-label={s.shell.navigation}>
         <ul className="flex gap-1 overflow-x-auto shell:flex-col">
-          {PLACES.map((place) => {
+          {places.map((place) => {
             const Glyph = Icon[place.icon];
             return (
               <li key={place.path}>

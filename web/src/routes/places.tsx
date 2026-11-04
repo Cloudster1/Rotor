@@ -1,7 +1,6 @@
 import { createRoute, redirect } from "@tanstack/react-router";
 import { HOME_PATH } from "@/config";
 import { ConnectionsPage, type ConnectionsSearch } from "@/features/connections/ConnectionsPage";
-import { SettingsPage } from "@/features/settings/SettingsPage";
 import { shellRoute } from "./shell";
 
 /** The index has nothing of its own; it is the first place of the sidebar. */
@@ -24,10 +23,4 @@ export const connectionsRoute = createRoute({
   component: function ConnectionsRoute() {
     return <ConnectionsPage search={connectionsRoute.useSearch()} />;
   },
-});
-
-export const settingsRoute = createRoute({
-  getParentRoute: () => shellRoute,
-  path: "/settings",
-  component: SettingsPage,
 });

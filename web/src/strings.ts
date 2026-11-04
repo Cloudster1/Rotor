@@ -7,6 +7,7 @@ import { untrustedStrings } from "./strings_untrusted";
 import { canvasStrings } from "./strings_canvas";
 import { assistantStrings } from "./strings_assistants";
 import { workspacesStrings } from "./strings_workspaces";
+import { accountStrings, adminStrings, settingsStrings } from "./strings_settings";
 
 /** Every word the interface shows, in one place, so a second language is a second copy of this object. */
 export const s = {
@@ -29,6 +30,7 @@ export const s = {
     approvals: "Approvals",
     connections: "Connections",
     settings: "Settings",
+    admin: "Admin",
   },
   workflows: {
     emptyTitle: "No workflows yet",
@@ -92,7 +94,7 @@ export const s = {
       body: "Pick a tool and the MCP tools a run may call; the binding goes where the cursor is, under tools:.",
       tool: "Tool",
       choose: "Choose a tool",
-      none: "No tools yet. An administrator adds them in the settings.",
+      none: "No tools yet. An administrator adds them under Admin, Tools.",
       loading: "Asking the tool which tools your account may call.",
       binding: "Binding name",
       scope: "Scope",
@@ -149,7 +151,7 @@ export const s = {
     events: (topics: string, tool: string) => `On ${topics} in ${tool}`,
     event: {
       tool: "Tool",
-      toolHint: "Its events reach Rotor once an administrator sets up its webhook under Settings. You need your own connection to it.",
+      toolHint: "Its events reach Rotor once an administrator sets up its webhook under Admin, Tools. You need your own connection to it.",
       noTools: "No Armature, Exciter or Stator is set up in Rotor yet.",
       topics: "Topics",
       other: "Other topics",
@@ -318,7 +320,7 @@ export const s = {
   },
   connections: {
     emptyTitle: "No tools to connect yet",
-    emptyBody: "Once an administrator adds Exciter, Armature or Stator in the settings, you connect your account here, so workflows can act as you.",
+    emptyBody: "Once an administrator adds Exciter, Armature or Stator under Admin, Tools, you connect your account here, so workflows can act as you.",
     body: "Connect your account in each tool once, so workflows can act as you. You consent on the tool's own page; Rotor never sees your password.",
     loading: "Asking the server about your connections.",
     unreachable: "The server did not list your connections. Reload the page to ask again.",
@@ -339,7 +341,7 @@ export const s = {
     connectedAt: "Connected",
     lastUsed: "Last used",
     never: "Not yet",
-    needsRegistration: "This tool no longer knows Rotor. An administrator registers it again in the settings.",
+    needsRegistration: "This tool no longer knows Rotor. An administrator registers it again under Admin, Tools.",
     done: (name: string) => `${name} is connected. Workflows can act as you there now.`,
     errors: {
       denied: "You did not allow Rotor at the tool. Connect again when you are ready.",
@@ -349,22 +351,13 @@ export const s = {
       unavailable: "The tool or Rotor's secret store did not answer. Try again in a moment.",
     },
   },
-  settings: {
-    buildTitle: "This installation",
-    version: "Version",
-    commit: "Commit",
-    apiVersion: "API version",
-    client: "Web client",
-    loading: "Asking the server which build it runs.",
-    unreachable: "The server did not say which build it runs. Reload the page to ask again.",
-  },
+  settings: settingsStrings,
   tools: {
     title: "Tools",
     body: "The tools workflows act in. People connect their own accounts on the Connections page.",
     loading: "Asking the server which tools it knows.",
     unreachable: "The server did not list its tools. Reload the page to ask again.",
-    none: "No tools yet.",
-    noneAdmin: "No tools yet. Add Exciter, Armature or Stator by the address you open it at.",
+    none: "No tools yet. Add Exciter, Armature or Stator by the address you open it at.",
     capabilities: "Offers",
     scopes: "Scopes",
     client: "Client",
@@ -459,15 +452,8 @@ export const s = {
       failed: "Signing in did not work. Try again, and tell an administrator if it keeps happening.",
     },
   },
-  account: {
-    title: "You",
-    name: "Name",
-    email: "Email",
-    role: "Role in Rotor",
-    groups: "Groups",
-    noGroups: "None",
-    roles: { admin: "Administrator", member: "Member" },
-  },
+  account: accountStrings,
+  admin: adminStrings,
   notFound: {
     title: "Not found",
     body: "Nothing lives at this address. Pick a place from the sidebar.",

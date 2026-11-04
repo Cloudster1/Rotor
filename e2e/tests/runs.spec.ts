@@ -66,7 +66,7 @@ test("a run that acts in a tool the person has not connected offers it, then sta
   // A tenant named <product>--<rest> answers as that product, so this tool's name is the test's alone.
   const product = `e2e${randomUUID().slice(0, 8)}`;
   const address = `${toolStubURL()}/t/${product}--run`;
-  await page.goto("/settings");
+  await page.goto("/admin/tools");
   const form = page.locator("[data-add-tool]");
   await form.getByLabel("Address").fill(address);
   await form.locator('[data-action="add-tool"]').click();
@@ -104,7 +104,7 @@ test("a run that acts in a tool the person has not connected offers it, then sta
     await expect(bob.locator("[data-run-output]")).toContainText("Hi from the sandbox");
   } finally {
     await context.close();
-    await page.goto("/settings");
+    await page.goto("/admin/tools");
     const row = page.locator("[data-tools] li", { hasText: address });
     await row.locator('[data-action="remove-tool"]').click();
     await row.locator('[data-action="confirm-remove"]').click();

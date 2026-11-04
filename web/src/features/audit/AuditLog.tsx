@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
-import { meQuery } from "@/api/auth";
 import { type AuditEntry, type AuditFilter, auditExportHref, auditFacetsQuery, auditQuery } from "@/api/audit";
 import { ApiError } from "@/api/client";
 import { PageHeader } from "@/features/shell/EmptyState";
@@ -11,23 +10,6 @@ import { s } from "@/strings";
 const select = "h-9 w-full rounded-control border border-border-strong bg-surface px-2 text-sm text-ink";
 const secondary = "h-8 rounded-control border border-border-strong px-3 text-sm font-medium text-ink hover:bg-surface-raised disabled:opacity-60";
 const link = "inline-flex h-8 items-center rounded-control border border-border-strong px-3 text-sm font-medium text-ink hover:bg-surface-raised";
-
-/** The audit log for administrators; anyone else is told it is not theirs to read. */
-export function AuditRoute() {
-  const me = useQuery(meQuery);
-  if (!me.data) return <p className="text-sm text-ink-muted">{s.audit.loading}</p>;
-  if (me.data.role !== "admin") {
-    return (
-      <div>
-        <PageHeader title={s.audit.title} />
-        <p role="alert" className="text-sm text-danger">
-          {s.audit.notAllowed}
-        </p>
-      </div>
-    );
-  }
-  return <AuditLog />;
-}
 
 /** What the entry's data says to a reader, without its ids. */
 export function describe(entry: AuditEntry): string {

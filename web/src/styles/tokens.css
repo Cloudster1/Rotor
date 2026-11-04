@@ -64,6 +64,9 @@
 
   /* From here up the sidebar stands beside the content; below it, above. A media query rem is 16px. */
   --breakpoint-shell: 48rem;
+
+  /* The side nav of Settings and Admin, wide enough for its longest page name. */
+  --spacing-settings-nav: 13rem;
 }
 
 /* The dark theme, twice: the first follows the system when nothing was chosen, the second is the

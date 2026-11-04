@@ -50,7 +50,7 @@ describe("the shell", () => {
   });
 
   it("shows the server's build in the settings", async () => {
-    await renderAt("/settings");
+    await renderAt("/settings/account");
     expect(await screen.findByText(META.build.version)).toBeInTheDocument();
     expect(screen.getByText(META.apiVersion)).toBeInTheDocument();
   });

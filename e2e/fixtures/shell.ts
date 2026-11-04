@@ -5,13 +5,35 @@ import { expect, type Page } from "@playwright/test";
 export type ColourScheme = "light" | "dark";
 const THEME_STORAGE_KEY = "rotor.theme";
 
-/** The places of web/src/features/shell/places.ts, in the sidebar's order. */
+/**
+ * The places of web/src/features/shell/places.ts, in the sidebar's order, as alice, an administrator, sees them;
+ * a place that opens one of its pages names where it lands and that page's heading.
+ */
 export const PLACES = [
-  { path: "/workflows", label: "Workflows" },
-  { path: "/runs", label: "Runs" },
-  { path: "/approvals", label: "Approvals" },
-  { path: "/connections", label: "Connections" },
-  { path: "/settings", label: "Settings" },
+  { path: "/workflows", label: "Workflows", opens: "/workflows", heading: "Workflows" },
+  { path: "/runs", label: "Runs", opens: "/runs", heading: "Runs" },
+  { path: "/approvals", label: "Approvals", opens: "/approvals", heading: "Approvals" },
+  { path: "/connections", label: "Connections", opens: "/connections", heading: "Connections" },
+  { path: "/settings", label: "Settings", opens: "/settings/account", heading: "Account" },
+  { path: "/admin", label: "Admin", opens: "/admin/workspaces", heading: "Workspaces" },
+] as const;
+
+/** The pages of Settings and Admin, as web/src/features/settings/groups.ts lists them. */
+export const SETTINGS_PAGES = [
+  { slug: "account", path: "/settings/account", label: "Account" },
+  { slug: "assistants", path: "/settings/assistants", label: "Assistants" },
+  { slug: "usage", path: "/settings/usage", label: "Usage" },
+] as const;
+export const ADMIN_PAGES = [
+  { slug: "workspaces", path: "/admin/workspaces", label: "Workspaces" },
+  { slug: "unattended-writes", path: "/admin/unattended-writes", label: "Unattended writes" },
+  { slug: "providers", path: "/admin/providers", label: "Model providers" },
+  { slug: "langsmith", path: "/admin/langsmith", label: "LangSmith" },
+  { slug: "tools", path: "/admin/tools", label: "Tools" },
+  { slug: "assistants", path: "/admin/assistants", label: "Connected apps" },
+  { slug: "audit", path: "/admin/audit", label: "Audit log" },
+  { slug: "usage", path: "/admin/usage", label: "Usage" },
+  { slug: "retention", path: "/admin/retention", label: "Retention" },
 ] as const;
 
 /** Makes every page this browser opens start in the given palette, the way a stored choice does. */

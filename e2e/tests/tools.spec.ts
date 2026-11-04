@@ -15,7 +15,7 @@ for (const scheme of SCHEMES) {
   test(`an administrator adds a tool, sees it ready and removes it, in ${scheme} @desktop`, async ({ page }) => {
     const address = freshTool();
     await startInScheme(page, scheme);
-    await page.goto("/settings");
+    await page.goto("/admin/tools");
     const form = page.locator("[data-add-tool]");
     await form.getByLabel("Address").fill(address);
     await form.locator('[data-action="add-tool"]').click();
@@ -32,7 +32,7 @@ for (const scheme of SCHEMES) {
 }
 
 test("a tool without OAuth is refused with what it lacks @desktop", async ({ page }) => {
-  await page.goto("/settings");
+  await page.goto("/admin/tools");
   const form = page.locator("[data-add-tool]");
   // The double's meta answers at any path; one without OAuth is a tenant made so through the control API, which the
   // browser cannot reach, so an address that is no tool at all stands in for the refusal here.
@@ -45,11 +45,11 @@ test("a tool without OAuth is refused with what it lacks @desktop", async ({ pag
 test.describe("as a member", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test("the tools are listed without a way to add or remove one @desktop", async ({ page }) => {
-    await signIn(page, PEOPLE.bob, "/settings");
-    await expect(page.locator("[data-tools]")).toBeVisible();
+  test("the tools are refused, with no way to add or remove one @desktop", async ({ page }) => {
+    await signIn(page, PEOPLE.bob, "/admin/tools");
+    await expect(page.locator("[data-admin-refused]")).toBeVisible();
+    await expect(page.locator("[data-tools]")).toHaveCount(0);
     await expect(page.locator("[data-add-tool]")).toHaveCount(0);
-    await expect(page.locator('[data-action="remove-tool"]')).toHaveCount(0);
     await expectAccessible(page);
   });
 });

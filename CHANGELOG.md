@@ -450,6 +450,16 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Settings and Admin are laid out as pages with a side nav, each using the
+  page's width, instead of one long column of narrow cards (#199). Settings
+  holds your own Account, Assistants and Usage; Admin, which the sidebar
+  shows to administrators alone, holds Work (Workspaces, Unattended writes),
+  Integrations (Model providers, LangSmith, Tools, Connected apps) and
+  Records (Audit log, everyone's Usage and the limits, Retention). Anybody
+  else who opens an Admin page is told it is for administrators. Members no
+  longer see the list of tools in Settings. The audit log moved to
+  `/admin/audit`, and the old `/settings/audit` link leads there. Below a
+  wide screen the side nav is a row that scrolls sideways.
 - The sandbox namespace is named from the release by default,
   `<release namespace>-<fullname>-sandboxes`, or `<fullname>-sandboxes` when
   the two are the same, so two installs in one cluster never share one
