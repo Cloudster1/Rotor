@@ -30,7 +30,7 @@ function echo(name: string): string {
 /** Adds a tool of its own at the double as alice and answers its address and id. */
 async function addTool(page: Page): Promise<{ address: string; id: string }> {
   const address = `${toolStubURL()}/t/e2e-${randomUUID().slice(0, 12)}`;
-  await page.goto("/settings");
+  await page.goto("/admin/tools");
   const form = page.locator("[data-add-tool]");
   await form.getByLabel("Address").fill(address);
   await form.locator('[data-action="add-tool"]').click();
@@ -68,7 +68,7 @@ for (const scheme of SCHEMES) {
     const { address, id } = await addTool(page);
     try {
       await startInScheme(page, scheme);
-      await page.goto("/settings");
+      await page.goto("/admin/tools");
       const row = page.locator("[data-tools] li", { hasText: address });
       const hook = row.locator("[data-hook]");
       await expect(hook.locator("[data-hook-url]")).toHaveValue(new RegExp(`/api/v1/hooks/${id}$`));
@@ -116,7 +116,7 @@ for (const scheme of SCHEMES) {
       }).toPass({ timeout: 60_000 });
       await expectAccessible(page);
     } finally {
-      await page.goto("/settings");
+      await page.goto("/admin/tools");
       const row = page.locator("[data-tools] li", { hasText: address });
       await row.locator('[data-action="remove-tool"]').click();
       await row.locator('[data-action="confirm-remove"]').click();

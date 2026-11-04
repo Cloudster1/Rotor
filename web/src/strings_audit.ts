@@ -3,9 +3,6 @@ export const audit = {
   title: "Audit log",
   intro:
     "Who did what, and what Rotor did on its own: sign-ins, connections, tokens, workflows, runs and their sandboxes, approvals and triggers. Nothing in it can be changed or removed.",
-  open: "Open the audit log",
-  settingsBody: "Read and export everything that was done in Rotor.",
-  notAllowed: "Only administrators read the audit log.",
   filters: "Filters",
   action: "Action",
   everyAction: "Every action",

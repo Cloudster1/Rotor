@@ -22,7 +22,7 @@ describe("the retention setting", () => {
   it("shows how long runs are kept and lets an administrator change it", async () => {
     const sent: unknown[] = [];
     let current: { runDataDays: number; maxDays: number; changedBy: string | null; updatedAt: string } = { ...RETENTION_DEFAULT };
-    await renderAt("/settings", {
+    await renderAt("/admin/retention", {
       answers: {
         "/api/v1/settings/retention": () => Response.json(current),
         "PUT /api/v1/settings/retention": async (request: Request) => {
@@ -52,9 +52,9 @@ describe("the retention setting", () => {
     expect(sent.at(-1)).toEqual({ runDataDays: 30 });
   });
 
-  it("is not shown to members", async () => {
-    await renderAt("/settings", { me: { ...ME, role: "member" } });
-    await screen.findByRole("heading", { level: 1 });
+  it("refuses members", async () => {
+    await renderAt("/admin/retention", { me: { ...ME, role: "member" } });
+    expect(await screen.findByRole("alert")).toHaveTextContent(s.admin.notAllowed);
     expect(screen.queryByRole("region", { name: s.retention.title })).toBeNull();
   });
 });

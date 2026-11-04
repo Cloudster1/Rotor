@@ -5,7 +5,6 @@ const dollars = (amount: number) => `${amount.toFixed(2)} USD`;
 export const usageStrings = {
   title: "Usage",
   body: "What your runs' model calls used, counted in UTC days, and the limits that bind you.",
-  open: "See your usage",
   loading: "Asking the server for the usage.",
   today: "Today",
   month: "This month",

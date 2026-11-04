@@ -2,10 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useEffect, useId, useState } from "react";
 import { hookQuery, hookQueryKey, removeHookSecret, setHookSecret } from "@/api/hooks";
 import { COPIED_NOTICE_MS } from "@/config";
+import { input, secondary } from "@/features/settings/styles";
 import { s } from "@/strings";
-
-const input = "h-9 w-full rounded-control border border-border-strong bg-surface px-3 text-sm text-ink";
-const secondary = "h-8 rounded-control border border-border-strong px-3 text-sm font-medium text-ink hover:bg-surface-raised disabled:opacity-60";
 
 function when(at: string): string {
   return new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });

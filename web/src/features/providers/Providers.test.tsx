@@ -26,13 +26,13 @@ const ANTHROPIC: Provider = {
 
 describe("the model providers", () => {
   it("are for administrators alone", async () => {
-    await renderAt("/settings", { me: { ...ME, role: "member", groups: [] } });
-    await screen.findByRole("heading", { name: s.tools.title });
+    await renderAt("/admin/providers", { me: { ...ME, role: "member", groups: [] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent(s.admin.notAllowed);
     expect(screen.queryByRole("heading", { name: s.providers.title })).not.toBeInTheDocument();
   });
 
   it("are listed with their models, default and key, and a test says what the provider answered", async () => {
-    await renderAt("/settings", {
+    await renderAt("/admin/providers", {
       answers: {
         "/api/v1/providers": { providers: [ANTHROPIC] },
         [`POST /api/v1/providers/${ANTHROPIC.id}/test`]: { ok: false, message: "The provider refused the key. Check it, then test again.", models: [] },
@@ -49,7 +49,7 @@ describe("the model providers", () => {
   it("are added with a key that is sent once and never shown", async () => {
     let sent: Record<string, unknown> | undefined;
     let providers: Provider[] = [];
-    await renderAt("/settings", {
+    await renderAt("/admin/providers", {
       answers: {
         "/api/v1/providers": () => Response.json({ providers }),
         "POST /api/v1/providers": async (request: Request) => {
@@ -75,7 +75,7 @@ describe("the model providers", () => {
   });
 
   it("pass axe with the form open", async () => {
-    await renderAt("/settings", { answers: { "/api/v1/providers": { providers: [ANTHROPIC] } } });
+    await renderAt("/admin/providers", { answers: { "/api/v1/providers": { providers: [ANTHROPIC] } } });
     await userEvent.click(await screen.findByRole("button", { name: s.providers.edit }));
     await screen.findByRole("heading", { name: s.providers.form.editTitle("Anthropic") });
     expect(await axeViolations()).toEqual([]);

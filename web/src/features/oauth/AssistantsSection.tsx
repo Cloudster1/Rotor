@@ -1,10 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endGrant, type Grant, grantsQuery, grantsQueryKey } from "@/api/oauth";
+import { dangerQuiet } from "@/features/settings/styles";
+import { SettingsCard } from "@/features/settings/ui";
 import { s } from "@/strings";
-
-const card = "max-w-xl rounded-overlay border border-border bg-surface p-5 shadow-1";
-export const danger =
-  "h-8 rounded-control border border-border-strong bg-surface px-3 text-sm font-medium text-danger hover:bg-surface-sunken disabled:opacity-60";
 
 export function when(at: string): string {
   return new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
@@ -26,11 +24,7 @@ export function AssistantsSection() {
     onSettled: () => client.invalidateQueries({ queryKey: grantsQueryKey }),
   });
   return (
-    <section className={card} aria-labelledby="assistants-title" data-assistants>
-      <h2 id="assistants-title" className="mb-1 text-lg font-semibold text-ink">
-        {s.assistants.sectionTitle}
-      </h2>
-      <p className="mb-3 text-sm text-ink-muted">{s.assistants.sectionBody}</p>
+    <SettingsCard titleId="assistants-title" title={s.assistants.sectionTitle} description={s.assistants.sectionBody} wide data-assistants>
       {grants.isPending && <p className="text-sm text-ink-muted">{s.assistants.loading}</p>}
       {grants.isError && (
         <p role="alert" className="text-sm text-danger">
@@ -53,7 +47,7 @@ export function AssistantsSection() {
               </div>
               <button
                 type="button"
-                className={danger}
+                className={dangerQuiet}
                 disabled={end.isPending}
                 aria-label={s.assistants.disconnectNamed(grant.client.name)}
                 onClick={() => end.mutate(grant.id)}
@@ -65,6 +59,6 @@ export function AssistantsSection() {
           ))}
         </ul>
       )}
-    </section>
+    </SettingsCard>
   );
 }

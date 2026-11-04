@@ -21,7 +21,7 @@ describe("the LangSmith setting", () => {
   it("is off until an administrator gives a key and confirms that run data may leave", async () => {
     const sent: Record<string, unknown>[] = [];
     let current = { ...LANGSMITH_OFF };
-    await renderAt("/settings", {
+    await renderAt("/admin/langsmith", {
       answers: {
         "/api/v1/settings/langsmith": () => Response.json(current),
         "PUT /api/v1/settings/langsmith": async (request: Request) => {
@@ -50,9 +50,9 @@ describe("the LangSmith setting", () => {
     expect(within(section).getByLabelText(s.langsmith.key)).toHaveValue("");
   });
 
-  it("is not shown to members", async () => {
-    await renderAt("/settings", { me: { ...ME, role: "member" } });
-    await screen.findByRole("heading", { level: 1 });
+  it("refuses members", async () => {
+    await renderAt("/admin/langsmith", { me: { ...ME, role: "member" } });
+    expect(await screen.findByRole("alert")).toHaveTextContent(s.admin.notAllowed);
     expect(screen.queryByRole("region", { name: s.langsmith.title })).toBeNull();
   });
 });

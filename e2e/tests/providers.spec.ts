@@ -10,7 +10,7 @@ for (const scheme of SCHEMES) {
     // The tool double's stub model takes any key, on a tenant made by first use.
     const name = `e2e-${randomUUID().slice(0, 8)}`;
     await startInScheme(page, scheme);
-    await page.goto("/settings");
+    await page.goto("/admin/providers");
     const section = page.locator("[data-providers]");
     await section.locator('[data-action="new-provider"]').click();
     const form = section.locator("[data-provider-form]");

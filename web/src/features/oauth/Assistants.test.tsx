@@ -94,7 +94,7 @@ describe("the consent page", () => {
 describe("the connected assistants", () => {
   it("lists a person's assistants and disconnects one", async () => {
     let grants = [GRANT];
-    await renderAt("/settings", {
+    await renderAt("/settings/assistants", {
       me: { ...ME, role: "member" },
       answers: {
         "/api/v1/oauth/grants": () => Response.json({ grants }),
@@ -115,7 +115,7 @@ describe("the connected assistants", () => {
   it("lets an administrator switch assistants off and end anybody's", async () => {
     const switched: unknown[] = [];
     let everyone = [{ ...GRANT, owner: { id: "u-2", name: "Bob Member", email: "bob@suite.test" } }];
-    await renderAt("/settings", {
+    await renderAt("/admin/assistants", {
       answers: {
         "/api/v1/oauth/grants/everyone": () => Response.json({ grants: everyone }),
         "PUT /api/v1/settings/assistants": async (request: Request) => {

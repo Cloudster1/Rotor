@@ -9,7 +9,7 @@ const SCHEMES: ColourScheme[] = ["light", "dark"];
 /** Adds a tool of its own at the double as alice, the administrator the default browser is signed in as. */
 async function addTool(page: Page): Promise<string> {
   const address = `${toolStubURL()}/t/e2e-${randomUUID().slice(0, 12)}`;
-  await page.goto("/settings");
+  await page.goto("/admin/tools");
   const form = page.locator("[data-add-tool]");
   await form.getByLabel("Address").fill(address);
   await form.locator('[data-action="add-tool"]').click();
@@ -18,7 +18,7 @@ async function addTool(page: Page): Promise<string> {
 }
 
 async function removeTool(page: Page, address: string): Promise<void> {
-  await page.goto("/settings");
+  await page.goto("/admin/tools");
   const row = page.locator("[data-tools] li", { hasText: address });
   await row.locator('[data-action="remove-tool"]').click();
   await row.locator('[data-action="confirm-remove"]').click();

@@ -3,9 +3,11 @@ import type { IconName } from "./icons";
 
 /** A page the reader can go to; the sidebar lists them in this order. */
 export interface Place {
-  path: "/workflows" | "/runs" | "/approvals" | "/connections" | "/settings";
+  path: "/workflows" | "/runs" | "/approvals" | "/connections" | "/settings" | "/admin";
   icon: IconName;
   label: string;
+  /** Shown to administrators alone; anybody else would only be refused there. */
+  adminOnly?: boolean;
 }
 
 export const PLACES: readonly Place[] = [
@@ -14,4 +16,5 @@ export const PLACES: readonly Place[] = [
   { path: "/approvals", icon: "Approval", label: s.places.approvals },
   { path: "/connections", icon: "Connection", label: s.places.connections },
   { path: "/settings", icon: "Settings", label: s.places.settings },
+  { path: "/admin", icon: "Admin", label: s.places.admin, adminOnly: true },
 ];

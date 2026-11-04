@@ -29,7 +29,7 @@ const FACETS = { actions: ["run.started", "sandbox.spawned"], actors: [{ id: ME.
 describe("the audit log", () => {
   it("is filtered, paged by cursor and exported as CSV or JSON", async () => {
     const asked: string[] = [];
-    await renderAt("/settings/audit", {
+    await renderAt("/admin/audit", {
       answers: {
         "/api/v1/audit/facets": FACETS,
         "/api/v1/audit": (request: Request) => {
@@ -56,12 +56,15 @@ describe("the audit log", () => {
   });
 
   it("tells a member it is not theirs to read", async () => {
-    await renderAt("/settings/audit", { me: { ...ME, role: "member" } });
-    expect(await screen.findByRole("alert")).toHaveTextContent(s.audit.notAllowed);
+    await renderAt("/admin/audit", { me: { ...ME, role: "member" } });
+    expect(await screen.findByRole("alert")).toHaveTextContent(s.admin.notAllowed);
   });
 
-  it("is linked from the settings for administrators", async () => {
-    await renderAt("/settings");
-    expect(await screen.findByRole("link", { name: s.audit.open })).toHaveAttribute("href", "/settings/audit");
+  it("is a page of Admin's records, and the old address leads there", async () => {
+    const { router } = await renderAt("/settings/audit", { answers: { "/api/v1/audit/facets": FACETS, "/api/v1/audit": { entries: [], next: null } } });
+    await waitFor(() => expect(router.state.location.pathname).toBe("/admin/audit"));
+    expect(await screen.findByRole("heading", { level: 1, name: s.audit.title })).toBeInTheDocument();
+    const nav = screen.getByRole("navigation", { name: s.admin.nav });
+    expect(within(nav).getByRole("link", { name: s.admin.pages.audit })).toHaveAttribute("aria-current", "page");
   });
 });

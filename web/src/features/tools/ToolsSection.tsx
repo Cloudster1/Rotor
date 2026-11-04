@@ -1,52 +1,42 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useId, useState } from "react";
-import { meQuery } from "@/api/auth";
 import { ApiError } from "@/api/client";
 import { addTool, checkTool, lacks, removeTool, type Tool, toolName, toolsQuery, toolsQueryKey } from "@/api/tools";
 import { CAPABILITY_WEBHOOKS, CONNECTION_CALLBACK_PATH, HOOK_PRODUCTS } from "@/config";
+import { danger, input, item, itemGrid, primary, secondary } from "@/features/settings/styles";
+import { SettingsCard } from "@/features/settings/ui";
 import { s } from "@/strings";
 import { HookPanel } from "./HookPanel";
-
-const card = "max-w-xl rounded-overlay border border-border bg-surface p-5 shadow-1";
-const input = "h-9 w-full rounded-control border border-border-strong bg-surface px-3 text-sm text-ink";
-const primary = "h-9 rounded-control bg-accent px-4 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-60";
-const secondary = "h-8 rounded-control border border-border-strong px-3 text-sm font-medium text-ink hover:bg-surface-raised disabled:opacity-60";
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** The tools Rotor acts in; an administrator adds, registers again and removes them here. */
+/** The tools Rotor acts in, for administrators to add, register again and remove. */
 export function ToolsSection() {
   const tools = useQuery(toolsQuery);
-  const me = useQuery(meQuery);
-  const admin = me.data?.role === "admin";
   return (
-    <section className={card} aria-labelledby="tools-title" data-tools>
-      <h2 id="tools-title" className="mb-1 text-lg font-semibold text-ink">
-        {s.tools.title}
-      </h2>
-      <p className="mb-4 text-sm text-ink-muted">{s.tools.body}</p>
+    <SettingsCard titleId="tools-title" title={s.tools.title} description={s.tools.body} wide data-tools>
       {tools.isPending && <p className="text-sm text-ink-muted">{s.tools.loading}</p>}
       {tools.isError && (
         <p role="alert" className="text-sm text-danger">
           {tools.error instanceof ApiError ? tools.error.message : s.tools.unreachable}
         </p>
       )}
-      {tools.data && tools.data.length === 0 && <p className="text-sm text-ink-muted">{admin ? s.tools.noneAdmin : s.tools.none}</p>}
+      {tools.data && tools.data.length === 0 && <p className="mb-4 text-sm text-ink-muted">{s.tools.none}</p>}
       {tools.data && tools.data.length > 0 && (
-        <ul className="mb-4 flex flex-col gap-3">
+        <ul className={`mb-4 ${itemGrid}`}>
           {tools.data.map((tool) => (
-            <ToolRow key={tool.id} tool={tool} admin={admin} />
+            <ToolRow key={tool.id} tool={tool} />
           ))}
         </ul>
       )}
-      {admin && <AddTool />}
-    </section>
+      <AddTool />
+    </SettingsCard>
   );
 }
 
-function ToolRow({ tool, admin }: { tool: Tool; admin: boolean }) {
+function ToolRow({ tool }: { tool: Tool }) {
   const client = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const remove = useMutation({ mutationFn: () => removeTool(tool.id), onSuccess: () => client.invalidateQueries({ queryKey: toolsQueryKey }) });
@@ -56,7 +46,7 @@ function ToolRow({ tool, admin }: { tool: Tool; admin: boolean }) {
   const name = toolName(tool);
   const ready = tool.status === "ready";
   return (
-    <li className="rounded-control border border-border p-3" data-tool={tool.name} data-status={tool.status}>
+    <li className={item} data-tool={tool.name} data-status={tool.status}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="font-medium text-ink">{name}</span>
         <span className={`rounded-control px-2 py-0.5 text-xs ${ready ? "bg-success-subtle text-success" : "bg-warning-subtle text-warning"}`}>
@@ -83,40 +73,32 @@ function ToolRow({ tool, admin }: { tool: Tool; admin: boolean }) {
           </>
         )}
       </dl>
-      {admin && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {tool.status === "needs_registration" && (
-            <button type="button" className={secondary} disabled={again.isPending} onClick={() => again.mutate()} data-action="register-again">
-              {s.tools.registerAgain}
-            </button>
-          )}
-          <button type="button" className={secondary} disabled={check.isPending} onClick={() => check.mutate()} data-action="check-tool">
-            {check.isPending ? s.capabilities.checking : s.capabilities.checkAgain}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {tool.status === "needs_registration" && (
+          <button type="button" className={secondary} disabled={again.isPending} onClick={() => again.mutate()} data-action="register-again">
+            {s.tools.registerAgain}
           </button>
-          {!confirming ? (
-            <button type="button" className={secondary} onClick={() => setConfirming(true)} data-action="remove-tool">
-              {s.tools.remove}
+        )}
+        <button type="button" className={secondary} disabled={check.isPending} onClick={() => check.mutate()} data-action="check-tool">
+          {check.isPending ? s.capabilities.checking : s.capabilities.checkAgain}
+        </button>
+        {!confirming ? (
+          <button type="button" className={secondary} onClick={() => setConfirming(true)} data-action="remove-tool">
+            {s.tools.remove}
+          </button>
+        ) : (
+          <span className="flex flex-wrap items-center gap-2" role="group" aria-label={s.tools.confirmRemove(name)}>
+            <span className="text-sm text-ink">{s.tools.confirmRemove(name)}</span>
+            <button type="button" className={danger} disabled={remove.isPending} onClick={() => remove.mutate()} data-action="confirm-remove">
+              {s.tools.confirm}
             </button>
-          ) : (
-            <span className="flex flex-wrap items-center gap-2" role="group" aria-label={s.tools.confirmRemove(name)}>
-              <span className="text-sm text-ink">{s.tools.confirmRemove(name)}</span>
-              <button
-                type="button"
-                className="h-8 rounded-control bg-danger px-3 text-sm font-medium text-on-danger hover:bg-danger-hover disabled:opacity-60"
-                disabled={remove.isPending}
-                onClick={() => remove.mutate()}
-                data-action="confirm-remove"
-              >
-                {s.tools.confirm}
-              </button>
-              <button type="button" className={secondary} onClick={() => setConfirming(false)}>
-                {s.tools.keep}
-              </button>
-            </span>
-          )}
-        </div>
-      )}
-      {admin && (HOOK_PRODUCTS as readonly string[]).includes(tool.name) && !lacks(tool, CAPABILITY_WEBHOOKS) && <HookPanel toolID={tool.id} name={name} />}
+            <button type="button" className={secondary} onClick={() => setConfirming(false)}>
+              {s.tools.keep}
+            </button>
+          </span>
+        )}
+      </div>
+      {(HOOK_PRODUCTS as readonly string[]).includes(tool.name) && !lacks(tool, CAPABILITY_WEBHOOKS) && <HookPanel toolID={tool.id} name={name} />}
       {check.isSuccess && (
         <p role="status" className="mt-2 text-sm text-success">
           {s.capabilities.checked(name)}
@@ -157,7 +139,7 @@ function AddTool() {
       <h3 id={`${id}-title`} className="text-base font-semibold text-ink">
         {s.tools.add.title}
       </h3>
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 lg:max-w-2xl">
         <label htmlFor={`${id}-url`} className="text-sm font-medium text-ink">
           {s.tools.add.baseURL}
         </label>
@@ -180,25 +162,29 @@ function AddTool() {
         {s.tools.add.manual}
       </label>
       {manual && (
-        <div className="flex flex-col gap-2">
-          <p className="break-words text-xs text-ink-muted">{s.tools.add.manualHint(redirect)}</p>
-          <label htmlFor={`${id}-client`} className="text-sm font-medium text-ink">
-            {s.tools.add.clientID}
-          </label>
-          <input id={`${id}-client`} name="clientID" required className={input} value={clientID} onChange={(e) => setClientID(e.target.value)} />
-          <label htmlFor={`${id}-secret`} className="text-sm font-medium text-ink">
-            {s.tools.add.clientSecret}
-          </label>
-          <input
-            id={`${id}-secret`}
-            name="clientSecret"
-            type="password"
-            autoComplete="off"
-            required
-            className={input}
-            value={clientSecret}
-            onChange={(e) => setClientSecret(e.target.value)}
-          />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <p className="break-words text-xs text-ink-muted sm:col-span-2">{s.tools.add.manualHint(redirect)}</p>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={`${id}-client`} className="text-sm font-medium text-ink">
+              {s.tools.add.clientID}
+            </label>
+            <input id={`${id}-client`} name="clientID" required className={input} value={clientID} onChange={(e) => setClientID(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={`${id}-secret`} className="text-sm font-medium text-ink">
+              {s.tools.add.clientSecret}
+            </label>
+            <input
+              id={`${id}-secret`}
+              name="clientSecret"
+              type="password"
+              autoComplete="off"
+              required
+              className={input}
+              value={clientSecret}
+              onChange={(e) => setClientSecret(e.target.value)}
+            />
+          </div>
         </div>
       )}
       {add.isError && (

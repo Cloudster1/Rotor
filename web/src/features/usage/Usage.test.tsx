@@ -48,7 +48,7 @@ describe("usage", () => {
 
   it("lets an administrator set the limits on everyone and see everyone's usage", async () => {
     let sent: Record<string, unknown> | undefined;
-    await renderAt("/settings/usage", {
+    await renderAt("/admin/usage", {
       answers: {
         "/api/v1/usage": USAGE,
         "/api/v1/usage/people": { people: [{ person: { id: ME.user.id, name: ME.user.name }, today: USAGE.today, month: USAGE.month }] },
@@ -69,7 +69,7 @@ describe("usage", () => {
 
   it("lets an administrator price a provider's models", async () => {
     let sent: unknown;
-    await renderAt("/settings", {
+    await renderAt("/admin/providers", {
       answers: {
         "/api/v1/providers": { providers: [STUB] },
         [`/api/v1/providers/${STUB.id}/prices`]: { prices: [] },

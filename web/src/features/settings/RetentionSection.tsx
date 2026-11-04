@@ -2,20 +2,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useId, useState } from "react";
 import { type Retention, retentionQuery, retentionQueryKey, setRetention } from "@/api/retention";
 import { s } from "@/strings";
-
-const card = "max-w-xl rounded-overlay border border-border bg-surface p-5 shadow-1";
-const input = "h-9 w-32 rounded-control border border-border-strong bg-surface px-3 text-sm text-ink";
-const primary = "h-9 rounded-control bg-accent px-4 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-60";
+import { input, primary } from "./styles";
+import { SettingsCard } from "./ui";
 
 /** How long a finished run's data is kept, for administrators (#41). */
 export function RetentionSection() {
   const setting = useQuery(retentionQuery);
   return (
-    <section className={card} aria-labelledby="retention-title" data-retention>
-      <h2 id="retention-title" className="mb-1 text-lg font-semibold text-ink">
-        {s.retention.title}
-      </h2>
-      <p className="mb-3 text-sm text-ink-muted">{s.retention.body}</p>
+    <SettingsCard titleId="retention-title" title={s.retention.title} description={s.retention.body} data-retention>
       {setting.isPending && <p className="text-sm text-ink-muted">{s.retention.loading}</p>}
       {setting.isError && (
         <p role="alert" className="text-sm text-danger">
@@ -23,7 +17,7 @@ export function RetentionSection() {
         </p>
       )}
       {setting.data && <RetentionForm key={setting.data.updatedAt} current={setting.data} />}
-    </section>
+    </SettingsCard>
   );
 }
 
@@ -50,7 +44,7 @@ function RetentionForm({ current }: { current: Retention }) {
         </label>
         <input
           id={`${id}-days`}
-          className={input}
+          className={`${input} max-w-32`}
           type="number"
           inputMode="numeric"
           min={1}

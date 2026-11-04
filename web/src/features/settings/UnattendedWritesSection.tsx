@@ -2,8 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId } from "react";
 import { setUnattendedWrites, triggersQueryKey, unattendedSettingQuery, unattendedSettingQueryKey } from "@/api/triggers";
 import { s } from "@/strings";
-
-const card = "max-w-xl rounded-overlay border border-border bg-surface p-5 shadow-1";
+import { SettingsCard } from "./ui";
 
 /** Whether triggers may write through the calls their owners agreed to with no approval, for administrators (#128). */
 export function UnattendedWritesSection() {
@@ -19,13 +18,13 @@ export function UnattendedWritesSection() {
   });
   const failed = setting.error ?? toggle.error;
   return (
-    <section className={card} aria-labelledby={`${id}-title`} data-unattended-writes>
-      <h2 id={`${id}-title`} className="mb-1 text-lg font-semibold text-ink">
-        {s.triggers.unattendedSetting.title}
-      </h2>
-      <p id={`${id}-hint`} className="mb-3 text-sm text-ink-muted">
-        {s.triggers.unattendedSetting.body}
-      </p>
+    <SettingsCard
+      titleId={`${id}-title`}
+      title={s.triggers.unattendedSetting.title}
+      description={s.triggers.unattendedSetting.body}
+      descriptionId={`${id}-hint`}
+      data-unattended-writes
+    >
       {setting.data && (
         <label className="flex items-center gap-2 text-sm font-medium text-ink">
           <input
@@ -44,6 +43,6 @@ export function UnattendedWritesSection() {
           {failed.message}
         </p>
       )}
-    </section>
+    </SettingsCard>
   );
 }
