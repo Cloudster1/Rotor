@@ -6,20 +6,11 @@ import { HTTP_UNPROCESSABLE } from "@/config";
 import { fieldsOf, InputsForm, inputsOf, type Values, valuesOf } from "@/features/runs/InputsForm";
 import { s } from "@/strings";
 import { draftOf, EventFields, eventOf } from "./EventFields";
+import { currentTimeZone, formatDateTime, timeZones } from "@/lib/dates";
 
 const input = "h-9 w-full rounded-control border border-border-strong bg-surface px-3 text-sm text-ink";
 const primary = "h-9 rounded-control bg-accent px-4 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-60";
 const secondary = "h-9 rounded-control border border-border-strong px-3 text-sm font-medium text-ink hover:bg-surface-raised disabled:opacity-60";
-
-/** The zones a browser knows, UTC first; an older browser offers UTC alone. */
-function zones(): string[] {
-  const known = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
-  return ["UTC", ...known.filter((z) => z !== "UTC")];
-}
-
-function localZone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-}
 
 /** Adds a schedule to a workflow or changes one: its name, cron fields, time zone, overlap and the inputs it starts with. */
 export function TriggerForm({
@@ -44,7 +35,7 @@ export function TriggerForm({
   const fields = kind === "event" ? (fieldsOf(inputsSchema)?.filter((f) => f.name !== "event") ?? null) : fieldsOf(inputsSchema);
   const [name, setName] = useState(existing?.name ?? "");
   const [cron, setCron] = useState(existing?.schedule?.cron ?? "0 8 * * 1");
-  const [zone, setZone] = useState(existing?.schedule?.timeZone ?? localZone());
+  const [zone, setZone] = useState(existing?.schedule?.timeZone ?? currentTimeZone());
   const [noOverlap, setNoOverlap] = useState(existing?.schedule?.noOverlap ?? true);
   const [values, setValues] = useState<Values>(valuesOf(fields, existing?.inputs as Record<string, unknown> | undefined));
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -167,7 +158,7 @@ export function TriggerForm({
                 aria-describedby={described("schedule/timeZone")}
                 data-trigger-zone
               >
-                {zones().map((z) => (
+                {timeZones().map((z) => (
                   <option key={z} value={z}>
                     {z}
                   </option>
@@ -198,7 +189,7 @@ export function TriggerForm({
               <p className="text-sm font-medium text-ink">{s.triggers.nextRuns}</p>
               <ul className="text-sm text-ink" data-next-runs>
                 {nextRuns.map((at) => (
-                  <li key={at}>{new Date(at).toLocaleString(undefined, { dateStyle: "full", timeStyle: "short", timeZone: zone })}</li>
+                  <li key={at}>{formatDateTime(at, { dateStyle: "full", timeStyle: "short", timeZone: zone })}</li>
                 ))}
               </ul>
             </div>

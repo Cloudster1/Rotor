@@ -32,6 +32,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
 	"github.com/cloudster1/rotor/backend/internal/perm"
+	"github.com/cloudster1/rotor/backend/internal/preferences"
 	"github.com/cloudster1/rotor/backend/internal/providers"
 	"github.com/cloudster1/rotor/backend/internal/retention"
 	"github.com/cloudster1/rotor/backend/internal/runnerctl"
@@ -202,6 +203,7 @@ func run() error {
 	server.Audit = audit.NewService(cluster)
 	server.Retention = retention.NewService(cluster, log)
 	server.Workspaces = workspaceService
+	server.Preferences = preferences.New(cluster)
 	origins := cfg.CORSOrigins
 	if len(origins) == 0 && !cfg.IsProduction() {
 		origins = devOrigins

@@ -112,7 +112,7 @@ async function addProvider(page: Page): Promise<void> {
 
 /** Connects the signed-in person to the tool on its consent page unless they are connected. */
 async function connect(page: Page): Promise<void> {
-  await page.goto("/connections");
+  await page.goto("/settings/accounts");
   const row = page.locator(`li[data-connection="${TOOL}"]`);
   const button = row.locator('[data-action="connect"]');
   await expect(row).toBeVisible();
@@ -121,7 +121,7 @@ async function connect(page: Page): Promise<void> {
     await page.waitForURL(`${toolStubURL()}/**`);
     await page.locator("#username").fill("alice");
     await page.locator('button[data-action="allow"]').click();
-    await expect(page).toHaveURL(/\/connections\?connected=/);
+    await expect(page).toHaveURL(/\/settings\/accounts\?connected=/);
   }
   await expect(row).toHaveAttribute("data-status", "connected");
 }

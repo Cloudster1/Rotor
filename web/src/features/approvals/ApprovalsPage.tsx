@@ -5,6 +5,7 @@ import { EmptyState, PageHeader } from "@/features/shell/EmptyState";
 import { Icon } from "@/features/shell/icons";
 import { s } from "@/strings";
 import { ApprovalStatusBadge } from "./ApprovalStatusBadge";
+import { formatDateTime } from "@/lib/dates";
 
 /** The search the inbox keeps its choice in, so either list can be linked and reloaded. */
 export interface ApprovalsSearch {
@@ -17,7 +18,7 @@ export function approvalsSearch(search: Record<string, unknown>): ApprovalsSearc
 }
 
 export function when(at: string | null): string {
-  return at ? new Date(at).toLocaleString() : "";
+  return at ? formatDateTime(at) : "";
 }
 
 /** Who decides an approval, in words: the group the node names, or the person who started the run. */

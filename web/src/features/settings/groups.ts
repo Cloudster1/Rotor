@@ -6,9 +6,11 @@ export interface SettingsNavPage {
   /** The workflow a workflow's settings page is of (#205); the other pages take no params. */
   params?: { workflowID: string };
   path:
-    | "/settings/account"
+    | "/settings/profile"
+    | "/settings/theme"
     | "/settings/assistants"
     | "/settings/usage"
+    | "/settings/accounts"
     | "/admin/access"
     | "/admin/users"
     | "/admin/workspaces"
@@ -34,13 +36,16 @@ export interface SettingsNavGroup {
   pages: readonly SettingsNavPage[];
 }
 
+// A person's own pages in the order of the suite's standard (#206): profile, theme, assistants, usage, tool accounts.
 export const SETTINGS_GROUPS: readonly SettingsNavGroup[] = [
   {
     id: "yours",
     pages: [
-      { slug: "account", path: "/settings/account", label: s.settings.pages.account },
+      { slug: "profile", path: "/settings/profile", label: s.settings.pages.profile },
+      { slug: "theme", path: "/settings/theme", label: s.settings.pages.theme },
       { slug: "assistants", path: "/settings/assistants", label: s.settings.pages.assistants },
       { slug: "usage", path: "/settings/usage", label: s.settings.pages.usage },
+      { slug: "accounts", path: "/settings/accounts", label: s.settings.pages.accounts },
     ],
   },
 ];

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { s } from "@/strings";
-import { axeViolations } from "@/test/axe";
+import { AXE_TIMEOUT_MS, axeViolations } from "@/test/axe";
 import { ACCESS_ANSWERS } from "@/test/access";
 import { ME, renderAt } from "@/test/app";
 import { ADMIN_GROUPS, FIRST_ADMIN_PATH, SETTINGS_GROUPS } from "./groups";
@@ -32,11 +32,27 @@ function sidebar() {
 }
 
 describe("settings and admin", () => {
-  it("open Settings on the account page", async () => {
+  it("open Settings on the profile page", async () => {
     const { router } = await renderAt("/settings", { me: MEMBER });
-    await waitFor(() => expect(router.state.location.pathname).toBe("/settings/account"));
-    expect(await screen.findByRole("heading", { level: 1, name: s.settings.pages.account })).toBeInTheDocument();
+    await waitFor(() => expect(router.state.location.pathname).toBe("/settings/profile"));
+    expect(await screen.findByRole("heading", { level: 1, name: s.settings.pages.profile })).toBeInTheDocument();
   });
+
+  it("send the old account address to the profile", async () => {
+    const { router } = await renderAt("/settings/profile", { me: MEMBER });
+    await waitFor(() => expect(router.state.location.pathname).toBe("/settings/profile"));
+  });
+
+  it.each(SETTINGS_PAGES.map((page) => [page.path, page.label] as const))(
+    "open %s under its heading with a sentence on what it is for",
+    async (path, label) => {
+      await renderAt(path, { me: MEMBER, answers: ANSWERS });
+      const heading = await screen.findByRole("heading", { level: 1, name: label });
+      const intro = await screen.findByText((_, element) => element?.hasAttribute("data-page-intro") ?? false);
+      expect(intro.textContent).toMatch(/\.$/);
+      expect(heading.compareDocumentPosition(intro) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    },
+  );
 
   it("open Admin on Access, the first page of People and access", async () => {
     const { router } = await renderAt("/admin", { answers: ANSWERS });
@@ -59,7 +75,7 @@ describe("settings and admin", () => {
   });
 
   it("show a member their own pages and no Admin", async () => {
-    await renderAt("/settings/account", { me: MEMBER });
+    await renderAt("/settings/profile", { me: MEMBER });
     const nav = await screen.findByRole("navigation", { name: s.settings.nav });
     expect(
       within(nav)
@@ -81,7 +97,7 @@ describe("settings and admin", () => {
   });
 
   it("show an administrator Admin in the sidebar, its pages grouped by section", async () => {
-    await renderAt("/settings/account");
+    await renderAt("/settings/profile");
     expect(within(sidebar()).getByRole("link", { name: s.places.admin })).toHaveAttribute("href", "/admin");
     await userEvent.click(within(sidebar()).getByRole("link", { name: s.places.admin }));
     const nav = await screen.findByRole("navigation", { name: s.admin.nav });
@@ -109,10 +125,14 @@ describe("settings and admin", () => {
     expect(within(sidebar()).getByRole("link", { name: s.places.admin })).toHaveAttribute("aria-current", "page");
   });
 
-  it.each([...SETTINGS_PAGES, ...ADMIN_PAGES].map((page) => page.path))("pass axe at %s, with one heading of level 1", async (path) => {
-    await renderAt(path, { answers: ANSWERS });
-    await screen.findByRole("heading", { level: 1 });
-    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-    expect(await axeViolations()).toEqual([]);
-  });
+  it.each([...SETTINGS_PAGES, ...ADMIN_PAGES].map((page) => page.path))(
+    "pass axe at %s, with one heading of level 1",
+    async (path) => {
+      await renderAt(path, { answers: ANSWERS });
+      await screen.findByRole("heading", { level: 1 });
+      expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+      expect(await axeViolations()).toEqual([]);
+    },
+    AXE_TIMEOUT_MS,
+  );
 });

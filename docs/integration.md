@@ -124,7 +124,7 @@ Checking again never registers again, so nobody's connection is lost.
 
 | Capability | What goes without it |
 |---|---|
-| `mcp@1` | Everything: the tool cannot be added, and a tool that stops offering it shows on the Connections page as needing an update, with no way to connect |
+| `mcp@1` | Everything: the tool cannot be added, and a tool that stops offering it shows under Settings, Tool accounts, as needing an update, with no way to connect |
 | `webhooks@1` | Event triggers: Rotor takes no webhook secret for the tool, so none of its events start a workflow. A hook set before keeps working |
 
 **Partner OAuth is read from the tool's metadata, not by name.** Connecting a

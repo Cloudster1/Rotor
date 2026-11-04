@@ -21,7 +21,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/vault"
 )
 
-// Codes the callback names on its redirect, for the Connections page to put in words.
+// Codes the callback names on its redirect, for Tool accounts in Settings to put in words.
 const (
 	CodeDenied      = "denied"
 	CodeExpired     = "expired"
@@ -55,7 +55,7 @@ func randomState() (string, error) {
 }
 
 // Start begins connecting the signed-in person to a tool and returns where the browser goes to consent; next is the
-// page of Rotor's the browser returns to once connected, empty for the Connections page.
+// page of Rotor's the browser returns to once connected, empty for Tool accounts in Settings.
 func (s *Service) Start(ctx context.Context, toolID uuid.UUID, next string) (string, error) {
 	p := auth.PrincipalFrom(ctx)
 	// Connecting is bound to the browser's session, which an assistant acting for the person has none of (#47).

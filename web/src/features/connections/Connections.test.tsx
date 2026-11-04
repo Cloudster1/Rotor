@@ -37,16 +37,45 @@ const CONNECTED: Connection = {
   lastUsedAt: null,
 };
 
-describe("the connections", () => {
+describe("the tool accounts", () => {
+  it("open under Settings with the sentence on what they are for", async () => {
+    await renderAt("/settings/accounts");
+    expect(await screen.findByRole("heading", { level: 1, name: s.settings.pages.accounts })).toBeInTheDocument();
+    expect(screen.getByText(s.settings.intros.accounts)).toHaveAttribute("data-page-intro");
+    const nav = screen.getByRole("navigation", { name: s.settings.nav });
+    expect(within(nav).getByRole("link", { name: s.settings.pages.accounts })).toHaveAttribute("aria-current", "page");
+    const sidebar = screen.getByRole("navigation", { name: s.shell.navigation });
+    expect(within(sidebar).getByRole("link", { name: s.places.settings })).toHaveAttribute("aria-current", "page");
+    expect(
+      within(sidebar)
+        .getAllByRole("link")
+        .map((link) => link.getAttribute("href")),
+    ).not.toContain("/connections");
+  });
+
+  it("are where the old /connections sends a browser, with what the tool said", async () => {
+    const { router } = await renderAt(`/connections?connected=${EXCITER.id}`, {
+      answers: { "/api/v1/tools": { tools: [EXCITER] }, "/api/v1/connections": { connections: [CONNECTED] } },
+    });
+    await waitFor(() => expect(router.state.location.pathname).toBe("/settings/accounts"));
+    expect(router.state.location.search).toEqual({ connected: EXCITER.id });
+    expect(await screen.findByRole("status")).toHaveTextContent(s.connections.done("Exciter"));
+    cleanup();
+    const again = await renderAt(`/connections?error=tool&tool=${EXCITER.id}`, { answers: { "/api/v1/tools": { tools: [EXCITER] } } });
+    await waitFor(() => expect(again.router.state.location.pathname).toBe("/settings/accounts"));
+    expect(again.router.state.location.search).toEqual({ error: "tool", tool: EXCITER.id });
+    expect(await screen.findByRole("alert")).toHaveTextContent(s.connections.errors.tool);
+  });
+
   it("say there is nothing to connect until a tool is added", async () => {
-    await renderAt("/connections");
+    await renderAt("/settings/accounts");
     expect(await screen.findByRole("heading", { level: 2, name: s.connections.emptyTitle })).toBeInTheDocument();
   });
 
   it("show each tool with what was allowed, and send the browser to consent at one not connected", async () => {
     const assign = vi.fn();
     vi.stubGlobal("location", { ...window.location, assign });
-    await renderAt("/connections", {
+    await renderAt("/settings/accounts", {
       answers: {
         "/api/v1/tools": { tools: [EXCITER, STATOR] },
         "/api/v1/connections": { connections: [CONNECTED] },
@@ -65,18 +94,18 @@ describe("the connections", () => {
   });
 
   it("say what came back from the tool", async () => {
-    await renderAt(`/connections?connected=${EXCITER.id}`, {
+    await renderAt(`/settings/accounts?connected=${EXCITER.id}`, {
       answers: { "/api/v1/tools": { tools: [EXCITER] }, "/api/v1/connections": { connections: [CONNECTED] } },
     });
     expect(await screen.findByRole("status")).toHaveTextContent(s.connections.done("Exciter"));
     cleanup();
-    await renderAt("/connections?error=denied", { answers: { "/api/v1/tools": { tools: [EXCITER] } } });
+    await renderAt("/settings/accounts?error=denied", { answers: { "/api/v1/tools": { tools: [EXCITER] } } });
     expect(await screen.findByRole("alert")).toHaveTextContent(s.connections.errors.denied);
   });
 
   it("end after a confirmation, and offer to connect again one the tool ended", async () => {
     let connections: Connection[] = [CONNECTED, { ...CONNECTED, tool: { ...CONNECTED.tool, id: STATOR.id, name: "stator" }, status: "reconnect" }];
-    const { fetch } = await renderAt("/connections", {
+    const { fetch } = await renderAt("/settings/accounts", {
       answers: {
         "/api/v1/tools": { tools: [EXCITER, STATOR] },
         "/api/v1/connections": () => Response.json({ connections }),
@@ -100,7 +129,7 @@ describe("the connections", () => {
 
   it("say what to update at a tool that stopped offering MCP, instead of offering to connect", async () => {
     const outdated: Tool = { ...STATOR, missing: [{ capability: "mcp@1", message: "Stator does not offer mcp@1." }] };
-    await renderAt("/connections", { answers: { "/api/v1/tools": { tools: [outdated] }, "/api/v1/connections": { connections: [] } } });
+    await renderAt("/settings/accounts", { answers: { "/api/v1/tools": { tools: [outdated] }, "/api/v1/connections": { connections: [] } } });
     const stator = await screen.findByRole("listitem", { name: "Stator" });
     expect(within(stator).getByText(s.connections.status.outdated)).toBeInTheDocument();
     expect(within(stator).getByText(s.capabilities.lacks("Stator", "mcp@1"))).toBeInTheDocument();
@@ -109,14 +138,14 @@ describe("the connections", () => {
 
   it("offer to connect a tool still waiting to allow Rotor, saying how it is allowed", async () => {
     const armature: Tool = { ...STATOR, name: "armature", status: "awaiting_approval" };
-    await renderAt("/connections", { answers: { "/api/v1/tools": { tools: [armature] }, "/api/v1/connections": { connections: [] } } });
+    await renderAt("/settings/accounts", { answers: { "/api/v1/tools": { tools: [armature] }, "/api/v1/connections": { connections: [] } } });
     const row = await screen.findByRole("listitem", { name: "Armature" });
     expect(within(row).getByText(s.capabilities.awaiting("Armature"))).toBeInTheDocument();
     expect(within(row).getByRole("button", { name: s.connections.connect("Armature") })).toBeInTheDocument();
   });
 
   it("pass axe", async () => {
-    await renderAt("/connections?error=mismatch", {
+    await renderAt("/settings/accounts?error=mismatch", {
       answers: {
         "/api/v1/tools": { tools: [EXCITER, { ...STATOR, status: "needs_registration" }] },
         "/api/v1/connections": { connections: [CONNECTED] },

@@ -76,12 +76,12 @@ test("a run that acts in a tool the person has not connected offers it, then sta
   const bob = await context.newPage();
   try {
     // alice connects, so the workflow saves against what the tool offers, and makes Everyone its runner.
-    await page.goto("/connections");
+    await page.goto("/settings/accounts");
     await page.locator("li[data-connection]", { hasText: address }).locator('[data-action="connect"]').click();
     await page.waitForURL(`${toolStubURL()}/**`);
     await page.locator("#username").fill(PEOPLE.alice.username);
     await page.locator('button[data-action="allow"]').click();
-    await expect(page).toHaveURL(/\/connections\?connected=/);
+    await expect(page).toHaveURL(/\/settings\/accounts\?connected=/);
     const id = await createWorkflow(page, greeter(`e2e-${product}`, product));
     await grantOnWorkflow(page, id, "runner", { groupId: await everyoneGroupID(page) });
 

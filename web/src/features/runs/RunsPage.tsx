@@ -7,6 +7,7 @@ import { EmptyState, PageHeader } from "@/features/shell/EmptyState";
 import { Icon } from "@/features/shell/icons";
 import { s } from "@/strings";
 import { RunStatusBadge } from "./RunStatusBadge";
+import { formatDateTime } from "@/lib/dates";
 
 const select = "h-9 rounded-control border border-border-strong bg-surface px-3 text-sm text-ink";
 
@@ -24,7 +25,7 @@ export function runsSearch(search: Record<string, unknown>): RunsSearch {
 }
 
 function when(at: string | null): string {
-  return at ? new Date(at).toLocaleString() : "";
+  return at ? formatDateTime(at) : "";
 }
 
 /** The runs the person may see, newest first, narrowed by workflow, state and whether they started them. */

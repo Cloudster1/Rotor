@@ -4,9 +4,10 @@ import { hookQuery, hookQueryKey, removeHookSecret, setHookSecret } from "@/api/
 import { COPIED_NOTICE_MS } from "@/config";
 import { input, secondary } from "@/features/settings/styles";
 import { s } from "@/strings";
+import { DATE_AND_TIME, formatDateTime } from "@/lib/dates";
 
 function when(at: string): string {
-  return new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return formatDateTime(at, DATE_AND_TIME);
 }
 
 /** Where a tool delivers its events, and the secret it signs them with, for an administrator to set up (#35). */

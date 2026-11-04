@@ -32,7 +32,7 @@ for (const scheme of SCHEMES) {
     const bob = await context.newPage();
     try {
       await startInScheme(bob, scheme);
-      await signIn(bob, PEOPLE.bob, "/connections");
+      await signIn(bob, PEOPLE.bob, "/settings/accounts");
       const card = bob.locator("li[data-connection]", { hasText: address });
       await expect(card).toHaveAttribute("data-status", "none");
       await expectAccessible(bob);
@@ -41,7 +41,7 @@ for (const scheme of SCHEMES) {
       await bob.waitForURL(`${toolStubURL()}/**`);
       await bob.locator("#username").fill(PEOPLE.bob.username);
       await bob.locator('button[data-action="allow"]').click();
-      await expect(bob).toHaveURL(/\/connections\?connected=/);
+      await expect(bob).toHaveURL(/\/settings\/accounts\?connected=/);
       await expect(bob.locator("[data-connected]")).toBeVisible();
       await expect(card).toHaveAttribute("data-status", "connected");
       await expect(card.locator("[data-scopes]")).toContainText("mcp");
@@ -61,12 +61,12 @@ for (const scheme of SCHEMES) {
 test("cancelling at the tool says so, and connects nothing @desktop", async ({ page }) => {
   const address = await addTool(page);
   try {
-    await page.goto("/connections");
+    await page.goto("/settings/accounts");
     const card = page.locator("li[data-connection]", { hasText: address });
     await card.locator('[data-action="connect"]').click();
     await page.waitForURL(`${toolStubURL()}/**`);
     await page.locator('button[data-action="deny"]').click();
-    await expect(page).toHaveURL(/\/connections\?error=denied/);
+    await expect(page).toHaveURL(/\/settings\/accounts\?error=denied/);
     await expect(page.locator("[data-connect-error]")).toBeVisible();
     await expect(card).toHaveAttribute("data-status", "none");
     await expectAccessible(page);

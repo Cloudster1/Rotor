@@ -5,9 +5,10 @@ import { admitJoinRequest, declineJoinRequest, type JoinRequest, joinRequestsQue
 import { Refusal } from "@/features/access/ui";
 import { card, primary, secondary } from "@/features/settings/styles";
 import { s } from "@/strings";
+import { DATE_AND_TIME, formatDateTime } from "@/lib/dates";
 
 function asked(at: string): string {
-  return new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return formatDateTime(at, DATE_AND_TIME);
 }
 
 /**

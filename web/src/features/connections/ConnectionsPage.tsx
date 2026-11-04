@@ -3,9 +3,11 @@ import { useState } from "react";
 import { type Connection, connectionsQuery, connectionsQueryKey, disconnect, startConnection } from "@/api/connections";
 import { lacks, type Tool, toolName, toolsQuery } from "@/api/tools";
 import { CAPABILITY_MCP } from "@/config";
+import { PageIntro } from "@/features/settings/ui";
 import { EmptyState, PageHeader } from "@/features/shell/EmptyState";
 import { Icon } from "@/features/shell/icons";
 import { s } from "@/strings";
+import { DATE_AND_TIME, formatDateTime } from "@/lib/dates";
 
 const primary = "h-9 rounded-control bg-accent px-4 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-60";
 const secondary = "h-8 rounded-control border border-border-strong px-3 text-sm font-medium text-ink hover:bg-surface-raised disabled:opacity-60";
@@ -17,6 +19,15 @@ export interface ConnectionsSearch {
   tool?: string;
 }
 
+/** Reads the callback's answer from an address, at Tool accounts and at the old /connections that sends on to it. */
+export function connectionsSearch(search: Record<string, unknown>): ConnectionsSearch {
+  return {
+    connected: typeof search.connected === "string" ? search.connected : undefined,
+    error: typeof search.error === "string" ? search.error : undefined,
+    tool: typeof search.tool === "string" ? search.tool : undefined,
+  };
+}
+
 function reason(error: string): string {
   const known: Record<string, string> = s.connections.errors;
   return known[error] ?? s.connections.errors.tool;
@@ -24,10 +35,10 @@ function reason(error: string): string {
 
 function when(at: string | null | undefined): string {
   if (!at) return s.connections.never;
-  return new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return formatDateTime(at, DATE_AND_TIME);
 }
 
-/** Each tool Rotor knows, with the person's connection to it: connect, see what was allowed, disconnect. */
+/** Tool accounts under Settings (#206): each tool Rotor knows with the person's connection to it, to connect or end. */
 export function ConnectionsPage({ search }: { search: ConnectionsSearch }) {
   const tools = useQuery(toolsQuery);
   const connections = useQuery(connectionsQuery);
@@ -37,7 +48,10 @@ export function ConnectionsPage({ search }: { search: ConnectionsSearch }) {
   const Glyph = Icon.Connection;
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={s.places.connections} />
+      <div>
+        <PageHeader title={s.settings.pages.accounts} />
+        <PageIntro>{s.settings.intros.accounts}</PageIntro>
+      </div>
       {search.connected && connectedTool && (
         <p role="status" className="max-w-xl rounded-control border border-success bg-success-subtle px-3 py-2 text-sm text-success" data-connected>
           {s.connections.done(toolName(connectedTool))}

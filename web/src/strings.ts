@@ -7,7 +7,7 @@ import { untrustedStrings } from "./strings_untrusted";
 import { canvasStrings } from "./strings_canvas";
 import { assistantStrings } from "./strings_assistants";
 import { workspacesStrings } from "./strings_workspaces";
-import { accountStrings, adminStrings, settingsStrings } from "./strings_settings";
+import { accountStrings, adminStrings, settingsStrings, themePageStrings, timeZoneStrings } from "./strings_settings";
 import { accessStrings, joinRequestsStrings, ssoStrings, usersStrings, workflowGrantsStrings } from "./strings_access";
 import { workflowListStrings, workflowSettingsStrings } from "./strings_workflow_settings";
 
@@ -31,7 +31,6 @@ export const s = {
     workflows: "Workflows",
     runs: "Runs",
     approvals: "Approvals",
-    connections: "Connections",
     settings: "Settings",
     admin: "Admin",
   },
@@ -342,9 +341,11 @@ export const s = {
     },
   },
   settings: settingsStrings,
+  timeZone: timeZoneStrings,
+  themePage: themePageStrings,
   tools: {
     title: "Tools",
-    body: "The tools workflows act in. People connect their own accounts on the Connections page.",
+    body: "The tools workflows act in. People connect their own accounts in Settings, under Tool accounts.",
     loading: "Asking the server which tools it knows.",
     unreachable: "The server did not list its tools. Reload the page to ask again.",
     none: "No tools yet. Add Exciter, Armature or Stator by the address you open it at.",

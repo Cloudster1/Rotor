@@ -8,12 +8,13 @@ import { RunStatusBadge } from "@/features/runs/RunStatusBadge";
 import { ConfirmDialog } from "@/features/shell/Dialog";
 import { s } from "@/strings";
 import { TriggerForm } from "./TriggerForm";
+import { DATE_AND_TIME, formatDateTime } from "@/lib/dates";
 
 const card = "rounded-overlay border border-border bg-surface p-4 shadow-1";
 const secondary = "h-8 rounded-control border border-border-strong px-3 text-sm font-medium text-ink hover:bg-surface-raised disabled:opacity-60";
 
 function when(at: string): string {
-  return new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return formatDateTime(at, DATE_AND_TIME);
 }
 
 /** Who may do what with a workflow's triggers, as #202 has it: its runners add their own, its administrators read, turn off and remove anybody's. */

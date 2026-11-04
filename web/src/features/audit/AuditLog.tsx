@@ -4,6 +4,7 @@ import { type AuditEntry, type AuditFilter, auditExportHref, auditFacetsQuery, a
 import { ApiError } from "@/api/client";
 import { PageHeader } from "@/features/shell/EmptyState";
 import { s } from "@/strings";
+import { formatDateTime } from "@/lib/dates";
 
 // Adapted from Exciter's audit page (c0d072d): the same filters and export, walked by the API's keyset cursor.
 
@@ -24,7 +25,7 @@ export function describe(entry: AuditEntry): string {
 }
 
 function when(at: string): string {
-  return new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" });
+  return formatDateTime(at, { dateStyle: "medium", timeStyle: "medium" });
 }
 
 /** Filters, one window of entries, paging back and forth by cursor, and the two exports. */

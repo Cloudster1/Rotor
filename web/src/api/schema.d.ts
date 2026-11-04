@@ -234,6 +234,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What you chose for yourself, such as the time zone dates are written in. */
+        get: operations["getPreferences"];
+        /**
+         * Choose for yourself, such as the time zone dates are written in.
+         * @description A time zone the IANA database names, or null to follow the browser's. Only you change yours, in person.
+         */
+        put: operations["setPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/oidc/backchannel-logout": {
         parameters: {
             query?: never;
@@ -2257,6 +2278,9 @@ export interface components {
             id: string;
             name: string;
         };
+        PreferencesBody: {
+            timeZone: string | null;
+        };
         PreviewWrite: {
             /** @description A JSON value. */
             arguments: unknown;
@@ -3179,6 +3203,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesBody"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    setPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferencesBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesBody"];
                 };
             };
             /** @description An error, in the one shape every endpoint uses. */
@@ -6414,7 +6500,7 @@ export interface operations {
     connect: {
         parameters: {
             query?: {
-                /** @description A path of Rotor's the browser returns to once connected, such as the workflow a run was started from; the Connections page otherwise. */
+                /** @description A path of Rotor's the browser returns to once connected, such as the workflow a run was started from; Tool accounts in Settings otherwise. */
                 next?: string;
             };
             header?: never;
