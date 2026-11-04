@@ -56,6 +56,9 @@ Stator import too, from the same `deploy/keycloak/realm.json`. Its people sign
 in with their name and the word password, `alice` / `alice password` and so
 on. alice is in `rotor-administrators` and administers Rotor; bob is in
 `engineering`, carol in `quality`, dave in `marketing`, and each is a member.
+The four are let in ahead by the stack's `ROTOR_BOOTSTRAP_MEMBERS`; anybody
+else you add to the realm waits until an administrator lets them in on Admin >
+Users (#204).
 The admin console is `admin` / `admin`. `make realm-check` compares the realm
 with Dynamo's canonical copy, leaving Rotor's own clients aside until Dynamo
 carries them.
@@ -357,8 +360,10 @@ with every problem it found listed, so an operator fixes them in one go.
 | `ROTOR_SESSION_COOKIE` | `rotor_session` | the cookie's name |
 | `ROTOR_SECURE_COOKIES` | `false` | required true outside development |
 | `ROTOR_SESSION_TTL` | `12h` | how long a session lives |
-| `ROTOR_OIDC_ISSUER` | required outside development | the realm people sign in through |
-| `ROTOR_OIDC_CLIENT_ID` / `_CLIENT_SECRET` | none | the client Rotor signs in as |
+| `ROTOR_OIDC_ISSUER` | required outside development | the realm people sign in through; it seeds single sign-on, which Admin > Access keeps from then on (#204) |
+| `ROTOR_OIDC_CLIENT_ID` / `_CLIENT_SECRET` | none | the client Rotor signs in as, seeding single sign-on too |
+| `ROTOR_OIDC_GROUPS_CLAIM` | `groups` | the claim listing somebody's groups, seeding single sign-on |
+| `ROTOR_BOOTSTRAP_MEMBERS` | none | people let in by their address at every start, as `email` or `email=admin` / `email=member`, separated by commas or spaces; a malformed entry stops the start (#171) |
 | `ROTOR_OIDC_REDIRECT_URL` | none | where the identity provider sends people back to, exactly as registered there |
 | `ROTOR_OIDC_BACKCHANNEL` | none | `public=reachable`, for an issuer this process reaches at another address |
 | `ROTOR_OPENBAO_ADDR` | required outside development | OpenBao, where every long-lived secret lives |

@@ -77,7 +77,7 @@ func (h *harness) addPerson(t *testing.T, role string) uuid.UUID {
 	ctx := context.Background()
 	var id uuid.UUID
 	email := "person-" + uuid.NewString() + "@suite.test"
-	if err := h.super.QueryRow(ctx, `INSERT INTO app_user (email, name, role) VALUES ($1, $2, $3) RETURNING id`,
+	if err := h.super.QueryRow(ctx, `INSERT INTO app_user (email, name, role, standing) VALUES ($1, $2, $3, 'member') RETURNING id`,
 		email, "Test person", role).Scan(&id); err != nil {
 		t.Fatal(err)
 	}

@@ -34,7 +34,7 @@ func (s *Store) People(ctx context.Context, text string, limit int) ([]Person, e
 		}
 		rows, err := tx.Query(ctx, `
 			SELECT id, name, email::text FROM app_user
-			WHERE is_active AND ($1 = '' OR strpos(lower(name), lower($1)) > 0 OR strpos(lower(email::text), lower($1)) > 0)
+			WHERE is_active AND standing IS NOT NULL AND ($1 = '' OR strpos(lower(name), lower($1)) > 0 OR strpos(lower(email::text), lower($1)) > 0)
 			ORDER BY lower(name), email LIMIT $2`, strings.TrimSpace(text), limit)
 		if err != nil {
 			return fmt.Errorf("look people up: %w", err)
@@ -94,7 +94,7 @@ type UserPage struct {
 	Offset int
 }
 
-// Users lists every person Rotor knows, a page at a time, for an administrator of Rotor.
+// Users lists every person let in, a page at a time, for an administrator of Rotor.
 func (s *Store) Users(ctx context.Context, f UserFilter) (UserPage, error) {
 	if f.Limit <= 0 || f.Limit > config.AccessMaxPage {
 		f.Limit = config.AccessPageSize
@@ -102,7 +102,8 @@ func (s *Store) Users(ctx context.Context, f UserFilter) (UserPage, error) {
 	f.Offset = max(f.Offset, 0)
 	page := UserPage{Limit: f.Limit, Offset: f.Offset, Users: []User{}}
 	text := strings.TrimSpace(f.Text)
-	const match = ` WHERE ($1 = '' OR strpos(lower(u.name), lower($1)) > 0 OR strpos(lower(u.email::text), lower($1)) > 0)`
+	// Somebody waiting is listed above the table, as a request, and somebody turned away nowhere.
+	const match = ` WHERE u.standing IS NOT NULL AND ($1 = '' OR strpos(lower(u.name), lower($1)) > 0 OR strpos(lower(u.email::text), lower($1)) > 0)`
 	err := s.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		if err := require(ctx, tx, actorAdministers); err != nil {
 			return err

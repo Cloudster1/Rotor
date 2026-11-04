@@ -15,6 +15,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
+	"github.com/cloudster1/rotor/backend/internal/perm"
 )
 
 // backchannelWait bounds how long Keycloak's logout takes to reach the api and end the session.
@@ -222,6 +223,10 @@ func TestTwoFirstSignInsAtOnceBothLand(t *testing.T) {
 		"credentials": []map[string]any{{"type": "password", "value": name + " password", "temporary": false}},
 	}, nil)
 	t.Cleanup(func() { admin.call(http.MethodDelete, "/users/"+admin.id("users", name), nil) })
+	// Let in ahead, as a bootstrap member is, so both first sign-ins race to take the one account (#171).
+	if _, err := perm.LetInMembers(context.Background(), h.cluster, []config.Member{{Email: name + "@suite.test"}}); err != nil {
+		t.Fatal(err)
+	}
 
 	browsers := []*browser{newBrowser(t), newBrowser(t)}
 	callbacks := []string{browsers[0].untilCallback(name), browsers[1].untilCallback(name)}

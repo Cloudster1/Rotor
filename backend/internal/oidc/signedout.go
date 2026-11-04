@@ -79,17 +79,21 @@ func (s *Service) endSignedOut(ctx context.Context, logout *Logout) {
 // person reads the person from Keycloak's admin API as the rotor client's service account; nil when Keycloak no
 // longer knows them.
 func (s *Service) person(ctx context.Context, subject string) (*providerPerson, error) {
-	provider, err := s.discover(ctx)
+	st, provider, err := s.discover(ctx)
 	if err != nil {
 		return nil, err
 	}
-	realm := realmOf(s.cfg.Issuer)
+	secret, err := s.clientSecret(ctx, st)
+	if err != nil {
+		return nil, err
+	}
+	realm := realmOf(st.issuer)
 	if realm == "" {
 		return nil, errNoAdminAPI
 	}
-	base := strings.TrimSuffix(strings.TrimSuffix(s.cfg.Issuer, "/"), "/realms/"+realm)
+	base := strings.TrimSuffix(strings.TrimSuffix(st.issuer, "/"), "/realms/"+realm)
 	ctx = s.providerContext(ctx)
-	creds := clientcredentials.Config{ClientID: s.cfg.ClientID, ClientSecret: s.cfg.ClientSecret, TokenURL: provider.Endpoint().TokenURL}
+	creds := clientcredentials.Config{ClientID: st.clientID, ClientSecret: secret, TokenURL: provider.Endpoint().TokenURL}
 	token, err := creds.Token(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("sign in as the rotor client's service account: %w", err)

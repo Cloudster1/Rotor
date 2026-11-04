@@ -16,7 +16,7 @@ const loginPath = "/login"
 
 var (
 	errSignInUnavailable = &APIError{Status: http.StatusServiceUnavailable, Code: "sign_in_unavailable",
-		Message: "Signing in is not set up on this installation. An operator sets ROTOR_OIDC_ISSUER to the identity provider."}
+		Message: "Signing in is not set up on this installation. An operator sets ROTOR_OIDC_ISSUER to the identity provider, which seeds single sign-on."}
 	errProviderUnreachable = &APIError{Status: http.StatusServiceUnavailable, Code: "provider_unreachable",
 		Message: "The identity provider cannot be reached. Try again in a moment."}
 )
@@ -64,6 +64,9 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, auth.ErrSwitchedOff):
 		s.failSignIn(w, r, "switched_off", err)
+	case errors.Is(err, oidc.ErrNotAMember):
+		// Not a failure: the request waits on Admin's Users page, and the sign-in page says so.
+		redirect(w, loginPath+"?error=waiting")
 	case errors.Is(err, oidc.ErrUnknownLogin):
 		s.failSignIn(w, r, "expired", err)
 	case errors.Is(err, oidc.ErrNoEmail), errors.Is(err, oidc.ErrEmailUnverified):

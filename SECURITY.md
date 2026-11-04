@@ -22,7 +22,8 @@ trying to break:
 | Area | The claim to try to break |
 |---|---|
 | People's tools | A run acts in a tool as the person who started it, with no more than their rights and the binding's scopes, and a read binding never writes |
-| Tokens and keys | Refresh tokens, provider keys and webhook secrets never leave OpenBao except into a run's memory, and never land in the database, a log, an event or a span |
+| Tokens and keys | Refresh tokens, provider keys, webhook secrets and the identity provider's client secret never leave OpenBao except into a run's or a sign-in's memory, and never land in the database, a log, an event, a span or a response |
+| Letting people in | Signing in through the realm lets nobody in: only an administrator, the bootstrap list or a realm group holding a grant does, and somebody waiting holds nothing, also through SQL as `rotor_app` |
 | The sandbox | A workflow's code, or content a run reads, cannot reach another run, the control plane's secrets or a host outside the tools, OpenBao, Rotor and the provider |
 | The runner protocol | A sandbox can act only for its own run, and its bootstrap and session tokens work once |
 | Approvals | A run waiting for an approval continues only by a decision of the people the pinned workflow names |

@@ -95,10 +95,10 @@ func TestTheLastActiveAdministratorStaysOn(t *testing.T) {
 	s := h.newScratch(t, 0)
 	ctx := context.Background()
 	var first, second, team uuid.UUID
-	if err := s.super.QueryRow(ctx, `INSERT INTO app_user (email, name) VALUES ('first@suite.test', 'First') RETURNING id`).Scan(&first); err != nil {
+	if err := s.super.QueryRow(ctx, `INSERT INTO app_user (email, name, standing) VALUES ('first@suite.test', 'First', 'member') RETURNING id`).Scan(&first); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.super.QueryRow(ctx, `INSERT INTO app_user (email, name) VALUES ('second@suite.test', 'Second') RETURNING id`).Scan(&second); err != nil {
+	if err := s.super.QueryRow(ctx, `INSERT INTO app_user (email, name, standing) VALUES ('second@suite.test', 'Second', 'member') RETURNING id`).Scan(&second); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.super.Exec(ctx, `INSERT INTO role_assignment (role, user_id) VALUES ('administrator', $1)`, first); err != nil {

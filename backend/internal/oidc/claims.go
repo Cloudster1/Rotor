@@ -2,8 +2,9 @@ package oidc
 
 import "strings"
 
-// identityFromClaims reads the claims Rotor cares about out of a token that has already been verified.
-func identityFromClaims(issuer, subject string, claims map[string]any) (*Identity, error) {
+// identityFromClaims reads the claims Rotor cares about out of a token that has already been verified, the groups from
+// the claim the provider is set up with.
+func identityFromClaims(issuer, subject string, claims map[string]any, groupsClaim string) (*Identity, error) {
 	identity := Identity{
 		Issuer:  issuer,
 		Subject: subject,

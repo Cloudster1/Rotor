@@ -256,10 +256,17 @@ Rotor cannot add Stator (#105).
 Rotor is not one of the three tools Dynamo pins in `versions.yaml`; it has not
 released yet (#167). This is what Dynamo needs to know to install and size it.
 
-**Who may sign in.** Rotor signs people in through the shared realm `dynamo`.
-Everyone in that realm may sign in, and membership of the realm group
-`rotor-administrators` makes an administrator. That realm membership is all the
-access Rotor has until #161 adds an allow-list.
+**Who may sign in.** Rotor signs people in through the shared realm `dynamo`,
+but signing in is not being let in (#204). Somebody let in by an administrator
+on Admin > Users, by `ROTOR_BOOTSTRAP_MEMBERS`, or by a realm group holding a
+grant with "Let people in by their groups" on, is a member; anybody else waits.
+Membership of `rotor-administrators`, whose grant is Administrator, always lets
+a person in and makes an administrator. Dynamo passes `DYNAMO_MEMBERS` as
+`ROTOR_BOOTSTRAP_MEMBERS` (praetorianer777/Dynamo#97), in the same
+`email=admin,email=member` form Stator and Exciter take. The `ROTOR_OIDC_*`
+Dynamo passes seed single sign-on on the first start; after that an
+administrator changes it on Admin > Access, and the client secret is kept in
+OpenBao.
 
 **Images and memory.** The compose stack (`make up`) runs eight images:
 `rotor-backend` (the api, the worker, the migrate job and the tool stub),

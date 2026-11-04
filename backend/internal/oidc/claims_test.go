@@ -12,7 +12,7 @@ func TestAnIdentityIsReadFromTheClaims(t *testing.T) {
 	got, err := identityFromClaims("https://id.test/realms/dynamo", "sub-1", map[string]any{
 		"email": " Alice@Suite.TEST ", "email_verified": true, "preferred_username": "alice",
 		"groups": []any{"/rotor-administrators", "engineering", "engineering", " "}, "sid": "s-1",
-	})
+	}, "groups")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,21 +25,29 @@ func TestAnIdentityIsReadFromTheClaims(t *testing.T) {
 }
 
 func TestANameFallsBackToTheAddress(t *testing.T) {
-	got, err := identityFromClaims("i", "s", map[string]any{"email": "bob@suite.test", "groups": "developers"})
+	got, err := identityFromClaims("i", "s", map[string]any{"email": "bob@suite.test", "groups": "developers"}, "groups")
 	if err != nil || got.Name != "bob" || !slices.Equal(got.Groups, []string{"developers"}) {
 		t.Fatalf("identity = %+v, %v", got, err)
 	}
 }
 
 func TestAnAddressIsNeededAndMustBeVerified(t *testing.T) {
-	if _, err := identityFromClaims("i", "s", map[string]any{"name": "Nobody"}); !errors.Is(err, ErrNoEmail) {
+	if _, err := identityFromClaims("i", "s", map[string]any{"name": "Nobody"}, "groups"); !errors.Is(err, ErrNoEmail) {
 		t.Errorf("no address = %v", err)
 	}
 	for _, unverified := range []any{false, "false"} {
-		_, err := identityFromClaims("i", "s", map[string]any{"email": "x@suite.test", "email_verified": unverified})
+		_, err := identityFromClaims("i", "s", map[string]any{"email": "x@suite.test", "email_verified": unverified}, "groups")
 		if !errors.Is(err, ErrEmailUnverified) {
 			t.Errorf("email_verified %v = %v", unverified, err)
 		}
+	}
+}
+
+func TestGroupsAreReadFromTheClaimTheProviderIsSetUpWith(t *testing.T) {
+	claims := map[string]any{"email": "carol@suite.test", "groups": []any{"readers"}, "roles": []any{"/release", "ops"}}
+	got, err := identityFromClaims("i", "s", claims, "roles")
+	if err != nil || !slices.Equal(got.Groups, []string{"release", "ops"}) {
+		t.Fatalf("groups from roles = %+v, %v", got, err)
 	}
 }
 

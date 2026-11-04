@@ -149,6 +149,19 @@ top. Refusals mark each value as {path}, which rotor.fail writes out that way.
 {{- fail (regexReplaceAll "\\{([A-Za-z0-9.]+)\\}" .msg (printf "%s${1}" (include "rotor.valuePrefix" .root))) -}}
 {{- end -}}
 
+{{/* The bootstrap members as email=role, comma separated, the way Stator's and Exciter's charts hand theirs over. */}}
+{{- define "rotor.bootstrapMembers" -}}
+{{- $members := list -}}
+{{- range .Values.bootstrap.members -}}
+{{- $role := .role | default "member" -}}
+{{- if not (has $role (list "admin" "owner" "member")) -}}
+{{- fail (printf "bootstrap.members has %q as the role of %s; use admin or member." (toString .role) .email) -}}
+{{- end -}}
+{{- $members = append $members (printf "%s=%s" .email $role) -}}
+{{- end -}}
+{{- join "," $members -}}
+{{- end -}}
+
 {{/* What a release may not be, refused before anything is applied. */}}
 {{- define "rotor.check" -}}
 {{- if and (eq .Values.env "production") .Values.sandbox.allowRunc -}}
@@ -194,6 +207,10 @@ ROTOR_OAUTH_FETCH_ALLOW: {{ join "," . | quote }}
 {{- with .Values.oidc.issuer }}
 ROTOR_OIDC_ISSUER: {{ . | quote }}
 ROTOR_OIDC_CLIENT_ID: {{ $.Values.oidc.clientId | quote }}
+ROTOR_OIDC_GROUPS_CLAIM: {{ $.Values.oidc.groupsClaim | default "groups" | quote }}
+{{- end }}
+{{- with include "rotor.bootstrapMembers" . }}
+ROTOR_BOOTSTRAP_MEMBERS: {{ . | quote }}
 {{- end }}
 {{- with include "rotor.rewrites" .Values.oidc.backchannel }}
 ROTOR_OIDC_BACKCHANNEL: {{ . | quote }}

@@ -24,12 +24,12 @@ type logoutClaims struct {
 // VerifyLogoutToken checks a logout token the way section 2.6 of the specification asks, against now,
 // and says which sessions it ends. Replay is caught when the sessions are ended (logout.go).
 func (s *Service) VerifyLogoutToken(ctx context.Context, raw string, now time.Time) (*Logout, error) {
-	provider, err := s.discover(ctx)
+	st, provider, err := s.discover(ctx)
 	if err != nil {
 		return nil, err
 	}
 	// Signed by the issuer's published keys, for this client. Expiry is checked below, where a missing exp is allowed.
-	verifier := provider.Verifier(&coreoidc.Config{ClientID: s.cfg.ClientID, SkipExpiryCheck: true})
+	verifier := provider.Verifier(&coreoidc.Config{ClientID: st.clientID, SkipExpiryCheck: true})
 	token, err := verifier.Verify(s.providerContext(ctx), raw)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrBadLogoutToken, err)

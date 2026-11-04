@@ -65,3 +65,12 @@ path "rotor/data/settings/langsmith/*" {
 path "rotor/metadata/settings/langsmith/*" {
   capabilities = ["read", "list", "delete"]
 }
+
+# The identity provider's client secret an administrator gives on Admin's Access page (#204).
+path "rotor/data/settings/oidc/*" {
+  capabilities = ["create", "read", "update", "delete"]
+}
+
+path "rotor/metadata/settings/oidc/*" {
+  capabilities = ["read", "list", "delete"]
+}

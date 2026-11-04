@@ -2301,6 +2301,118 @@
         }
       }
     },
+    "/oidc-provider": {
+      "get": {
+        "operationId": "getOIDCProvider",
+        "summary": "Single sign-on: the identity provider people sign in through, with whether a client secret is held.",
+        "description": "The secret itself is never answered. provider is null while none is set up.",
+        "tags": [
+          "access"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OidcProviderResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveOIDCProvider",
+        "summary": "Set single sign-on up or change it; it applies from the next sign-in.",
+        "description": "A blank clientSecret keeps the one held. A provider that could not work is refused with 422: no issuer, no client ID, no secret, or an issuer whose discovery document cannot be read. Turning it off while it is the only way in is refused with 409.",
+        "tags": [
+          "access"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveOIDCProviderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OidcProviderResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/openapi.json": {
       "get": {
         "operationId": "openAPI",
@@ -5687,6 +5799,204 @@
         }
       }
     },
+    "/users/requests": {
+      "get": {
+        "operationId": "listJoinRequests",
+        "summary": "Who signed in through the identity provider and is waiting to be let in, oldest first.",
+        "tags": [
+          "access"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requests": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/JoinRequestView"
+                      }
+                    }
+                  },
+                  "required": [
+                    "requests"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/requests/{userID}": {
+      "delete": {
+        "operationId": "declineJoinRequest",
+        "summary": "Turn a waiting person away; they may ask again by signing in again.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "userID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/requests/{userID}/admit": {
+      "post": {
+        "operationId": "admitJoinRequest",
+        "summary": "Let a waiting person in, as a member or as an administrator.",
+        "description": "They join Everyone and sign in from their next attempt. Somebody not waiting answers 404.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "userID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdmitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/UserView"
+                    }
+                  },
+                  "required": [
+                    "user"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/users/{userID}": {
       "patch": {
         "operationId": "updateUser",
@@ -6933,6 +7243,18 @@
           "baseURL"
         ]
       },
+      "AdmitRequest": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "member",
+              "admin"
+            ]
+          }
+        }
+      },
       "AgentUsage": {
         "type": "object",
         "properties": {
@@ -8026,6 +8348,30 @@
           "version"
         ]
       },
+      "JoinRequestView": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "userId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "email",
+          "name",
+          "requestedAt"
+        ]
+      },
       "LangSmithRequest": {
         "type": "object",
         "properties": {
@@ -8800,6 +9146,71 @@
           "scope"
         ]
       },
+      "OidcProviderResponse": {
+        "type": "object",
+        "properties": {
+          "canTurnOff": {
+            "type": "boolean"
+          },
+          "provider": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/OidcProviderView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "redirectUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "redirectUrl",
+          "canTurnOff"
+        ]
+      },
+      "OidcProviderView": {
+        "type": "object",
+        "properties": {
+          "admitByGroup": {
+            "type": "boolean"
+          },
+          "changedBy": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "groupsClaim": {
+            "type": "string"
+          },
+          "hasSecret": {
+            "type": "boolean"
+          },
+          "issuer": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "issuer",
+          "clientId",
+          "hasSecret",
+          "groupsClaim",
+          "admitByGroup",
+          "enabled",
+          "updatedAt"
+        ]
+      },
       "Operation": {
         "type": "object",
         "properties": {
@@ -9458,6 +9869,33 @@
           "inputTokens",
           "outputTokens",
           "cost"
+        ]
+      },
+      "SaveOIDCProviderRequest": {
+        "type": "object",
+        "properties": {
+          "admitByGroup": {
+            "type": "boolean"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "clientSecret": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "groupsClaim": {
+            "type": "string"
+          },
+          "issuer": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "issuer",
+          "clientId"
         ]
       },
       "SaveWorkflowRequest": {

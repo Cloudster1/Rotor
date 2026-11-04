@@ -8,7 +8,7 @@ import { canvasStrings } from "./strings_canvas";
 import { assistantStrings } from "./strings_assistants";
 import { workspacesStrings } from "./strings_workspaces";
 import { accountStrings, adminStrings, settingsStrings } from "./strings_settings";
-import { accessStrings, usersStrings, workflowGrantsStrings } from "./strings_access";
+import { accessStrings, joinRequestsStrings, ssoStrings, usersStrings, workflowGrantsStrings } from "./strings_access";
 
 /** Every word the interface shows, in one place, so a second language is a second copy of this object. */
 export const s = {
@@ -435,6 +435,10 @@ export const s = {
     body: "Rotor uses the same account as Exciter, Armature and Stator. Your workflows act with your permissions there.",
     action: "Sign in with your suite account",
     signOut: "Sign out",
+    // A person the identity provider knows whom nobody has let in yet (#204): news, not a failure.
+    waitingTitle: "Your request is waiting",
+    waitingBody:
+      "The identity provider knows you, but nobody has let you into Rotor yet. Your request waits for an administrator on the Users page; sign in again once they have let you in.",
     errors: {
       denied: "The sign-in was cancelled at the identity provider. Try again when you are ready.",
       expired: "That sign-in took too long or was already used. Start again.",
@@ -466,5 +470,7 @@ export const s = {
   workspaces: workspacesStrings,
   access: accessStrings,
   users: usersStrings,
+  sso: ssoStrings,
+  joinRequests: joinRequestsStrings,
   workflowGrants: workflowGrantsStrings,
 } as const;

@@ -1,6 +1,7 @@
 import type { Assignment, Permission, Role } from "@/api/access";
 import type { Group, Person } from "@/api/groups";
 import type { ManagedUser } from "@/api/users";
+import type { SingleSignOn } from "@/api/sso";
 import { ME } from "./app";
 
 /** The permissions and built-in roles as a fresh installation has them, from backend/internal/perm. */
@@ -101,6 +102,21 @@ export const user = (person: Person, more: Partial<ManagedUser> = {}): ManagedUs
 });
 
 /** What the Access page asks beyond renderAt's defaults, so each tab draws in full. */
+/** Single sign-on as the stack's environment seeds it: a secret is held, and the answer never carries it (#204). */
+export const SSO: SingleSignOn = {
+  provider: {
+    issuer: "http://localhost:8302/realms/dynamo",
+    clientId: "rotor",
+    hasSecret: true,
+    groupsClaim: "groups",
+    admitByGroup: false,
+    enabled: true,
+    updatedAt: "2026-11-04T09:00:00Z",
+  },
+  redirectUrl: "http://localhost:8300/api/v1/auth/oidc/callback",
+  canTurnOff: false,
+};
+
 export const ACCESS_ANSWERS = {
   "/api/v1/roles": { roles: ROLES },
   "/api/v1/permissions": { permissions: PERMISSIONS },
@@ -110,4 +126,7 @@ export const ACCESS_ANSWERS = {
   "/api/v1/role-assignments": { assignments: [ADMIN_GRANT], total: 1, limit: 50, offset: 0 },
   "/api/v1/people": { people: [] },
   "/api/v1/users": { users: [user({ ...ME.user })], total: 1, limit: 50, offset: 0 },
+  // Nobody waits to be let in unless a test says so (#204).
+  "/api/v1/users/requests": { requests: [] },
+  "/api/v1/oidc-provider": SSO,
 };

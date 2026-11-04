@@ -92,6 +92,8 @@ type Config struct {
 	Approvals Approvals
 	// Telemetry is where traces go and metrics are served (#37).
 	Telemetry Telemetry
+	// BootstrapMembers are let in by their address at every start of the api and at their first sign-in (#171).
+	BootstrapMembers []Member
 }
 
 // Auth is how a signed-in browser is remembered.
@@ -102,11 +104,13 @@ type Auth struct {
 	SessionTTL    time.Duration
 }
 
-// OIDC is the suite's identity provider, the only way to sign in to Rotor.
+// OIDC is the suite's identity provider, the only way to sign in to Rotor. The issuer, client and groups claim seed
+// the provider Rotor keeps in its database when it has none (#204); after that the database's are used.
 type OIDC struct {
 	Issuer       string
 	ClientID     string
 	ClientSecret string
+	GroupsClaim  string
 	RedirectURL  string
 	// Backchannel maps the issuer's public origin to the one this process reaches it at, as public=reachable.
 	Backchannel string
@@ -161,17 +165,19 @@ func Load() (Config, error) {
 			Issuer:       strings.TrimSuffix(l.str("ROTOR_OIDC_ISSUER", ""), "/"),
 			ClientID:     l.str("ROTOR_OIDC_CLIENT_ID", ""),
 			ClientSecret: l.raw("ROTOR_OIDC_CLIENT_SECRET"),
+			GroupsClaim:  l.str("ROTOR_OIDC_GROUPS_CLAIM", DefaultGroupsClaim),
 			RedirectURL:  l.str("ROTOR_OIDC_REDIRECT_URL", ""),
 			Backchannel:  l.str("ROTOR_OIDC_BACKCHANNEL", ""),
 		},
-		OpenBao:   loadOpenBao(l),
-		Tools:     loadTools(l),
-		Sandbox:   loadSandbox(l),
-		Runner:    loadRunner(l),
-		Valkey:    loadValkey(l),
-		Worker:    Worker{MetricsAddr: l.str("ROTOR_WORKER_METRICS_ADDR", DefaultWorkerMetricsAddr)},
-		Approvals: loadApprovals(l),
-		Telemetry: loadTelemetry(l),
+		OpenBao:          loadOpenBao(l),
+		Tools:            loadTools(l),
+		Sandbox:          loadSandbox(l),
+		Runner:           loadRunner(l),
+		Valkey:           loadValkey(l),
+		Worker:           Worker{MetricsAddr: l.str("ROTOR_WORKER_METRICS_ADDR", DefaultWorkerMetricsAddr)},
+		Approvals:        loadApprovals(l),
+		Telemetry:        loadTelemetry(l),
+		BootstrapMembers: l.members(BootstrapMembersVar),
 	}
 	if c.OIDC.RedirectURL == "" {
 		c.OIDC.RedirectURL = c.AppBaseURL + CallbackPath

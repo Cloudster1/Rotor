@@ -76,6 +76,11 @@ const (
 	ActionGroupMemberRemoved = "group.member_removed"
 	// ActionSwitchedOn is a switched-off person let in again (#203).
 	ActionSwitchedOn = "user.switched_on"
+	// ActionMemberAdmitted and ActionMemberDeclined are a waiting person let in or turned away (#204), and
+	// ActionOIDCSaved single sign-on set up or changed; its secret is never in the entry.
+	ActionMemberAdmitted = "member.admitted"
+	ActionMemberDeclined = "member.declined"
+	ActionOIDCSaved      = "oidc.saved"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
@@ -88,7 +93,7 @@ var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, Actio
 	ActionRetentionChanged, ActionRunDataDeleted, ActionOAuthGranted, ActionOAuthRevoked, ActionOAuthSwitched,
 	ActionUnattendedSwitched, ActionTriggerUnattendedWrite, ActionWorkspacesChanged, ActionRoleGranted, ActionRoleRevoked,
 	ActionRoleRemoved, ActionRoleDefined, ActionRoleRedefined, ActionGroupCreated, ActionGroupDeleted, ActionGroupMemberAdded,
-	ActionGroupMemberRemoved, ActionSwitchedOn}
+	ActionGroupMemberRemoved, ActionSwitchedOn, ActionMemberAdmitted, ActionMemberDeclined, ActionOIDCSaved}
 
 // Redacted stands in the record for a value that looked like a credential.
 var Redacted = redact.Redacted

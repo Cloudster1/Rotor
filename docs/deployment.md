@@ -59,8 +59,14 @@ Four things come from outside the chart.
     The init script refuses an OpenBao without one, so the token it runs with must be allowed to list audit
     devices (`sys/audit`, which needs `sudo`); `openbao.configure.requireAudit: false` lets a throwaway test server
     through.
-- **Keycloak**, the realm people sign in through: `oidc.issuer`, `oidc.clientId` and the Secret holding the client
-  secret in `oidc.clientSecret`. Outside development the chart refuses to render without it.
+- **Keycloak**, the realm people sign in through: `oidc.issuer`, `oidc.clientId`, `oidc.groupsClaim` and the Secret
+  holding the client secret in `oidc.clientSecret`. Outside development the chart refuses to render without it. They
+  seed single sign-on on the first start; after that an administrator changes it on Admin > Access, and a secret
+  given there is kept in OpenBao (#204).
+- **Bootstrap members**, `bootstrap.members`: `[{ email, role }]`, each role `admin` or `member`, let in at every start
+  of the api, or at their first sign-in when they have not signed in yet (#171). Anybody else the realm knows waits
+  until an administrator lets them in on Admin > Users, unless their realm group holds a grant and "Let people in by
+  their groups" is on; members of `rotor-administrators` are always let in.
   - Turn on the client's service account and give it the `realm-management` role `view-users`. When an
     administrator signs a person out of every session, Keycloak's single logout token names only one of them;
     Rotor then reads the person's sign-out time from the admin API and ends their other sessions too. Without the

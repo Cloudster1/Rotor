@@ -205,6 +205,15 @@ check "workspace pods alone reach the mirror" \
     "$(grep -A24 'name: r-rotor-workspace-mirror$' <<<"${RENDERED}" | grep -c 'rotor.dev/workspace: "1"\|cidr: 10.21.0.0/24')" "2"
 render "no mirror" "${PRODUCTION[@]}"
 check "without a mirror workspaces reach nothing more" "$(grep -c 'workspace-mirror' <<<"${RENDERED}")" "0"
+check "nobody is let in ahead without bootstrap members" "$(config_value "${RENDERED}" ROTOR_BOOTSTRAP_MEMBERS)" ""
+
+echo "== bootstrap members (#171)"
+render "bootstrap members" "${PRODUCTION[@]}" --set 'bootstrap.members[0].email=a@acme.example' \
+    --set 'bootstrap.members[0].role=admin' --set 'bootstrap.members[1].email=b@acme.example'
+check "members are let in" "$(config_value "${RENDERED}" ROTOR_BOOTSTRAP_MEMBERS)" "a@acme.example=admin,b@acme.example=member"
+check "the groups claim seeds single sign-on" "$(config_value "${RENDERED}" ROTOR_OIDC_GROUPS_CLAIM)" "groups"
+refused "a bootstrap member of no known role" "use admin or member" "${PRODUCTION[@]}" \
+    --set 'bootstrap.members[0].email=a@acme.example' --set 'bootstrap.members[0].role=viewer'
 refused "a mirror by hostname without Cilium" "packageMirror.host names a hostname" "${TRIAL[@]}" \
     --set sandbox.workspaces.packageMirror.host=mirror.example.com
 

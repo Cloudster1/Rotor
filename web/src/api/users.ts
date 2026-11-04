@@ -23,3 +23,25 @@ export async function setUserActive(userID: string, isActive: boolean): Promise<
   const { data } = await api.PATCH("/users/{userID}", { params: { path: { userID } }, body: { isActive } });
   return data?.user as ManagedUser;
 }
+
+/** Somebody who signed in through the provider and waits to be let in (#204). */
+export type JoinRequest = components["schemas"]["JoinRequestView"];
+
+export const joinRequestsQuery = queryOptions({
+  queryKey: [...accessQueryKey, "users", "requests"],
+  queryFn: async (): Promise<JoinRequest[]> => {
+    const { data } = await api.GET("/users/requests");
+    return (data?.requests ?? []) as JoinRequest[];
+  },
+});
+
+/** Lets a waiting person in as a member; they sign in from their next attempt. */
+export async function admitJoinRequest(userID: string): Promise<ManagedUser> {
+  const { data } = await api.POST("/users/requests/{userID}/admit", { params: { path: { userID } }, body: { role: "member" } });
+  return data?.user as ManagedUser;
+}
+
+/** Turns a waiting person away; they may ask again by signing in again. */
+export async function declineJoinRequest(userID: string): Promise<void> {
+  await api.DELETE("/users/requests/{userID}", { params: { path: { userID } } });
+}

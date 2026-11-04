@@ -83,7 +83,7 @@ const (
 	actorAdministers = `SELECT current_actor_via() IS NULL AND actor_can('rotor.administer', NULL)`
 	actorMayGrant    = `
 SELECT current_actor_via() IS NULL
-   AND EXISTS (SELECT 1 FROM app_user u WHERE u.id = current_actor_id() AND u.is_active)
+   AND EXISTS (SELECT 1 FROM app_user u WHERE u.id = current_actor_id() AND u.is_active AND u.standing IS NOT NULL)
    AND EXISTS (SELECT 1 FROM role_assignment a JOIN role r ON r.key = a.role
                WHERE r.permissions && ARRAY['workflow.administer', 'rotor.administer']
                  AND (a.user_id = current_actor_id()
