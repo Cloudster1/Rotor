@@ -35,6 +35,7 @@ type scratch struct {
 	super   *pgxpool.Pool
 	cluster *db.Cluster
 	up      func(version int64)
+	down    func(version int64)
 }
 
 // newScratch makes an empty database migrated up to version, or all the way for 0, dropped when the test ends,
@@ -80,6 +81,12 @@ func (h *harness) newScratch(t *testing.T, version int64) *scratch {
 		}
 		if err := migrate(); err != nil {
 			t.Fatalf("migrate the scratch database to %d: %v", version, err)
+		}
+	}
+	s.down = func(version int64) {
+		t.Helper()
+		if err := goose.DownToContext(ctx, sqlDB, ".", version); err != nil {
+			t.Fatalf("migrate the scratch database down to %d: %v", version, err)
 		}
 	}
 	s.up(version)

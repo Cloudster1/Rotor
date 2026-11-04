@@ -6,7 +6,8 @@ import { s } from "@/strings";
 import { ADMIN_GROUPS, SETTINGS_GROUPS, type SettingsNavGroup } from "./groups";
 import { SettingsNav } from "./SettingsNav";
 
-function Layout({ label, groups }: { label: string; groups: readonly SettingsNavGroup[] }) {
+/** A side nav of pages beside the one open; a workflow's settings use it too (#205). */
+export function Layout({ label, groups }: { label: string; groups: readonly SettingsNavGroup[] }) {
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
       <SettingsNav label={label} groups={groups} />

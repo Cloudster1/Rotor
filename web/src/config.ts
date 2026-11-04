@@ -123,3 +123,6 @@ export const ADMINISTER_PERMISSION = "rotor.administer";
 export const NEW_ROLE_PERMISSIONS = ["workflow.read"];
 /** The built-in group every person is in, as the API marks it. */
 export const EVERYONE_GROUP = "everyone";
+/** The longest name and description a workflow's metadata takes, as api/workflow.v1.schema.json bounds them (#205). */
+export const MAX_WORKFLOW_NAME = 63;
+export const MAX_WORKFLOW_DESCRIPTION = 2000;

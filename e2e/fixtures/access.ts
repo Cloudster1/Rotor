@@ -57,3 +57,25 @@ export async function switchOn(page: Page, email: string): Promise<void> {
     expect(on.status(), `switching ${email} on`).toBe(200);
   }
 }
+
+/** The id of Everyone, the built-in group of every person let in, as /groups lists it to the page's person. */
+export async function everyoneGroupID(page: Page): Promise<string> {
+  const groups = (await (await page.request.get("/api/v1/groups")).json()) as { groups: { id: string; builtin: string }[] };
+  const everyone = groups.groups.find((each) => each.builtin === "everyone");
+  expect(everyone, "the Everyone group").toBeDefined();
+  return everyone?.id ?? "";
+}
+
+/** The id of a person Rotor knows, found by address as a picker finds them. */
+export async function personID(page: Page, email: string): Promise<string> {
+  const people = (await (await page.request.get(`/api/v1/people?q=${encodeURIComponent(email)}`)).json()) as { people: { id: string; email: string }[] };
+  const found = people.people.find((each) => each.email === email);
+  expect(found, `the person ${email}`).toBeDefined();
+  return found?.id ?? "";
+}
+
+/** Grants a person or a group a role on a workflow through its grants (#203), as the page's person. */
+export async function grantOnWorkflow(page: Page, workflowID: string, role: string, subject: { userId: string } | { groupId: string }): Promise<void> {
+  const granted = await page.request.post(`/api/v1/workflows/${workflowID}/grants`, { data: { role, ...subject } });
+  expect(granted.status(), await granted.text()).toBe(201);
+}

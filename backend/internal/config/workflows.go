@@ -16,8 +16,6 @@ const (
 	MaxRoleChars = 8000
 	// MaxVersionComment bounds the note a save carries, as the table does.
 	MaxVersionComment = 500
-	// MaxSharedGroups bounds how many realm groups a workflow is shared with.
-	MaxSharedGroups = 50
 	// CatalogTTL is how long a tool's MCP tool list is kept, per tool build and person.
 	CatalogTTL = time.Hour
 	// MaxCatalogPages bounds how many pages of tools/list Rotor follows for one tool.

@@ -110,24 +110,16 @@ func adopt(ctx context.Context, tx db.DBTX, identity *Identity, admitByGroup boo
 	if err != nil {
 		return user, perm.Set{}, err
 	}
-	role := auth.RoleFor(set)
 	// The realm groups stay on the person too: approvals are decided by them, as the approval node names them.
-	if _, err := tx.Exec(ctx, `UPDATE app_user SET role = $2, groups = $3 WHERE id = $1`, user.id, role, identity.Groups); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE app_user SET groups = $2 WHERE id = $1`, user.id, identity.Groups); err != nil {
 		return user, perm.Set{}, err
-	}
-	if user.role != role {
-		if err := audit.Write(ctx, tx, audit.Entry{Action: audit.ActionRoleChanged, TargetType: "user", TargetID: user.id.String(),
-			Data: map[string]any{"from": user.role, "to": role, "source": "grants"}}); err != nil {
-			return user, perm.Set{}, err
-		}
 	}
 	return user, set, nil
 }
 
-// knownUser is a person as sign-in finds them, before it copies the realm's word onto them.
+// knownUser is a person as sign-in finds them, before it copies the realm's groups onto them.
 type knownUser struct {
 	id      uuid.UUID
-	role    string
 	active  bool
 	letIn   bool
 	created bool
@@ -140,8 +132,8 @@ func upsertUser(ctx context.Context, tx db.DBTX, identity *Identity) (knownUser,
 		UPDATE app_user SET email = $3, name = $4
 		FROM user_identity i
 		WHERE i.issuer = $1 AND i.subject = $2 AND app_user.id = i.user_id
-		RETURNING app_user.id, app_user.role, app_user.is_active, app_user.standing IS NOT NULL`,
-		identity.Issuer, identity.Subject, identity.Email, identity.Name).Scan(&u.id, &u.role, &u.active, &u.letIn)
+		RETURNING app_user.id, app_user.is_active, app_user.standing IS NOT NULL`,
+		identity.Issuer, identity.Subject, identity.Email, identity.Name).Scan(&u.id, &u.active, &u.letIn)
 	if err == nil {
 		return u, nil
 	}
@@ -152,7 +144,7 @@ func upsertUser(ctx context.Context, tx db.DBTX, identity *Identity) (knownUser,
 	err = tx.QueryRow(ctx, `
 		INSERT INTO app_user (email, name) VALUES ($1, $2)
 		ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name
-		RETURNING id, role, is_active, standing IS NOT NULL, xmax = 0`, identity.Email, identity.Name).Scan(&u.id, &u.role, &u.active, &u.letIn, &u.created)
+		RETURNING id, is_active, standing IS NOT NULL, xmax = 0`, identity.Email, identity.Name).Scan(&u.id, &u.active, &u.letIn, &u.created)
 	if err != nil {
 		return u, fmt.Errorf("make the person: %w", err)
 	}
@@ -163,8 +155,8 @@ func upsertUser(ctx context.Context, tx db.DBTX, identity *Identity) (knownUser,
 		return u, fmt.Errorf("remember the provider's name for the person: %w", err)
 	}
 	err = tx.QueryRow(ctx, `
-		SELECT a.id, a.role, a.is_active, a.standing IS NOT NULL FROM user_identity i JOIN app_user a ON a.id = i.user_id
-		WHERE i.issuer = $1 AND i.subject = $2`, identity.Issuer, identity.Subject).Scan(&u.id, &u.role, &u.active, &u.letIn)
+		SELECT a.id, a.is_active, a.standing IS NOT NULL FROM user_identity i JOIN app_user a ON a.id = i.user_id
+		WHERE i.issuer = $1 AND i.subject = $2`, identity.Issuer, identity.Subject).Scan(&u.id, &u.active, &u.letIn)
 	if err != nil {
 		return u, fmt.Errorf("find the person: %w", err)
 	}

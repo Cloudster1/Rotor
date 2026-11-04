@@ -3,6 +3,36 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-11-04: A workflow's settings, and sharing retired (#205)
+
+- **Archived, never deleted.** The standard's workflow settings delete with a
+  `ConfirmDialog`, but a Rotor workflow's versions are immutable and every run
+  pins one, and `rotor_app` holds no `DELETE` on `workflow`. Deleting would
+  take the runs' history with it, so General archives instead, and archiving
+  from the list, where nothing undoes it on the spot, asks in a
+  `ConfirmDialog`.
+- **Undo, not a question.** Archiving on General happens at once with an Undo
+  beside it, as the standard asks: `POST /workflows/{id}/restore` takes the
+  workflow out of the archive. Restoring takes what archiving takes,
+  `workflow.administer`, in the service and in `workflow_change_guard`, which
+  now guards `archived_at` in either direction alone.
+- **The name is the spec's.** A workflow's name and description are its
+  metadata, which every save copies onto the row, so General saves them as a
+  new version, splicing the YAML as the canvas does, rather than a column a
+  later save would overwrite. Renaming therefore takes `workflow.edit`.
+- **The list counts grants, in the same query.** `sharedWith` is how many
+  people and groups besides the owner hold a role on the workflow; everyone
+  signed in reads `role_assignment`, so a subquery answers it without a request
+  per row. What the caller may do comes from `canRun`, `canEdit` and
+  `canAdminister`, which the list already carries.
+- **Sharing and the role word go together.** Nothing read the sharing columns
+  or `app_user.role` once #203 and #204 asked the grants, so 01340 drops them
+  and their trigger. Its Down rebuilds both from the grants that replaced them,
+  so going back keeps everyone's access. `workflows@1` promised
+  `PUT /workflows/{id}/sharing`; no partner used it (Dynamo's compatibility
+  table names none), so the capability promises the grants operations instead
+  of raising its number.
+
 ## 2026-11-04: Letting people in, and single sign-on kept in Rotor (#204, #171)
 
 - **Signing in is not being let in.** A person the realm knows who is not let in

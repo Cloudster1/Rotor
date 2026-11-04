@@ -9,6 +9,21 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Each workflow has settings pages of its own (#205), at
+  `/workflows/<id>/settings/<section>`: General (its name and description, and
+  archiving it), Versions, Sharing and Triggers, with a side nav as Settings
+  has. Everybody the workflow is shared with opens them, and sees read only
+  what their grants do not let them change. Saving a new name or description
+  saves a new version. The editor keeps the YAML, the canvas and the checks,
+  with the Run button and a link to the settings.
+  - Archiving offers Undo, which takes the workflow out of the archive again,
+    and an archived workflow's General page restores it. Both take
+    administering the workflow; the API is `POST /workflows/{id}/restore`,
+    audited as `workflow.restored`. Workflows are still archived and never
+    deleted, since runs pin their versions; archiving from the list asks first
+    in a dialog, and so does removing a trigger.
+  - The list says how many people and groups a workflow is shared with and
+    what your grants let you do with it, in place of the old sharing badge.
 - Signing in is no longer being let in (#204). Somebody the identity provider
   knows who has not been let in waits, and the sign-in page tells them so; their
   request shows above the table on Admin's Users page, where an administrator
@@ -526,6 +541,15 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Sharing is the workflow's grants alone (#205). `PUT /workflows/{id}/sharing`
+  is gone, and so are `sharing` and `sharedGroups` on a workflow, which now
+  carries `sharedWith`; grant on `/workflows/{id}/grants` instead. The
+  `workflows@1` capability promises the grants operations in its place. The
+  migration keeps everyone's access: runner grants already held what sharing
+  said.
+- `app_user.role` is gone (#205): whether somebody administers Rotor is asked of
+  their grants alone, and sign-in no longer writes `user.role_changed`.
+  `/auth/me` still answers `role`, computed from the grants.
 - Single sign-on is kept in Rotor's database (#204). `ROTOR_OIDC_ISSUER`,
   `ROTOR_OIDC_CLIENT_ID` and `ROTOR_OIDC_CLIENT_SECRET` seed it on the first
   start, so a deployment that sets them keeps signing people in; after that

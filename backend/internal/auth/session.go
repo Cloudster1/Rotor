@@ -77,8 +77,8 @@ func (s *Service) Authenticate(ctx context.Context, token string) (*Principal, e
 			UPDATE user_session s SET last_seen_at = now()
 			FROM app_user u
 			WHERE s.token_hash = $1 AND s.expires_at > now() AND u.id = s.user_id AND u.standing IS NOT NULL
-			RETURNING s.id, u.id, u.email, u.name, u.role, u.groups, u.is_active`, Hash(token),
-		).Scan(&p.SessionID, &p.UserID, &p.Email, &p.Name, &p.Role, &p.Groups, &active)
+			RETURNING s.id, u.id, u.email, u.name, u.groups, u.is_active`, Hash(token),
+		).Scan(&p.SessionID, &p.UserID, &p.Email, &p.Name, &p.Groups, &active)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoSession
 		}

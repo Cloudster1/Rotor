@@ -89,7 +89,7 @@ for (const scheme of SCHEMES) {
       await expect(card).toHaveAttribute("data-status", "connected");
 
       const workflowID = await createWorkflow(page, echo(`e2e-${randomUUID().slice(0, 12)}`));
-      await page.goto(`/workflows/${workflowID}`);
+      await page.goto(`/workflows/${workflowID}/settings/triggers`);
       const section = page.locator("[data-triggers]");
       await section.locator('[data-action="add-trigger"]').click();
       const form = section.locator("[data-trigger-form]");

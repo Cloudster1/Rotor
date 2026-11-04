@@ -14,10 +14,10 @@ func init() {
 var notFound = errorEnvelope{}
 
 var m2Operations = []operation{
-	// Workflows: versioned specs, shared by group (#15).
+	// Workflows: versioned specs, shared by their grants (#15, #203).
 	{method: "GET", path: "/workflows", handler: "handleListWorkflows", tool: "list_workflows",
 		toolHelp: "List the workflows you may see and start, with their ids, names and current versions.", tag: "workflows",
-		summary:   "The workflows you may see: yours, those shared with a group of yours, and those shared with everyone.",
+		summary:   "The workflows you may see: those whose grants give you, a group of yours or Everyone a role on them.",
 		query:     []param{{name: "archived", description: "true lists archived workflows instead."}},
 		responses: ok(env{"workflows": []workflowSummary{}})},
 	{method: "POST", path: "/workflows", handler: "handleCreateWorkflow", tag: "workflows",
@@ -33,7 +33,13 @@ var m2Operations = []operation{
 		responses: map[int]any{http.StatusOK: workflowResponse{}, http.StatusNotFound: notFound, http.StatusConflict: errorEnvelope{},
 			http.StatusUnprocessableEntity: errorEnvelope{}}},
 	{method: "DELETE", path: "/workflows/{workflowID}", handler: "handleArchiveWorkflow", tag: "workflows",
-		summary: "Archive a workflow; its versions stay for the runs that used them.", responses: map[int]any{http.StatusNoContent: nil, http.StatusNotFound: notFound}},
+		summary:     "Archive a workflow; its versions stay for the runs that used them.",
+		description: "For whoever administers the workflow or Rotor. Workflows are archived, never deleted: runs pin their versions.",
+		responses:   map[int]any{http.StatusNoContent: nil, http.StatusNotFound: notFound, http.StatusForbidden: errorEnvelope{}}},
+	{method: "POST", path: "/workflows/{workflowID}/restore", handler: "handleRestoreWorkflow", tag: "workflows",
+		summary:     "Take a workflow out of the archive, which undoes archiving it.",
+		description: "For whoever administers the workflow or Rotor; restoring a workflow that is not archived changes nothing.",
+		responses:   map[int]any{http.StatusOK: workflowResponse{}, http.StatusNotFound: notFound, http.StatusForbidden: errorEnvelope{}}},
 	{method: "GET", path: "/workflows/{workflowID}/versions", handler: "handleListWorkflowVersions", tag: "workflows",
 		summary: "Every version of a workflow, newest first.", responses: map[int]any{http.StatusOK: env{"versions": []versionSummary{}}, http.StatusNotFound: notFound}},
 	{method: "GET", path: "/workflows/{workflowID}/versions/{versionNumber}", handler: "handleGetWorkflowVersion", tag: "workflows",
@@ -42,10 +48,6 @@ var m2Operations = []operation{
 		summary:   "What changed between two versions, line by line.",
 		query:     []param{{name: "from", description: "The older version's number."}, {name: "to", description: "The newer version's number."}},
 		responses: map[int]any{http.StatusOK: diffResponse{}, http.StatusNotFound: notFound}},
-	{method: "PUT", path: "/workflows/{workflowID}/sharing", handler: "handleShareWorkflow", tag: "workflows",
-		summary:     "Share a workflow privately, with groups of the realm, or with everyone; runs still act as whoever starts them.",
-		description: "Deprecated by the workflow's grants (#203): it still writes Runner grants, and /workflows/{workflowID}/grants says who holds what.",
-		deprecated:  true, request: sharingRequest{}, responses: map[int]any{http.StatusOK: workflowResponse{}, http.StatusNotFound: notFound, http.StatusForbidden: errorEnvelope{}}},
 	{method: "POST", path: "/workflows/validate", handler: "handleValidateWorkflow", tool: "validate_workflow",
 		toolHelp: "Check a workflow YAML spec without saving it; problems name their line and column.", reads: true, tag: "workflows",
 		summary: "Check a workflow's YAML against the schema, its own sense, and the tools you can use, without saving it.",

@@ -74,3 +74,11 @@ export async function expectAccessible(page: Page): Promise<void> {
 export async function scrollsSideways(page: Page): Promise<boolean> {
   return page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
 }
+
+/** Answers the ConfirmDialog open on the page with its act, and waits for it to close. */
+export async function confirmDialog(page: Page): Promise<void> {
+  const dialog = page.locator("dialog[data-confirm]");
+  await expect(dialog).toBeVisible();
+  await dialog.locator('[data-action="confirm"]').click();
+  await expect(dialog).toHaveCount(0);
+}

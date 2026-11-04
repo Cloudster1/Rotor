@@ -73,15 +73,13 @@ func TestAccessIsResolvedFromTheGrantsAndShownOnWorkflows(t *testing.T) {
 		t.Errorf("the creator's grants are %v, on the workflow %v", grantsOf(theirs), workflows[id])
 	}
 
-	// Sharing with a realm group of carol's makes her its runner: she runs it, and changes nothing.
-	if status, answer := bob.api(http.MethodPut, "/workflows/"+id+"/sharing", map[string]any{"sharing": "groups", "groups": []string{"quality"}}); status != http.StatusOK {
-		t.Fatalf("sharing = %d %v", status, answer)
-	}
+	// A runner grant to a realm group of carol's makes her its runner: she runs it, and changes nothing.
+	grantOn(t, bob, id, "runner", groupID(t, bob, "quality"))
 	if run, edit, administer := flags(t, carol, id); !run || edit || administer {
 		t.Errorf("a runner may run %v, edit %v, administer %v; want only run", run, edit, administer)
 	}
-	if status, _ := carol.api(http.MethodPut, "/workflows/"+id+"/sharing", map[string]any{"sharing": "everyone"}); status != http.StatusForbidden {
-		t.Errorf("a runner sharing = %d, want 403", status)
+	if status, _ := carol.api(http.MethodPost, "/workflows/"+id+"/grants", map[string]any{"role": "runner", "groupId": groupID(t, bob, "")}); status != http.StatusForbidden {
+		t.Errorf("a runner granting = %d, want 403", status)
 	}
 	if status, _ := carol.api(http.MethodDelete, "/workflows/"+id, nil); status != http.StatusForbidden {
 		t.Errorf("a runner archiving = %d, want 403", status)

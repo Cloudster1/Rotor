@@ -96,7 +96,8 @@ func TestSavesOfOneVersionAtOnceNumberWithoutGaps(t *testing.T) {
 	}
 }
 
-func TestSharingDecidesWhoSeesAWorkflowAndOnlyTheOwnerChangesIt(t *testing.T) {
+// A workflow is shared by its grants (#203): its administrator grants groups or Everyone a role and takes it away again.
+func TestGrantsDecideWhoSeesAWorkflowAndOnlyItsAdministratorChangesThem(t *testing.T) {
 	alice, bob, carol := newBrowser(t), newBrowser(t), newBrowser(t)
 	alice.signIn("alice")
 	bob.signIn("bob")
@@ -107,36 +108,37 @@ func TestSharingDecidesWhoSeesAWorkflowAndOnlyTheOwnerChangesIt(t *testing.T) {
 		status, _ := b.api(http.MethodGet, "/workflows/"+id, nil)
 		return status == http.StatusOK
 	}
-	share := func(body map[string]any) {
+	revoke := func(grant string) {
 		t.Helper()
-		if status, answer := alice.api(http.MethodPut, "/workflows/"+id+"/sharing", body); status != http.StatusOK {
-			t.Fatalf("sharing %v = %d %v", body, status, answer)
+		if status, answer := alice.api(http.MethodDelete, "/workflows/"+id+"/grants/"+grant, nil); status != http.StatusNoContent {
+			t.Fatalf("revoking %s = %d %v", grant, status, answer)
 		}
 	}
 	if sees(bob) || sees(carol) {
-		t.Fatal("a private workflow is seen by others")
+		t.Fatal("a workflow nobody was granted is seen by others")
 	}
 	// bob is in developers, carol is not.
-	share(map[string]any{"sharing": "groups", "groups": []string{"developers"}})
+	developers := grantOn(t, alice, id, "runner", groupID(t, alice, "developers"))
 	if !sees(bob) || sees(carol) {
-		t.Errorf("shared with developers: bob sees %v, carol sees %v", sees(bob), sees(carol))
+		t.Errorf("granted to developers: bob sees %v, carol sees %v", sees(bob), sees(carol))
 	}
 	if status, _ := bob.api(http.MethodPut, "/workflows/"+id, map[string]any{"specYAML": approvalOnly(name, "Mine now"), "baseVersion": 1}); status != http.StatusForbidden {
 		t.Errorf("bob saving alice's workflow = %d, want 403", status)
 	}
-	if status, _ := bob.api(http.MethodPut, "/workflows/"+id+"/sharing", map[string]any{"sharing": "everyone"}); status != http.StatusForbidden {
-		t.Errorf("bob sharing alice's workflow = %d, want 403", status)
+	if status, _ := bob.api(http.MethodPost, "/workflows/"+id+"/grants", map[string]any{"role": "runner", "groupId": groupID(t, alice, "")}); status != http.StatusForbidden {
+		t.Errorf("bob granting on alice's workflow = %d, want 403", status)
 	}
 	if status, _ := bob.api(http.MethodDelete, "/workflows/"+id, nil); status != http.StatusForbidden {
 		t.Errorf("bob archiving alice's workflow = %d, want 403", status)
 	}
-	share(map[string]any{"sharing": "everyone"})
+	everyone := grantOn(t, alice, id, "runner", groupID(t, alice, ""))
 	if !sees(carol) {
-		t.Error("carol does not see a workflow shared with everyone")
+		t.Error("carol does not see a workflow granted to Everyone")
 	}
-	share(map[string]any{"sharing": "private"})
+	revoke(everyone)
+	revoke(developers)
 	if sees(bob) {
-		t.Error("bob still sees a workflow made private again")
+		t.Error("bob still sees a workflow whose grants were taken away")
 	}
 
 	if status, _ := alice.api(http.MethodDelete, "/workflows/"+id, nil); status != http.StatusNoContent {

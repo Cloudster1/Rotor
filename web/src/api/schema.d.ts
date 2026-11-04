@@ -1476,7 +1476,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The workflows you may see: yours, those shared with a group of yours, and those shared with everyone. */
+        /** The workflows you may see: those whose grants give you, a group of yours or Everyone a role on them. */
         get: operations["listWorkflows"];
         put?: never;
         /** Create a workflow from its YAML; the first save is version 1. */
@@ -1519,7 +1519,10 @@ export interface paths {
          */
         put: operations["saveWorkflow"];
         post?: never;
-        /** Archive a workflow; its versions stay for the runs that used them. */
+        /**
+         * Archive a workflow; its versions stay for the runs that used them.
+         * @description For whoever administers the workflow or Rotor. Workflows are archived, never deleted: runs pin their versions.
+         */
         delete: operations["archiveWorkflow"];
         options?: never;
         head?: never;
@@ -1581,6 +1584,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/{workflowID}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a workflow out of the archive, which undoes archiving it.
+         * @description For whoever administers the workflow or Rotor; restoring a workflow that is not archived changes nothing.
+         */
+        post: operations["restoreWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/{workflowID}/runs": {
         parameters: {
             query?: never;
@@ -1595,27 +1618,6 @@ export interface paths {
          * @description An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false.
          */
         post: operations["startRun"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workflows/{workflowID}/sharing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Share a workflow privately, with groups of the realm, or with everyone; runs still act as whoever starts them.
-         * @deprecated
-         * @description Deprecated by the workflow's grants (#203): it still writes Runner grants, and /workflows/{workflowID}/grants says who holds what.
-         */
-        put: operations["shareWorkflow"];
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2437,11 +2439,6 @@ export interface components {
             description?: string;
             url: string;
         };
-        SharingRequest: {
-            groups?: string[];
-            /** @enum {string} */
-            sharing: "private" | "groups" | "everyone";
-        };
         StartRunRequest: {
             /** @description A JSON value. */
             inputs: unknown;
@@ -2635,9 +2632,7 @@ export interface components {
             id: string;
             name: string;
             owner: components["schemas"]["PersonRef"];
-            sharedGroups: string[];
-            /** @enum {string} */
-            sharing: "private" | "groups" | "everyone";
+            sharedWith: number;
             /** Format: date-time */
             updatedAt: string;
         };
@@ -7535,6 +7530,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
             /** @description Not Found */
             404: {
                 headers: {
@@ -7754,6 +7758,55 @@ export interface operations {
             };
         };
     };
+    restoreWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflowID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     startRun: {
         parameters: {
             query?: never;
@@ -7810,59 +7863,6 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description An error, in the one shape every endpoint uses. */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-        };
-    };
-    shareWorkflow: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                workflowID: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SharingRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WorkflowResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Found */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };

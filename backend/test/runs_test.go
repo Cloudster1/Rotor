@@ -107,12 +107,10 @@ func (h *harness) audited(t *testing.T, action, target string) bool {
 	return n > 0
 }
 
-// share shares a workflow with everyone, as its owner.
+// share makes Everyone a workflow's runner, as its owner, through the workflow's grants.
 func share(t *testing.T, owner *browser, workflowID string) {
 	t.Helper()
-	if status, answer := owner.api(http.MethodPut, "/workflows/"+workflowID+"/sharing", map[string]any{"sharing": "everyone", "groups": []string{}}); status != http.StatusOK {
-		t.Fatalf("sharing the workflow = %d %v", status, answer)
-	}
+	grantOn(t, owner, workflowID, "runner", groupID(t, owner, ""))
 }
 
 func TestAnIdempotencyKeyStartsOneRunEvenWhenSentAtOnce(t *testing.T) {

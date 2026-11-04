@@ -4,7 +4,7 @@ Access is held as roles, groups and grants (#202, `docs/architecture.md`),
 and Admin's People and access section keeps them (#203): the Access page with
 its Roles, Matrix and Groups tabs, the Users page, and each workflow's grants,
 which replace its sharing. Letting people in and single sign-on followed in
-#204, and bootstrap members in #171.
+#204, and bootstrap members in #171. #205 retired sharing and the role word.
 
 Conventions are M2's: paths under `/api/v1`; refusals are sentences saying
 what to do; a page of a listing takes `limit` (50, at most 200) and `offset`
@@ -17,6 +17,7 @@ and answers `total`.
 | 01300, 01310 | #202 | `role`, `user_group`, `group_member`, `role_assignment`, `actor_can()` and the policies |
 | 01320 | #203 | `app_user_keeps_an_administrator`: the last active administrator is never switched off |
 | 01330 | #204 | `app_user.standing` (everybody already known let in), `join_request`, `oidc_provider`; `actor_can()` and the Everyone guards ask `standing` |
+| 01340 | #205 | drops `workflow.sharing`, `workflow.shared_groups`, their trigger and `app_user.role`; `workflow_change_guard` asks `workflow.administer` for archiving and restoring. Down rebuilds sharing from runner grants to groups and Everyone, and the role from the Administrator grant |
 
 ## Endpoints
 
@@ -48,7 +49,7 @@ workflow's creator does.
 | `GET /people` | grants somewhere | `q`, `limit` (10, at most 50): the people let in, by name and address |
 | `GET /users` | admin | every person with `isActive`, `groups` and `grants` (with the `group` they come through), a page |
 | `PATCH /users/{userID}` | admin | `{isActive}`; your own account and the last active administrator are refused with 409 |
-| `PUT /workflows/{workflowID}/sharing` | administers the workflow | deprecated: still writes Runner grants (#202) |
+| `PUT /workflows/{workflowID}/sharing` | | removed in #205; grant on `/workflows/{workflowID}/grants` |
 | `GET /users/requests` | admin | who signed in and waits to be let in, oldest first: `userId`, `email`, `name`, `requestedAt` (#204) |
 | `POST /users/requests/{userID}/admit` | admin | `{role?}`, `member` (the default) or `admin`, which also grants Administrator; answers the `user`; somebody not waiting is 404 |
 | `DELETE /users/requests/{userID}` | admin | turns them away; they may ask again by signing in; somebody not waiting is 404 |

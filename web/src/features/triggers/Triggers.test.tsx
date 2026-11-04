@@ -8,7 +8,7 @@ import { axeViolations } from "@/test/axe";
 import { ME, renderAt } from "@/test/app";
 
 beforeAll(async () => {
-  await import("@/features/workflows/WorkflowRoutes");
+  await import("@/features/workflows/settings/WorkflowSettings");
 });
 
 // The time-zone list holds every zone the browser knows, which makes axe slow over the form.
@@ -24,8 +24,7 @@ const WORKFLOW: WorkflowSummary = {
   name: "weekly-report",
   description: "",
   owner: { id: ME.user.id, name: ME.user.name },
-  sharing: "private",
-  sharedGroups: [],
+  sharedWith: 0,
   currentVersion: 1,
   updatedAt: "2026-10-18T10:00:00Z",
   archived: false,
@@ -79,7 +78,7 @@ describe("a workflow's triggers", () => {
     async () => {
       let posted: Record<string, unknown> | undefined;
       let list: Trigger[] = [];
-      await renderAt(`/workflows/${WORKFLOW.id}`, {
+      await renderAt(`/workflows/${WORKFLOW.id}/settings/triggers`, {
         answers: pageAnswers({
           [`/api/v1/workflows/${WORKFLOW.id}/triggers`]: () => Response.json({ triggers: list }),
           "POST /api/v1/triggers/schedule": { nextRuns: ["2026-10-26T07:00:00Z", "2026-11-02T07:00:00Z"] },
@@ -91,7 +90,7 @@ describe("a workflow's triggers", () => {
         }),
       });
       const section = await screen.findByRole("region", { name: s.triggers.title });
-      expect(within(section).getByText(s.triggers.none)).toBeInTheDocument();
+      expect(await within(section).findByText(s.triggers.none)).toBeInTheDocument();
       await userEvent.click(within(section).getByRole("button", { name: s.triggers.add }));
       await userEvent.type(within(section).getByLabelText(s.triggers.name), "Mondays");
       expect(within(section).getByLabelText(s.triggers.timeZone)).toHaveValue("UTC");
@@ -113,7 +112,7 @@ describe("a workflow's triggers", () => {
   );
 
   it("show why Rotor turned one off, its last run, and refuse what the server refuses", async () => {
-    await renderAt(`/workflows/${WORKFLOW.id}`, {
+    await renderAt(`/workflows/${WORKFLOW.id}/settings/triggers`, {
       answers: pageAnswers({
         [`/api/v1/workflows/${WORKFLOW.id}/triggers`]: { triggers: [TRIGGER] },
         [`POST /api/v1/triggers/${TRIGGER.id}/enable`]: () =>
@@ -129,6 +128,43 @@ describe("a workflow's triggers", () => {
     await userEvent.click(within(row).getByRole("checkbox", { name: s.triggers.enabled("Mondays") }));
     expect(await within(row).findByRole("alert")).toHaveTextContent("connect it first");
     expect(await axeViolations()).toEqual([]);
+  });
+
+  it("are removed after a ConfirmDialog, by their owner or the workflow's administrator, and turned on only by their owner", async () => {
+    const theirs = { ...TRIGGER, owner: { id: "0190a5c4-0000-7000-8000-00000000bb09", name: "Bob" } };
+    let list: Trigger[] = [theirs];
+    const { fetch } = await renderAt(`/workflows/${WORKFLOW.id}/settings/triggers`, {
+      answers: pageAnswers({
+        [`/api/v1/workflows/${WORKFLOW.id}/triggers`]: () => Response.json({ triggers: list }),
+        [`DELETE /api/v1/triggers/${TRIGGER.id}`]: () => {
+          list = [];
+          return new Response(null, { status: 204 });
+        },
+      }),
+    });
+    const row = (await screen.findByText("Mondays")).closest("li") as HTMLElement;
+    expect(within(row).getByRole("checkbox", { name: s.triggers.enabled("Mondays") })).toBeDisabled();
+    expect(within(row).queryByRole("button", { name: s.triggers.change })).not.toBeInTheDocument();
+    await userEvent.click(within(row).getByRole("button", { name: s.triggers.removeNamed("Mondays") }));
+    const dialog = await screen.findByRole("dialog", { name: s.triggers.removeTitle("Mondays") });
+    expect(await axeViolations()).toEqual([]);
+    await userEvent.click(within(dialog).getByRole("button", { name: s.triggers.confirm }));
+    expect(await screen.findByText(s.triggers.none)).toBeInTheDocument();
+    expect(fetch.mock.calls.map(([request]) => `${request.method} ${new URL(request.url).pathname}`)).toContain(`DELETE /api/v1/triggers/${TRIGGER.id}`);
+  });
+
+  it("offer a runner nothing to do with somebody else's", async () => {
+    const theirs = { ...TRIGGER, enabled: true, disabled: null, owner: { id: "0190a5c4-0000-7000-8000-00000000bb09", name: "Bob" } };
+    await renderAt(`/workflows/${WORKFLOW.id}/settings/triggers`, {
+      answers: pageAnswers({
+        [`/api/v1/workflows/${WORKFLOW.id}`]: { ...RESPONSE, workflow: { ...WORKFLOW, canEdit: false, canAdminister: false } },
+        [`/api/v1/workflows/${WORKFLOW.id}/triggers`]: { triggers: [theirs] },
+      }),
+    });
+    const row = (await screen.findByText("Mondays")).closest("li") as HTMLElement;
+    expect(within(row).getByRole("checkbox", { name: s.triggers.enabled("Mondays") })).toBeDisabled();
+    expect(within(row).queryByRole("button")).toBeNull();
+    expect(screen.getByRole("button", { name: s.triggers.add })).toBeInTheDocument();
   });
 
   it("flag a workflow whose trigger Rotor turned off in the list", async () => {
@@ -163,7 +199,7 @@ describe("a workflow's event triggers", () => {
       let posted: Record<string, unknown> | undefined;
       const refusal = "Connect your own account to the tool first.";
       let refuse = true;
-      await renderAt(`/workflows/${WORKFLOW.id}`, {
+      await renderAt(`/workflows/${WORKFLOW.id}/settings/triggers`, {
         answers: pageAnswers({
           [`/api/v1/workflows/${WORKFLOW.id}`]: EVENTED,
           [`/api/v1/workflows/${WORKFLOW.id}/triggers`]: { triggers: [] },
@@ -241,7 +277,7 @@ describe("a workflow's event triggers", () => {
       const calls = [call];
       const posted: Record<string, unknown>[] = [];
       let refuse = true;
-      await renderAt(`/workflows/${WORKFLOW.id}`, {
+      await renderAt(`/workflows/${WORKFLOW.id}/settings/triggers`, {
         answers: pageAnswers({
           [`/api/v1/workflows/${WORKFLOW.id}`]: { ...RESPONSE, version: { ...RESPONSE.version, unattendedCalls: calls } },
           [`/api/v1/workflows/${WORKFLOW.id}/triggers`]: { triggers: [] },
@@ -277,7 +313,7 @@ describe("a workflow's event triggers", () => {
 
   it("show which events of which tool start one", async () => {
     const event = { toolId: EXCITER.id, topics: ["requirement.created"], projects: [], conditions: [] };
-    await renderAt(`/workflows/${WORKFLOW.id}`, {
+    await renderAt(`/workflows/${WORKFLOW.id}/settings/triggers`, {
       answers: pageAnswers({
         "/api/v1/tools": { tools: [EXCITER] },
         [`/api/v1/workflows/${WORKFLOW.id}/triggers`]: { triggers: [{ ...TRIGGER, kind: "event", schedule: null, event, disabled: null, enabled: true }] },

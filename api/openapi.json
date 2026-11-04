@@ -6091,7 +6091,7 @@
     "/workflows": {
       "get": {
         "operationId": "listWorkflows",
-        "summary": "The workflows you may see: yours, those shared with a group of yours, and those shared with everyone.",
+        "summary": "The workflows you may see: those whose grants give you, a group of yours or Everyone a role on them.",
         "tags": [
           "workflows"
         ],
@@ -6234,6 +6234,7 @@
       "delete": {
         "operationId": "archiveWorkflow",
         "summary": "Archive a workflow; its versions stay for the runs that used them.",
+        "description": "For whoever administers the workflow or Rotor. Workflows are archived, never deleted: runs pin their versions.",
         "tags": [
           "workflows"
         ],
@@ -6251,6 +6252,16 @@
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "404": {
             "description": "Not Found",
@@ -6690,6 +6701,69 @@
         }
       }
     },
+    "/workflows/{workflowID}/restore": {
+      "post": {
+        "operationId": "restoreWorkflow",
+        "summary": "Take a workflow out of the archive, which undoes archiving it.",
+        "description": "For whoever administers the workflow or Rotor; restoring a workflow that is not archived changes nothing.",
+        "tags": [
+          "workflows"
+        ],
+        "parameters": [
+          {
+            "name": "workflowID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workflows/{workflowID}/runs": {
       "post": {
         "operationId": "startRun",
@@ -6789,80 +6863,6 @@
             }
           }
         }
-      }
-    },
-    "/workflows/{workflowID}/sharing": {
-      "put": {
-        "operationId": "shareWorkflow",
-        "summary": "Share a workflow privately, with groups of the realm, or with everyone; runs still act as whoever starts them.",
-        "description": "Deprecated by the workflow's grants (#203): it still writes Runner grants, and /workflows/{workflowID}/grants says who holds what.",
-        "tags": [
-          "workflows"
-        ],
-        "parameters": [
-          {
-            "name": "workflowID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SharingRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WorkflowResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "An error, in the one shape every endpoint uses.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true
       }
     },
     "/workflows/{workflowID}/triggers": {
@@ -10063,28 +10063,6 @@
           "url"
         ]
       },
-      "SharingRequest": {
-        "type": "object",
-        "properties": {
-          "groups": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "sharing": {
-            "type": "string",
-            "enum": [
-              "private",
-              "groups",
-              "everyone"
-            ]
-          }
-        },
-        "required": [
-          "sharing"
-        ]
-      },
       "StartRunRequest": {
         "type": "object",
         "properties": {
@@ -10851,19 +10829,8 @@
           "owner": {
             "$ref": "#/components/schemas/PersonRef"
           },
-          "sharedGroups": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "sharing": {
-            "type": "string",
-            "enum": [
-              "private",
-              "groups",
-              "everyone"
-            ]
+          "sharedWith": {
+            "type": "integer"
           },
           "updatedAt": {
             "type": "string",
@@ -10875,8 +10842,7 @@
           "name",
           "description",
           "owner",
-          "sharing",
-          "sharedGroups",
+          "sharedWith",
           "currentVersion",
           "updatedAt",
           "archived",

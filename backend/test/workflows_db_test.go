@@ -41,14 +41,17 @@ func TestTheDatabaseKeepsWorkflowsToTheirOwnersAndVersionsUnchanged(t *testing.T
 	}); err != nil || seen != 0 {
 		t.Errorf("another member sees %d versions of a private workflow (%v)", seen, err)
 	}
-	if touched, err := as(other, `UPDATE workflow SET sharing = 'everyone' WHERE id = $1`, id); err != nil || touched != 0 {
-		t.Errorf("another member shared a workflow: %d rows, %v", touched, err)
+	if touched, err := as(other, `UPDATE workflow SET archived_at = now() WHERE id = $1`, id); err != nil || touched != 0 {
+		t.Errorf("another member archived a workflow: %d rows, %v", touched, err)
 	}
+	_, err := as(other, `INSERT INTO role_assignment (role, workflow_id, group_id)
+		SELECT 'runner', $1, id FROM user_group WHERE builtin = 'everyone'`, id)
+	permissionDenied(t, "another member sharing a workflow as rotor_app", err)
 	// The numbering trigger, which cannot see the workflow either, refuses it before the policy does.
 	if _, err := as(other, `INSERT INTO workflow_version (workflow_id, number, spec_yaml, spec, hash, created_by) VALUES ($1, 2, 'y', '{}', 'h', $2)`, id, other); err == nil {
 		t.Error("another member added a version as rotor_app")
 	}
-	_, err := as(owner, `UPDATE workflow_version SET spec_yaml = 'changed' WHERE workflow_id = $1`, id)
+	_, err = as(owner, `UPDATE workflow_version SET spec_yaml = 'changed' WHERE workflow_id = $1`, id)
 	permissionDenied(t, "the owner rewriting a version as rotor_app", err)
 	_, err = as(owner, `DELETE FROM workflow WHERE id = $1`, id)
 	permissionDenied(t, "the owner deleting a workflow as rotor_app", err)

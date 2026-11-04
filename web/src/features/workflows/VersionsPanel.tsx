@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
-import { diffQuery, fetchVersion, versionsQuery } from "@/api/workflows";
+import { diffQuery, versionsQuery } from "@/api/workflows";
 import { s } from "@/strings";
 
 const card = "rounded-overlay border border-border bg-surface p-4 shadow-1";
@@ -9,7 +9,7 @@ const secondary = "h-8 rounded-control border border-border-strong px-3 text-sm 
 const MARK = { equal: " ", insert: "+", delete: "-" } as const;
 
 /** A workflow's versions, what changed between any two, and a way to open an older one in the editor. */
-export function VersionsPanel({ workflowID, current, onOpen }: { workflowID: string; current: number; onOpen: (yaml: string) => void }) {
+export function VersionsPanel({ workflowID, current, onOpen }: { workflowID: string; current: number; onOpen: (version: number) => void }) {
   const id = useId();
   const versions = useQuery(versionsQuery(workflowID));
   const [from, setFrom] = useState(Math.max(current - 1, 1));
@@ -31,7 +31,7 @@ export function VersionsPanel({ workflowID, current, onOpen }: { workflowID: str
             </span>
             <span className="flex items-center gap-2">
               <span className="text-xs text-ink-muted">{s.workflows.versions.by(v.createdBy.name, new Date(v.createdAt).toLocaleString())}</span>
-              <button type="button" className={secondary} onClick={async () => onOpen((await fetchVersion(workflowID, v.number)).specYAML)}>
+              <button type="button" className={secondary} onClick={() => onOpen(v.number)} data-action="open-version">
                 {s.workflows.versions.open}
                 <span className="sr-only"> {s.workflows.version(v.number)}</span>
               </button>

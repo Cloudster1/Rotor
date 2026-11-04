@@ -9,6 +9,7 @@ import { assistantStrings } from "./strings_assistants";
 import { workspacesStrings } from "./strings_workspaces";
 import { accountStrings, adminStrings, settingsStrings } from "./strings_settings";
 import { accessStrings, joinRequestsStrings, ssoStrings, usersStrings, workflowGrantsStrings } from "./strings_access";
+import { workflowListStrings, workflowSettingsStrings } from "./strings_workflow_settings";
 
 /** Every word the interface shows, in one place, so a second language is a second copy of this object. */
 export const s = {
@@ -18,6 +19,7 @@ export const s = {
     skipToContent: "Skip to content",
     navigation: "Places",
     home: "Rotor home",
+    cancel: "Cancel",
   },
   theme: {
     label: "Colour scheme",
@@ -45,11 +47,7 @@ export const s = {
     archivedBody: "Archived workflows keep their versions for the runs that used them.",
     owner: "Owner",
     version: (n: number) => `Version ${n}`,
-    sharing: { private: "Private", groups: "Shared with groups", everyone: "Shared with everyone" },
     archive: "Archive",
-    confirmArchive: (name: string) => `Archive ${name}? It leaves the list; its versions stay for the runs that used them.`,
-    confirm: "Archive it",
-    keep: "Keep it",
     editor: {
       newTitle: "New workflow",
       label: "Workflow YAML",
@@ -132,11 +130,12 @@ export const s = {
       allowed: "Allow triggers to write without an approval",
     },
     remove: "Remove",
-    confirmRemove: (name: string) => `Remove ${name}? The runs it started stay.`,
+    removeNamed: (name: string) => `Remove ${name}`,
+    removeTitle: (name: string) => `Remove ${name}?`,
+    removeBody: "It starts no more runs. The runs it started stay.",
     confirm: "Remove trigger",
-    keep: "Keep",
     flag: "A trigger of yours is turned off",
-    flagNamed: (workflow: string) => `A trigger of yours on ${workflow} is turned off; open the workflow to see why.`,
+    flagNamed: (workflow: string) => `A trigger of yours on ${workflow} is turned off; open its triggers to see why.`,
     kind: "Starts",
     kinds: { schedule: "On a schedule", event: "On a tool's event" },
     events: (topics: string, tool: string) => `On ${topics} in ${tool}`,
@@ -473,4 +472,6 @@ export const s = {
   sso: ssoStrings,
   joinRequests: joinRequestsStrings,
   workflowGrants: workflowGrantsStrings,
+  workflowSettings: workflowSettingsStrings,
+  workflowList: workflowListStrings,
 } as const;

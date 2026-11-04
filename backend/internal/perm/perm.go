@@ -44,7 +44,8 @@ const (
 	WorkflowRun Permission = "workflow.run"
 	// WorkflowEdit is saving new versions of a workflow.
 	WorkflowEdit Permission = "workflow.edit"
-	// WorkflowAdminister is sharing a workflow, archiving it, and seeing and cancelling everyone's runs of it.
+	// WorkflowAdminister is granting roles on a workflow, archiving and restoring it, and seeing and cancelling everyone's
+	// runs of it.
 	WorkflowAdminister Permission = "workflow.administer"
 	// WorkflowCreate is making a new workflow, which is an installation-wide act.
 	WorkflowCreate Permission = "workflow.create"

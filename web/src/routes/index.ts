@@ -8,6 +8,7 @@ import { adminTree } from "./admin";
 import { consentRoute } from "./consent";
 import { connectionsRoute, indexRoute } from "./places";
 import { newWorkflowRoute, workflowRoute, workflowsRoute } from "./workflows";
+import { workflowSettingsTree } from "./workflowSettings";
 import { RouteError, rootRoute } from "./root";
 import { runRoute, runsRoute } from "./runs";
 import { settingsTree } from "./settings";
@@ -21,6 +22,7 @@ const routeTree = rootRoute.addChildren([
     workflowsRoute,
     newWorkflowRoute,
     workflowRoute,
+    workflowSettingsTree,
     runsRoute,
     runRoute,
     approvalsRoute,

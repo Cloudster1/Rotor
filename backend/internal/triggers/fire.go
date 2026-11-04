@@ -243,8 +243,8 @@ func (f *Firer) owner(ctx context.Context, id uuid.UUID) (*auth.Principal, bool,
 	p := &auth.Principal{UserID: id}
 	var active bool
 	err := f.triggers.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		return tx.QueryRow(ctx, `SELECT email, name, role, groups, is_active FROM app_user WHERE id = $1`, id).
-			Scan(&p.Email, &p.Name, &p.Role, &p.Groups, &active)
+		return tx.QueryRow(ctx, `SELECT email, name, groups, is_active FROM app_user WHERE id = $1`, id).
+			Scan(&p.Email, &p.Name, &p.Groups, &active)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return p, false, nil

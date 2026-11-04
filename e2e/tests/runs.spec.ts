@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { everyoneGroupID, grantOnWorkflow } from "../fixtures/access";
 import { PEOPLE, signIn } from "../fixtures/auth";
 import { expectAccessible, startInScheme, type ColourScheme } from "../fixtures/shell";
 import { createWorkflow, RUN_TIMEOUT_MS } from "../fixtures/runs";
@@ -74,7 +75,7 @@ test("a run that acts in a tool the person has not connected offers it, then sta
   const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   const bob = await context.newPage();
   try {
-    // alice connects, so the workflow saves against what the tool offers, and shares it with everyone.
+    // alice connects, so the workflow saves against what the tool offers, and makes Everyone its runner.
     await page.goto("/connections");
     await page.locator("li[data-connection]", { hasText: address }).locator('[data-action="connect"]').click();
     await page.waitForURL(`${toolStubURL()}/**`);
@@ -82,8 +83,7 @@ test("a run that acts in a tool the person has not connected offers it, then sta
     await page.locator('button[data-action="allow"]').click();
     await expect(page).toHaveURL(/\/connections\?connected=/);
     const id = await createWorkflow(page, greeter(`e2e-${product}`, product));
-    const shared = await page.request.put(`/api/v1/workflows/${id}/sharing`, { data: { sharing: "everyone", groups: [] } });
-    expect(shared.status()).toBe(200);
+    await grantOnWorkflow(page, id, "runner", { groupId: await everyoneGroupID(page) });
 
     await signIn(bob, PEOPLE.bob, `/workflows/${id}`);
     await bob.locator('[data-action="run-workflow"]').click();

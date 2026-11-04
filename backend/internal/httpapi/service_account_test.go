@@ -63,7 +63,7 @@ func serviceAccountServer(t *testing.T) (*Server, *fakeServiceAccounts, *fakeHoo
 	t.Helper()
 	s, _ := toolsServer(t)
 	accounts := &fakeServiceAccounts{account: &auth.Principal{UserID: uuid.New(), Email: "dynamo-connect@service-account.invalid",
-		Name: "dynamo-connect", Role: auth.RoleAdmin, Groups: []string{oidc.AdminGroup},
+		Name: "dynamo-connect", Groups: []string{oidc.AdminGroup},
 		Perms: perm.NewSet([]perm.Grant{{Role: perm.Administrator}})}}
 	h := &fakeHooks{}
 	s.ServiceAccounts, s.Hooks = accounts, h

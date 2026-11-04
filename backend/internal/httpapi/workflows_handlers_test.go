@@ -19,7 +19,7 @@ type fakeWorkflows struct {
 	wf       workflows.Workflow
 	saveErr  error
 	saved    int
-	shared   []string
+	restored bool
 	problems []spec.Problem
 	warnings []spec.Problem
 }
@@ -67,8 +67,8 @@ func (f *fakeWorkflows) Save(_ context.Context, _ uuid.UUID, _, _ string, base i
 	return f.saveErr
 }
 
-func (f *fakeWorkflows) Share(_ context.Context, _ uuid.UUID, sharing string, groups []string) error {
-	f.shared = append([]string{sharing}, groups...)
+func (f *fakeWorkflows) Restore(context.Context, uuid.UUID) error {
+	f.restored = true
 	return f.saveErr
 }
 
@@ -86,7 +86,7 @@ func workflowServer(t *testing.T) (*Server, *fakeWorkflows) {
 	s, sessions, _ := signedInServer(t)
 	alice := sessions.people["alice"]
 	store := &fakeWorkflows{wf: workflows.Workflow{ID: uuid.New(), Name: "triage", OwnerID: alice.UserID, OwnerName: alice.Name,
-		Sharing: workflows.SharingPrivate, CurrentVersion: 2, CanRun: true, CanEdit: true, CanAdminister: true}}
+		SharedWith: 3, CurrentVersion: 2, CanRun: true, CanEdit: true, CanAdminister: true}}
 	s.Workflows = store
 	return s, store
 }
@@ -171,14 +171,18 @@ func TestAWarningLeavesAWorkflowValidAndSavable(t *testing.T) {
 	}
 }
 
-func TestSharingAndTheSchemaAndTheCatalog(t *testing.T) {
+// Sharing is the workflow's grants since #203, so its old route is gone (#205); archiving is undone by restoring.
+func TestRestoringTheSchemaAndTheCatalog(t *testing.T) {
 	s, store := workflowServer(t)
-	path := APIPrefix + "/workflows/" + store.wf.ID.String() + "/sharing"
-	if resp, _ := serve(t, s.Routes(nil), withSession(httptestRequest(http.MethodPut, path, `{"sharing":"groups","groups":["developers"]}`), "alice")); resp.StatusCode != http.StatusOK ||
-		fmt.Sprint(store.shared) != "[groups developers]" {
-		t.Errorf("sharing = %d, shared %v", resp.StatusCode, store.shared)
+	base := APIPrefix + "/workflows/" + store.wf.ID.String()
+	if resp, _ := serve(t, s.Routes(nil), withSession(httptestRequest(http.MethodPut, base+"/sharing", `{"sharing":"everyone"}`), "alice")); resp.StatusCode != http.StatusNotFound {
+		t.Errorf("the retired sharing route = %d, want 404", resp.StatusCode)
 	}
-	resp, body := serve(t, s.Routes(nil), withSession(httptest.NewRequest(http.MethodGet, APIPrefix+"/schemas/workflow.v1.json", nil), "alice"))
+	resp, body := serve(t, s.Routes(nil), withSession(httptestRequest(http.MethodPost, base+"/restore", ""), "alice"))
+	if wf, _ := body["workflow"].(map[string]any); resp.StatusCode != http.StatusOK || !store.restored || wf["sharedWith"] != float64(3) {
+		t.Errorf("restore = %d %v, restored %v", resp.StatusCode, body, store.restored)
+	}
+	resp, body = serve(t, s.Routes(nil), withSession(httptest.NewRequest(http.MethodGet, APIPrefix+"/schemas/workflow.v1.json", nil), "alice"))
 	if resp.StatusCode != http.StatusOK || body["$id"] != spec.SchemaURL {
 		t.Errorf("the schema = %d %v", resp.StatusCode, body["$id"])
 	}

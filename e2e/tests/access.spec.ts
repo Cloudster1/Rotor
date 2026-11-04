@@ -1,9 +1,9 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Locator, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { archiveWorkflow, deleteGroupNamed, deleteRoleNamed, makeKnown, plainWorkflow } from "../fixtures/access";
 import { PEOPLE, signIn } from "../fixtures/auth";
 import { createWorkflow } from "../fixtures/runs";
-import { expectAccessible, openShell, scrollsSideways } from "../fixtures/shell";
+import { confirmDialog, expectAccessible, openShell, scrollsSideways } from "../fixtures/shell";
 
 // Admin's Access page (#203): grants on the Roles tab, the matrix and the groups, each spec cleaning up what it made.
 
@@ -15,12 +15,6 @@ async function pickPerson(scope: Locator, select: Locator, name: string): Promis
 }
 
 /** Confirms the dialog open on the page. */
-async function confirm(page: Page): Promise<void> {
-  const dialog = page.locator("dialog[data-confirm]");
-  await expect(dialog).toBeVisible();
-  await dialog.locator('[data-action="confirm"]').click();
-  await expect(dialog).toHaveCount(0);
-}
 
 test("an administrator grants a role to a person and to a group on the Roles tab, and revokes them @desktop", async ({ page, browser }) => {
   const name = `e2e-${randomUUID().slice(0, 12)}`;
@@ -64,7 +58,7 @@ test("an administrator grants a role to a person and to a group on the Roles tab
     for (const row of [bob, engineering]) {
       await row.locator('[data-action="revoke"]').click();
       await expectAccessible(page);
-      await confirm(page);
+      await confirmDialog(page);
       await expect(row).toHaveCount(0);
     }
   } finally {
@@ -101,7 +95,7 @@ test("a role made in the matrix keeps a ticked permission after a reload, and is
     const column = page.locator("[data-role-column]", { hasText: name });
     await column.locator('[data-action="role-menu"]').click();
     await column.locator('[data-action="delete-role"]').click();
-    await confirm(page);
+    await confirmDialog(page);
     await expect(column).toHaveCount(0);
   } finally {
     await deleteRoleNamed(page, name);
@@ -131,11 +125,11 @@ test("a group made by hand gains a member and loses them again @desktop", async 
     await expectAccessible(page);
 
     await member.locator('[data-action="remove-member"]').click();
-    await confirm(page);
+    await confirmDialog(page);
     await expect(member).toHaveCount(0);
 
     await card.locator('[data-action="delete-group"]').click();
-    await confirm(page);
+    await confirmDialog(page);
     await expect(card).toHaveCount(0);
   } finally {
     await deleteGroupNamed(page, name);
@@ -167,7 +161,7 @@ test("a workflow shared with a person through its grants is seen by them, read o
   const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   const carol = await context.newPage();
   try {
-    await openShell(page, `/workflows/${workflowID}`);
+    await openShell(page, `/workflows/${workflowID}/settings/sharing`);
     const grants = page.locator("[data-workflow-grants]");
     const form = grants.locator("[data-share-form]");
     await pickPerson(form, form.locator("[data-share-who]"), PEOPLE.carol.name);
@@ -181,12 +175,13 @@ test("a workflow shared with a person through its grants is seen by them, read o
     await expect(carol.locator("main h1")).toHaveText(name);
     await expect(carol.locator("[data-read-only]")).toBeVisible();
     await expect(carol.locator('[data-action="run-workflow"]')).toBeVisible();
+    await openShell(carol, `/workflows/${workflowID}/settings/sharing`);
     await expect(carol.locator(`[data-workflow-grants] [data-grant][data-grantee="${PEOPLE.carol.name}"]`)).toBeVisible();
     await expect(carol.locator("[data-workflow-grants] [data-share-form]")).toHaveCount(0);
     await expectAccessible(carol);
 
     await grant.locator('[data-action="remove-grant"]').click();
-    await confirm(page);
+    await confirmDialog(page);
     await expect(grant).toHaveCount(0);
     await carol.reload();
     await expect(carol.getByRole("alert")).toContainText("not shared with you");
