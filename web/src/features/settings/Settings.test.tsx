@@ -3,6 +3,7 @@ import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { s } from "@/strings";
 import { axeViolations } from "@/test/axe";
+import { ACCESS_ANSWERS } from "@/test/access";
 import { ME, renderAt } from "@/test/app";
 import { ADMIN_GROUPS, FIRST_ADMIN_PATH, SETTINGS_GROUPS } from "./groups";
 
@@ -16,6 +17,7 @@ const DAY = { day: "2026-10-19", inputTokens: 0, outputTokens: 0, cost: 0 };
 
 // What the pages ask beyond renderAt's defaults, so every one of them draws in full.
 const ANSWERS = {
+  ...ACCESS_ANSWERS,
   "/api/v1/usage": { today: DAY, month: DAY, days: [], limits: { dailyTokens: null, dailyCost: null, concurrentRuns: null } },
   "/api/v1/usage/people": { people: [] },
   "/api/v1/audit/facets": { actions: [], actors: [], targetTypes: [] },
@@ -36,10 +38,19 @@ describe("settings and admin", () => {
     expect(await screen.findByRole("heading", { level: 1, name: s.settings.pages.account })).toBeInTheDocument();
   });
 
-  it("open Admin on its first page", async () => {
-    const { router } = await renderAt("/admin");
-    await waitFor(() => expect(router.state.location.pathname).toBe(FIRST_ADMIN_PATH));
-    expect(await screen.findByRole("heading", { level: 1, name: s.admin.pages.workspaces })).toBeInTheDocument();
+  it("open Admin on Access, the first page of People and access", async () => {
+    const { router } = await renderAt("/admin", { answers: ANSWERS });
+    await waitFor(() => expect(router.state.location.pathname).toBe("/admin/access"));
+    expect(FIRST_ADMIN_PATH).toBe("/admin/access");
+    expect(await screen.findByRole("heading", { level: 1, name: s.access.title })).toBeInTheDocument();
+    const nav = screen.getByRole("navigation", { name: s.admin.nav });
+    const first = within(nav).getAllByRole("list")[0] as HTMLElement;
+    expect(first).toHaveAccessibleName(s.admin.groups.people);
+    expect(
+      within(first)
+        .getAllByRole("link")
+        .map((link) => link.getAttribute("href")),
+    ).toEqual(["/admin/access", "/admin/users"]);
   });
 
   it("send the old audit address to Admin", async () => {

@@ -15,7 +15,7 @@ export const PLACES = [
   { path: "/approvals", label: "Approvals", opens: "/approvals", heading: "Approvals" },
   { path: "/connections", label: "Connections", opens: "/connections", heading: "Connections" },
   { path: "/settings", label: "Settings", opens: "/settings/account", heading: "Account" },
-  { path: "/admin", label: "Admin", opens: "/admin/workspaces", heading: "Workspaces" },
+  { path: "/admin", label: "Admin", opens: "/admin/access", heading: "Access" },
 ] as const;
 
 /** The pages of Settings and Admin, as web/src/features/settings/groups.ts lists them. */
@@ -25,6 +25,8 @@ export const SETTINGS_PAGES = [
   { slug: "usage", path: "/settings/usage", label: "Usage" },
 ] as const;
 export const ADMIN_PAGES = [
+  { slug: "access", path: "/admin/access", label: "Access" },
+  { slug: "users", path: "/admin/users", label: "Users" },
   { slug: "workspaces", path: "/admin/workspaces", label: "Workspaces" },
   { slug: "unattended-writes", path: "/admin/unattended-writes", label: "Unattended writes" },
   { slug: "providers", path: "/admin/providers", label: "Model providers" },

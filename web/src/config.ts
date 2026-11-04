@@ -108,3 +108,18 @@ export const HOOK_TOPICS: Record<string, string[]> = {
 /** The longest LangSmith key and project the server takes (MaxLangSmithKeyChars, MaxLangSmithProjectChars). */
 export const MAX_LANGSMITH_KEY = 512;
 export const MAX_LANGSMITH_PROJECT = 128;
+
+/** How many grants the Roles tab shows a page, and how many people the Users page shows (#203). */
+export const ROLE_ASSIGNMENT_PAGE_SIZE = 50;
+export const USERS_PAGE_SIZE = 50;
+/** How long typing in a search pauses before the server is asked, so each key is not a request. */
+export const SEARCH_DELAY_MS = 250;
+/** The roles a workflow's own grants offer, as backend/internal/perm names them; the others are installation-wide. */
+export const WORKFLOW_GRANT_ROLES = ["runner", "editor", "workflow_administrator"] as const;
+/** The role and the permission that always go together, so somebody can still administer Rotor. */
+export const ADMINISTRATOR_ROLE = "administrator";
+export const ADMINISTER_PERMISSION = "rotor.administer";
+/** What a new role starts with, as in Armature: seeing the workflows it is granted over. */
+export const NEW_ROLE_PERMISSIONS = ["workflow.read"];
+/** The built-in group every person is in, as the API marks it. */
+export const EVERYONE_GROUP = "everyone";

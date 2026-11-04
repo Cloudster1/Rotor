@@ -67,6 +67,9 @@ type Server struct {
 	TrustedProxies []netip.Prefix
 	// Access resolves each request's permissions from the grants (#202); nil only in tests that resolve none.
 	Access Access
+	// AccessAdmin keeps roles, groups and grants, and Switches lets people in and out (#203); nil answers 503.
+	AccessAdmin AccessAdmin
+	Switches    Switches
 	// Sessions and SignIn are nil only in tests that exercise neither.
 	Sessions Sessions
 	SignIn   SignIn
@@ -146,6 +149,17 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Use(requireAuth)
 			r.Get("/auth/me", s.handleMe)
 			r.Get("/access/me", s.handleMyAccess)
+			r.Get("/roles", s.handleListRoles)
+			r.Get("/permissions", s.handleListPermissions)
+			r.Get("/workflows/{workflowID}/grants", s.handleListWorkflowGrants)
+			// Granting is a person's act, never an assistant's, and so is looking up whom to grant to.
+			r.Group(func(r chi.Router) {
+				r.Use(requireSession)
+				r.Get("/groups", s.handleListGroups)
+				r.Get("/people", s.handleFindPeople)
+				r.Post("/workflows/{workflowID}/grants", s.handleGrantOnWorkflow)
+				r.Delete("/workflows/{workflowID}/grants/{grantID}", s.handleRevokeOnWorkflow)
+			})
 			r.With(requireSession).Post("/auth/logout", s.handleLogout)
 			r.Get("/tools/{toolID}", s.handleGetTool)
 			r.Get("/connections", s.handleListConnections)
@@ -213,6 +227,19 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Put("/settings/unattended-writes", s.handleSetUnattendedWrites)
 				r.Get("/settings/workspaces", s.handleGetWorkspaces)
 				r.Put("/settings/workspaces", s.handleSetWorkspaces)
+				r.Post("/roles", s.handleCreateRole)
+				r.Patch("/roles/{roleKey}", s.handleUpdateRole)
+				r.Delete("/roles/{roleKey}", s.handleDeleteRole)
+				r.Post("/groups", s.handleCreateGroup)
+				r.Get("/groups/{groupID}", s.handleGetGroup)
+				r.Delete("/groups/{groupID}", s.handleDeleteGroup)
+				r.Post("/groups/{groupID}/members", s.handleAddGroupMember)
+				r.Delete("/groups/{groupID}/members/{userID}", s.handleRemoveGroupMember)
+				r.Get("/role-assignments", s.handleListAssignments)
+				r.Post("/role-assignments", s.handleGrantRole)
+				r.Delete("/role-assignments/{assignmentID}", s.handleRevokeRole)
+				r.Get("/users", s.handleListUsers)
+				r.Patch("/users/{userID}", s.handleUpdateUser)
 				mountPending(r, false, true)
 			})
 		})

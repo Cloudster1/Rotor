@@ -77,5 +77,12 @@ export const audit = {
     "role.granted": "Role granted",
     "role.revoked": "Role taken away",
     "role.removed": "Role deleted",
+    "role.defined": "Role added",
+    "role.redefined": "Role changed",
+    "group.created": "Group created",
+    "group.deleted": "Group deleted",
+    "group.member_added": "Person added to a group",
+    "group.member_removed": "Person removed from a group",
+    "user.switched_on": "Person switched on",
   } as Record<string, string>,
 } as const;

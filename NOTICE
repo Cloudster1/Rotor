@@ -223,3 +223,24 @@ Adapted from Armature at 3f8fd4c (3f8fd4cb7784c53af1faa8585500680a079b989d), its
   00966_everyone_group.sql, asked by Rotor's row level security through actor_can() (01310_access_policies.sql)
 - backend/test/access_db_test.go: the rbac tests of test/rbac_test.go, test/roles_test.go and
   test/last_administrator_test.go, each also straight through SQL as rotor_app
+
+Adapted from Armature at 3f8fd4c (3f8fd4cb7784c53af1faa8585500680a079b989d), its Access and Users pages (#203):
+- backend/internal/perm/roles.go: CreateRole, UpdateRole, KeyFromName and cleanPermissions of
+  internal/perm/definitions.go, the organization-wide flag become installation_wide_only
+- backend/internal/perm/groups.go and assignments.go: the groups, members and the paged grants listing of
+  internal/perm/store.go and assign.go, a project replaced by a workflow; read as rotor_admin after the same
+  transaction checks the acting person, since Rotor keeps row level security
+- backend/internal/httpapi/roles_handlers.go, groups_handlers.go and grants_handlers.go: the /roles, /permissions,
+  /groups and /role-assignments handlers of internal/httpapi/access_handlers.go, their guards of
+  routes_organization.go, and the Users page's listing and switching off of user_handlers.go
+- backend/test/access_admin_test.go, access_grants_test.go and access_users_test.go: the role, group and grant
+  tests of test/rbac_test.go and test/roles_test.go, each refusal also straight through SQL as rotor_app
+- web/src/features/access: RoleTable.tsx, GrantForm.tsx, RoleMatrix.tsx, RoleDialogs.tsx, GroupList.tsx,
+  PersonPicker.tsx and AccessPage.tsx from web/src/features/access/{RoleTable,RoleMatrix,GroupList}.tsx,
+  features/people/PersonPicker.tsx and routes/access.tsx, and ui.tsx's pager from components/ui/Pager.tsx; native
+  dialogs and a status line instead of Armature's kit and toasts
+- web/src/features/users/UserTable.tsx and UsersPage.tsx from web/src/features/users/UserTable.tsx and
+  routes/users.tsx, without passwords, invitations or join requests
+- web/src/strings_access.ts from web/src/i18n/access.en.ts with the pager and people picker words of kit.en.ts and
+  looks.en.ts, Rotor in place of Armature and a workflow in place of a project
+- web/src/features/access/*.test.tsx and features/users/UserTable.test.tsx from their Armature counterparts

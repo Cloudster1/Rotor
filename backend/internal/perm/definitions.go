@@ -161,11 +161,14 @@ func (s *Store) DeleteRole(ctx context.Context, key Role, actor uuid.UUID) error
 		if current.Builtin {
 			return ErrBuiltinRole
 		}
-		if _, err := tx.Exec(ctx, `DELETE FROM role WHERE key = $1`, string(key)); err != nil {
-			if isCheckViolation(err) {
-				return ErrBuiltinRole
-			}
+		tag, err := tx.Exec(ctx, `DELETE FROM role WHERE key = $1`, string(key))
+		switch {
+		case isCheckViolation(err):
+			return ErrBuiltinRole
+		case err != nil:
 			return fmt.Errorf("delete role: %w", err)
+		case tag.RowsAffected() == 0:
+			return ErrForbidden
 		}
 		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionRoleRemoved, TargetType: "role", TargetID: string(key),
 			Actor: actor, Data: map[string]any{"grants": current.InUse}})

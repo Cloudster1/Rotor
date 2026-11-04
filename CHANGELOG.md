@@ -9,6 +9,24 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Admin's People and access section keeps who may do what, as in Armature
+  (#203):
+  - Access has the tabs Roles, Matrix and Groups. Roles lists the grants,
+    who holds which role and where, with a search, a role filter, granting to
+    a person or a group over the installation or one workflow, and taking a
+    grant away; the last Administrator grant stays.
+  - Matrix shows the permissions down and the roles across, and a tick saves
+    at once. Roles of your own are added, renamed, described and deleted, with
+    the grants they take with them named first; the built-in roles stay.
+  - Groups lists Everyone, then the realm's groups, then those made by hand,
+    whose members are added and taken out here.
+  - Users lists every person with their groups and roles, and switches a
+    person off, which ends their sessions and connections, or on again. Your
+    own account and the last active administrator stay on.
+  - The API behind them: `/roles`, `/permissions`, `/groups`,
+    `/role-assignments`, `/people`, `/users` and a workflow's `/grants`
+    (`docs/api-contract-access.md`).
+
 - Access is held as roles, groups and grants, as in Armature (#202):
   - The permissions are `workflow.read`, `workflow.run`, `workflow.edit`,
     `workflow.administer`, `workflow.create` and `rotor.administer`, and the
@@ -478,6 +496,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
   model's text and each tool call as events.
 
 ### Changed
+
+- A workflow's Sharing is its grants (#203): anybody who sees it reads who
+  holds which role there, and whoever administers it grants people or groups
+  Runner, Editor or Workflow administrator. `PUT /workflows/{id}/sharing`
+  still works and writes Runner grants, but is deprecated.
 
 - An administrator of Rotor now saves versions of and shares every workflow,
   as the Administrator role holds every permission; before, they saw and

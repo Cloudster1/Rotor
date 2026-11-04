@@ -7,6 +7,8 @@ export interface SettingsNavPage {
     | "/settings/account"
     | "/settings/assistants"
     | "/settings/usage"
+    | "/admin/access"
+    | "/admin/users"
     | "/admin/workspaces"
     | "/admin/unattended-writes"
     | "/admin/providers"
@@ -37,8 +39,16 @@ export const SETTINGS_GROUPS: readonly SettingsNavGroup[] = [
   },
 ];
 
-// The sections of the suite's administration standard (#161); People and access waits for its access model.
+// The sections of the suite's administration standard (#161), People and access first as in Armature.
 export const ADMIN_GROUPS: readonly SettingsNavGroup[] = [
+  {
+    id: "people",
+    title: s.admin.groups.people,
+    pages: [
+      { slug: "access", path: "/admin/access", label: s.admin.pages.access },
+      { slug: "users", path: "/admin/users", label: s.admin.pages.users },
+    ],
+  },
   {
     id: "work",
     title: s.admin.groups.work,

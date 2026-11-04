@@ -65,6 +65,17 @@ const (
 	ActionRoleGranted = "role.granted"
 	ActionRoleRevoked = "role.revoked"
 	ActionRoleRemoved = "role.removed"
+	// ActionRoleDefined and ActionRoleRedefined are a role added and a role renamed or given other permissions (#203).
+	ActionRoleDefined   = "role.defined"
+	ActionRoleRedefined = "role.redefined"
+	// ActionGroupCreated, ActionGroupDeleted, ActionGroupMemberAdded and ActionGroupMemberRemoved are groups kept by
+	// hand (#203).
+	ActionGroupCreated       = "group.created"
+	ActionGroupDeleted       = "group.deleted"
+	ActionGroupMemberAdded   = "group.member_added"
+	ActionGroupMemberRemoved = "group.member_removed"
+	// ActionSwitchedOn is a switched-off person let in again (#203).
+	ActionSwitchedOn = "user.switched_on"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
@@ -76,7 +87,8 @@ var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, Actio
 	ActionSandboxSpawned, ActionSandboxDestroyed, ActionRunEnded, ActionApprovalRequested, ActionAuditExported,
 	ActionRetentionChanged, ActionRunDataDeleted, ActionOAuthGranted, ActionOAuthRevoked, ActionOAuthSwitched,
 	ActionUnattendedSwitched, ActionTriggerUnattendedWrite, ActionWorkspacesChanged, ActionRoleGranted, ActionRoleRevoked,
-	ActionRoleRemoved}
+	ActionRoleRemoved, ActionRoleDefined, ActionRoleRedefined, ActionGroupCreated, ActionGroupDeleted, ActionGroupMemberAdded,
+	ActionGroupMemberRemoved, ActionSwitchedOn}
 
 // Redacted stands in the record for a value that looked like a credential.
 var Redacted = redact.Redacted

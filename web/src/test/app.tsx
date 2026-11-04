@@ -72,6 +72,8 @@ export function stubApi(answers: Record<string, Answer> = { "/api/v1/meta": META
     if (answer !== undefined) return Response.json(answer);
     // A workflow's page lists its triggers; it has none unless a test says so.
     if (request.method === "GET" && /^\/api\/v1\/workflows\/[^/]+\/triggers$/.test(path)) return Response.json({ triggers: [] });
+    // And who holds a role on it (#203): nobody unless a test says so.
+    if (request.method === "GET" && /^\/api\/v1\/workflows\/[^/]+\/grants$/.test(path)) return Response.json({ grants: [] });
     return Response.json({ error: { code: "not_found", message: "Not found." } }, { status: 404 });
   });
   vi.stubGlobal("fetch", fetch);

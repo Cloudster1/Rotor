@@ -105,7 +105,7 @@ from Keycloak's admin API, as the `rotor` client's service account with
 `view-users`, and ends their sessions older than it (#53).
 Each sign-in makes the person's realm groups exactly the `groups` claim.
 
-## Access (#202)
+## Access (#202, #203, `docs/api-contract-access.md`)
 
 Access is held as roles, groups and grants, ported from Armature's `perm`
 package with its project replaced by a workflow:
@@ -129,8 +129,29 @@ responses carry `canRun`, `canEdit` and `canAdminister`. Row level security
 asks the same grants through `actor_can(permission, workflow)`, a null workflow
 being the installation, and `current_actor_is_admin()` is
 `actor_can('rotor.administer', NULL)`. Everyone holds Author, so anyone signed
-in creates workflows; a workflow's creator is its Workflow administrator; until
-#203, sharing a workflow is runner grants to its groups or to Everyone.
+in creates workflows, and a workflow's creator is its Workflow administrator.
+
+Admin's People and access section keeps all of it (#203). Access has the tabs
+Roles (the grants: who, which role, where), Matrix (permissions down, roles
+across; a tick saves the role's whole list) and Groups (Everyone, the realm's,
+then those made by hand); Users lists every person with their groups and roles
+and switches them off and on. A workflow's Sharing is its grants: anybody who
+sees the workflow reads them, and whoever administers it grants Runner, Editor
+or Workflow administrator there and nowhere else. `PUT /workflows/{id}/sharing`
+still writes Runner grants for older clients and is marked deprecated.
+
+Writing roles, groups and grants goes through `rotor_app`, so the policies
+decide. Two things are not `rotor_app`'s to read: other people's `app_user`
+rows and other people's `group_member` rows (a policy that asked `actor_can()`
+there would ask itself). The people picker, the grants listing with names,
+group members and the Users page therefore read as `rotor_admin`, and writing
+a membership too, each after asking in the same transaction whether the person
+it acts for may: `actor_can('rotor.administer', NULL)` for Admin's pages, a
+grant of `workflow.administer` anywhere for the picker and the group list, and
+`actor_can('workflow.read', workflow)` for a workflow's grants. Switching off
+the last active person who administers Rotor is refused by the database
+(`app_user_keeps_an_administrator`, under the lock revoking takes), and
+`rotor_app` cannot switch anybody at all.
 
 ## Tool connections (M1, `docs/api-contract-m1.md`)
 

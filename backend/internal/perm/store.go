@@ -22,7 +22,7 @@ var (
 	// person an administrator.
 	ErrEveryoneAdministers = errors.New("everyone cannot be given a role that administers Rotor; grant it to a group of administrators instead")
 	// ErrForbidden is a grant the caller's own grants do not let them give or take away.
-	ErrForbidden = errors.New("only an administrator of Rotor, or of the workflow, may grant or take away its roles")
+	ErrForbidden = errors.New("only an administrator of Rotor, or of the workflow, may change who holds its roles, so ask one to do it")
 	// ErrLastAdministrator refuses taking away the last Administrator grant.
 	ErrLastAdministrator = errors.New("this is the last administrator grant, so grant Administrator to someone else first")
 )

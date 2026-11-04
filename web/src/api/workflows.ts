@@ -9,7 +9,6 @@ export type Version = components["schemas"]["VersionResponse"];
 export type VersionSummary = components["schemas"]["VersionSummary"];
 export type Diff = components["schemas"]["DiffResponse"];
 export type Problem = components["schemas"]["Problem"];
-export type Sharing = components["schemas"]["SharingRequest"]["sharing"];
 export type Catalog = components["schemas"]["CatalogResponse"];
 export type CatalogTool = components["schemas"]["CatalogTool"];
 
@@ -98,11 +97,6 @@ export async function createWorkflow(specYAML: string, comment: string): Promise
 
 export async function saveWorkflow(id: string, specYAML: string, comment: string, baseVersion: number): Promise<WorkflowResponse> {
   const { data } = await api.PUT("/workflows/{workflowID}", { params: { path: { workflowID: id } }, body: { specYAML, comment, baseVersion } });
-  return data as WorkflowResponse;
-}
-
-export async function shareWorkflow(id: string, sharing: Sharing, groups: string[]): Promise<WorkflowResponse> {
-  const { data } = await api.PUT("/workflows/{workflowID}/sharing", { params: { path: { workflowID: id } }, body: { sharing, groups } });
   return data as WorkflowResponse;
 }
 

@@ -48,6 +48,7 @@ func specBuilder() *openapi.Builder {
 	registerM5Schemas(b)
 	registerM6Schemas(b)
 	registerM10Schemas(b)
+	registerAccessSchemas(b)
 	return b
 }
 
@@ -146,6 +147,7 @@ func (op operation) describe(b *openapi.Builder, errorSchema *openapi.Schema) *o
 	if op.public {
 		o.Security = []map[string][]string{}
 	}
+	o.Deprecated = op.deprecated
 	if op.serviceAccount {
 		o.Security = []map[string][]string{{sessionScheme: {}}, {realmBearerScheme: {}}}
 	}

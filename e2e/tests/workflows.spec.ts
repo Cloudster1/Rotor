@@ -31,6 +31,16 @@ async function replaceText(page: Page, text: string): Promise<void> {
   await page.keyboard.insertText(text);
 }
 
+/** Shares the open workflow through its grants (#203) with a group, as one of the workflow roles. */
+async function shareWith(page: Page, group: string, role: string): Promise<void> {
+  const grants = page.locator("[data-workflow-grants]");
+  const form = grants.locator("[data-share-form]");
+  await form.locator("[data-share-who]").selectOption({ label: group });
+  await form.locator("[data-share-role]").selectOption({ label: role });
+  await form.locator('[data-action="share"]').click();
+  await expect(grants.locator(`[data-grant][data-grantee="${group}"]`)).toContainText(role);
+}
+
 for (const scheme of SCHEMES) {
   test(`a person writes a workflow, sees what is wrong, saves two versions, compares and shares them, in ${scheme} @desktop`, async ({ page }) => {
     const name = `e2e-${randomUUID().slice(0, 12)}`;
@@ -59,11 +69,7 @@ for (const scheme of SCHEMES) {
     await expect(page.locator('[data-diff] [data-op="insert"]')).toContainText("Really go on?");
     await expect(page.locator('[data-diff] [data-op="delete"]')).toContainText("Go on?");
 
-    const share = page.locator("[data-share]");
-    await share.getByLabel("Groups I am in").check();
-    await share.getByLabel("engineering").check();
-    await share.locator('[data-action="save-sharing"]').click();
-    await expect(share.getByRole("status")).toBeVisible();
+    await shareWith(page, "engineering", "Runner");
     await expectAccessible(page);
   });
 }
@@ -76,11 +82,7 @@ test("a workflow shared with a group is seen by its members, read only, and by n
   await page.locator('[data-action="save-workflow"]').click();
   await expect(page).toHaveURL(/\/workflows\/[0-9a-f-]{36}$/);
   const address = new URL(page.url()).pathname;
-  const share = page.locator("[data-share]");
-  await share.getByLabel("Groups I am in").check();
-  await share.getByLabel("engineering").check();
-  await share.locator('[data-action="save-sharing"]').click();
-  await expect(share.getByRole("status")).toBeVisible();
+  await shareWith(page, "engineering", "Runner");
 
   for (const [person, sees] of [
     [PEOPLE.bob, true],
@@ -94,6 +96,9 @@ test("a workflow shared with a group is seen by its members, read only, and by n
         await expect(other.locator("main h1")).toHaveText(name);
         await expect(other.locator("[data-read-only]")).toBeVisible();
         await expect(other.locator('[data-action="save-workflow"]')).toHaveCount(0);
+        // The grants are read to everybody who sees the workflow, and changed by its administrators alone.
+        await expect(other.locator('[data-workflow-grants] [data-grant][data-grantee="engineering"]')).toBeVisible();
+        await expect(other.locator("[data-workflow-grants] [data-share-form]")).toHaveCount(0);
         await expectAccessible(other);
       } else {
         await expect(other.getByRole("alert")).toContainText("not shared with you");

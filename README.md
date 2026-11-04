@@ -100,8 +100,8 @@ tools as the person saving it sees them. Its nodes are agents (a model that
 may call its bindings' tools), single tool calls, Python code nodes,
 approvals and routers; its inputs are a JSON Schema the Run dialog asks for;
 its limits bound steps, time, tokens, cost and concurrent runs. Every save is
-an immutable, numbered version a run pins, and any two versions compare. A workflow is its author's, shared with groups or with everyone, and
-sharing it never shares its author's access. The editor completes from the
+an immutable, numbered version a run pins, and any two versions compare. Its author administers a workflow and grants people or groups Runner, Editor
+or Workflow administrator on it, and a grant never shares the author's access. The editor completes from the
 schema, and its Canvas tab draws the same workflow, writing every change into
 the YAML so the YAML tab shows what you could have written yourself.
 

@@ -162,26 +162,12 @@ describe("the workflows", () => {
     await waitFor(() => expect(saved).toBe(true));
   });
 
-  it("show what changed between versions, and share with a group", async () => {
-    let shared: unknown;
-    await renderAt(`/workflows/${TRIAGE.id}`, {
-      answers: {
-        ...workflowAnswers(),
-        [`PUT /api/v1/workflows/${TRIAGE.id}/sharing`]: async (request: Request) => {
-          shared = await request.json();
-          return Response.json(RESPONSE);
-        },
-      },
-    });
+  it("show what changed between versions", async () => {
+    await renderAt(`/workflows/${TRIAGE.id}`, { answers: workflowAnswers() });
     const versions = await screen.findByRole("region", { name: s.workflows.versions.title });
     await within(versions).findAllByText(s.workflows.version(1));
     await userEvent.click(within(versions).getByRole("button", { name: s.workflows.versions.compare }));
     expect(await within(versions).findByText(/Really go\?/)).toHaveAttribute("data-op", "insert");
-
-    const sharing = screen.getByRole("region", { name: s.workflows.share.title });
-    await userEvent.click(within(sharing).getByLabelText("rotor-administrators"));
-    await userEvent.click(within(sharing).getByRole("button", { name: s.workflows.share.save }));
-    await waitFor(() => expect(shared).toEqual({ sharing: "groups", groups: ["engineering", "rotor-administrators"] }));
   });
 
   it("are read only for anyone the API says may not edit them", async () => {
@@ -190,7 +176,8 @@ describe("the workflows", () => {
     });
     expect(await screen.findByText(s.workflows.editor.readOnly)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: s.workflows.editor.save })).not.toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: s.workflows.share.title })).not.toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: s.workflowGrants.title })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: s.workflowGrants.share })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: s.runs.runNamed(TRIAGE.name) })).toBeInTheDocument();
   });
 
@@ -200,7 +187,8 @@ describe("the workflows", () => {
     await renderAt(`/workflows/${TRIAGE.id}`, { answers: workflowAnswers({ ...RESPONSE, workflow: theirs }) });
     expect(await screen.findByRole("button", { name: s.workflows.editor.save })).toBeInTheDocument();
     expect(screen.queryByText(s.workflows.editor.readOnly)).not.toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: s.workflows.share.title })).not.toBeInTheDocument();
+    expect(await screen.findByText(s.workflowGrants.readOnly)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: s.workflowGrants.share })).not.toBeInTheDocument();
   });
 
   it("offer a run only to whom the API lets run, and archiving only to whom administers", async () => {
