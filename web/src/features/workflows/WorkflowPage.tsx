@@ -20,11 +20,11 @@ import { s } from "@/strings";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { CheckList } from "./CheckList";
 import { EditorTabs, useEditorView } from "./EditorTabs";
-import { SharePanel } from "./SharePanel";
 import { ToolPicker } from "./ToolPicker";
 import { NEW_WORKFLOW, fileName } from "./template";
 import { useTextHistory } from "./history";
 import { VersionsPanel } from "./VersionsPanel";
+import { WorkflowGrantsPanel } from "./WorkflowGrantsPanel";
 import { YamlEditor, type YamlEditorHandle } from "./YamlEditor";
 
 const input = "h-9 w-full rounded-control border border-border-strong bg-surface px-3 text-sm text-ink";
@@ -209,7 +209,7 @@ export function WorkflowEditor({ existing }: { existing?: WorkflowResponse }) {
         <div className="flex flex-col gap-4">
           {!readOnly && <ToolPicker onInsert={(yaml) => editor.current?.insert(yaml)} />}
           {summary && <VersionsPanel workflowID={summary.id} current={summary.currentVersion} onOpen={replace} />}
-          {summary?.canAdminister && !summary.archived && <SharePanel workflow={summary} />}
+          {summary && <WorkflowGrantsPanel workflow={summary} />}
         </div>
       </div>
       {summary && !summary.archived && (

@@ -3,9 +3,16 @@ import { ADMIN_PAGES, expectAccessible, openShell, PLACES, SETTINGS_PAGES, start
 
 // Contrast needs real layout and real colours, which is why these run here and not in the jsdom suite.
 // The workflow editor is no sidebar place, but its canvas and inspector are pages of their own to check (#46),
-// and so is every page of Settings and Admin (#199).
+// and so is every page of Settings and Admin (#199), with each tab of Access (#203).
+const ACCESS_TABS = ["/admin/access?tab=matrix", "/admin/access?tab=groups"];
 const PATHS = [
-  ...new Set([...PLACES.map((place) => place.opens), ...[...SETTINGS_PAGES, ...ADMIN_PAGES].map((page) => page.path), "/workflows/new", "/no-such-page"]),
+  ...new Set([
+    ...PLACES.map((place) => place.opens),
+    ...[...SETTINGS_PAGES, ...ADMIN_PAGES].map((page) => page.path),
+    ...ACCESS_TABS,
+    "/workflows/new",
+    "/no-such-page",
+  ]),
 ];
 const SCHEMES: ColourScheme[] = ["light", "dark"];
 

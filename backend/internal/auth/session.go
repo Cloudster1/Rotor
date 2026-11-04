@@ -113,11 +113,14 @@ func (s *Service) End(ctx context.Context, token string) error {
 func (s *Service) SwitchOff(ctx context.Context, actor, userID uuid.UUID) error {
 	err := s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		tag, err := tx.Exec(ctx, `UPDATE app_user SET is_active = false WHERE id = $1`, userID)
+		if violates(err, keepsAnAdministrator) {
+			return ErrLastActiveAdministrator
+		}
 		if err != nil {
 			return err
 		}
 		if tag.RowsAffected() == 0 {
-			return fmt.Errorf("switch off %s: no such person", userID)
+			return fmt.Errorf("switch off %s: %w", userID, ErrNoSuchPerson)
 		}
 		ended, err := tx.Exec(ctx, `DELETE FROM user_session WHERE user_id = $1`, userID)
 		if err != nil {

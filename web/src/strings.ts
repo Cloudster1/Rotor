@@ -8,6 +8,7 @@ import { canvasStrings } from "./strings_canvas";
 import { assistantStrings } from "./strings_assistants";
 import { workspacesStrings } from "./strings_workspaces";
 import { accountStrings, adminStrings, settingsStrings } from "./strings_settings";
+import { accessStrings, usersStrings, workflowGrantsStrings } from "./strings_access";
 
 /** Every word the interface shows, in one place, so a second language is a second copy of this object. */
 export const s = {
@@ -78,16 +79,6 @@ export const s = {
       same: "These versions are the same.",
       diffLabel: (from: number, to: number) => `Changes from version ${from} to version ${to}`,
       lines: (from: number, to: number) => `From line ${from}, to line ${to}`,
-    },
-    share: {
-      title: "Sharing",
-      body: "Sharing lets others read and run this workflow as themselves; it never shares your access to the tools.",
-      private: "Only me",
-      groups: "Groups I am in",
-      everyone: "Everyone in Rotor",
-      noGroups: "You are in no realm groups to share with.",
-      save: "Save sharing",
-      saved: "Sharing saved.",
     },
     tools: {
       title: "Tools",
@@ -473,4 +464,7 @@ export const s = {
   canvas: canvasStrings,
   assistants: assistantStrings,
   workspaces: workspacesStrings,
+  access: accessStrings,
+  users: usersStrings,
+  workflowGrants: workflowGrantsStrings,
 } as const;

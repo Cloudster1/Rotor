@@ -97,13 +97,17 @@ func run() error {
 	}
 	sessions := auth.NewService(cluster, cfg.Auth.SessionTTL)
 	realm := oidc.NewService(cluster, sessions, cfg.OIDC)
+	access := perm.NewStore(cluster)
 	server := &httpapi.Server{
 		DB:       cluster,
 		Log:      log,
 		Sessions: sessions,
 		SignIn:   realm,
 		// Each request's permissions are resolved from the grants (#202).
-		Access: perm.NewStore(cluster),
+		Access: access,
+		// Admin's Access and Users pages keep the grants and let people in and out (#203).
+		AccessAdmin: access,
+		Switches:    sessions,
 		// The realm's service accounts add tools and their hook secrets with a token of their own (#168).
 		ServiceAccounts: realm,
 		SessionTTL:      cfg.Auth.SessionTTL,

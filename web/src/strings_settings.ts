@@ -25,8 +25,10 @@ export const adminStrings = {
   title: "Admin",
   nav: "Admin pages",
   notAllowed: "Only administrators open Admin. Ask one of them if a setting here needs changing.",
-  groups: { work: "Work", integrations: "Integrations", records: "Records" },
+  groups: { people: "People and access", work: "Work", integrations: "Integrations", records: "Records" },
   pages: {
+    access: "Access",
+    users: "Users",
     workspaces: "Workspaces",
     unattendedWrites: "Unattended writes",
     providers: "Model providers",

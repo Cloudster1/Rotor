@@ -45,6 +45,8 @@ type operation struct {
 	description string
 	// pending routes are agreed but not built yet: they answer 501.
 	pending bool
+	// deprecated routes still work, and a client should move to what the description names.
+	deprecated bool
 	// admin routes are for administrators of Rotor alone; anyone else is refused with 403.
 	admin bool
 	// tool names the row as an MCP tool an assistant may call (#47), with toolHelp to tell the model when; a row

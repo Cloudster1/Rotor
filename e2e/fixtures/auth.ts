@@ -6,6 +6,8 @@ export const PEOPLE = {
   alice: { username: "alice", name: "Alice Admin", role: "Administrator" },
   bob: { username: "bob", name: "Bob Builder", role: "Member" },
   carol: { username: "carol", name: "Carol Checker", role: "Member" },
+  // Signed in by the Users spec alone, which switches him off and on; no other spec may rely on him.
+  dave: { username: "dave", name: "Dave Visitor", role: "Member" },
 } as const;
 export type Person = (typeof PEOPLE)[keyof typeof PEOPLE];
 

@@ -27,14 +27,16 @@ test("every admin page opens from a deep link, under its section's heading @desk
     await expect(nav.locator('[aria-current="page"]')).toHaveAttribute("data-settings-page", each.slug);
   }
   const nav = page.getByRole("navigation", { name: "Admin pages" });
-  for (const heading of ["Work", "Integrations", "Records"]) await expect(nav.getByText(heading, { exact: true })).toBeVisible();
+  for (const heading of ["People and access", "Work", "Integrations", "Records"]) await expect(nav.getByText(heading, { exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Places" }).locator('[aria-current="page"]')).toHaveText("Admin");
   await expectAccessible(page);
 });
 
-test("admin opens on its first page @desktop", async ({ page }) => {
+test("admin opens on its first page, Access under People and access @desktop", async ({ page }) => {
   await openShell(page, "/admin");
   await expect(page).toHaveURL(new RegExp(`${ADMIN_PAGES[0].path}$`));
+  await expect(page.getByRole("heading", { level: 1, name: "Access" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Admin pages" }).getByRole("list").first()).toHaveAccessibleName("People and access");
 });
 
 test("on a narrow screen the admin nav is a row that scrolls sideways, and the page does not @mobile", async ({ page }) => {

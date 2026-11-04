@@ -39,6 +39,7 @@ export const Icon = {
   Moon: glyph(["M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"]),
   Monitor: glyph(["M3 5h18v11H3z", "M8 20h8M12 16v4"]),
   Warning: glyph(["M12 3l10 18H2z", "M12 10v4", "M12 17v.5"]),
+  More: glyph(["M5 11a1 1 0 1 0 0 2 1 1 0 1 0 0-2", "M12 11a1 1 0 1 0 0 2 1 1 0 1 0 0-2", "M19 11a1 1 0 1 0 0 2 1 1 0 1 0 0-2"]),
 };
 
 export type IconName = keyof typeof Icon;
