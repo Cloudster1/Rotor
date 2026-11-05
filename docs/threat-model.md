@@ -192,6 +192,7 @@ listed.
 | I | A token for one tool reaching another | Each token is minted for one tool's resource and the binding's scopes | Built (#12) |
 | E | A run doing more than its person may | The tool enforces the person's rights on every call; read bindings never write | Built (#12, #16) |
 | E | Content in a tool steering a run | Fenced as data under a fixed policy, links limited, a warning on unapproved writes; see [the analysis](#untrusted-content-private-data-and-a-way-out) | Built (#40); write confirmation open #32 |
+| E | A skill steering a run | Skill text is followed as instruction, so only versions a workflow pins reach an agent, checked on every read against the pin and the run's person; a skill's own fence markers are defanged; see [the analysis](#untrusted-content-private-data-and-a-way-out) | Built (#222) |
 
 ### LLM provider
 
@@ -240,6 +241,14 @@ What stands in the way, from the outside in:
   and everything a prompt quotes, from tool answers, earlier steps and the
   run's inputs, sits inside a fence with an id random to the sandbox; a
   marker planted in content is defanged, so it cannot close one.
+- **Skills are instructions, so they are pinned (#222).** What `read_skill`
+  answers is the one thing a tool returns that is not fenced: an agent is
+  meant to follow it, as it follows its role. That holds only because a
+  workflow names the exact skill version its author chose, a version never
+  changes, the control plane answers a read only for a version the run pins
+  and its person may read, and a skill's own fence markers are defanged. The
+  risk that remains is a skill whose author is not trusted: pinning a skill
+  is trusting its version as much as the workflow's own role.
 - **Links lead only to the tools (#40).** A link in an agent's answer, its
   streamed text or the arguments it sends a tool is removed unless its host
   is one of the run's tools', and a `link.removed` event says so; the run's

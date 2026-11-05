@@ -50,6 +50,8 @@ type Server struct {
 	Telemetry Telemetry
 	// MintFailed counts a token not minted for a run, by why (#37); nil counts nothing.
 	MintFailed func(reason string)
+	// Skills answers what the run's agents' skills hold (#222); nil gives agents no skills.
+	Skills SkillLibrary
 
 	store store
 	mu    sync.Mutex
@@ -72,7 +74,7 @@ type Checkpoints interface {
 // NewServer returns the protocol's server; Serve puts it on the network.
 func NewServer(cluster *db.Cluster, keys *envelope.Keys, finder ToolFinder, minter Minter, log *slog.Logger) *Server {
 	return &Server{DB: cluster, Keys: keys, Tools: finder, Mint: minter, Log: log, store: store{db: cluster, keys: keys},
-		live: map[uuid.UUID]*liveStream{}}
+		Skills: dbSkills{db: cluster}, live: map[uuid.UUID]*liveStream{}}
 }
 
 // claim makes this stream the run's one, ending any earlier stream of the run, which a reconnect leaves behind.
@@ -147,7 +149,11 @@ func (s *Server) Connect(stream runnerpb.RunnerControlService_ConnectServer) err
 	if r.Status == StatusStarting {
 		deadline := time.Now().Add(r.spec.Limits.TimeoutDuration() + config.RunDeadlineGrace)
 		r.TraceContent = s.Telemetry != nil && s.Telemetry.Content(ctx)
-		start, err := s.store.supersede(ctx, runID, startRun(r, bindings, s.modelConfig(r.model), s.agentConfigs(r)), deadline)
+		skills, err := s.agentSkills(ctx, r)
+		if err != nil {
+			return s.fail(runID, "read the agents' skills", err)
+		}
+		start, err := s.store.supersede(ctx, runID, startRun(r, bindings, s.modelConfig(r.model), s.agentConfigs(r), skills), deadline)
 		if err != nil {
 			return s.fail(runID, "start the run", err)
 		}
@@ -301,6 +307,8 @@ func (s *Server) handle(ctx context.Context, stream runnerpb.RunnerControlServic
 	case *runnerpb.ConnectRequest_Spans:
 		s.spans(ctx, r, m.Spans)
 		return nil
+	case *runnerpb.ConnectRequest_SkillFile:
+		return stream.Send(s.skillFile(ctx, r, m.SkillFile))
 	case *runnerpb.ConnectRequest_CheckpointGet, *runnerpb.ConnectRequest_CheckpointList,
 		*runnerpb.ConnectRequest_CheckpointPut, *runnerpb.ConnectRequest_CheckpointWrites:
 		if s.Checkpoints == nil {

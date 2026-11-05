@@ -148,6 +148,23 @@ describe("a run, live", () => {
     expect(within(timeline).getByText(s.runs.live.started("draft", "agent"))).toBeInTheDocument();
     expect(await axeViolations()).toEqual([]);
   });
+
+  it("tells which skill file an agent read, never its content (#222)", async () => {
+    seq = 0;
+    await renderAt(`/runs/${RUN.id}`, { answers: { [`/api/v1/runs/${RUN.id}`]: () => Response.json(RUN) } });
+    await screen.findByRole("region", { name: s.runs.live.graph });
+    send("node.started", "draft", { type: "agent" });
+    send("skill.read", "draft", { node: "draft", skill: "requirements-engineering", version: 2, path: "SKILL.md", offset: 0, bytes: 812 });
+    send("skill.read", "draft", { node: "draft", skill: "requirements-engineering", version: 2, path: "references/long.md", offset: 65536, bytes: 120 });
+    const timeline = screen.getByRole("region", { name: s.runs.live.timeline });
+    const first = await within(timeline).findByText(s.runs.live.skillRead("draft", "requirements-engineering", 2, "SKILL.md", 0));
+    expect(first).toHaveAttribute("data-skill-read", "requirements-engineering");
+    expect(first.textContent).toBe("draft read SKILL.md of the skill requirements-engineering, version 2");
+    expect(within(timeline).getByText(s.runs.live.skillRead("draft", "requirements-engineering", 2, "references/long.md", 65536))).toHaveTextContent(
+      "from byte 65536",
+    );
+    expect(await axeViolations()).toEqual([]);
+  });
 });
 
 describe("a run with parallel branches (#135)", () => {

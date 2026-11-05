@@ -17,6 +17,7 @@ export type Entry =
   | { kind: "run"; key: string; node: string; at: string; status: string; reason: string; message: string }
   | { kind: "lost"; key: string; node: string; at: string; replaced: boolean }
   | { kind: "links"; key: string; node: string; at: string; where: string; count: number; hosts: string[] }
+  | { kind: "skill"; key: string; node: string; at: string; skill: string; version: number; path: string; offset: number; bytes: number }
   | { kind: "tests"; key: string; node: string; at: string; passed: number; failed: number; skipped: number; failures: TestFailure[] };
 
 /** A failing test as a test step's event names it (#138). */
@@ -62,6 +63,17 @@ export function entries(events: RunEvent[]): Entry[] {
           args: text(e.payload.arguments),
           result: text(e.payload.resultSummary),
           ok: e.payload.ok !== false,
+        });
+        break;
+      case "skill.read":
+        out.push({
+          ...base,
+          kind: "skill",
+          skill: text(e.payload.skill),
+          version: Number(e.payload.version ?? 0),
+          path: text(e.payload.path),
+          offset: Number(e.payload.offset ?? 0),
+          bytes: Number(e.payload.bytes ?? 0),
         });
         break;
       case "log":

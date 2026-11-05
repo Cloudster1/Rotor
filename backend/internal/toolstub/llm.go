@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -91,6 +92,57 @@ type chatRequest struct {
 	StreamOptions struct {
 		IncludeUsage bool `json:"include_usage"`
 	} `json:"stream_options"`
+	Messages []struct {
+		Role    string          `json:"role"`
+		Content json.RawMessage `json:"content"`
+	} `json:"messages"`
+	Tools []struct {
+		Function struct {
+			Name string `json:"name"`
+		} `json:"function"`
+	} `json:"tools"`
+}
+
+// LLMRequest is one chat request as the stub model recorded it: each message's role and text, and the tools offered.
+type LLMRequest struct {
+	Messages []LLMMessage `json:"messages"`
+	Tools    []string     `json:"tools"`
+}
+
+// LLMMessage is one message of a chat request, its content parts joined into text.
+type LLMMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// recorded is the request as a test reads it back; content given as parts keeps their text alone.
+func (req chatRequest) recorded() LLMRequest {
+	out := LLMRequest{Messages: []LLMMessage{}, Tools: []string{}}
+	for _, m := range req.Messages {
+		var text string
+		if json.Unmarshal(m.Content, &text) != nil {
+			var parts []struct {
+				Text string `json:"text"`
+			}
+			_ = json.Unmarshal(m.Content, &parts)
+			for _, p := range parts {
+				text += p.Text
+			}
+		}
+		out.Messages = append(out.Messages, LLMMessage{Role: m.Role, Content: text})
+	}
+	for _, t := range req.Tools {
+		out.Tools = append(out.Tools, t.Function.Name)
+	}
+	return out
+}
+
+// record keeps a request for the stats, dropping the oldest past the stub's limit.
+func (t *tenant) record(req chatRequest) {
+	t.stats.LLMRequests = append(t.stats.LLMRequests, req.recorded())
+	if over := len(t.stats.LLMRequests) - config.ToolStubMaxLLMRequests; over > 0 {
+		t.stats.LLMRequests = slices.Clone(t.stats.LLMRequests[over:])
+	}
 }
 
 func (s *Stub) handleLLMChat(c *call) {
@@ -105,6 +157,7 @@ func (s *Stub) handleLLMChat(c *call) {
 		return
 	}
 	c.t.stats.LLMCalls++
+	c.t.record(req)
 	turn := c.t.nextTurn()
 	message, finish := map[string]any{"role": "assistant", "content": nil}, "stop"
 	if turn.Content != "" {

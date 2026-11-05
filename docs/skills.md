@@ -8,10 +8,10 @@ agents of many workflows follow the same proven text. The format is
 read, so a team brings the skills it has. `docs/api-contract-m17.md` has the
 details.
 
-Rotor stores, versions and shares skills (#219), and an agent node names the
-skills it may follow (#221). Importing and exporting a skill as a zip (#220),
-loading them in a run (#222), the skills pages in the web app (#223) and the
-skills Rotor ships (#225) follow.
+Rotor stores, versions and shares skills (#219), an agent node names the
+skills it may follow (#221), and the agent loads them during a run (#222).
+Importing and exporting a skill as a zip (#220), the skills pages in the web
+app (#223) and the skills Rotor ships (#225) follow.
 
 ## What a skill is
 
@@ -121,6 +121,43 @@ An agent node names the skills it may follow, each pinned to a version:
 - A pin never moves: a new version of the skill reaches the workflow when you
   save it naming that version. Archiving a skill keeps the versions saved
   before it starting, since their pins hold.
+
+## What an agent sees in a run
+
+An agent does not get its skills' text up front: it gets a list, and reads a
+skill when the work calls for it, so a skill costs tokens only when used.
+
+- **Its instructions** list, after its role, each skill it was given as
+  `name (version): description`, and say how to read them. The list is
+  checked like the role, so nothing in a description can pass for data Rotor
+  fenced.
+- **The tool `read_skill`** is offered to an agent with skills, and to no
+  other: `read_skill(skill, path = "SKILL.md", offset = 0)`. It answers
+  `SKILL.md` unless the agent names another file of the skill, such as
+  `references/templates.md`. A file over 64 KiB comes in parts: the last line
+  of a part names the `offset` that reads on.
+- **What it answers is followed, not fenced.** A skill is the workflow's own
+  instruction, pinned to the version its author chose, so the agent follows it
+  as it follows its role; what tools, people and pages write stays fenced as
+  data. A skill never overrides Rotor's policy for the agent, and its
+  instructions say so.
+- **Each read is a tool call**, so it counts against the agent's `maxSteps`.
+
+`read_skill` answers a sentence rather than the file when the agent names a
+skill it was not given or a file the skill does not have, and when the run's
+person may no longer read the skill: whether they may is asked on every read,
+so revoking a grant takes effect in runs already going. A binding tool named
+`read_skill` refuses the run with `tool_names`; rename it with the binding.
+
+A run whose person lost a skill before a resume still resumes, with that
+skill left out of the agent's list.
+
+## Reads in a run
+
+Each read shows in the run's timeline as the agent reading that file of that
+skill, at its version, and is recorded as a `skill.read` event with the node,
+skill, version, path, offset and bytes read, never the text itself. The text
+stays in the library, at the version pinned.
 
 ## Skills Rotor ships
 
