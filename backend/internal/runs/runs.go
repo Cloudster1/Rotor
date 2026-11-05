@@ -134,6 +134,19 @@ type Service struct {
 	Catalogs Catalogs
 	// Images lists the toolchain images administrators allow now (#136); nil leaves it to the worker.
 	Images workflows.ImageSource
+	// Skills finds the skills a version names as the run's person reads them (#221); nil leaves them unchecked.
+	Skills workflows.SkillSource
+}
+
+// SkillUnreadable is a run whose person may not read a skill an agent of the version names (#221).
+type SkillUnreadable struct {
+	Node  string
+	Skill spec.SkillRef
+}
+
+func (e *SkillUnreadable) Error() string {
+	return fmt.Sprintf("The agent %s uses the skill %s, which you may not read. Ask the skill's owner to share it with you, "+
+		"or the workflow's owner to choose another skill.", e.Node, e.Skill.Name)
 }
 
 // ImageNotAllowed is a run whose workspaces name an image no administrator allows any more.

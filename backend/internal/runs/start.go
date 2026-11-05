@@ -69,6 +69,9 @@ func (s *Service) Start(ctx context.Context, req StartRequest) (Run, bool, error
 	if err := s.imagesAllowed(ctx, parsed); err != nil {
 		return Run{}, false, err
 	}
+	if err := s.SkillsReadable(ctx, parsed); err != nil {
+		return Run{}, false, err
+	}
 	if s.Usage != nil {
 		if err := s.Usage.CheckStart(ctx, p.UserID, parsed); err != nil {
 			return Run{}, false, err
@@ -152,6 +155,22 @@ func (s *Service) imagesAllowed(ctx context.Context, parsed *spec.Spec) error {
 	}
 	if problems := parsed.CheckImages(func(name string) bool { return slices.Contains(names, name) }); len(problems) > 0 {
 		return &ImageNotAllowed{Problems: problems}
+	}
+	return nil
+}
+
+// SkillsReadable refuses a run whose person may not read a skill the version names (#221). An archived skill still
+// starts a version saved before it was archived: its pin holds.
+func (s *Service) SkillsReadable(ctx context.Context, parsed *spec.Spec) error {
+	if s.Skills == nil || len(parsed.SkillNames()) == 0 {
+		return nil
+	}
+	readable, err := workflows.SkillStates(ctx, s.Skills, parsed)
+	if err != nil {
+		return err
+	}
+	if node, ref, ok := parsed.UnreadableSkill(readable); ok {
+		return &SkillUnreadable{Node: node, Skill: ref}
 	}
 	return nil
 }

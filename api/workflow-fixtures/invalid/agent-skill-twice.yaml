@@ -1,4 +1,4 @@
-# expect: /nodes/0/skills not_built
+# expect: /nodes/0/skills/2 skill_twice
 apiVersion: rotor.dev/v1
 kind: Workflow
 metadata: {name: broken}
@@ -10,3 +10,5 @@ nodes:
     prompt: Turn the story into requirements.
     skills:
       - {name: requirements-engineering, version: 2}
+      - {name: test-engineering, version: 1}
+      - {name: requirements-engineering, version: 1}

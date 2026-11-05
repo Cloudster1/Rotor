@@ -1,0 +1,20 @@
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata:
+  name: agent-with-skills
+  description: An analyst that follows two skills, each pinned to a version.
+inputs:
+  type: object
+  required: [story]
+  properties:
+    story: { type: string, description: The story to turn into requirements. }
+limits: {maxSteps: 20, timeout: 5m}
+entry: analyse
+nodes:
+  - id: analyse
+    type: agent
+    prompt: Turn the story into requirements. {{ inputs.story }}
+    skills:
+      - {name: requirements-engineering, version: 2}
+      - name: test-engineering
+        version: 1

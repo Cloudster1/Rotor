@@ -94,10 +94,12 @@ type Catalogs interface {
 	For(ctx context.Context, s *spec.Spec) (spec.Catalog, error)
 }
 
-// Runs starts a trigger's runs and tells whether its owner has every connection; *runs.Service is the real one.
+// Runs starts a trigger's runs and tells whether its owner has every connection and may read every skill;
+// *runs.Service is the real one.
 type Runs interface {
 	Start(ctx context.Context, req runs.StartRequest) (runs.Run, bool, error)
 	Connected(ctx context.Context, parsed *spec.Spec) error
+	SkillsReadable(ctx context.Context, parsed *spec.Spec) error
 }
 
 // Service keeps triggers as the person on the context; the worker's passes start their runs.

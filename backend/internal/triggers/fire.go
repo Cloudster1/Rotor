@@ -112,7 +112,7 @@ func (f *Firer) one(ctx context.Context, fr fire) error {
 		return f.refuse(ctx, fr, t, ReasonOwnerSwitchedOff, "")
 	}
 	as := db.WithUser(auth.WithPrincipal(ctx, owner), owner.UserID)
-	outcome, reason, runID, err := f.start(as, fr, t)
+	outcome, reason, detail, runID, err := f.start(as, fr, t)
 	switch {
 	case errors.Is(err, errPassing):
 		if time.Since(fr.createdAt) < config.TriggerFireRetryFor {
@@ -123,48 +123,58 @@ func (f *Firer) one(ctx context.Context, fr fire) error {
 	case err != nil:
 		return err
 	case outcome == OutcomeRefused:
-		return f.refuse(ctx, fr, t, reason, "")
+		return f.refuse(ctx, fr, t, reason, detail)
 	}
 	return f.end(ctx, fr, t, outcome, reason, runID)
 }
 
-// start checks the firing as the owner on the context and starts the run of the version it checked.
-func (f *Firer) start(ctx context.Context, fr fire, t Trigger) (outcome, reason string, runID *uuid.UUID, err error) {
+// start checks the firing as the owner on the context and starts the run of the version it checked; a refusal's
+// detail adds to its reason's sentence.
+func (f *Firer) start(ctx context.Context, fr fire, t Trigger) (outcome, reason, detail string, runID *uuid.UUID, err error) {
 	in := t.Input()
 	in.Firing = true
 	checked, err := f.triggers.check(ctx, t.WorkflowID, in)
 	if reason, ok := refusal(err); ok {
-		return OutcomeRefused, reason, nil, nil
+		return OutcomeRefused, reason, refusalDetail(err), nil, nil
 	}
 	if err != nil {
-		return "", err.Error(), nil, errPassing
+		return "", err.Error(), "", nil, errPassing
 	}
 	if t.NoOverlap && t.LastRunStatus != nil && !runnerctl.Ended(*t.LastRunStatus) {
-		return OutcomeSkipped, "the last run has not ended", nil, nil
+		return OutcomeSkipped, "the last run has not ended", "", nil, nil
 	}
 	if own, err := f.ownWrite(ctx, t, fr.inputs); err != nil {
-		return "", err.Error(), nil, errPassing
+		return "", err.Error(), "", nil, errPassing
 	} else if own != nil {
-		return OutcomeSkipped, fmt.Sprintf("The event is this workflow's own write, by run %s.", own), nil, nil
+		return OutcomeSkipped, fmt.Sprintf("The event is this workflow's own write, by run %s.", own), "", nil, nil
 	}
 	if f.Probe != nil && t.Kind == KindEvent {
 		readable, err := f.Probe(ctx, t, fr.inputs)
 		if err != nil {
-			return "", err.Error(), nil, errPassing
+			return "", err.Error(), "", nil, errPassing
 		}
 		if !readable {
-			return OutcomeSkipped, "the owner cannot read the event's subject", nil, nil
+			return OutcomeSkipped, "the owner cannot read the event's subject", "", nil, nil
 		}
 	}
 	r, _, err := f.triggers.runs.Start(ctx, runs.StartRequest{WorkflowID: t.WorkflowID, Version: checked.version.Number,
 		Inputs: runInputs(t.Kind, t.Inputs, fr.inputs), IdempotencyKey: "trigger:" + t.ID.String() + ":" + fr.key, TriggerID: t.ID})
 	if reason, ok := refusal(err); ok {
-		return OutcomeRefused, reason, nil, nil
+		return OutcomeRefused, reason, refusalDetail(err), nil, nil
 	}
 	if err != nil {
-		return "", err.Error(), nil, errPassing
+		return "", err.Error(), "", nil, errPassing
 	}
-	return OutcomeStarted, "", &r.ID, nil
+	return OutcomeStarted, "", "", &r.ID, nil
+}
+
+// refusalDetail names what a refusal is about where its reason's sentence cannot, such as the skill.
+func refusalDetail(err error) string {
+	var skill *runs.SkillUnreadable
+	if errors.As(err, &skill) {
+		return fmt.Sprintf("The agent %s uses the skill %s.", skill.Node, skill.Skill.Name)
+	}
+	return ""
 }
 
 // refusal names the reason a check's error turns the trigger off for, if it is one.
@@ -172,9 +182,12 @@ func refusal(err error) (string, bool) {
 	var refused *Refused
 	var needs *runs.NeedsConnections
 	var inputs *runs.InputsRefused
+	var skill *runs.SkillUnreadable
 	switch {
 	case err == nil:
 		return "", false
+	case errors.As(err, &skill):
+		return ReasonSkillUnreadable, true
 	case errors.As(err, &refused):
 		for _, reason := range []string{ReasonUnattendedForbidden, ReasonUnattendedWidened, ReasonUnattendedWrite, ReasonConnectionLost,
 			ReasonToolRemoved} {

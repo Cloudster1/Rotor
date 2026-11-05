@@ -277,3 +277,39 @@ func version(ctx context.Context, tx db.DBTX, id uuid.UUID, number int) (Version
 	}
 	return v, rows.Err()
 }
+
+// Pinnable is a skill as a workflow that names it asks after it: the versions it has and whether it is archived.
+type Pinnable struct {
+	Versions []int
+	Archived bool
+}
+
+// ByNames answers each named skill the person on the context reads; one they may not read is left out, as one
+// that does not exist is, so a workflow's check gives neither away.
+func (s *Service) ByNames(ctx context.Context, names []string) (map[string]Pinnable, error) {
+	out := map[string]Pinnable{}
+	if len(names) == 0 {
+		return out, nil
+	}
+	err := s.db.Read(ctx, func(ctx context.Context, tx db.DBTX) error {
+		rows, err := tx.Query(ctx, `SELECT s.name, s.archived_at IS NOT NULL,
+				ARRAY(SELECT v.number FROM skill_version v WHERE v.skill_id = s.id ORDER BY v.number)
+			FROM skill s WHERE s.name = ANY($1)`, names)
+		if err != nil {
+			return fmt.Errorf("find skills by name: %w", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var (
+				name string
+				p    Pinnable
+			)
+			if err := rows.Scan(&name, &p.Archived, &p.Versions); err != nil {
+				return err
+			}
+			out[name] = p
+		}
+		return rows.Err()
+	})
+	return out, err
+}

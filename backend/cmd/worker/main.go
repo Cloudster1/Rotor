@@ -29,6 +29,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/sandbox"
 	"github.com/cloudster1/rotor/backend/internal/sandbox/docker"
 	"github.com/cloudster1/rotor/backend/internal/sandbox/kube"
+	"github.com/cloudster1/rotor/backend/internal/skills"
 	"github.com/cloudster1/rotor/backend/internal/tools"
 	"github.com/cloudster1/rotor/backend/internal/triggers"
 	"github.com/cloudster1/rotor/backend/internal/usage"
@@ -128,6 +129,8 @@ func run() error {
 	models := providers.NewService(cluster, secrets, boot.ToolClient(cfg))
 	workflowService.Models = models
 	starter := runs.NewService(cluster, keys, workflowService, registry, people, store)
+	// A trigger starts a run only when its owner may read every skill the version names (#221).
+	starter.Skills = skills.NewService(cluster)
 	// A trigger's run is held to its person's quota and its model's prices as one started by hand (#38).
 	starter.Usage = usage.NewService(cluster, models)
 	// A trigger's firing starts its run through the same checks, the tools read afresh as its owner (#90).

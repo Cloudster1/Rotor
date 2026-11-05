@@ -230,7 +230,7 @@
         "skills": {
           "type": "array",
           "maxItems": 10,
-          "description": "The skills the agent may load, each pinned to a version: it sees their names and descriptions and reads the rest when it needs it (#221, not built yet).",
+          "description": "The skills the agent may load, each pinned to a version: it sees their names and descriptions and reads the rest when it needs it (#221).",
           "items": {
             "type": "object",
             "additionalProperties": false,
