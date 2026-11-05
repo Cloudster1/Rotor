@@ -93,5 +93,6 @@ export const audit = {
     "skill.archived": "Skill archived",
     "skill.restored": "Skill restored",
     "skill.imported": "Skill imported",
+    "skill.installed": "Built-in skill installed",
   } as Record<string, string>,
 } as const;

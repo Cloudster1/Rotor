@@ -99,6 +99,7 @@ func TestAStoryIsRefinedOnItsTicket(t *testing.T) {
 	if len(comments) != 1 || !strings.Contains(stringOf(comments[0]), "Refinement questions from Rotor") || !strings.Contains(stringOf(comments[0]), "Which formats") {
 		t.Fatalf("after the first run CP-12 has the comments %v", comments)
 	}
+	offeredShippedSkill(t, llm, 0, "requirements-engineering")
 	questions, _ := comments[0].(map[string]any)["id"].(string)
 	if outcome, reason, _ := firing(t, h, triggerID, commented(questions)); outcome != "skipped" || !strings.Contains(reason, "own write") {
 		t.Errorf("the questions' own event ended %q (%q), want skipped as the workflow's own write", outcome, reason)

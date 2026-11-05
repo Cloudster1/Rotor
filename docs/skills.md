@@ -11,8 +11,8 @@ details.
 Rotor stores, versions and shares skills (#219), imports and exports them as
 zips (#220), an agent node names the skills it may follow (#221), the agent
 loads them during a run (#222), an assistant reaches them over MCP (#224), and
-the web app has pages for them and a picker in the workflow editor (#223). The
-skills Rotor ships (#225) follow.
+the web app has pages for them and a picker in the workflow editor (#223), and
+Rotor ships two of its own, which its default workflows use (#225).
 
 ## What a skill is
 
@@ -238,8 +238,31 @@ stays in the library, at the version pinned.
 
 ## Skills Rotor ships
 
-Rotor will ship skills of its own, such as `requirements-engineering` and
-`test-engineering`, which its example workflows use (#225). They are marked
-built-in: everyone signed in reads them, nobody changes, archives or shares
-them, and an upgrade adds new versions without removing old ones. To change
-one, make a skill of your own from its files.
+Rotor ships two skills (#225), installed when the api starts:
+
+| Skill | Version | What it is for | Used by |
+|---|---|---|---|
+| `requirements-engineering` | 1 | eliciting, writing, reviewing and tracing requirements, stories and acceptance criteria | `story-refinement`, `story-to-requirements` |
+| `test-engineering` | 1 | test strategy, deriving test cases from requirements, reviewing a test design | `requirement-to-test-spec` |
+
+Each is a folder under `skills/` in the repository: its `SKILL.md` and
+`references/templates.md`. They are marked built-in: everyone signed in reads
+them, and nobody changes, archives or shares them; they have no owner and
+their versions no author.
+
+Each `SKILL.md` declares its version as `metadata.version`. At every start the
+api adds the declared version when it is missing, and the version number is
+the declared one, so a built-in skill's versions may have gaps. A Rotor that
+ships a new `metadata.version` adds that version and keeps the old ones, so a
+workflow pinned to an older version keeps reading the text it was written for;
+pin the new version to use it. A shipped skill whose files changed without a
+new `metadata.version` stops the api's start with a sentence naming the skill,
+since one version must never mean two texts. When you change a shipped skill
+in `skills/`, raise its `metadata.version` and run `make skills-builtin`,
+which copies `skills/` to where the api embeds it; a test refuses a stale
+copy.
+
+A skill you made under one of these names before upgrading stays yours: the
+api leaves it alone, logs a warning and does not install the shipped one. To
+change a shipped skill for your own workflows, export it, change its name in
+`SKILL.md` and import it as a skill of your own.

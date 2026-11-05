@@ -9,6 +9,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Rotor ships the skills `requirements-engineering` and `test-engineering`
+  (#225), installed by the api at start as built-ins everyone reads and nobody
+  changes. The default workflows use them: the analysing agent of
+  `story-refinement` and `story-to-requirements` loads
+  `requirements-engineering`, and the test designer and reviewer of
+  `requirement-to-test-spec` load `test-engineering`, each pinned to version 1.
+  An upgrade that ships a new version of a skill adds it beside the old ones,
+  so a workflow pinned to an older version keeps reading its text.
 - Skills in the web app (#223). **Skills** in the sidebar lists the skills you
   may read, built-in ones marked, with a search, the archived ones behind a
   toggle and an empty state that says what a skill is. **New skill** starts

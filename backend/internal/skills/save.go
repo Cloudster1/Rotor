@@ -85,15 +85,21 @@ func (s *Service) create(ctx context.Context, files []File, comment string, impo
 	return id, nil
 }
 
-// insertVersion writes a version and its files in the caller's transaction, which the files' policy insists on.
+// insertVersion writes a version and its files in the caller's transaction, which the files' policy insists on; a nil
+// author is the api installing a built-in skill.
 func insertVersion(ctx context.Context, tx db.DBTX, id uuid.UUID, number int, d *Draft, comment string, p *auth.Principal) error {
 	frontMatter, err := json.Marshal(d.FrontMatter)
 	if err != nil {
 		return err
 	}
+	var author *uuid.UUID
+	authorName := ""
+	if p != nil {
+		author, authorName = &p.UserID, p.Name
+	}
 	if _, err := tx.Exec(ctx, `INSERT INTO skill_version (skill_id, number, front_matter, description, hash, bytes, comment,
 			created_by, created_by_name) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		id, number, frontMatter, d.Description, d.Hash, d.Bytes, comment, p.UserID, p.Name); err != nil {
+		id, number, frontMatter, d.Description, d.Hash, d.Bytes, comment, author, authorName); err != nil {
 		return err
 	}
 	for _, f := range d.Files {
