@@ -6,7 +6,8 @@ const STARTER = "story-to-requirements";
 test("a person starts a new workflow from one Rotor ships, which saving checks as usual @desktop", async ({ page }) => {
   await page.goto("/workflows/new");
   const picker = page.locator("[data-starter-picker]");
-  await expect(picker).toBeVisible();
+  await expect(picker).toContainText("Start from: Blank workflow");
+  await picker.locator("summary").click();
   await expect(picker.locator('[data-starter="blank"]')).toBeChecked();
   await expectAccessible(page);
 
@@ -22,6 +23,7 @@ test("a person starts a new workflow from one Rotor ships, which saving checks a
 
 test("an address names the workflow to start from @desktop", async ({ page }) => {
   await page.goto(`/workflows/new?start=${STARTER}`);
+  await expect(page.locator("[data-starter-picker] summary")).toContainText(`Start from: ${STARTER}`);
   await expect(page.locator(`[data-starter="${STARTER}"]`)).toBeChecked();
   await expect(page.locator("[data-yaml-editor] .cm-content")).toContainText(`name: ${STARTER}`);
 });

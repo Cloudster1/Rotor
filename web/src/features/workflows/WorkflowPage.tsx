@@ -172,16 +172,6 @@ export function WorkflowEditor({ existing, opened, start }: { existing?: Workflo
           {summary.archived ? s.workflows.editor.archived : s.workflows.editor.readOnly}
         </p>
       )}
-      {!existing && (
-        <StarterPicker
-          selected={starter}
-          onPick={(picked) => {
-            setStarter(picked.name);
-            // An edit, not a replace, so undo brings back what was there before.
-            edit(picked.yaml);
-          }}
-        />
-      )}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <section className="flex min-w-0 flex-col gap-3" aria-labelledby={`${id}-label`}>
           <h2 id={`${id}-label`} className="text-lg font-semibold text-ink">
@@ -246,6 +236,17 @@ export function WorkflowEditor({ existing, opened, start }: { existing?: Workflo
         </section>
         {!readOnly && (
           <div className="flex flex-col gap-4">
+            {/* Beside the editor rather than above it, so the editor and its canvas keep their place on the page. */}
+            {!existing && (
+              <StarterPicker
+                selected={starter}
+                onPick={(picked) => {
+                  setStarter(picked.name);
+                  // An edit, not a replace, so undo brings back what was there before.
+                  edit(picked.yaml);
+                }}
+              />
+            )}
             <ToolPicker onInsert={(yaml) => editor.current?.insert(yaml)} />
           </div>
         )}
