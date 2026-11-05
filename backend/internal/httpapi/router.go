@@ -39,6 +39,8 @@ type Server struct {
 	Catalogs  Catalogs
 	// Workflows is nil only in tests that exercise none.
 	Workflows Workflows
+	// Skills is the skill library (#219); nil answers 503.
+	Skills Skills
 	// Runs is nil where OpenBao is not configured; its routes then answer 503.
 	Runs Runs
 	// NoSandboxes is set where the installation runs no sandboxes; /meta then says runs are off (#178).
@@ -167,6 +169,8 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Get("/people", s.handleFindPeople)
 				r.Post("/workflows/{workflowID}/grants", s.handleGrantOnWorkflow)
 				r.Delete("/workflows/{workflowID}/grants/{grantID}", s.handleRevokeOnWorkflow)
+				r.Post("/skills/{skillID}/grants", s.handleGrantOnSkill)
+				r.Delete("/skills/{skillID}/grants/{grantID}", s.handleRevokeOnSkill)
 			})
 			r.With(requireSession).Post("/auth/logout", s.handleLogout)
 			r.Get("/tools/{toolID}", s.handleGetTool)
@@ -205,6 +209,18 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Get("/workflows/{workflowID}/triggers", s.handleListWorkflowTriggers)
 			r.Post("/workflows/{workflowID}/triggers", s.handleCreateTrigger)
 			r.Get("/usage", s.handleMyUsage)
+			r.Get("/skills", s.handleListSkills)
+			r.Post("/skills", s.handleCreateSkill)
+			r.Post("/skills/validate", s.handleValidateSkill)
+			r.Get("/skills/{skillID}", s.handleGetSkill)
+			r.Put("/skills/{skillID}", s.handleSaveSkill)
+			r.Delete("/skills/{skillID}", s.handleArchiveSkill)
+			r.Post("/skills/{skillID}/restore", s.handleRestoreSkill)
+			r.Get("/skills/{skillID}/versions", s.handleListSkillVersions)
+			r.Get("/skills/{skillID}/versions/{versionNumber}", s.handleGetSkillVersion)
+			r.Get("/skills/{skillID}/versions/{versionNumber}/file", s.handleGetSkillFile)
+			r.Get("/skills/{skillID}/diff", s.handleDiffSkillVersions)
+			r.Get("/skills/{skillID}/grants", s.handleListSkillGrants)
 			mountPending(r, false, false)
 			r.Group(func(r chi.Router) {
 				r.Use(requireAdmin)

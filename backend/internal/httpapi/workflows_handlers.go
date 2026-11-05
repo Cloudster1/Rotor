@@ -296,15 +296,7 @@ func (s *Server) handleDiffWorkflowVersions(w http.ResponseWriter, r *http.Reque
 		respondError(w, r, workflowError(err))
 		return
 	}
-	out := diffResponse{From: d.From, To: d.To, Hunks: make([]diffHunk, 0, len(d.Hunks))}
-	for _, h := range d.Hunks {
-		hunk := diffHunk{FromLine: h.FromLine, ToLine: h.ToLine, Lines: make([]diffLine, 0, len(h.Lines))}
-		for _, l := range h.Lines {
-			hunk.Lines = append(hunk.Lines, diffLine{Op: diffOp(l.Op), Text: l.Text})
-		}
-		out.Hunks = append(out.Hunks, hunk)
-	}
-	respondJSON(w, r, http.StatusOK, out)
+	respondJSON(w, r, http.StatusOK, diffResponse{From: d.From, To: d.To, Hunks: toDiffHunks(d.Hunks)})
 }
 
 func (s *Server) handleValidateWorkflow(w http.ResponseWriter, r *http.Request) {

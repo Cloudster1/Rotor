@@ -89,9 +89,11 @@ type assignmentView struct {
 	ID       string `json:"id"`
 	Role     string `json:"role"`
 	RoleName string `json:"roleName"`
-	// WorkflowID is left out for a grant over the whole installation.
+	// WorkflowID and SkillID are left out for a grant over the whole installation; at most one is set.
 	WorkflowID   *string `json:"workflowId,omitempty"`
 	WorkflowName string  `json:"workflowName,omitempty"`
+	SkillID      *string `json:"skillId,omitempty"`
+	SkillName    string  `json:"skillName,omitempty"`
 	// A grant goes to a person or to a group: exactly one of the two is set.
 	UserID    *string `json:"userId,omitempty"`
 	UserName  string  `json:"userName,omitempty"`
@@ -158,6 +160,8 @@ type userGrantView struct {
 	RoleName     string  `json:"roleName"`
 	WorkflowID   *string `json:"workflowId,omitempty"`
 	WorkflowName string  `json:"workflowName,omitempty"`
+	SkillID      *string `json:"skillId,omitempty"`
+	SkillName    string  `json:"skillName,omitempty"`
 	Group        string  `json:"group,omitempty"`
 }
 

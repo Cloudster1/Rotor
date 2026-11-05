@@ -72,11 +72,12 @@ and suite:
   names since (#139)
 
 Adapted from Exciter at 6706bd8, its requirement history and web tests:
-- backend/internal/workflows/diff.go: align, the longest common subsequence of
+- backend/internal/textdiff/textdiff.go: align, the longest common subsequence of
   backend/internal/requirement/diff.go, now over lines of YAML with hunks of
   context instead of blocks of a document
 - backend/migrations/00200_workflows.sql: the gap-free, immutable numbering of
-  requirement_revision, for workflow versions
+  requirement_revision, for workflow versions, and
+  backend/migrations/01400_skills.sql for skill versions
 - web/src/test/layout.ts: the jsdom measurements CodeMirror and axe ask for
 
 Adapted from Exciter at 009762e, its outbox worker:

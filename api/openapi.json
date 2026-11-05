@@ -4611,16 +4611,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
           "default": {
             "description": "An error, in the one shape every endpoint uses.",
             "content": {
@@ -4636,7 +4626,7 @@
       "post": {
         "operationId": "createSkill",
         "summary": "Make a skill from its files; its SKILL.md names it, and the first save is version 1.",
-        "description": "For whoever holds skill.create. A file the checks refuse answers 422 with the problems.",
+        "description": "For whoever holds skill.create. Files the checks refuse answer 422 with the problems, each with its code.",
         "tags": [
           "skills"
         ],
@@ -4645,7 +4635,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SaveSkillRequest"
+                "$ref": "#/components/schemas/CreateSkillRequest"
               }
             }
           }
@@ -4661,8 +4651,8 @@
               }
             }
           },
-          "422": {
-            "description": "Unprocessable Entity",
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -4671,8 +4661,8 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
+          "422": {
+            "description": "Unprocessable Entity",
             "content": {
               "application/json": {
                 "schema": {
@@ -4760,6 +4750,7 @@
       "post": {
         "operationId": "validateSkill",
         "summary": "Check a skill's files as a save would, without saving, and answer the problems.",
+        "description": "What the files alone tell: whether another skill has the name is answered by the save.",
         "tags": [
           "skills"
         ],
@@ -4784,16 +4775,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
           "default": {
             "description": "An error, in the one shape every endpoint uses.",
             "content": {
@@ -4811,7 +4792,7 @@
       "delete": {
         "operationId": "archiveSkill",
         "summary": "Archive a skill; its versions stay for the workflows that pin them.",
-        "description": "For whoever holds skill.administer on it. Skills are archived, never deleted.",
+        "description": "For whoever holds skill.administer on it. Skills are archived, never deleted; a built-in one is refused with 403.",
         "tags": [
           "skills"
         ],
@@ -4842,16 +4823,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4902,16 +4873,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5011,16 +4972,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
           "default": {
             "description": "An error, in the one shape every endpoint uses.",
             "content": {
@@ -5089,8 +5040,8 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
+          "422": {
+            "description": "Unprocessable Entity",
             "content": {
               "application/json": {
                 "schema": {
@@ -5154,16 +5105,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5261,16 +5202,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
           "default": {
             "description": "An error, in the one shape every endpoint uses.",
             "content": {
@@ -5328,16 +5259,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5409,16 +5330,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
           "default": {
             "description": "An error, in the one shape every endpoint uses.",
             "content": {
@@ -5482,16 +5393,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
           "default": {
             "description": "An error, in the one shape every endpoint uses.",
             "content": {
@@ -5544,16 +5445,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5694,8 +5585,8 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
+          "422": {
+            "description": "Unprocessable Entity",
             "content": {
               "application/json": {
                 "schema": {
@@ -8383,6 +8274,12 @@
           "message": {
             "type": "string"
           },
+          "problems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          },
           "requestId": {
             "type": "string"
           }
@@ -8396,6 +8293,9 @@
         "type": "object",
         "properties": {
           "role": {
+            "type": "string"
+          },
+          "skillId": {
             "type": "string"
           },
           "workflowId": {
@@ -8415,6 +8315,15 @@
               "type": "string"
             }
           },
+          "skills": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
           "workflows": {
             "type": "object",
             "additionalProperties": {
@@ -8427,7 +8336,8 @@
         },
         "required": [
           "installation",
-          "workflows"
+          "workflows",
+          "skills"
         ]
       },
       "AccessResponse": {
@@ -8808,6 +8718,12 @@
             "type": "string"
           },
           "roleName": {
+            "type": "string"
+          },
+          "skillId": {
+            "type": "string"
+          },
+          "skillName": {
             "type": "string"
           },
           "userEmail": {
@@ -9197,6 +9113,23 @@
         "required": [
           "name",
           "permissions"
+        ]
+      },
+      "CreateSkillRequest": {
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillFileBody"
+            }
+          }
+        },
+        "required": [
+          "files"
         ]
       },
       "DecisionRequest": {
@@ -11181,6 +11114,7 @@
           }
         },
         "required": [
+          "baseVersion",
           "files"
         ]
       },
@@ -11418,7 +11352,12 @@
             "type": "string"
           },
           "status": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "added",
+              "removed",
+              "changed"
+            ]
           }
         },
         "required": [
@@ -11519,7 +11458,14 @@
             "type": "string"
           },
           "owner": {
-            "$ref": "#/components/schemas/PersonRef"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "updatedAt": {
             "type": "string",
@@ -11542,6 +11488,9 @@
       "SkillVersionResponse": {
         "type": "object",
         "properties": {
+          "bytes": {
+            "type": "integer"
+          },
           "comment": {
             "type": "string"
           },
@@ -11550,7 +11499,17 @@
             "format": "date-time"
           },
           "createdBy": {
-            "$ref": "#/components/schemas/PersonRef"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "type": "string"
           },
           "files": {
             "type": "array",
@@ -11573,8 +11532,10 @@
         },
         "required": [
           "number",
+          "description",
           "comment",
           "hash",
+          "bytes",
           "createdBy",
           "createdAt",
           "frontMatter",
@@ -11584,6 +11545,9 @@
       "SkillVersionSummary": {
         "type": "object",
         "properties": {
+          "bytes": {
+            "type": "integer"
+          },
           "comment": {
             "type": "string"
           },
@@ -11592,7 +11556,17 @@
             "format": "date-time"
           },
           "createdBy": {
-            "$ref": "#/components/schemas/PersonRef"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "type": "string"
           },
           "hash": {
             "type": "string"
@@ -11603,8 +11577,10 @@
         },
         "required": [
           "number",
+          "description",
           "comment",
           "hash",
+          "bytes",
           "createdBy",
           "createdAt"
         ]
@@ -12090,6 +12066,12 @@
             "type": "string"
           },
           "roleName": {
+            "type": "string"
+          },
+          "skillId": {
+            "type": "string"
+          },
+          "skillName": {
             "type": "string"
           },
           "workflowId": {

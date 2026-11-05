@@ -11,7 +11,7 @@ import (
 var (
 	errAccessUnavailable = &APIError{Status: http.StatusServiceUnavailable, Code: "access_unavailable",
 		Message: "Roles and groups cannot be reached right now. Try again in a moment."}
-	errMayNotGrant = ErrForbidden("Only an administrator of Rotor or of a workflow may look people and groups up to grant them a role. " +
+	errMayNotGrant = ErrForbidden("Only an administrator of Rotor, of a workflow or of a skill may look people and groups up to grant them a role. " +
 		"Ask one to grant it for you.")
 	errOwnAccount = ErrConflict("That is your own account. Ask another administrator to switch it off.")
 )
@@ -38,6 +38,8 @@ var accessRefusals = []struct {
 	{perm.ErrEveryoneAdministers, http.StatusUnprocessableEntity, "everyone_administers"},
 	{perm.ErrScope, http.StatusUnprocessableEntity, "wrong_scope"},
 	{perm.ErrSubject, http.StatusUnprocessableEntity, "validation_failed"},
+	{perm.ErrOneScope, http.StatusUnprocessableEntity, "validation_failed"},
+	{perm.ErrNotASkillRole, http.StatusUnprocessableEntity, "wrong_scope"},
 }
 
 // accessNotFound are the domain's missing things, each with where to look instead.

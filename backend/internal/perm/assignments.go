@@ -20,9 +20,11 @@ type Assignment struct {
 	ID       uuid.UUID
 	Role     Role
 	RoleName string
-	// WorkflowID is nil for a role held over the whole installation.
+	// WorkflowID and SkillID are both nil for a role held over the whole installation; at most one is set.
 	WorkflowID   *uuid.UUID
 	WorkflowName string
+	SkillID      *uuid.UUID
+	SkillName    string
 	// Exactly one of these is set.
 	UserID    *uuid.UUID
 	UserName  string
@@ -38,21 +40,23 @@ const assignmentFrom = `
 FROM role_assignment a
 JOIN role r ON r.key = a.role
 LEFT JOIN workflow w ON w.id = a.workflow_id
+LEFT JOIN skill s ON s.id = a.skill_id
 LEFT JOIN app_user u ON u.id = a.user_id
 LEFT JOIN user_group g ON g.id = a.group_id`
 
 const selectAssignment = `
-SELECT a.id, a.role, r.name, a.workflow_id, COALESCE(w.name, ''), a.user_id, COALESCE(u.name, ''), COALESCE(u.email::text, ''),
+SELECT a.id, a.role, r.name, a.workflow_id, COALESCE(w.name, ''), a.skill_id, COALESCE(s.name, ''), a.user_id, COALESCE(u.name, ''), COALESCE(u.email::text, ''),
        a.group_id, COALESCE(g.name, ''), COALESCE(g.builtin, ''), a.created_at` + assignmentFrom
 
-// assignmentOrder reads the way somebody looks for a grant: the installation-wide ones first, then by workflow, and the
-// most powerful role at the top of each.
+// assignmentOrder reads the way somebody looks for a grant: the installation-wide ones first, then by workflow, then by
+// skill, and the most powerful role at the top of each.
 const assignmentOrder = `
-ORDER BY (a.workflow_id IS NOT NULL), lower(w.name), r.sort_order, lower(r.name), lower(COALESCE(g.name, u.name)), a.id`
+ORDER BY (a.workflow_id IS NOT NULL OR a.skill_id IS NOT NULL), (a.skill_id IS NOT NULL), lower(w.name), s.name,
+         r.sort_order, lower(r.name), lower(COALESCE(g.name, u.name)), a.id`
 
 func scanAssignment(row pgx.Row) (*Assignment, error) {
 	var a Assignment
-	err := row.Scan(&a.ID, &a.Role, &a.RoleName, &a.WorkflowID, &a.WorkflowName, &a.UserID, &a.UserName, &a.UserEmail,
+	err := row.Scan(&a.ID, &a.Role, &a.RoleName, &a.WorkflowID, &a.WorkflowName, &a.SkillID, &a.SkillName, &a.UserID, &a.UserName, &a.UserEmail,
 		&a.GroupID, &a.GroupName, &a.GroupBuiltin, &a.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -67,7 +71,7 @@ func scanAssignment(row pgx.Row) (*Assignment, error) {
 type AssignmentFilter struct {
 	// Workflow keeps the grants that answer there, the installation-wide ones included because they answer everywhere.
 	Workflow uuid.UUID
-	// Text matches the person, the group, or the workflow's name.
+	// Text matches the person, the group, or the workflow's or skill's name.
 	Text   string
 	Role   Role
 	Limit  int
@@ -89,7 +93,7 @@ func (f AssignmentFilter) where() (string, []any) {
 	)
 	if f.Workflow != uuid.Nil {
 		args = append(args, f.Workflow)
-		clauses = append(clauses, fmt.Sprintf("(a.workflow_id IS NULL OR a.workflow_id = $%d)", len(args)))
+		clauses = append(clauses, fmt.Sprintf("a.skill_id IS NULL AND (a.workflow_id IS NULL OR a.workflow_id = $%d)", len(args)))
 	}
 	if f.Role != "" {
 		args = append(args, string(f.Role))
@@ -99,7 +103,7 @@ func (f AssignmentFilter) where() (string, []any) {
 		args = append(args, text)
 		clauses = append(clauses, fmt.Sprintf("(strpos(lower(COALESCE(u.name, '')), lower($%[1]d)) > 0"+
 			" OR strpos(lower(COALESCE(u.email::text, '')), lower($%[1]d)) > 0 OR strpos(lower(COALESCE(g.name, '')), lower($%[1]d)) > 0"+
-			" OR strpos(lower(COALESCE(w.name, '')), lower($%[1]d)) > 0)", len(args)))
+			" OR strpos(lower(COALESCE(w.name, '')), lower($%[1]d)) > 0 OR strpos(COALESCE(s.name, ''), lower($%[1]d)) > 0)", len(args)))
 	}
 	if len(clauses) == 0 {
 		return "", nil
@@ -149,7 +153,21 @@ func (s *Store) WorkflowAssignments(ctx context.Context, workflow uuid.UUID) ([]
 	return out, err
 }
 
-// Assignment reads one grant, for anybody who administers Rotor or may see the workflow it is made on.
+// SkillAssignments lists the grants made on one skill alone, for anybody who may read it.
+func (s *Store) SkillAssignments(ctx context.Context, skill uuid.UUID) ([]Assignment, error) {
+	var out []Assignment
+	err := s.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
+		if err := requireOnSkill(ctx, tx, SkillRead, skill); err != nil {
+			return err
+		}
+		var err error
+		out, err = readAssignments(ctx, tx, selectAssignment+` WHERE a.skill_id = $1`+assignmentOrder, skill)
+		return err
+	})
+	return out, err
+}
+
+// Assignment reads one grant, for anybody who administers Rotor or may see the workflow or skill it is made on.
 func (s *Store) Assignment(ctx context.Context, id uuid.UUID) (*Assignment, error) {
 	var out *Assignment
 	err := s.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
@@ -157,10 +175,13 @@ func (s *Store) Assignment(ctx context.Context, id uuid.UUID) (*Assignment, erro
 		if out, err = scanAssignment(tx.QueryRow(ctx, selectAssignment+` WHERE a.id = $1`, id)); err != nil {
 			return err
 		}
-		if out.WorkflowID == nil {
-			err = require(ctx, tx, actorAdministers)
-		} else {
+		switch {
+		case out.WorkflowID != nil:
 			err = requireOn(ctx, tx, WorkflowRead, *out.WorkflowID)
+		case out.SkillID != nil:
+			err = requireOnSkill(ctx, tx, SkillRead, *out.SkillID)
+		default:
+			err = require(ctx, tx, actorAdministers)
 		}
 		if errors.Is(err, ErrForbidden) {
 			return ErrNotFound
@@ -175,6 +196,20 @@ func (s *Store) Assignment(ctx context.Context, id uuid.UUID) (*Assignment, erro
 func requireOn(ctx context.Context, tx db.DBTX, p Permission, workflow uuid.UUID) error {
 	var allowed bool
 	if err := tx.QueryRow(ctx, `SELECT actor_can($1, $2)`, string(p), workflow).Scan(&allowed); err != nil {
+		return fmt.Errorf("check the acting person: %w", err)
+	}
+	if !allowed {
+		return ErrForbidden
+	}
+	return nil
+}
+
+// requireOnSkill is requireOn for a skill: one the person may not read reads as not there.
+func requireOnSkill(ctx context.Context, tx db.DBTX, p Permission, skill uuid.UUID) error {
+	var allowed bool
+	err := tx.QueryRow(ctx, `SELECT actor_can_skill($1, $2) OR ($1 = 'skill.read' AND EXISTS (SELECT 1 FROM skill WHERE id = $2 AND builtin))`,
+		string(p), skill).Scan(&allowed)
+	if err != nil {
 		return fmt.Errorf("check the acting person: %w", err)
 	}
 	if !allowed {

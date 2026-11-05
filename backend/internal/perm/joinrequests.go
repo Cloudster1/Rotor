@@ -133,7 +133,7 @@ func MappedGroups(ctx context.Context, tx db.DBTX, claimed []string, administrat
 		WHERE g.source = 'oidc' AND g.external_ref = ANY ($1)
 		  AND EXISTS (SELECT 1 FROM role_assignment a JOIN role r ON r.key = a.role
 		              WHERE a.group_id = g.id
-		                AND (NOT $2 OR (a.workflow_id IS NULL AND 'rotor.administer' = ANY (r.permissions))))
+		                AND (NOT $2 OR (a.workflow_id IS NULL AND a.skill_id IS NULL AND 'rotor.administer' = ANY (r.permissions))))
 		ORDER BY g.name`, claimed, administratorsOnly)
 	if err != nil {
 		return nil, fmt.Errorf("find the groups that let people in: %w", err)

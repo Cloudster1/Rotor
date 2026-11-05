@@ -88,5 +88,9 @@ export const audit = {
     "member.admitted": "Person let in",
     "member.declined": "Person turned away",
     "oidc.saved": "Single sign-on changed",
+    "skill.created": "Skill created",
+    "skill.changed": "Skill changed",
+    "skill.archived": "Skill archived",
+    "skill.restored": "Skill restored",
   } as Record<string, string>,
 } as const;

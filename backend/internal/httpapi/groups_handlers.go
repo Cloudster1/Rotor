@@ -22,9 +22,10 @@ func toGroupView(g perm.Group, withMembers bool) groupView {
 	return out
 }
 
-// mayGrant says whether the caller administers Rotor or some workflow, which is who looks people and groups up.
+// mayGrant says whether the caller administers Rotor or some workflow or skill, which is who looks people and groups up.
 func mayGrant(r *http.Request) bool {
-	return auth.PrincipalFrom(r.Context()).Perms.CanSomewhere(perm.WorkflowAdminister)
+	set := auth.PrincipalFrom(r.Context()).Perms
+	return set.CanSomewhere(perm.WorkflowAdminister) || set.CanSomewhere(perm.SkillAdminister)
 }
 
 func (s *Server) handleListGroups(w http.ResponseWriter, r *http.Request) {

@@ -9,6 +9,16 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Rotor keeps a library of skills (#219), in the Agent Skills format: a
+  `SKILL.md` with a name and a description, and the reference files it points
+  to. Each save is a new numbered version that never changes, a save made on
+  a version someone else has since replaced is refused, and any two versions
+  compare file by file. Skills are shared like workflows, through the new
+  Skill reader, Skill editor and Skill administrator roles; whoever creates a
+  skill administers it, Author now also creates skills and Administrator holds
+  every skill permission. Skills are archived and restored, never deleted.
+  The `/skills` routes are built but for import and export, which follow
+  (#220); `docs/skills.md` says how to write and share one.
 - How a workflow gets skills is agreed (#218): `docs/api-contract-m17.md`
   says how Rotor keeps skills in the Agent Skills format as a versioned,
   shared library, how an agent node pins the ones it may use, how an agent

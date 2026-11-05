@@ -75,6 +75,8 @@ type UserGrant struct {
 	RoleName     string
 	WorkflowID   *uuid.UUID
 	WorkflowName string
+	SkillID      *uuid.UUID
+	SkillName    string
 	Group        string
 }
 
@@ -191,14 +193,17 @@ func fillUsers(ctx context.Context, tx db.DBTX, users []User, index map[uuid.UUI
 		return err
 	}
 	grants, err := tx.Query(ctx, `
-		SELECT COALESCE(a.user_id, m.user_id), a.role, r.name, a.workflow_id, COALESCE(w.name, ''), COALESCE(g.name, '')
+		SELECT COALESCE(a.user_id, m.user_id), a.role, r.name, a.workflow_id, COALESCE(w.name, ''), a.skill_id, COALESCE(s.name, ''),
+		       COALESCE(g.name, '')
 		FROM role_assignment a
 		JOIN role r ON r.key = a.role
 		LEFT JOIN workflow w ON w.id = a.workflow_id
+		LEFT JOIN skill s ON s.id = a.skill_id
 		LEFT JOIN user_group g ON g.id = a.group_id
 		LEFT JOIN group_member m ON m.group_id = a.group_id
 		WHERE a.user_id = ANY ($1) OR m.user_id = ANY ($1)
-		ORDER BY (a.workflow_id IS NOT NULL), lower(w.name), r.sort_order, lower(r.name), lower(g.name)`, ids)
+		ORDER BY (a.workflow_id IS NOT NULL OR a.skill_id IS NOT NULL), (a.skill_id IS NOT NULL), lower(w.name), s.name,
+		         r.sort_order, lower(r.name), lower(g.name)`, ids)
 	if err != nil {
 		return fmt.Errorf("read people's grants: %w", err)
 	}
@@ -208,7 +213,7 @@ func fillUsers(ctx context.Context, tx db.DBTX, users []User, index map[uuid.UUI
 			user uuid.UUID
 			g    UserGrant
 		)
-		if err := grants.Scan(&user, &g.Role, &g.RoleName, &g.WorkflowID, &g.WorkflowName, &g.Group); err != nil {
+		if err := grants.Scan(&user, &g.Role, &g.RoleName, &g.WorkflowID, &g.WorkflowName, &g.SkillID, &g.SkillName, &g.Group); err != nil {
 			return err
 		}
 		if i, ok := index[user]; ok {

@@ -34,7 +34,8 @@ below and argued in [`docs/decisions.md`](docs/decisions.md); how it is built
 is [`docs/architecture.md`](docs/architecture.md); what it protects and from
 whom is [`docs/threat-model.md`](docs/threat-model.md); the product in
 pictures is [`docs/screenshots.md`](docs/screenshots.md). Writing a workflow
-is [`docs/workflows.md`](docs/workflows.md), starting one without anyone
+is [`docs/workflows.md`](docs/workflows.md), keeping the skills their agents
+follow [`docs/skills.md`](docs/skills.md), starting one without anyone
 pressing Run [`docs/triggers.md`](docs/triggers.md), connecting an assistant
 [`docs/assistants.md`](docs/assistants.md), and what Rotor promises the rest
 of the suite [`docs/integration.md`](docs/integration.md).
