@@ -523,6 +523,35 @@ calls the form lists. [`triggers.md`](triggers.md#the-story-workflow-against-arm
 walks through it, Armature's webhook included. The suite runs it against the
 real Armature and Exciter (`TestSuiteAStoryInArmatureBecomesRequirementsInExciter`).
 
+### Refine a story before its requirements
+
+[`story-refinement.yaml`](../examples/story-refinement.yaml) (#212) makes an
+Armature user story ready to plan, holding the conversation on the ticket. A
+trigger on Armature's `issue.created` and `comment.added` starts it as the
+trigger's owner:
+1. **Gather**, a code node, reads the issue and its comments. It ends the run
+   unless the issue is a Story; on a comment, unless the comment answers the
+   refinement questions Rotor asked last; and on a new event, when Rotor has
+   refined the story before. Any comment headed "... from Rotor" is Rotor's,
+   so the comments of story-to-requirements answer nothing here, and the
+   other way round.
+2. **Analyse**, an agent with no tools, checks the story for a real role and
+   benefit, unmeasurable words, hidden design, missing error, boundary and
+   permission behaviour, and its size. It answers either questions or a
+   refinement.
+3. With questions, a code node posts them as one comment headed
+   **Refinement questions from Rotor**, and the run ends. The answer starts
+   the next run.
+4. Otherwise a code node comments **Refined story from Rotor**: the story as
+   "As a ..., I want ..., so that ...", numbered acceptance criteria as given,
+   when and then, what is out of scope, the assumptions to confirm, and a
+   split proposal when the story is too large for one iteration. The
+   description stays the people's; they copy from it what they agree with.
+
+Its only write is that comment, `unattended`. To use it before
+story-to-requirements, see
+[`triggers.md`](triggers.md#refining-a-story-first).
+
 ### Implement a feature through reviewed, tested code
 
 [`implement-feature.yaml`](../examples/implement-feature.yaml) (#140) takes a

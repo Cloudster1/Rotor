@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A story refinement workflow to start from, `examples/story-refinement.yaml`
+  (#212): it asks on a new Armature story what is unclear, and once answered
+  comments a refined story with acceptance criteria as given, when and then,
+  what is out of scope, assumptions to confirm and, for a story too large, a
+  split proposal. The story to requirements workflow now takes its comments
+  for Rotor's, so neither answers the other's questions.
 - Settings gathers your own pages (#206), each opening with a sentence on what
   it is for: Profile, Theme, Assistants, Usage and Tool accounts.
   - Profile, which was Account, shows your name, email and groups as the

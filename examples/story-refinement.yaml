@@ -1,0 +1,212 @@
+# Refines an Armature user story on its ticket (#212). A trigger on the story's issue.created and comment.added starts
+# it as the trigger's owner: it asks what is unclear as one comment, starts again when someone answers, and once
+# nothing is open comments a refined story with acceptance criteria for the people on the ticket to adopt. Its only
+# write is that comment, unattended; the agent reads what the code gathered and calls no tool at all.
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata:
+  name: story-refinement
+  description: Asks on an Armature story what is unclear, then comments a refined story with acceptance criteria.
+inputs:
+  type: object
+  required: [event]
+  properties:
+    event: { type: object, description: The Armature event that started the run. }
+tools:
+  armature-read:
+    tool: armature
+    scopes: [read]
+    allowTools: [get_issue, list_comments]
+  armature-write:
+    tool: armature
+    scopes: [comment.write]
+    access: write
+    allowTools: [add_comment]
+    unattended: [add_comment]
+limits:
+  maxSteps: 20
+  timeout: 15m
+  maxTokens: 200000
+entry: gather
+nodes:
+  # Reads the story and its conversation and says whether to go on: only for a Story, and on a comment only when it
+  # answers the refinement questions Rotor asked last. Any comment headed "... from Rotor" is Rotor's, so the comments
+  # of story-to-requirements neither answer these questions nor start a run.
+  - id: gather
+    type: code
+    tools: [armature-read]
+    output:
+      schema:
+        type: object
+        required: [verdict, why]
+        properties:
+          verdict: { enum: [go, stop] }
+          why: { type: string }
+          story: { type: object }
+          conversation: { type: array }
+    source: |
+      QUESTIONS = "Refinement questions from Rotor"
+      REFINED = "Refined story from Rotor"
+      ROTOR = "from Rotor"
+      BLOCKS = ("paragraph", "heading", "listItem", "codeBlock", "blockquote")
+
+
+      def text(node):
+          if isinstance(node, str):
+              return node
+          if isinstance(node, list):
+              return "".join(text(n) for n in node)
+          if isinstance(node, dict):
+              inner = node.get("text", "") + text(node.get("content", []))
+              return inner + ("\n" if node.get("type") in BLOCKS else "")
+          return ""
+
+
+      def stop(why):
+          return {"verdict": "stop", "why": why}
+
+
+      def run(state, ctx):
+          event = state["inputs"]["event"]
+          payload = event.get("payload") or {}
+          key = payload.get("key") or (payload.get("issue") or {}).get("key") or ""
+          if not key:
+              return stop("The event names no issue.")
+          issue = ctx.call_tool("armature-read", "get_issue", {"issueKey": key})["issue"]
+          if (issue.get("type") or {}).get("name") != "Story":
+              return stop(f"{key} is not a story.")
+          conversation = []
+          for c in ctx.call_tool("armature-read", "list_comments", {"issueKey": key})["comments"]:
+              if c.get("internal"):
+                  continue
+              body = text(c.get("body")).strip().lstrip("*_# ").replace("**", "", 2)
+              heading = body.split("\n", 1)[0].strip()
+              conversation.append({"id": c["id"], "author": (c.get("author") or {}).get("name", ""), "text": body,
+                                   "rotor": heading.endswith(ROTOR), "ours": heading in (QUESTIONS, REFINED)})
+          ours = [c for c in conversation if c["ours"]]
+          if event.get("topic") == "comment.added":
+              ids = [c["id"] for c in conversation]
+              answer = payload.get("commentId")
+              if not ours or not ours[-1]["text"].startswith(QUESTIONS):
+                  return stop("No refinement questions of Rotor's wait for an answer.")
+              if answer not in ids or ids.index(answer) < ids.index(ours[-1]["id"]) or conversation[ids.index(answer)]["rotor"]:
+                  return stop("The comment does not answer Rotor's refinement questions.")
+          elif ours:
+              return stop(f"Rotor has refined {key} before.")
+          story = {"key": key, "summary": issue.get("summary", ""), "description": text(issue.get("description")).strip()}
+          talk = [{"author": c["author"], "fromRotor": c["rotor"], "text": c["text"]} for c in conversation]
+          return {"verdict": "go", "why": "", "story": story, "conversation": talk}
+  - id: proceed
+    type: router
+    on: nodes.gather.verdict
+    cases: { go: analyse, stop: done }
+  # Decides from what gather read alone; it has no tool, so nothing the story says can make it write.
+  - id: analyse
+    type: agent
+    prompt: |
+      You refine a user story so a team can plan it and a requirements engineer can write its requirements.
+
+      The story: {{ nodes.gather.story }}
+      Its conversation so far, oldest first; fromRotor marks what Rotor posted: {{ nodes.gather.conversation }}
+
+      Check the story and the conversation for:
+      - a real role, a capability, and a benefit that is an outcome rather than the feature restated;
+      - words that cannot be measured or tested, such as fast, easy, intuitive, flexible or appropriate;
+      - terms that are not defined, and the how of a solution where the what is meant;
+      - what happens in the main flow, in alternative flows, on errors, at boundaries such as empty or the maximum,
+        and for people who may not do it;
+      - whether it fits one iteration, or splits by workflow step, business rule, data variation or operation.
+
+      If something only the people on the ticket can decide is still open and the conversation has not answered it,
+      answer verdict "questions" with at most five short, specific questions, and no refinement.
+      Otherwise answer verdict "refined" with the refinement:
+      - story: "As a <role>, I want <capability>, so that <benefit>.", keeping what the story asks for and adding no
+        scope;
+      - criteria: each one behaviour that a test can decide, as given, when and then, without unmeasurable words;
+      - outOfScope: what the story leaves out on purpose;
+      - assumptions: what you assumed that nobody stated, so a person can confirm or correct it;
+      - split: only when the story is too large for one iteration, smaller stories that each deliver value.
+    output:
+      schema:
+        type: object
+        required: [verdict, questions]
+        properties:
+          verdict: { enum: [questions, refined] }
+          questions: { type: array, maxItems: 5, items: { type: string } }
+          refinement:
+            type: object
+            required: [story, criteria, outOfScope, assumptions, split]
+            properties:
+              story: { type: string }
+              criteria:
+                type: array
+                maxItems: 20
+                items:
+                  type: object
+                  required: [given, when, then]
+                  properties:
+                    given: { type: string }
+                    when: { type: string }
+                    then: { type: string }
+              outOfScope: { type: array, maxItems: 10, items: { type: string } }
+              assumptions: { type: array, maxItems: 10, items: { type: string } }
+              split:
+                type: array
+                maxItems: 5
+                items:
+                  type: object
+                  required: [title, story]
+                  properties:
+                    title: { type: string }
+                    story: { type: string }
+  - id: decide
+    type: router
+    on: nodes.analyse.verdict
+    cases: { questions: ask, refined: comment }
+  # Posts the questions as one comment that starts with the marker gather looks for.
+  - id: ask
+    type: code
+    tools: [armature-write]
+    output:
+      schema: { type: object, required: [comment], properties: { comment: { type: string } } }
+    source: |
+      def run(state, ctx):
+          key = state["nodes"]["gather"]["story"]["key"]
+          questions = state["nodes"]["analyse"]["questions"] or ["What should this story change for the people who use it?"]
+          lines = ["**Refinement questions from Rotor**", "", "Before the story is refined, please answer in a comment:", ""]
+          lines += [f"{i}. {q}" for i, q in enumerate(questions, 1)]
+          answer = ctx.call_tool("armature-write", "add_comment", {"issueKey": key, "bodyMarkdown": "\n".join(lines)})
+          return {"comment": answer["comment"]["id"]}
+  # Comments the refined story; the description stays the people's, who copy from it what they agree with.
+  - id: comment
+    type: code
+    tools: [armature-write]
+    output:
+      schema: { type: object, required: [comment], properties: { comment: { type: string } } }
+    source: |
+      def section(title, items):
+          return ["", f"{title}:", ""] + [f"- {i}" for i in items] if items else []
+
+
+      def run(state, ctx):
+          key = state["nodes"]["gather"]["story"]["key"]
+          r = state["nodes"]["analyse"].get("refinement") or {}
+          lines = ["**Refined story from Rotor**", "", r.get("story", "").strip(), "", "Acceptance criteria:", ""]
+          lines += [f"{i}. Given {c['given']}, when {c['when']}, then {c['then']}"
+                    for i, c in enumerate(r.get("criteria", []), 1)]
+          lines += section("Out of scope", r.get("outOfScope", []))
+          lines += section("Assumptions to confirm", r.get("assumptions", []))
+          lines += section("Split proposal", [f"**{s['title']}**: {s['story']}" for s in r.get("split", [])])
+          lines += ["", "Copy into the description what you agree with."]
+          answer = ctx.call_tool("armature-write", "add_comment", {"issueKey": key, "bodyMarkdown": "\n".join(lines)})
+          return {"comment": answer["comment"]["id"]}
+  - id: done
+    type: code
+    output:
+      schema: { type: object, required: [why], properties: { why: { type: string } } }
+    source: |
+      def run(state, ctx):
+          return {"why": state["nodes"]["gather"]["why"]}
+edges:
+  - { from: gather, to: proceed }
+  - { from: analyse, to: decide }
