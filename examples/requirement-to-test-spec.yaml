@@ -1,0 +1,254 @@
+# Designs the test cases of a feature specified in Exciter and files them there (#213). A person starts it with the
+# feature's section or requirement and the section test cases go to. It works only on requirements that changed since
+# their test cases were reviewed, or that have none: a designer drafts, a reviewer checks, and a person decides after
+# the third draft. The cases are filed as test case requirements linked to what they verify, the suspect links they
+# resolve are cleared, the specification is commented on the feature, and the cases go to review. No agent writes.
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata:
+  name: requirement-to-test-spec
+  description: Designs and reviews the test cases of an Exciter feature's changed requirements, and files them for review.
+inputs:
+  type: object
+  required: [exciterProject, featureKey, testSection]
+  properties:
+    exciterProject: { type: string, title: Exciter project, description: "The project that specifies the feature, such as RTR." }
+    featureKey: { type: string, title: Feature, description: "The section or requirement to design test cases for, such as RTR-12." }
+    testSection: { type: string, title: Test section, description: "The section new test cases go under, such as RTR-40." }
+tools:
+  exciter-read:
+    tool: exciter
+    scopes: [mcp:read]
+    allowTools: [get_tree, get_requirement, list_links, list_types]
+  exciter-write:
+    tool: exciter
+    scopes: [mcp]
+    access: write
+    allowTools: [create_requirement, update_requirement, link_requirements, clear_suspect_link, comment_on_requirement, request_reviews]
+limits:
+  maxSteps: 40
+  timeout: 1h
+  maxTokens: 1500000
+entry: gather
+nodes:
+  # Reads the feature's requirements, the test cases that verify them, and which requirements changed: a verifies link
+  # whose requirement moved past the revision its case was reviewed against is suspect, and is kept to clear later.
+  - id: gather
+    type: code
+    tools: [exciter-read]
+    output:
+      schema:
+        type: object
+        required: [verdict, why]
+        properties:
+          verdict: { enum: [go, stop] }
+          why: { type: string }
+          requirements: { type: array }
+          testCases: { type: array }
+          suspect: { type: array }
+          testTypeId: { type: string }
+          testSectionId: { type: string }
+    source: |
+      MAX_REQUIREMENTS = 50
+      BLOCKS = ("paragraph", "heading", "listItem", "codeBlock", "blockquote")
+
+
+      def text(node):
+          if isinstance(node, str):
+              return node
+          if isinstance(node, list):
+              return "".join(text(n) for n in node)
+          if isinstance(node, dict):
+              inner = node.get("text", "") + text(node.get("content", []))
+              return inner + ("\n" if node.get("type") in BLOCKS else "")
+          return ""
+
+
+      def run(state, ctx):
+          inputs = state["inputs"]
+          project, feature = inputs["exciterProject"], inputs["featureKey"]
+          types = ctx.call_tool("exciter-read", "list_types", {"projectKey": project})["types"]
+          test_types = [t["id"] for t in types if t.get("role") == "testCase" and not t.get("retired")]
+          if not test_types:
+              raise ValueError(f"{project} has no requirement type for test cases; ask its administrator to mark one as test cases.")
+          tree = ctx.call_tool("exciter-read", "get_tree", {"projectKey": project})["nodes"]
+          by_key = {n["key"]: n for n in tree}
+          if feature not in by_key:
+              raise ValueError(f"{feature} is no section or requirement of {project} you can see; check the key.")
+          section = by_key.get(inputs["testSection"])
+          if section is None or section["kind"] != "section":
+              raise ValueError(f"{inputs['testSection']} is no section of {project} you can see; name the section test cases go under.")
+          inside, keys = {by_key[feature]["id"]}, []
+          for n in tree:
+              if n["id"] in inside or n["parentId"] in inside:
+                  inside.add(n["id"])
+                  if n["kind"] == "requirement" and n.get("typeId") not in test_types:
+                      keys.append(n["key"])
+          if not keys:
+              raise ValueError(f"{feature} holds no requirement to design test cases for.")
+          if len(keys) > MAX_REQUIREMENTS:
+              raise ValueError(f"{feature} holds {len(keys)} requirements, more than the {MAX_REQUIREMENTS} one run designs for; start it for a smaller section.")
+          requirements, verifying, suspect = [], {}, []
+          for key in keys:
+              r = ctx.call_tool("exciter-read", "get_requirement", {"reqKey": key})["requirement"]
+              cases, changed = [], False
+              for link in ctx.call_tool("exciter-read", "list_links", {"reqKey": key})["links"]:
+                  if link["type"]["key"] == "verifies" and link["direction"] == "incoming":
+                      cases.append(link["other"]["key"])
+                      verifying.setdefault(link["other"]["key"], []).append(key)
+                      if link["suspect"]:
+                          changed = True
+                          suspect.append({"linkId": link["id"], "case": link["other"]["key"], "requirement": key, "revision": r["revision"]})
+              requirements.append({"key": key, "revision": r["revision"], "title": r["title"],
+                                   "statement": r.get("statementMarkdown") or text(r.get("statement")).strip(),
+                                   "changed": changed or not cases, "testCases": cases})
+          if not any(r["changed"] for r in requirements):
+              return {"verdict": "stop", "why": f"Every requirement of {feature} has test cases reviewed against its latest revision."}
+          test_cases = []
+          for key, verifies in verifying.items():
+              c = ctx.call_tool("exciter-read", "get_requirement", {"reqKey": key})["requirement"]
+              content = c.get("testCase") or {}
+              steps = [{"action": s.get("actionMarkdown") or text(s.get("action")).strip(),
+                        "expected": s.get("expectedMarkdown") or text(s.get("expected")).strip()} for s in content.get("steps") or []]
+              test_cases.append({"key": key, "revision": c["revision"], "title": c["title"], "verifies": verifies, "steps": steps,
+                                 "preconditions": content.get("preconditionsMarkdown") or text(content.get("preconditions")).strip()})
+          return {"verdict": "go", "why": "", "requirements": requirements, "testCases": test_cases, "suspect": suspect,
+                  "testTypeId": test_types[0], "testSectionId": section["id"]}
+  - id: proceed
+    type: router
+    on: nodes.gather.verdict
+    cases: { go: design, stop: done }
+  # The test design loop: a designer drafts, a reviewer checks it, and a person decides after the third draft.
+  - id: design
+    type: agent
+    model: { name: claude-sonnet-5-5 }
+    maxSteps: 30
+    maxVisits: 3
+    onExhausted: design-decide
+    tools: [exciter-read]
+    role: |
+      You are a test designer. You write test specifications and test cases that a person or an automated test can
+      check step by step, and every requirement you are given is verified by at least one of your cases. You keep a
+      test case that still fits, and you never invent a requirement.
+    prompt: |
+      Write the test specification of the feature {{ inputs.featureKey }} and the test cases its changes need.
+
+      Its requirements; changed marks one whose test cases were not reviewed against its latest revision, or that has none: {{ nodes.gather.requirements }}
+      The test cases that verify them now: {{ nodes.gather.testCases }}
+      What the test reviewer found in your last draft, if anything: {{ nodes.design-review.findings }}
+
+      Write cases only for changed requirements. Depth follows risk: more cases where a failure would hurt more or is
+      more likely. Use equivalence classes and boundary values (at, just below and just above each limit), every
+      state and invalid transition, error paths, and for an access rule both the allowed person and those refused.
+      For a quality requirement, state the load, the measurement and the threshold it must meet.
+
+      Answer the specification as a few paragraphs: the levels and techniques, the risks, and what is not covered and
+      why. Then the cases: keep a fitting case out of the list, update one whose requirement changed by giving its
+      key, and add a case for every changed requirement not yet verified. Each case checks one behaviour, with a short
+      title, its preconditions, steps of a concrete action and an expected result someone can observe, and the keys
+      of the requirements it verifies.
+    output:
+      schema:
+        type: object
+        required: [specification, cases]
+        properties:
+          specification: { type: string }
+          cases:
+            type: array
+            maxItems: 50
+            items:
+              type: object
+              required: [title, steps, verifies]
+              properties:
+                key: { type: string }
+                title: { type: string }
+                preconditions: { type: string }
+                steps: { type: array, minItems: 1, items: { type: object, required: [action, expected], properties: { action: { type: string }, expected: { type: string } } } }
+                verifies: { type: array, minItems: 1, items: { type: string } }
+  - id: design-review
+    type: agent
+    model: { name: claude-sonnet-5-5 }
+    maxSteps: 20
+    role: |
+      You are a test reviewer. You approve a test design only when every changed requirement is verified by a case,
+      and every case can be checked: clear preconditions, concrete actions and expected results someone can observe.
+    prompt: |
+      Review this test design of the feature {{ inputs.featureKey }}.
+
+      The requirements: {{ nodes.gather.requirements }}
+      The test cases that verify them now: {{ nodes.gather.testCases }}
+      The specification: {{ nodes.design.specification }}
+      The new and updated cases: {{ nodes.design.cases }}
+
+      Look for missing boundaries, error paths and refusals, cases that check more than one behaviour, expected
+      results nobody can observe, and kept cases that no longer fit their changed requirement.
+      Answer approve, or changes with each finding as one sentence that says what to change.
+    output:
+      schema:
+        type: object
+        required: [verdict, findings]
+        properties: { verdict: { enum: [approve, changes] }, findings: { type: array, items: { type: string } } }
+  - id: design-verdict
+    type: router
+    on: nodes.design-review.verdict
+    cases: { approve: file, changes: design }
+  - id: design-decide
+    type: approval
+    message: "The test reviewer still asks for changes after three drafts: {{ nodes.design-review.findings }} Approve to file the last draft as it is, or reject to stop the run."
+  # Files the cases under the test section, links each to what it verifies, and clears the suspect links the design
+  # settled: a kept case was judged to still fit, an updated one was rewritten against the latest revision.
+  - id: file
+    type: code
+    tools: [exciter-write]
+    output:
+      schema: { type: object, required: [cases, cleared], properties: { cases: { type: array }, cleared: { type: integer } } }
+    source: |
+      def run(state, ctx):
+          gather, design, inputs = state["nodes"]["gather"], state["nodes"]["design"], state["inputs"]
+          known = {r["key"] for r in gather["requirements"]}
+          existing = {c["key"]: c for c in gather["testCases"]}
+          note = f"Designed by Rotor for {inputs['featureKey']}."
+          filed, revisions = [], {c["key"]: c["revision"] for c in gather["testCases"]}
+          for case in design["cases"]:
+              verifies = [k for k in dict.fromkeys(case["verifies"]) if k in known]
+              if not verifies:
+                  continue
+              steps = [{"actionMarkdown": s["action"], "expectedMarkdown": s["expected"]} for s in case["steps"]]
+              content = {"preconditionsMarkdown": case.get("preconditions") or "", "steps": steps, "parameters": []}
+              old, fields = existing.get(case.get("key") or ""), {"title": case["title"], "testCase": content, "comment": note}
+              if old:
+                  r = ctx.call_tool("exciter-write", "update_requirement", {**fields, "reqKey": old["key"], "baseRevision": old["revision"]})
+              else:
+                  place = {"parentId": gather["testSectionId"], "afterId": None}
+                  fields.update({"projectKey": inputs["exciterProject"], "typeId": gather["testTypeId"], "place": place})
+                  r = ctx.call_tool("exciter-write", "create_requirement", fields)
+              r = r["requirement"]
+              revisions[r["key"]] = r["revision"]
+              linked = set(old["verifies"]) if old else set()
+              for key in verifies:
+                  if key not in linked:
+                      ctx.call_tool("exciter-write", "link_requirements", {"reqKey": r["key"], "otherKey": key, "typeKey": "verifies"})
+              filed.append({"key": r["key"], "revision": r["revision"], "title": r["title"], "verifies": verifies})
+          cleared = 0
+          for s in gather["suspect"]:
+              ctx.call_tool("exciter-write", "clear_suspect_link", {"linkID": s["linkId"], "sourceRevision": revisions[s["case"]],
+                                                                    "targetRevision": s["revision"], "comment": note})
+              cleared += 1
+          ctx.call_tool("exciter-write", "comment_on_requirement", {"reqKey": inputs["featureKey"],
+                                                                     "bodyMarkdown": "**Test specification from Rotor**\n\n" + design["specification"]})
+          if filed:
+              ctx.call_tool("exciter-write", "request_reviews", {"projectKey": inputs["exciterProject"], "comment": note,
+                                                                "items": [{"key": f["key"], "revision": f["revision"]} for f in filed]})
+          return {"cases": filed, "cleared": cleared}
+  - id: done
+    type: code
+    output:
+      schema: { type: object, required: [why], properties: { why: { type: string } } }
+    source: |
+      def run(state, ctx):
+          return {"why": state["nodes"]["gather"]["why"]}
+edges:
+  - { from: gather, to: proceed }
+  - { from: design, to: design-review }
+  - { from: design-review, to: design-verdict }
+  - { from: design-decide, to: file }

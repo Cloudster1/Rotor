@@ -608,6 +608,32 @@ the suite runs its test design against the real Exciter and Armature
 (`TestSuiteAFeaturesTestCasesAreDesignedAndFiledInExciter`). The suite's
 Armature has no Gitea yet, so its repository half runs on the double alone.
 
+### Design a feature's test cases and file them for review
+
+[`requirement-to-test-spec.yaml`](../examples/requirement-to-test-spec.yaml)
+(#213) is the test design of `implement-feature.yaml` on its own, for a
+feature whose code is not written yet or is written elsewhere. A person starts
+it with the Exciter project, the feature (a section or a requirement) and the
+section test cases go under:
+1. **Gather**, a code node, reads the feature's requirements, the test cases
+   that verify them, and which requirements changed: one whose `verifies` link
+   is suspect, or that no test case verifies yet. With no change, the run
+   ends there and files nothing.
+2. **Test design**, at most three rounds, as in `implement-feature.yaml`: a
+   test designer drafts the specification (levels, techniques, risks and what
+   is not covered) and the cases the changed requirements need, a test
+   reviewer approves or names what to change, and after the third draft a
+   person decides whether to file it as it is.
+3. **File**, a code node, creates or updates the cases as test case
+   requirements under the test section, links each to the requirements it
+   verifies, clears the suspect links the design settled, comments the
+   specification on the feature as **Test specification from Rotor**, and
+   asks for the cases' review.
+
+The agents only read; every write is the code node's. The integration test
+runs it against the tool double's Exciter
+(`TestAFeaturesTestCasesAreDesignedReviewedAndFiled`).
+
 The examples below are the golden fixtures, which show more of the spec.
 
 ### Draft requirements, file them after approval

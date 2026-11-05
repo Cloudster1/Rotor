@@ -12,21 +12,23 @@ import (
 // against: get_requirement before a trigger starts a run (#35), the story workflow's (#130), and the feature
 // workflow's tracing and test executions (#139).
 const (
-	GetRequirementTool     = "get_requirement"
-	SearchRequirementsTool = "search_requirements"
-	CreateRequirementTool  = "create_requirement"
-	UpdateRequirementTool  = "update_requirement"
-	ListArmatureLinksTool  = "list_armature_links"
-	LinkArmatureIssueTool  = "link_armature_issue"
-	RequestReviewsTool     = "request_reviews"
-	ListTypesTool          = "list_types"
-	GetTreeTool            = "get_tree"
-	LinkRequirementsTool   = "link_requirements"
-	ListTestPlansTool      = "list_test_plans"
-	StartTestExecutionTool = "start_test_execution"
-	RecordTestResultTool   = "record_test_result"
-	CloseTestExecutionTool = "close_test_execution"
-	ListLinksTool          = "list_links"
+	GetRequirementTool       = "get_requirement"
+	SearchRequirementsTool   = "search_requirements"
+	CreateRequirementTool    = "create_requirement"
+	UpdateRequirementTool    = "update_requirement"
+	ListArmatureLinksTool    = "list_armature_links"
+	LinkArmatureIssueTool    = "link_armature_issue"
+	RequestReviewsTool       = "request_reviews"
+	ListTypesTool            = "list_types"
+	GetTreeTool              = "get_tree"
+	LinkRequirementsTool     = "link_requirements"
+	ListTestPlansTool        = "list_test_plans"
+	StartTestExecutionTool   = "start_test_execution"
+	RecordTestResultTool     = "record_test_result"
+	CloseTestExecutionTool   = "close_test_execution"
+	ListLinksTool            = "list_links"
+	ClearSuspectLinkTool     = "clear_suspect_link"
+	CommentOnRequirementTool = "comment_on_requirement"
 )
 
 // stubTime is the time every requirement and issue of a tenant's options was made and changed, so answers are stable.
@@ -71,6 +73,10 @@ func (s *Stub) callExciter(c *call, who *caller, name string, arguments json.Raw
 		return s.linkRequirements(c, who, args), true
 	case ListLinksTool:
 		return listLinks(c.t, who, args), true
+	case ClearSuspectLinkTool:
+		return clearSuspectLink(c.t, who, args), true
+	case CommentOnRequirementTool:
+		return s.commentOnRequirement(c, who, args), true
 	case ListTestPlansTool:
 		return listTestPlans(c.t, who, args), true
 	case StartTestExecutionTool:

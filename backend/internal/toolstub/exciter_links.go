@@ -3,10 +3,14 @@ package toolstub
 import (
 	"encoding/json"
 	"slices"
+	"strings"
 )
 
 // Where a feature workflow finds its requirements and what changed (#140): a requirement placed under another in
 // the project's tree, and its links read back, suspect where an end moved on since it was linked.
+
+// linkNotFound is said before the id of a link the caller cannot clear.
+const linkNotFound = "There is no link you may clear, or you may not see both its ends. Take its id from list_links: "
 
 const placeNotOurs = "That parent is not a requirement or section of this project. Pick one from its tree, or none for the top."
 
@@ -51,14 +55,7 @@ func listLinks(t *tenant, who *caller, args map[string]json.RawMessage) any {
 		if at < 0 || source == nil || target == nil {
 			continue
 		}
-		lt := linkTypes[at]
-		direction, other, phrase := "outgoing", target, lt.forward
-		if l.source != req.key {
-			direction, other, phrase = "incoming", source, lt.backward
-		}
-		links = append(links, map[string]any{"id": l.id, "type": lt.answer(), "direction": direction, "phrase": phrase,
-			"other": other.ref(), "sourceRevision": l.sourceRevision, "targetRevision": l.targetRevision,
-			"suspect": suspectEnds(lt, l, source, target), "createdAt": l.createdAt, "createdByName": l.createdBy, "via": via(t)})
+		links = append(links, traceLink(t, l, linkTypes[at], req.key, source, target))
 	}
 	return answered(map[string]any{"links": links})
 }
@@ -73,4 +70,43 @@ func suspectEnds(lt linkType, l requirementLink, source, target *storedRequireme
 		out = append(out, map[string]any{"end": "target", "reviewed": l.targetRevision, "current": target.revision})
 	}
 	return out
+}
+
+// traceLink is a link in Exciter's TraceLink shape as read from the requirement with the key from.
+func traceLink(t *tenant, l requirementLink, lt linkType, from string, source, target *storedRequirement) map[string]any {
+	direction, other, phrase := "outgoing", target, lt.forward
+	if l.source != from {
+		direction, other, phrase = "incoming", source, lt.backward
+	}
+	return map[string]any{"id": l.id, "type": lt.answer(), "direction": direction, "phrase": phrase,
+		"other": other.ref(), "sourceRevision": l.sourceRevision, "targetRevision": l.targetRevision,
+		"suspect": suspectEnds(lt, l, source, target), "createdAt": l.createdAt, "createdByName": l.createdBy, "via": via(t)}
+}
+
+// clearSuspectLink confirms a link against the revisions of its ends as the caller read them, which must be the
+// current ones, so a link is never cleared on a read that has gone stale; the answer reads from the source.
+func clearSuspectLink(t *tenant, who *caller, args map[string]json.RawMessage) any {
+	id := stringArg(args, "linkID")
+	at := slices.IndexFunc(t.written.links, func(l requirementLink) bool { return l.id == id })
+	if at < 0 {
+		return refusal(linkNotFound + id)
+	}
+	l := t.written.links[at]
+	lti := slices.IndexFunc(linkTypes, func(lt linkType) bool { return lt.key == l.typeKey })
+	source, target := findRequirement(t, who, l.source), findRequirement(t, who, l.target)
+	if lti < 0 || source == nil || target == nil {
+		return refusal(linkNotFound + id)
+	}
+	var sourceRevision, targetRevision int
+	_ = json.Unmarshal(args["sourceRevision"], &sourceRevision)
+	_ = json.Unmarshal(args["targetRevision"], &targetRevision)
+	switch {
+	case strings.TrimSpace(stringArg(args, "comment")) == "":
+		return refusal("Say in a comment why the link still holds.")
+	case sourceRevision != source.revision || targetRevision != target.revision:
+		return refusal("Those revisions are not the current ones of the link's ends. Read the link again with list_links and name the revisions you reviewed.")
+	}
+	l.sourceRevision, l.targetRevision = sourceRevision, targetRevision
+	t.written.links[at] = l
+	return answered(map[string]any{"link": traceLink(t, l, linkTypes[lti], l.source, source, target)})
 }

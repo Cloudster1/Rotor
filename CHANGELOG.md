@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A test design workflow to start from, `examples/requirement-to-test-spec.yaml`
+  (#213): for an Exciter feature, it designs the test cases its changed
+  requirements need, has them reviewed for up to three drafts before a person
+  decides, files them as test cases linked to what they verify, clears the
+  suspect links it settled, comments the test specification on the feature
+  and asks for the cases' review.
 - A story refinement workflow to start from, `examples/story-refinement.yaml`
   (#212): it asks on a new Armature story what is unclear, and once answered
   comments a refined story with acceptance criteria as given, when and then,
