@@ -469,6 +469,28 @@ An assistant allowed only to read is offered only the reads. An assistant
 never shares, archives, restores or imports a skill: those stay in person.
 Zips are not tools; `get_skill_file` reads each file instead.
 
+### As built (#224)
+
+- **The tools are rows** of the operations table with `tool:` and `toolHelp:`;
+  `validate_skill` carries `reads: true` as `validate_workflow` does, so a
+  grant made to read is offered the five reads and refused `create_skill` and
+  `save_skill` in a sentence, as it is `start_run`. `save_skill` is marked
+  idempotent as every PUT is; neither write is destructive, as a save adds a
+  version and removes none.
+- **Nothing new was needed to keep the in-person operations out.** An access
+  token is accepted at MCP and for the calls its tools make, nowhere else, so
+  the token sent straight to the grant, archive, restore or import routes
+  answers 401 `invalid_token` before any handler, and no row of those carries
+  a tool, which a unit test holds. The grant routes also take a session alone
+  (`session_only`). No code changed for this; integration tests hold it.
+- **The 64 KiB cap** applies to every skill answer, so `get_skill` on a skill
+  with large files may be refused with the cap's sentence; `get_skill_version`
+  lists paths and sizes and `get_skill_file` reads one file, which the
+  tools' help says.
+- **Who may do what** is unchanged: the person's own policies and roles
+  answer every call, so a skill the person may not read is not found, and a
+  write needs `skill.create` or `skill.edit`.
+
 ## The skills Rotor ships (#225)
 
 - `skills/<name>/` at the repository's root is their single source, as

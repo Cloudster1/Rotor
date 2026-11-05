@@ -6,6 +6,14 @@ follows them to their end, and reads the approvals a run waits at. It never
 decides an approval; you do that in Rotor. What it may do is in
 [`docs/api-contract-m10.md`](api-contract-m10.md).
 
+## What it can do with skills
+
+It lists the skills you may read, reads a skill, its versions and each of its
+files, checks a skill's files, makes a skill and saves its next version, all
+with your roles: a skill you may not read is not found by it either. A grant
+made to **Only read** gets the reading and checking alone. It never shares,
+archives, restores, imports or exports a skill; you do that in Rotor.
+
 ## Claude Code
 
 Give it Rotor's MCP endpoint, under the address you open Rotor at:
