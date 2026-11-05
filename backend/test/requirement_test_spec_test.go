@@ -99,8 +99,14 @@ func TestAFeaturesTestCasesAreDesignedReviewedAndFiled(t *testing.T) {
 	if suspect := suspectOf("RTR-2"); len(suspect) != 0 {
 		t.Errorf("RTR-2's verifies link is still suspect: %v", suspect)
 	}
-	if filed := output["file"].(map[string]any); filed["cleared"] != 1.0 || len(filed["cases"].([]any)) != 2 {
+	filed := output["file"].(map[string]any)
+	if cleared, _ := filed["cleared"].([]any); len(filed["cases"].([]any)) != 2 || len(cleared) != 1 || len(cleared[0].(map[string]any)["suspect"].([]any)) != 0 {
 		t.Errorf("the run filed %v, want two cases and one suspect link cleared", filed)
+	}
+	for _, r := range filed["reviews"].([]any) {
+		if r.(map[string]any)["outcome"] != "requested" {
+			t.Errorf("a case's review was not requested: %v", r)
+		}
 	}
 	records := exciter.Records()
 	if spec := stringOf(records["requirementComments"]); !strings.Contains(spec, "Test specification from Rotor") || !strings.Contains(spec, "Second draft.") {

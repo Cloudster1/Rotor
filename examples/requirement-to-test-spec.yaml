@@ -199,16 +199,27 @@ nodes:
   # settled: a kept case was judged to still fit, an updated one was rewritten against the latest revision.
   - id: file
     type: code
-    tools: [exciter-write]
+    tools: [exciter-read, exciter-write]
     output:
-      schema: { type: object, required: [cases, cleared], properties: { cases: { type: array }, cleared: { type: integer } } }
+      schema:
+        type: object
+        required: [cases, cleared, specificationThread, reviews]
+        properties:
+          cases: { type: array }
+          cleared: { type: array }
+          specificationThread: { type: string }
+          reviews: { type: array }
     source: |
+      def current(ctx, key):
+          return ctx.call_tool("exciter-read", "get_requirement", {"reqKey": key})["requirement"]["revision"]
+
+
       def run(state, ctx):
           gather, design, inputs = state["nodes"]["gather"], state["nodes"]["design"], state["inputs"]
           known = {r["key"] for r in gather["requirements"]}
           existing = {c["key"]: c for c in gather["testCases"]}
           note = f"Designed by Rotor for {inputs['featureKey']}."
-          filed, revisions = [], {c["key"]: c["revision"] for c in gather["testCases"]}
+          filed = []
           for case in design["cases"]:
               verifies = [k for k in dict.fromkeys(case["verifies"]) if k in known]
               if not verifies:
@@ -223,23 +234,25 @@ nodes:
                   fields.update({"projectKey": inputs["exciterProject"], "typeId": gather["testTypeId"], "place": place})
                   r = ctx.call_tool("exciter-write", "create_requirement", fields)
               r = r["requirement"]
-              revisions[r["key"]] = r["revision"]
               linked = set(old["verifies"]) if old else set()
               for key in verifies:
                   if key not in linked:
                       ctx.call_tool("exciter-write", "link_requirements", {"reqKey": r["key"], "otherKey": key, "typeKey": "verifies"})
               filed.append({"key": r["key"], "revision": r["revision"], "title": r["title"], "verifies": verifies})
-          cleared = 0
+          cleared = []
           for s in gather["suspect"]:
-              ctx.call_tool("exciter-write", "clear_suspect_link", {"linkID": s["linkId"], "sourceRevision": revisions[s["case"]],
-                                                                    "targetRevision": s["revision"], "comment": note})
-              cleared += 1
-          ctx.call_tool("exciter-write", "comment_on_requirement", {"reqKey": inputs["featureKey"],
-                                                                     "bodyMarkdown": "**Test specification from Rotor**\n\n" + design["specification"]})
+              ends = {"sourceRevision": current(ctx, s["case"]), "targetRevision": current(ctx, s["requirement"])}
+              link = ctx.call_tool("exciter-write", "clear_suspect_link", {"linkID": s["linkId"], "comment": note, **ends})["link"]
+              cleared.append({"link": s["linkId"], "case": s["case"], "requirement": s["requirement"], "suspect": link.get("suspect", [])})
+          thread = ctx.call_tool("exciter-write", "comment_on_requirement", {"reqKey": inputs["featureKey"],
+                                 "bodyMarkdown": "**Test specification from Rotor**\n\n" + design["specification"]})["thread"]
+          reviews = []
           if filed:
-              ctx.call_tool("exciter-write", "request_reviews", {"projectKey": inputs["exciterProject"], "comment": note,
-                                                                "items": [{"key": f["key"], "revision": f["revision"]} for f in filed]})
-          return {"cases": filed, "cleared": cleared}
+              items = [{"key": f["key"], "revision": current(ctx, f["key"])} for f in filed]
+              answer = ctx.call_tool("exciter-write", "request_reviews", {"projectKey": inputs["exciterProject"], "comment": note, "items": items})
+              reviews = [{"key": r["key"], "outcome": r["outcome"], "error": (r.get("error") or {}).get("message", "")}
+                         for r in answer.get("results", [])]
+          return {"cases": filed, "cleared": cleared, "specificationThread": thread["id"], "reviews": reviews}
   - id: done
     type: code
     output:

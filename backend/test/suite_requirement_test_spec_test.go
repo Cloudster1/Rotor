@@ -15,6 +15,7 @@ import (
 // #213 against the real Exciter: what changed is read, the reviewed cases filed under the test section and linked
 // verifies, the suspect link settled, the specification commented on the feature and the cases sent to review.
 func TestSuiteAFeaturesTestCasesAreDesignedReviewedAndFiledInExciter(t *testing.T) {
+	h := newHarness(t)
 	exciterBase, _ := exciter(t)
 	alice := suiteBrowser(t, "alice", exciterBase)
 	status, answer := alice.api(http.MethodPost, "/tools", map[string]any{"baseURL": exciterBase})
@@ -50,14 +51,26 @@ func TestSuiteAFeaturesTestCasesAreDesignedReviewedAndFiledInExciter(t *testing.
 	source := strings.Replace(string(example), "name: requirement-to-test-spec\n", "name: "+uniqueName("requirement-to-test-spec")+"\n", 1)
 	workflowID := createWorkflow(t, alice, withModels(source, providers))
 	run := startRun(t, alice, workflowID, map[string]any{"exciterProject": project, "featureKey": feature, "testSection": section}, http.StatusCreated)
-	done := waitRun(t, alice, run["id"].(string), "succeeded", "failed")
+	runID := run["id"].(string)
+	done := waitRun(t, alice, runID, "succeeded", "failed")
 	if done["status"] != "succeeded" {
-		t.Fatalf("the run ended %v: %v", done["status"], done["error"])
+		t.Fatalf("the run ended %v: %v; events %+v", done["status"], done, h.events(t, uuid.MustParse(runID)))
 	}
-
 	filed := done["output"].(map[string]any)["file"].(map[string]any)
-	if cases, _ := filed["cases"].([]any); len(cases) != 2 || filed["cleared"] != 1.0 {
+	defer func() {
+		if t.Failed() {
+			t.Logf("the file node answered %v; events %+v", filed, h.events(t, uuid.MustParse(runID)))
+		}
+	}()
+
+	cleared, _ := filed["cleared"].([]any)
+	if cases, _ := filed["cases"].([]any); len(cases) != 2 || len(cleared) != 1 || len(cleared[0].(map[string]any)["suspect"].([]any)) != 0 {
 		t.Fatalf("the run filed %v, want two cases and one suspect link cleared", filed)
+	}
+	for _, r := range filed["reviews"].([]any) {
+		if r.(map[string]any)["outcome"] != "requested" {
+			t.Errorf("Exciter refused a case's review: %v", r)
+		}
 	}
 	_, sec := alice.atExciter(t, exciterBase, http.MethodGet, "/requirements/"+section, nil)
 	for _, f := range filed["cases"].([]any) {
