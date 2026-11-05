@@ -18,7 +18,7 @@ import (
 // Telemetry is where a run's spans go once the control plane checked them (#37); *langsmith.Forwarder is the real
 // one, sending them to the collector and, when an administrator allows it, to LangSmith.
 type Telemetry interface {
-	// Spans sends a run's spans on.
+	// Spans sends a run's spans on by ctx's deadline; no stream waits for it.
 	Spans(ctx context.Context, runID uuid.UUID, spans []observability.RunnerSpan)
 	// Content says whether runs' LLM spans may carry the prompt and the answer: only LangSmith reads them.
 	Content(ctx context.Context) bool
@@ -56,8 +56,28 @@ func (s *Server) spans(ctx context.Context, r *run, batch *runnerpb.SpanBatch) {
 		}
 	}
 	if len(out) > 0 {
-		s.Telemetry.Spans(ctx, r.ID, out)
+		s.export(ctx, r.ID, out)
 	}
+}
+
+// export sends a run's spans on without the stream waiting (#234): the runner's Done follows its last spans, and the
+// run reaches waiting and opens its approval whatever the collector does. With every slot taken the batch is dropped.
+func (s *Server) export(ctx context.Context, runID uuid.UUID, spans []observability.RunnerSpan) {
+	s.exportingOnce.Do(func() { s.exporting = make(chan struct{}, config.MaxRunnerSpanExports) })
+	select {
+	case s.exporting <- struct{}{}:
+	default:
+		if s.Log != nil {
+			s.Log.Debug("dropped a runner's spans while the collector was slow", "run", runID, "spans", len(spans))
+		}
+		return
+	}
+	// The stream ends right after Done, so the export outlives it, bounded on its own.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), config.RunnerSpanExportTimeout)
+	go func() {
+		defer func() { cancel(); <-s.exporting }()
+		s.Telemetry.Spans(ctx, runID, spans)
+	}()
 }
 
 // runnerSpan is one span as the control plane trusts it, or false for one of another trace or without an id.

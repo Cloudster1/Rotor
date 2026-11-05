@@ -1,7 +1,15 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 /** How long a run may take, sandbox start included, before a test gives up on it. */
 export const RUN_TIMEOUT_MS = 120_000;
+
+/**
+ * Gives the running test RUN_TIMEOUT_MS for each sandboxed stretch it waits for, beside its own time for its pages:
+ * a run's wait is otherwise cut short by the test's timeout, whatever its expect allows.
+ */
+export function waitsForRuns(stretches: number): void {
+  test.setTimeout(test.info().timeout + stretches * RUN_TIMEOUT_MS);
+}
 
 /** Saves a workflow as whoever the page is signed in as, and answers its id. */
 export async function createWorkflow(page: Page, source: string): Promise<string> {

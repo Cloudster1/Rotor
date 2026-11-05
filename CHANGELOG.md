@@ -685,9 +685,19 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- A run stops at its approval, and the approval opens, as soon as the runner
+  reaches it, whatever the trace collector does. The control plane used to
+  send a runner's last spans on before it handled the run's end, so with the
+  collector down or slow a run stayed running for about a minute while the
+  export retried. Runner spans now go on beside the run, each batch for at
+  most 10 seconds, and a batch is dropped while 32 are still on their way.
+  The approvals end-to-end tests also give each sandboxed run its own time,
+  since two of them in turn did not fit the 20 seconds of a test (#234).
+
 - A push that changes only a shipped skill under `skills/` runs the Go layers
   in the push gate, so a skill out of step with the copy embedded in the api
   is caught before CI (#235).
+
 - The web tooling takes minimatch 11.0.4 in place of 10.2.6, through an npm
   override, which closes the globparts amplification advisory
   GHSA-g3hv-75wg-m249. eslint still asks for 10, and no 10.x is patched
