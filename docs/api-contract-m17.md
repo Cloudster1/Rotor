@@ -15,8 +15,8 @@ name and description and loads the rest when it needs it.
 - the skills Rotor ships, used by the default workflows (#225)
 
 This file is #218. The schema `api/workflow.v1.schema.json` is the source of
-truth for the spec; this file says what it means. Until #221 merges, a
-workflow whose agent names skills is refused when saved and when a run starts,
+truth for the spec; this file says what it means. Until #221 merged, a
+workflow whose agent names skills was refused when saved and when a run started,
 with the problem `not_built`. The skill routes carry `pending: true` and
 answer 501 until the issue that builds them merges.
 
@@ -268,6 +268,26 @@ nodes:
   `invalid/not-built-skills.yaml` and `invalid/agent-skill-bad-pin.yaml` come
   with this contract; `invalid/agent-skill-twice.yaml` comes with #221, since
   `not_built` refuses any `skills` before a sense check sees a name twice.
+
+### As built (#221)
+
+- **`not_built` is gone again:** the Go and Python refusals and the problem
+  code are deleted, as M13's were with #138. `invalid/not-built-skills.yaml`
+  became the valid fixture `valid/agent-with-skills.yaml`; beside
+  `invalid/agent-skill-twice.yaml`, `invalid/code-with-skills.yaml` holds
+  that a code node naming skills is a `schema` problem at `/nodes/<i>`.
+- **`skill_twice`** is placed at the second mention of the name, and at each
+  mention after it.
+- **The save check** asks the library for every named skill in one query as
+  the person saving, so row level security answers which they read; a
+  built-in skill's versions are the numbers it shipped, which may skip, so
+  `skill_version_unknown` asks for the version itself, never a range. The
+  check runs only once the spec has no other problem, as the model and image
+  checks do, and a library that cannot answer leaves the skills to the start.
+- **`skill_unreadable`** answers 422 to a start by hand, and to turning on a
+  trigger whose owner may not read a skill. A firing that meets it turns its
+  trigger off with the new reason `skill_unreadable`, whose message names the
+  agent and the skill. An archived skill the person reads still starts.
 
 ## Loading a skill during a run (#222)
 

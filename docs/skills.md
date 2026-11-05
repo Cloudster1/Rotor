@@ -8,10 +8,10 @@ agents of many workflows follow the same proven text. The format is
 read, so a team brings the skills it has. `docs/api-contract-m17.md` has the
 details.
 
-Rotor stores, versions and shares skills today (#219). Importing and exporting
-a skill as a zip (#220), naming skills on an agent node (#221), loading them in
-a run (#222), the skills pages in the web app (#223) and the skills Rotor ships
-(#225) follow.
+Rotor stores, versions and shares skills (#219), and an agent node names the
+skills it may follow (#221). Importing and exporting a skill as a zip (#220),
+loading them in a run (#222), the skills pages in the web app (#223) and the
+skills Rotor ships (#225) follow.
 
 ## What a skill is
 
@@ -95,7 +95,32 @@ done in a browser session, never by an assistant.
 
 A skill you may not read answers as if it did not exist. Sharing a workflow
 does not share its skills: a run's person must be able to read every skill the
-workflow names (#221).
+workflow names, as the next section says.
+
+## Using a skill in a workflow
+
+An agent node names the skills it may follow, each pinned to a version:
+
+```yaml
+- id: analyse
+  type: agent
+  prompt: Turn the story into requirements. {{ inputs.story }}
+  skills:
+    - { name: requirements-engineering, version: 2 }
+```
+
+- A node names at most 10 skills, each once. Only agent nodes take skills.
+- Saving the workflow, and the editor as you type, checks each skill as you:
+  one you may not read is refused as if there were none (`skill_unknown`), a
+  version it does not have is `skill_version_unknown`, and an archived skill
+  is `skill_archived`.
+- A run starts only when its person, whoever starts it by hand or owns the
+  trigger that starts it, may read every skill the version names; otherwise
+  it is refused with `skill_unreadable`, naming the skill, and a trigger is
+  turned off. Share the skills with whoever runs the workflow.
+- A pin never moves: a new version of the skill reaches the workflow when you
+  save it naming that version. Archiving a skill keeps the versions saved
+  before it starting, since their pins hold.
 
 ## Skills Rotor ships
 

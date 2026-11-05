@@ -180,13 +180,20 @@ def _code_limits(node: dict[str, Any], base: str) -> list[Problem]:
 
 
 def _agent_sense(node: dict[str, Any], base: str, max_steps: int) -> list[Problem]:
-    """An agent's own step cap within the workflow's and a role without templates, as Go's agentSense (#133)."""
+    """An agent's own step cap within the workflow's, a role without templates (#133) and each skill named once
+    (#221), as Go's agentSense."""
     out: list[Problem] = []
     if int(node.get("maxSteps") or 0) > max_steps:
         message = f"{node['id']} may take at most the workflow's {max_steps} steps, not {node['maxSteps']}."
         out.append(Problem(f"{base}/maxSteps", "steps_over_limit", message))
     if "{{" in str(node.get("role") or ""):
         out.append(Problem(f"{base}/role", "role_template", f"The role of {node['id']} holds a template."))
+    seen: set[str] = set()
+    for j, skill in enumerate(node.get("skills") or []):
+        if skill["name"] in seen:
+            message = f"{node['id']} names the skill {skill['name']} twice."
+            out.append(Problem(f"{base}/skills/{j}", "skill_twice", message))
+        seen.add(skill["name"])
     return out
 
 
@@ -268,7 +275,6 @@ def check_sense(document: dict[str, Any]) -> list[Problem]:
     out.extend(_repository_sense(tools))
     out.extend(_workspace_sense(nodes, tools, index))
     out.extend(_test_sense(nodes, str(document["limits"]["timeout"])))
-    out.extend(_not_built(nodes))
     if entry in index:
         reached = {entry}
         queue = [entry]
@@ -341,15 +347,6 @@ def form_fields(schema: Any) -> dict[str, Any] | None:
     except Exception:
         return None
     return properties
-
-
-def _not_built(nodes: list[dict[str, Any]]) -> list[Problem]:
-    """Refuses the fields M17 agreed until their issue merges, as Go's notBuilt, so no run takes one it would ignore."""
-    return [
-        Problem(f"/nodes/{i}/skills", "not_built", "A node's skills are not built yet (#221).")
-        for i, node in enumerate(nodes)
-        if node.get("skills")
-    ]
 
 
 def _repository_sense(tools: dict[str, dict[str, Any]]) -> list[Problem]:

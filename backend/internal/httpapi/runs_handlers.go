@@ -54,7 +54,10 @@ func runError(err error) error {
 	var quota *usage.Refused
 	var changed *runs.ToolsChanged
 	var image *runs.ImageNotAllowed
+	var skill *runs.SkillUnreadable
 	switch {
+	case errors.As(err, &skill):
+		return &APIError{Status: http.StatusUnprocessableEntity, Code: spec.CodeSkillUnreadable, Message: skill.Error()}
 	case errors.As(err, &image):
 		fields := map[string]string{}
 		for _, p := range image.Problems {

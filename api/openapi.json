@@ -7316,7 +7316,7 @@
     "/workflows/validate": {
       "post": {
         "operationId": "validateWorkflow",
-        "summary": "Check a workflow's YAML against the schema, its own sense, and the tools you can use, without saving it.",
+        "summary": "Check a workflow's YAML against the schema, its own sense, the tools you can use and the skills you may read, without saving it.",
         "tags": [
           "workflows"
         ],
@@ -7892,7 +7892,7 @@
       "post": {
         "operationId": "startRun",
         "summary": "Start a run of a workflow as yourself.",
-        "description": "An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false.",
+        "description": "An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false. A skill the version names that you may not read refuses the start with 422 code skill_unreadable.",
         "tags": [
           "runs"
         ],
@@ -11750,7 +11750,8 @@
               "inputs_refused",
               "unattended_widened",
               "unattended_forbidden",
-              "runs_off"
+              "runs_off",
+              "skill_unreadable"
             ]
           }
         },

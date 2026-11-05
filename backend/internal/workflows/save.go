@@ -50,7 +50,25 @@ func (s *Service) Check(ctx context.Context, source string) (problems, warnings 
 			problems = append(problems, parsed.CheckImages(func(name string) bool { return slices.Contains(names, name) })...)
 		}
 	}
+	if len(problems) == 0 && s.Skills != nil && len(parsed.SkillNames()) > 0 {
+		if found, err := SkillStates(ctx, s.Skills, parsed); err == nil {
+			problems = append(problems, parsed.CheckSkills(found)...)
+		}
+	}
 	return problems, parsed.Warnings(catalog)
+}
+
+// SkillStates is what the library answers for each skill the spec names, as the person on the context reads it.
+func SkillStates(ctx context.Context, source SkillSource, parsed *spec.Spec) (map[string]spec.SkillState, error) {
+	found, err := source.ByNames(ctx, parsed.SkillNames())
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]spec.SkillState, len(found))
+	for name, p := range found {
+		out[name] = spec.SkillState{Versions: p.Versions, Archived: p.Archived}
+	}
+	return out, nil
 }
 
 // checked parses a spec for saving, refusing one with any problem.

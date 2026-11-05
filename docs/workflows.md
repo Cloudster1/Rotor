@@ -109,7 +109,7 @@ each of them, and an administrator can forbid them for everyone;
 
 | Type | What it does | Fields |
 |---|---|---|
-| `agent` | a model that may call the tools of its bindings | `prompt`, `tools`, `output.schema`, `model`, `role`, `maxSteps` |
+| `agent` | a model that may call the tools of its bindings | `prompt`, `tools`, `output.schema`, `model`, `role`, `maxSteps`, `skills` |
 | `tool` | one MCP call | `tool` (a binding), `call`, `arguments` |
 | `code` | a Python function | `source`, `output.schema`, `tools`, `timeout`, `memory` |
 | `approval` | waits until a person decides | `message`, `approvers`, `form`, `expiresIn` |
@@ -131,6 +131,10 @@ An agent is a specialist when it says so (#133). Each of these is optional:
   run read goes into the prompt, fenced as data, never into the instructions.
 - `maxSteps`: how many model and tool steps the agent may take, at most the
   workflow's `limits.maxSteps`, which it has without one.
+- `skills`: at most 10 skills from the library the agent may follow, each
+  `{ name, version }` and each named once (#221). The version is pinned: a
+  new version of the skill changes nothing until the workflow names it.
+  [`docs/skills.md`](skills.md) says what a skill is.
 
 Each model call counts at its own model's prices toward the run's `maxCost`,
 and the run's page shows which model each agent ran on and what it used.
@@ -384,8 +388,8 @@ When a workflow is saved, and again when a run starts:
   - an approval's form names only its own fields, and no binding allows a
     call that decides a review, which a person does in the tool itself
   - every `unattended` call is one of its binding's `allowTools`
-  - an agent takes at most the workflow's `maxSteps`, and its role holds no
-    template
+  - an agent takes at most the workflow's `maxSteps`, its role holds no
+    template, and it names each skill once (`skill_twice`)
   - a repository's `project` and `name` read nothing but `inputs`
   - a workspace names a repository binding, and writes only through one that
     may push (`workspace_binding`)
@@ -393,6 +397,14 @@ When a workflow is saved, and again when a run starts:
     the work tree, and asks for no longer than its run (`test_node`)
 - **The models an administrator allows:** an agent's own `model` is one of
   them (`model_not_allowed`).
+- **The skills, as you read them,** when saving: each skill an agent names
+  is one you may read (`skill_unknown`, which a skill nobody has answers
+  too), it has the version pinned (`skill_version_unknown`), and it is not
+  archived (`skill_archived`). When a run starts, by hand or by a trigger,
+  the run's person must be able to read every skill, or the start is refused
+  with `skill_unreadable`, naming the skill; a trigger is turned off for it.
+  An archived skill does not stop a run of a version saved before, since its
+  pin holds.
 - **The tools as you see them,** when saving, and when a run starts, read
   afresh from the tools as the run's person, so a call a tool turned into a
   write since is caught:

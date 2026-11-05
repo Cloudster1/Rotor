@@ -9,6 +9,16 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- An agent node names the skills it may follow, each pinned to a version
+  (#221), and `not_built` no longer refuses them. Saving a workflow, and the
+  editor's check as you type, refuses a skill you may not read as if there
+  were none (`skill_unknown`), a version the skill does not have
+  (`skill_version_unknown`), an archived skill (`skill_archived`) and a skill
+  named twice on one node (`skill_twice`). A run, by hand or by a trigger,
+  starts only when its person may read every skill the version names;
+  otherwise it is refused with `skill_unreadable`, naming the skill, and a
+  trigger is turned off for that reason. A version saved before its skill
+  was archived keeps starting.
 - Rotor keeps a library of skills (#219), in the Agent Skills format: a
   `SKILL.md` with a name and a description, and the reference files it points
   to. Each save is a new numbered version that never changes, a save made on

@@ -13,6 +13,7 @@ import (
 
 	"github.com/cloudster1/rotor/backend/internal/db"
 	"github.com/cloudster1/rotor/backend/internal/providers"
+	"github.com/cloudster1/rotor/backend/internal/skills"
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 )
 
@@ -87,6 +88,12 @@ type ImageSource interface {
 	ImageNames(ctx context.Context) ([]string, error)
 }
 
+// SkillSource finds the skills an agent names, as the person on the context reads them (#221); *skills.Service is the
+// real one. A skill they may not read is left out, as one that does not exist is.
+type SkillSource interface {
+	ByNames(ctx context.Context, names []string) (map[string]skills.Pinnable, error)
+}
+
 // Service is the workflows.
 type Service struct {
 	db      *db.Cluster
@@ -95,6 +102,8 @@ type Service struct {
 	Models ModelSource
 	// Images checks a workspace's image when a workflow is saved (#136); nil leaves it to the run's start.
 	Images ImageSource
+	// Skills checks each skill an agent names when a workflow is saved (#221); nil leaves it to the run's start.
+	Skills SkillSource
 }
 
 // NewService returns the workflows; catalog may be nil, which checks a spec without its tools.

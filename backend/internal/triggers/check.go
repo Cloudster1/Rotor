@@ -31,6 +31,8 @@ const (
 	ReasonUnattendedForbidden = "unattended_forbidden"
 	// ReasonRunsOff is an installation that runs no sandboxes (#178).
 	ReasonRunsOff = "runs_off"
+	// ReasonSkillUnreadable is a version naming a skill the owner may not read (#221).
+	ReasonSkillUnreadable = spec.CodeSkillUnreadable
 )
 
 // reasonSentences say each reason to the trigger's owner.
@@ -46,7 +48,8 @@ var reasonSentences = map[string]string{
 		"Agree to them in the trigger, then turn it on.",
 	ReasonUnattendedForbidden: "An administrator forbade writes without an approval, which this workflow makes. " +
 		"Put an approval node before each write, or ask an administrator to allow them again.",
-	ReasonRunsOff: "This installation runs no workflows, so the trigger starts none. An administrator installs Rotor with sandboxes (the chart) to run them.",
+	ReasonRunsOff:         "This installation runs no workflows, so the trigger starts none. An administrator installs Rotor with sandboxes (the chart) to run them.",
+	ReasonSkillUnreadable: "The workflow uses a skill you may not read, so the trigger starts no runs. Once the skill is shared with you, turn the trigger on.",
 }
 
 // Sentence says a reason to the trigger's owner.
@@ -88,7 +91,7 @@ type checked struct {
 	spec     *spec.Spec
 }
 
-// check is a trigger checked as the person on the context: a workflow they see and have every connection for,
+// check is a trigger checked as the person on the context: a workflow they see, with their connections and skills,
 // whose every write waits for an approval, inputs that fit, and a schedule or filters that read.
 func (s *Service) check(ctx context.Context, workflowID uuid.UUID, in Input) (checked, error) {
 	var problems []Problem
@@ -124,6 +127,9 @@ func (s *Service) check(ctx context.Context, workflowID uuid.UUID, in Input) (ch
 			Message: "The workflow's current version no longer reads; its owner must save one that does."})}
 	}
 	if err := s.runs.Connected(ctx, parsed); err != nil {
+		return checked{}, err
+	}
+	if err := s.runs.SkillsReadable(ctx, parsed); err != nil {
 		return checked{}, err
 	}
 	catalog, err := s.catalogs.For(ctx, parsed)

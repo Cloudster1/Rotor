@@ -152,6 +152,10 @@ func run() error {
 	// What workspaces may use (#136): a workflow's images are checked when it is saved and when a run starts.
 	workspaceService := workspaces.New(cluster)
 	workflowService.Images = workspaceService
+	// The skills an agent names (#221) are checked as the person saving when a workflow is saved, and as the run's
+	// person when it starts.
+	skillService := skills.NewService(cluster)
+	workflowService.Skills = skillService
 	if secrets != nil {
 		server.Vault = secrets
 		realm.Secrets = secrets
@@ -166,7 +170,7 @@ func run() error {
 		reader := catalog.NewService(registry, people, boot.ToolClient(cfg), store, log)
 		server.Catalogs = reader
 		workflowService = workflows.NewService(cluster, reader)
-		workflowService.Images = workspaceService
+		workflowService.Images, workflowService.Skills = workspaceService, skillService
 		// Every run's data is sealed with a key of its own, which OpenBao wraps (#41).
 		keys := envelope.NewKeys(secrets)
 		runService := runs.NewService(cluster, keys, workflowService, registry, people, store)
@@ -193,7 +197,7 @@ func run() error {
 		// Usage (#38): a run's person's quota and its model's prices are checked as it starts.
 		usageService := usage.NewService(cluster, models)
 		server.Usage, runService.Usage = usageService, usageService
-		runService.Catalogs, runService.Images = reader, workspaceService
+		runService.Catalogs, runService.Images, runService.Skills = reader, workspaceService, skillService
 		go func() {
 			if err := runners.Serve(ctx, cfg.Runner.Addr, secrets); err != nil {
 				log.Error("the runner protocol stopped", "error", err)
@@ -201,7 +205,7 @@ func run() error {
 		}()
 	}
 	server.Workflows = workflowService
-	server.Skills = skills.NewService(cluster)
+	server.Skills = skillService
 	server.Audit = audit.NewService(cluster)
 	server.Retention = retention.NewService(cluster, log)
 	server.Workspaces = workspaceService

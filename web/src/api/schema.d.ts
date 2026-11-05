@@ -1755,7 +1755,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Check a workflow's YAML against the schema, its own sense, and the tools you can use, without saving it. */
+        /** Check a workflow's YAML against the schema, its own sense, the tools you can use and the skills you may read, without saving it. */
         post: operations["validateWorkflow"];
         delete?: never;
         options?: never;
@@ -1874,7 +1874,7 @@ export interface paths {
         put?: never;
         /**
          * Start a run of a workflow as yourself.
-         * @description An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false.
+         * @description An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false. A skill the version names that you may not read refuses the start with 422 code skill_unreadable.
          */
         post: operations["startRun"];
         delete?: never;
@@ -2837,7 +2837,7 @@ export interface components {
             at: string;
             message: string;
             /** @enum {string} */
-            reason: "owner_switched_off" | "connection_lost" | "tool_removed" | "workflow_archived" | "workflow_hidden" | "unattended_write" | "inputs_refused" | "unattended_widened" | "unattended_forbidden" | "runs_off";
+            reason: "owner_switched_off" | "connection_lost" | "tool_removed" | "workflow_archived" | "workflow_hidden" | "unattended_write" | "inputs_refused" | "unattended_widened" | "unattended_forbidden" | "runs_off" | "skill_unreadable";
         };
         TriggerFire: {
             /** Format: date-time */
