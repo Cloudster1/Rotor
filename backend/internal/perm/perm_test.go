@@ -212,7 +212,7 @@ func TestTheDatabaseHoldsTheSameCatalogue(t *testing.T) {
 			continue
 		}
 		description := row[2]
-		reworded := regexp.MustCompile(`UPDATE role SET description = '((?:[^']|'')*)'\s*WHERE key = '` + string(d.Key) + `'`).
+		reworded := regexp.MustCompile(`UPDATE role SET description = '((?:[^']|'')*)'\s*WHERE key = '`+string(d.Key)+`'`).
 			FindAllStringSubmatch(source, -1)
 		if len(reworded) > 0 {
 			description = reworded[len(reworded)-1][1]
