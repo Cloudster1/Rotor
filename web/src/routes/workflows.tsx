@@ -12,6 +12,9 @@ export const workflowsRoute = createRoute({
 export const newWorkflowRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/workflows/new",
+  // A shipped workflow's name opens the editor with it; the editor falls back to blank for a name it does not know.
+  validateSearch: (search: Record<string, unknown>): { start?: string } =>
+    typeof search.start === "string" && search.start !== "" ? { start: search.start } : {},
   component: lazyRouteComponent(() => import("@/features/workflows/WorkflowRoutes"), "NewWorkflowRoute"),
 });
 

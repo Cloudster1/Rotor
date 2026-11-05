@@ -9,6 +9,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- New workflow offers a Start from list: a blank workflow, then every workflow
+  Rotor ships by name and description, each with a link to its section of the
+  workflows guide (#214). Choosing one fills the editor (undo takes it back)
+  and nothing is saved until you save; `/workflows/new?start=<name>` opens it
+  directly. `examples/` is the single source of the list.
 - A test design workflow to start from, `examples/requirement-to-test-spec.yaml`
   (#213): for an Exciter feature, it designs the test cases its changed
   requirements need, has them reviewed for up to three drafts before a person

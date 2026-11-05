@@ -77,6 +77,14 @@ export const s = {
       diffLabel: (from: number, to: number) => `Changes from version ${from} to version ${to}`,
       lines: (from: number, to: number) => `From line ${from}, to line ${to}`,
     },
+    starters: {
+      title: "Start from",
+      body: "Begin with a blank workflow or a workflow Rotor ships. Nothing is saved until you save it.",
+      blank: "Blank workflow",
+      blankBody: "One approval step, to build on.",
+      docs: "Setup in the guide",
+      docsNamed: (name: string) => `Setup of ${name} in the guide`,
+    },
     tools: {
       title: "Tools",
       body: "Pick a tool and the MCP tools a run may call; the binding goes where the cursor is, under tools:.",

@@ -494,6 +494,13 @@ and its sandbox's network.
 Exciter (#25): an agent drafts a title and a statement, and a tool node files them with `create_requirement` as the
 person who runs it.
 
+`examples/` is the single source of the workflows Rotor ships: the editor bundles every `.yaml` file in it when the
+web app is built, so a file added there is offered with no other change (#214). On New workflow, the Start from
+list offers a blank workflow first, then each file by its `metadata.name` and `metadata.description`, with a link
+to its section below. Choosing one puts its YAML in the editor, and undo takes it back; nothing is saved until you
+save, and saving checks it like any workflow, so a tool it binds must be connected first. `/workflows/new?start=<name>`
+opens the editor with that workflow, and an unknown name opens the blank one.
+
 ### Clarify a story, then write its requirements
 
 [`story-to-requirements.yaml`](../examples/story-to-requirements.yaml) (#130)

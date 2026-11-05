@@ -31,6 +31,8 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: DEV_SERVER_PORT,
+    // The starters bundle ../examples, which sits above the package root Vite serves by default.
+    fs: { allow: [".."] },
     // Vite rejects a Host header it does not know, which would block the compose service name.
     allowedHosts: ["localhost", "127.0.0.1", "web"],
     // One origin for the browser, so the session cookie is first-party and no CORS preflight is involved.
