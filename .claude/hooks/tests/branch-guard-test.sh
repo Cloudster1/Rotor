@@ -301,6 +301,8 @@ expect_layers "web only, quick"           "shell check-format check-web"        
 expect_layers "web only, full"            "shell check-format check-web test-e2e"                 full  web/src/App.tsx
 expect_layers "backend only, quick"       "shell check-format check-go"                           quick backend/internal/httpapi/router.go
 expect_layers "backend only, full"        "shell check-format check-go test-integration test-e2e" full  backend/internal/httpapi/router.go
+expect_layers "a shipped skill alone"     "shell check-format check-go"                           quick skills/requirements-engineering/SKILL.md
+expect_layers "a shipped skill, full"     "shell check-format check-go test-integration test-e2e" full  skills/test-engineering/SKILL.md
 expect_layers "the API document"          "shell check-format check-go check-python check-web"    quick api/openapi.json
 expect_layers "browser tests alone, full" "shell check-format test-e2e"                           full  e2e/tests/trace-links.spec.ts
 expect_layers "the chart"                 "shell check-format"                                    quick deploy/charts/rotor/values.yaml
