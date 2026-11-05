@@ -9,6 +9,7 @@ import { AddNode } from "./AddNode";
 import * as edit from "./edits";
 import { Inspector, type NodeEdits } from "./Inspector";
 import { edgeKey, placeProblems } from "./problems";
+import { removeSkill } from "./skills";
 import { graphOf, type NodeType, nodePlace, OPTIONAL_FIELDS, parseSpec, type SpecShape } from "./specDoc";
 import { secondary } from "./styles";
 import { useGraphEditing } from "./useGraphEditing";
@@ -110,6 +111,7 @@ export function WorkflowCanvas({
     setField: (key, value) =>
       apply((t) => (value === "" && OPTIONAL_FIELDS.includes(key) ? edit.clearField(t, node, key) : edit.setField(t, node, key, value))),
     setModel: (model) => apply((t) => edit.setModel(t, node, model)),
+    removeSkill: (index) => apply((t) => removeSkill(t, node, index)),
     remove: () => {
       apply((t) => edit.removeNode(t, node));
       setChosen(undefined);

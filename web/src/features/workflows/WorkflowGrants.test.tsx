@@ -79,6 +79,8 @@ describe("a workflow's sharing", () => {
     await waitFor(() => expect(holders()).toEqual([`${BOB.name}: runner`]));
     expect(panel.getByText("Runner")).toBeInTheDocument();
     expect(panel.getByText(s.workflowGrants.readOnly)).toBeInTheDocument();
+    // Running it needs its skills too, which sharing the workflow does not share (#223).
+    expect(screen.getByText(s.skills.workflowNote)).toBeInTheDocument();
     expect(panel.queryByRole("button")).toBeNull();
     expect(panel.queryByRole("form")).toBeNull();
     // Who may be picked is the administrators' to ask; a reader never asks for it.

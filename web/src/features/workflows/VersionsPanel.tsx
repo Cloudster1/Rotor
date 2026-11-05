@@ -3,11 +3,11 @@ import { useId, useState } from "react";
 import { diffQuery, versionsQuery } from "@/api/workflows";
 import { s } from "@/strings";
 import { formatDateTime } from "@/lib/dates";
+import { DiffHunks } from "./DiffHunks";
 
 const card = "rounded-overlay border border-border bg-surface p-4 shadow-1";
 const select = "h-8 rounded-control border border-border-strong bg-surface px-2 text-sm text-ink";
 const secondary = "h-8 rounded-control border border-border-strong px-3 text-sm font-medium text-ink hover:bg-surface-raised disabled:opacity-60";
-const MARK = { equal: " ", insert: "+", delete: "-" } as const;
 
 /** A workflow's versions, what changed between any two, and a way to open an older one in the editor. */
 export function VersionsPanel({ workflowID, current, onOpen }: { workflowID: string; current: number; onOpen: (version: number) => void }) {
@@ -70,26 +70,7 @@ export function VersionsPanel({ workflowID, current, onOpen }: { workflowID: str
       {compared && diff.data && (
         <div className="mt-4" data-diff>
           {diff.data.hunks.length === 0 && <p className="text-sm text-ink-muted">{s.workflows.versions.same}</p>}
-          {diff.data.hunks.map((hunk) => (
-            <figure key={`${hunk.fromLine}-${hunk.toLine}`} className="mb-3">
-              <figcaption className="mb-1 text-xs text-ink-muted">{s.workflows.versions.lines(hunk.fromLine, hunk.toLine)}</figcaption>
-              <pre
-                className="overflow-x-auto rounded-control border border-border bg-surface-sunken p-2 font-mono text-xs text-ink"
-                aria-label={s.workflows.versions.diffLabel(compared.from, compared.to)}
-              >
-                {hunk.lines.map((line, i) => (
-                  <span
-                    // biome-ignore lint/suspicious/noArrayIndexKey: lines of one hunk keep their order and never move.
-                    key={i}
-                    className={line.op === "delete" ? "block text-danger" : line.op === "insert" ? "block font-semibold text-accent" : "block"}
-                    data-op={line.op}
-                  >
-                    {MARK[line.op]} {line.text}
-                  </span>
-                ))}
-              </pre>
-            </figure>
-          ))}
+          <DiffHunks hunks={diff.data.hunks} label={s.workflows.versions.diffLabel(compared.from, compared.to)} />
         </div>
       )}
     </section>

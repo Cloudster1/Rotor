@@ -11,6 +11,7 @@ const THEME_STORAGE_KEY = "rotor.theme";
  */
 export const PLACES = [
   { path: "/workflows", label: "Workflows", opens: "/workflows", heading: "Workflows" },
+  { path: "/skills", label: "Skills", opens: "/skills", heading: "Skills" },
   { path: "/runs", label: "Runs", opens: "/runs", heading: "Runs" },
   { path: "/approvals", label: "Approvals", opens: "/approvals", heading: "Approvals" },
   { path: "/settings", label: "Settings", opens: "/settings/profile", heading: "Profile" },

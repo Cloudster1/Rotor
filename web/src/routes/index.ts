@@ -12,6 +12,7 @@ import { workflowSettingsTree } from "./workflowSettings";
 import { RouteError, rootRoute } from "./root";
 import { runRoute, runsRoute } from "./runs";
 import { settingsTree } from "./settings";
+import { importSkillRoute, newSkillRoute, skillTree, skillsRoute } from "./skills";
 import { shellRoute } from "./shell";
 
 // Pages that stand without the shell, such as sign-in, are children of rootRoute beside shellRoute.
@@ -23,6 +24,10 @@ const routeTree = rootRoute.addChildren([
     newWorkflowRoute,
     workflowRoute,
     workflowSettingsTree,
+    skillsRoute,
+    newSkillRoute,
+    importSkillRoute,
+    skillTree,
     runsRoute,
     runRoute,
     approvalsRoute,

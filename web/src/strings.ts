@@ -10,6 +10,7 @@ import { workspacesStrings } from "./strings_workspaces";
 import { accountStrings, adminStrings, settingsStrings, themePageStrings, timeZoneStrings } from "./strings_settings";
 import { accessStrings, joinRequestsStrings, ssoStrings, usersStrings, workflowGrantsStrings } from "./strings_access";
 import { workflowListStrings, workflowSettingsStrings } from "./strings_workflow_settings";
+import { skillsStrings } from "./strings_skills";
 
 /** Every word the interface shows, in one place, so a second language is a second copy of this object. */
 export const s = {
@@ -29,6 +30,7 @@ export const s = {
   },
   places: {
     workflows: "Workflows",
+    skills: "Skills",
     runs: "Runs",
     approvals: "Approvals",
     settings: "Settings",
@@ -485,4 +487,5 @@ export const s = {
   workflowGrants: workflowGrantsStrings,
   workflowSettings: workflowSettingsStrings,
   workflowList: workflowListStrings,
+  skills: skillsStrings,
 } as const;

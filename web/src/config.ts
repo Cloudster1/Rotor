@@ -14,6 +14,8 @@ export const HTTP_UNAUTHORIZED = 401;
 
 /** The status the API answers when fields of a request need attention, each named in the error's fields. */
 export const HTTP_UNPROCESSABLE = 422;
+/** A save made from a version that is no longer current, among others (#219). */
+export const HTTP_CONFLICT = 409;
 
 /** Where the index sends a visitor, the first place of the sidebar. */
 export const HOME_PATH = "/workflows";
@@ -132,3 +134,14 @@ export const EVERYONE_GROUP = "everyone";
 /** The longest name and description a workflow's metadata takes, as api/workflow.v1.schema.json bounds them (#205). */
 export const MAX_WORKFLOW_NAME = 63;
 export const MAX_WORKFLOW_DESCRIPTION = 2000;
+/** The roles a skill's own grants offer (#219); Skill reader to Everyone makes a skill available to everyone. */
+export const SKILL_GRANT_ROLES = ["skill_reader", "skill_editor", "skill_administrator"] as const;
+/** How many skills the Skills page lists a page, and how many the editor's picker asks for, the server's most (#223). */
+export const SKILL_PAGE_SIZE = 50;
+export const SKILL_PICKER_LIMIT = 200;
+/** The file every skill has at its root, which the Files page shows first. */
+export const SKILL_MD = "SKILL.md";
+/** Where a problem that belongs to no one file of a skill is placed, as the library answers it. */
+export const SKILL_NO_PATH = "-";
+/** The largest zip an import takes (MaxSkillImportBytes), checked before it is sent. */
+export const MAX_SKILL_IMPORT_BYTES = 2 * 1024 * 1024;

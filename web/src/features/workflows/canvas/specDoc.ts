@@ -47,6 +47,8 @@ export interface SpecNode {
   join?: boolean;
   fields: Record<string, string>;
   model?: ModelRef;
+  /** The skills an agent names, each pinned to a version (#221); the inspector lists them (#223). */
+  skills?: { name: string; version: number }[];
 }
 
 /** What the canvas reads of a spec; the YAML holds the rest. */
@@ -88,6 +90,7 @@ export function parseSpec(source: string): Parsed | undefined {
       ...(n.join === "all" ? { join: true } : {}),
       fields,
       model: n.model === undefined ? undefined : { name: text(model.name), provider: text(model.provider) },
+      ...(Array.isArray(n.skills) ? { skills: n.skills.map(record).map((k) => ({ name: text(k.name), version: Number(k.version) })) } : {}),
     };
   });
   const edges = (Array.isArray(js.edges) ? js.edges : []).map((raw) => {

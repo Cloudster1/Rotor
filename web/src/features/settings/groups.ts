@@ -3,8 +3,8 @@ import { s } from "@/strings";
 /** A page of Settings, Admin or a workflow's settings, as its side nav lists it; slug names it for tests. */
 export interface SettingsNavPage {
   slug: string;
-  /** The workflow a workflow's settings page is of (#205); the other pages take no params. */
-  params?: { workflowID: string };
+  /** The workflow a workflow's settings page is of (#205), or the skill a skill's page is of (#223); the others take none. */
+  params?: { workflowID: string } | { skillID: string };
   path:
     | "/settings/profile"
     | "/settings/theme"
@@ -25,7 +25,11 @@ export interface SettingsNavPage {
     | "/workflows/$workflowID/settings/general"
     | "/workflows/$workflowID/settings/versions"
     | "/workflows/$workflowID/settings/sharing"
-    | "/workflows/$workflowID/settings/triggers";
+    | "/workflows/$workflowID/settings/triggers"
+    | "/skills/$skillID/files"
+    | "/skills/$skillID/versions"
+    | "/skills/$skillID/sharing"
+    | "/skills/$skillID/general";
   label: string;
 }
 
@@ -106,4 +110,16 @@ export function workflowSettingsGroups(workflowID: string): readonly SettingsNav
       ],
     },
   ];
+}
+
+/** The sections of one skill's page (#223), Files first, which /skills/<id> opens; a built-in skill is shared with nobody. */
+export function skillGroups(skillID: string, builtin: boolean): readonly SettingsNavGroup[] {
+  const params = { skillID };
+  const pages: SettingsNavPage[] = [
+    { slug: "files", path: "/skills/$skillID/files", params, label: s.skills.layout.pages.files },
+    { slug: "versions", path: "/skills/$skillID/versions", params, label: s.skills.layout.pages.versions },
+    { slug: "sharing", path: "/skills/$skillID/sharing", params, label: s.skills.layout.pages.sharing },
+    { slug: "general", path: "/skills/$skillID/general", params, label: s.skills.layout.pages.general },
+  ];
+  return [{ id: "skill", pages: builtin ? pages.filter((page) => page.slug !== "sharing") : pages }];
 }

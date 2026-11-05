@@ -8,10 +8,11 @@ agents of many workflows follow the same proven text. The format is
 read, so a team brings the skills it has. `docs/api-contract-m17.md` has the
 details.
 
-Rotor stores, versions and shares skills (#219), an agent node names the
-skills it may follow (#221), and the agent loads them during a run (#222).
-Importing and exporting a skill as a zip (#220), the skills pages in the web
-app (#223) and the skills Rotor ships (#225) follow.
+Rotor stores, versions and shares skills (#219), imports and exports them as
+zips (#220), an agent node names the skills it may follow (#221), the agent
+loads them during a run (#222), an assistant reaches them over MCP (#224), and
+the web app has pages for them and a picker in the workflow editor (#223). The
+skills Rotor ships (#225) follow.
 
 ## What a skill is
 
@@ -121,6 +122,49 @@ done in a browser session, never by an assistant.
 A skill you may not read answers as if it did not exist. Sharing a workflow
 does not share its skills: a run's person must be able to read every skill the
 workflow names, as the next section says.
+
+## In the web app
+
+**Skills** in the sidebar lists the skills you may read, built-in ones marked
+**Built in** and owned by Rotor, with each one's description, current version
+and owner. Search by name or description, show the archived ones instead, and
+page through a long list. **New skill** and **Import a zip** start from here.
+
+- **New skill** starts from a `SKILL.md` that passes the checks: change its
+  name, description and instructions, and the page says what is wrong as you
+  type, as the workflow editor does. Add more files once the skill is made.
+- **Import a zip** takes a skill folder zipped up and says which happened: a
+  new skill was made, or the next version of the one with that name was saved.
+  A refused zip names each problem under the file it is in.
+
+A skill's page has a side nav, as a workflow's settings have:
+
+- **Files** shows the current version, `SKILL.md` first and every other file
+  listed beside it, with a link that downloads the version as a zip. With
+  Skill editor, **Edit files** changes them in place: edit a file, add one by
+  its path, remove one, and save them all as the next version with a comment.
+  The page checks the files as you type; a save that is refused shows each
+  problem at its file, and one made from a version someone else saved past
+  says so and offers to reload.
+- **Versions** lists every version, newest first, by whom and when. Open one
+  to read its files as they were, download it as a zip, or compare any two:
+  each file added, removed or changed, with the lines that changed.
+- **Sharing** lists who holds a role on the skill; a Skill administrator
+  shares it with a person or a group as Skill reader, Skill editor or Skill
+  administrator, and with Everyone as Skill reader to make it available to
+  everyone. A built-in skill has no Sharing page.
+- **General** shows the name, description, owner and the rest of the front
+  matter, and lets a Skill administrator archive the skill, with an Undo, or
+  restore it.
+
+In the workflow editor, the **Skills** picker beside the tool picker lists the
+skills you may read and their versions, the newest chosen. Put the cursor in an
+agent node in the YAML and **Add to the agent at the cursor** writes
+`- { name: ..., version: ... }` under that node's `skills:`, adding `skills:`
+when the node has none; a skill the node names already is pinned to the
+version picked. On the canvas, the inspector lists an agent's skills with
+their versions, and removes one. A workflow's Sharing page reminds you that
+whoever runs it must be able to read its skills too.
 
 ## Through an assistant
 
