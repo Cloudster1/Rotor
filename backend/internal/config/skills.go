@@ -12,6 +12,13 @@ const (
 	MaxSkillVersionBytes = 1 << 20
 	// MaxSkillPathDepth is how many folders below the skill's root a file may sit.
 	MaxSkillPathDepth = 5
+	// MaxSkillImportBytes bounds the zip an import reads; what it unpacks to is judged against MaxSkillVersionBytes.
+	MaxSkillImportBytes = 2 << 20
+	// SkillZipModifiedUnix stamps every file of an exported zip (1980-01-01 UTC, the earliest a zip can hold), so a
+	// version always exports to the same bytes.
+	SkillZipModifiedUnix = 315532800
+	// SkillZipFileMode is the permission bits an exported file carries.
+	SkillZipFileMode = 0o644
 	// MaxSkillReadBytes bounds what one read_skill call answers, so a long file costs its tokens in parts (#222).
 	MaxSkillReadBytes = 64 << 10
 	// MaxSkillBodyBytes bounds a request carrying a version's files: JSON escaping can double text, plus the keys.

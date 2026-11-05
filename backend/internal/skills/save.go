@@ -44,6 +44,11 @@ func checked(files []File, comment string) (*Draft, error) {
 
 // Create makes a skill from its files as version 1, owned by the person on the context, who administers it from then on.
 func (s *Service) Create(ctx context.Context, files []File, comment string) (uuid.UUID, error) {
+	return s.create(ctx, files, comment, false)
+}
+
+// create is Create; an import also audits skill.imported in the same transaction.
+func (s *Service) create(ctx context.Context, files []File, comment string, imported bool) (uuid.UUID, error) {
 	p := auth.PrincipalFrom(ctx)
 	if p == nil {
 		return uuid.Nil, ErrCannotCreate
@@ -65,8 +70,11 @@ func (s *Service) Create(ctx context.Context, files []File, comment string) (uui
 		if err := insertVersion(ctx, tx, id, 1, draft, comment, p); err != nil {
 			return err
 		}
-		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionSkillCreated, TargetType: "skill", TargetID: id.String(),
-			Actor: p.UserID, Data: map[string]any{"name": draft.Name, "version": 1}})
+		if err := audit.Write(ctx, tx, audit.Entry{Action: audit.ActionSkillCreated, TargetType: "skill", TargetID: id.String(),
+			Actor: p.UserID, Data: map[string]any{"name": draft.Name, "version": 1}}); err != nil {
+			return err
+		}
+		return auditImport(ctx, tx, imported, id, p, 1, true)
 	})
 	switch refused := refusal(err); {
 	case errors.Is(refused, ErrForbidden):
@@ -99,6 +107,11 @@ func insertVersion(ctx context.Context, tx db.DBTX, id uuid.UUID, number int, d 
 
 // Save adds the next version; base must be the current version, so nobody overwrites a colleague unseen.
 func (s *Service) Save(ctx context.Context, id uuid.UUID, base int, files []File, comment string) error {
+	return s.save(ctx, id, base, files, comment, false)
+}
+
+// save is Save; an import also audits skill.imported in the same transaction.
+func (s *Service) save(ctx context.Context, id uuid.UUID, base int, files []File, comment string, imported bool) error {
 	p, k, err := s.allowed(ctx, id, func(k Skill) bool { return k.CanEdit })
 	if err != nil {
 		return err
@@ -122,8 +135,11 @@ func (s *Service) Save(ctx context.Context, id uuid.UUID, base int, files []File
 		if err := insertVersion(ctx, tx, id, base+1, draft, comment, p); err != nil {
 			return err
 		}
-		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionSkillChanged, TargetType: "skill", TargetID: id.String(),
-			Actor: p.UserID, Data: map[string]any{"version": base + 1, "comment": comment}})
+		if err := audit.Write(ctx, tx, audit.Entry{Action: audit.ActionSkillChanged, TargetType: "skill", TargetID: id.String(),
+			Actor: p.UserID, Data: map[string]any{"version": base + 1, "comment": comment}}); err != nil {
+			return err
+		}
+		return auditImport(ctx, tx, imported, id, p, base+1, false)
 	}))
 }
 

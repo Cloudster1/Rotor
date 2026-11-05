@@ -90,6 +90,8 @@ const (
 	ActionSkillChanged  = "skill.changed"
 	ActionSkillArchived = "skill.archived"
 	ActionSkillRestored = "skill.restored"
+	// ActionSkillImported is a zip that made a skill or saved its next version (#220), beside skill.created or skill.changed.
+	ActionSkillImported = "skill.imported"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
@@ -103,7 +105,7 @@ var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, Actio
 	ActionUnattendedSwitched, ActionTriggerUnattendedWrite, ActionWorkspacesChanged, ActionRoleGranted, ActionRoleRevoked,
 	ActionRoleRemoved, ActionRoleDefined, ActionRoleRedefined, ActionGroupCreated, ActionGroupDeleted, ActionGroupMemberAdded,
 	ActionGroupMemberRemoved, ActionSwitchedOn, ActionMemberAdmitted, ActionMemberDeclined, ActionOIDCSaved,
-	ActionSkillCreated, ActionSkillChanged, ActionSkillArchived, ActionSkillRestored}
+	ActionSkillCreated, ActionSkillChanged, ActionSkillArchived, ActionSkillRestored, ActionSkillImported}
 
 // Redacted stands in the record for a value that looked like a credential.
 var Redacted = redact.Redacted

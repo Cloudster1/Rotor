@@ -9,6 +9,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Skills import and export as Agent Skills zips (#220). `POST /skills/import`
+  takes a zip of one skill folder, `SKILL.md` at its root or in its one top
+  folder, and makes the skill or, when you may edit the skill of that name,
+  saves its next version; `GET /skills/{id}/versions/{n}/export` answers a
+  version as a zip that imports unchanged. A zip that is not one, is over
+  2 MiB, holds a path out of the folder, a link, a binary file or more than the
+  library allows once unpacked is refused with a sentence naming the file, and
+  the import is audited as `skill.imported`.
 - Agents load their skills during a run (#222). An agent's instructions list
   each skill it was given, by name, version and description, and the new
   built-in tool `read_skill` reads a skill's `SKILL.md` or another of its

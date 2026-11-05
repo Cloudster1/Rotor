@@ -27,6 +27,8 @@ type Skills interface {
 	Validate(files []skills.File) []skills.Problem
 	Create(ctx context.Context, files []skills.File, comment string) (uuid.UUID, error)
 	Save(ctx context.Context, id uuid.UUID, base int, files []skills.File, comment string) error
+	Import(ctx context.Context, zipped []byte, comment string) (id uuid.UUID, created bool, err error)
+	Export(ctx context.Context, id uuid.UUID, number int) (name string, zipped []byte, err error)
 	Archive(ctx context.Context, id uuid.UUID) error
 	Restore(ctx context.Context, id uuid.UUID) error
 }

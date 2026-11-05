@@ -36,6 +36,8 @@ type operation struct {
 	// request is the JSON body type the handler decodes; form is a urlencoded form's.
 	request any
 	form    any
+	// binaryRequest and binaryResponse say a body is bytes, not JSON, and name its media type; the response is the 200's.
+	binaryRequest, binaryResponse string
 	// responses maps a status to its envelope or bare type; nil is no body.
 	responses map[int]any
 	// public routes need no session.

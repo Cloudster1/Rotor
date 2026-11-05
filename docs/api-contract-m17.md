@@ -150,9 +150,9 @@ grants.
 A skill the caller may not read answers 404, as a workflow does; one they read
 but may not change answers 403.
 
-The route table declares JSON and form bodies only, so the import and export
-rows say in their descriptions that the body is a zip; #220 adds a zip body
-kind to the table, and the OpenAPI document then names `application/zip`.
+The route table declares JSON, form and binary bodies: the import row has a
+binary request and the export row a binary response, both `application/zip`
+in the OpenAPI document (#220).
 Pending rows cannot be limited to a session either; the grant handlers refuse
 an assistant when #219 builds them, as the workflow grant handlers do.
 
@@ -189,6 +189,7 @@ and `skill.installed` (a built-in version the api added, #225).
 | `skill_binary` | the path | a file is not UTF-8 text |
 | `skill_too_large` | the path, or `-` | a file or the version is over its limit |
 | `skill_too_many_files` | `-` | more than `MaxSkillFiles` files |
+| `skill_not_zip` | `-`, or the entry | an import is not a zip, or an entry in it cannot be read or unpacks to more than its header says (#220) |
 
 ### As built (#219)
 
@@ -234,6 +235,44 @@ and `skill.installed` (a built-in version the api added, #225).
   up people and groups to grant to.
 - **The line diff** moved from `internal/workflows` to `internal/textdiff`,
   which workflows and skills share.
+
+### As built (#220)
+
+- **Import** reads the body through a `MaxBytesReader` at `MaxSkillImportBytes`;
+  a larger one is refused with 413 `too_large`. `SKILL.md` may sit at the zip's
+  root or, when nothing sits beside it, in the one folder that holds every
+  file, which is stripped. Directory entries are ignored. Before anything is
+  unpacked the zip is refused when it has more file entries than
+  `MaxSkillFiles` (`skill_too_many_files` at `-`), when the sizes its headers
+  declare add up past `MaxSkillVersionBytes` (`skill_too_large` at `-`) or one
+  is past `MaxSkillFileBytes` (`skill_too_large` at the entry), or when an
+  entry is a symlink or another special file, or has a name that is absolute,
+  has a `..` segment or a backslash (`skill_path` at the entry). Entries are
+  then read through a limit as well; Go's reader already stops an entry that
+  inflates past its declared size, which is `skill_not_zip` at the entry, so a
+  lying header cannot get past either. What is left goes through the library's
+  `Check`, so every other problem has the library's code and path. A zip with
+  no `SKILL.md` at the root or in a single folder (two folders, files beside a
+  folder) is `skill_missing` at `-`.
+- **Which happened:** the name in `SKILL.md` is looked up among the skills the
+  caller reads. None: the skill is made (needs `skill.create`, else 403) and
+  the answer is 201 with `created: true`. One: the next version is saved on
+  top of its current one (needs `skill.edit`, else 403; an archived skill is
+  409) and the answer is 200 with `created: false`; the answer is the skill
+  and its current version, as `GET /skills/{skillID}` gives them, plus
+  `created`. A name held by a skill the caller cannot read is 404, the same
+  words as any skill they cannot see. `?comment=` is the version's comment.
+- **Audit:** `skill.imported` with `{version, created}` is written in the
+  transaction of the save, beside `skill.created` or `skill.changed`, which an
+  import writes as a save does.
+- **Export** answers `application/zip` with `Content-Disposition: attachment;
+  filename="<name>-v<n>.zip"`. Files sit under one folder named after the
+  skill, `SKILL.md` first and the rest by path, each dated 1980-01-01 UTC and
+  deflated, so a version exports to the same bytes every time. The zip imports
+  with the version's hash.
+- **Zip files with an entry starting with a dot** (such as `.DS_Store`, or a
+  `__MACOSX` folder) are refused by the path rule like any other file; clean
+  them out before zipping.
 
 ## Agent nodes name their skills (#221)
 
