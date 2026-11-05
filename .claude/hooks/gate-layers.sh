@@ -11,6 +11,8 @@ while IFS= read -r path; do
   [[ -n "$path" ]] || continue
   seen=1
   case "$path" in
+    # The shipped skills are embedded in the api, and a Go test holds the embedded copy to them.
+    skills/*) need_go=1 need_integration=1 need_e2e=1 ;;
     *.md | NOTICE | LICENSE | docs/* | CHANGELOG.md | assets/*) ;;
     backend/* | go.work | go.work.sum) need_go=1 need_integration=1 need_e2e=1 ;;
     # The runner's tests read the workflow schema and fixtures in api/ too.

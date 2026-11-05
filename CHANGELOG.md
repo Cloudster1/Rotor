@@ -694,6 +694,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
   The approvals end-to-end tests also give each sandboxed run its own time,
   since two of them in turn did not fit the 20 seconds of a test (#234).
 
+- A push that changes only a shipped skill under `skills/` runs the Go layers
+  in the push gate, so a skill out of step with the copy embedded in the api
+  is caught before CI (#235).
+
 - The web tooling takes minimatch 11.0.4 in place of 10.2.6, through an npm
   override, which closes the globparts amplification advisory
   GHSA-g3hv-75wg-m249. eslint still asks for 10, and no 10.x is patched
