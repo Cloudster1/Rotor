@@ -3,6 +3,7 @@ package langsmith
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -85,9 +86,14 @@ func (f *Forwarder) Content(ctx context.Context) bool {
 // Spans sends a run's spans on; a destination that fails loses this batch alone, and says so at debug level.
 func (f *Forwarder) Spans(ctx context.Context, runID uuid.UUID, spans []observability.RunnerSpan) {
 	env := f.Tracing.Env()
-	if err := f.Tracing.Export(ctx, observability.RunnerSnapshots(env, runnerctl.WithoutContent(spans))); err != nil {
-		f.Log.Debug("the collector refused a runner's spans", "run", runID, "error", err)
-	}
+	// Side by side, so a collector that does not answer leaves LangSmith the whole of ctx's deadline.
+	var collector sync.WaitGroup
+	defer collector.Wait()
+	collector.Go(func() {
+		if err := f.Tracing.Export(ctx, observability.RunnerSnapshots(env, runnerctl.WithoutContent(spans))); err != nil {
+			f.Log.Debug("the collector refused a runner's spans", "run", runID, "error", err)
+		}
+	})
 	if f.LangSmith == nil {
 		return
 	}

@@ -56,6 +56,9 @@ type Server struct {
 	store store
 	mu    sync.Mutex
 	live  map[uuid.UUID]*liveStream
+	// exporting holds a slot per runner batch being sent on, so a collector that does not answer holds no stream.
+	exporting     chan struct{}
+	exportingOnce sync.Once
 }
 
 // liveStream is the stream a run is served on, so a newer one can end it.
