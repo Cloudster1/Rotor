@@ -16,6 +16,10 @@ import type { Problem } from "@/api/workflows";
 export interface YamlEditorHandle {
   insert(text: string): void;
   focusAt(line: number, column: number): void;
+  /** The text and where the cursor is in it, for an edit made at the cursor such as the skill picker's (#223). */
+  cursor(): { text: string; at: number } | undefined;
+  /** Puts new text in, changing only the part that differs, so the cursor and the rest stay where they were. */
+  apply(next: string): void;
 }
 
 // Every colour is a token, so the editor follows the light and dark schemes with the rest of the page.
@@ -163,6 +167,22 @@ export function YamlEditor({
       if (!v) return;
       const at = v.state.selection.main.head;
       v.dispatch({ changes: { from: at, insert: text }, selection: { anchor: at + text.length } });
+      v.focus();
+    },
+    cursor() {
+      const v = view.current;
+      return v ? { text: v.state.doc.toString(), at: v.state.selection.main.head } : undefined;
+    },
+    apply(next: string) {
+      const v = view.current;
+      if (!v) return;
+      const before = v.state.doc.toString();
+      const shortest = Math.min(before.length, next.length);
+      let head = 0;
+      while (head < shortest && before[head] === next[head]) head++;
+      let tail = 0;
+      while (tail < shortest - head && before[before.length - 1 - tail] === next[next.length - 1 - tail]) tail++;
+      v.dispatch({ changes: { from: head, to: before.length - tail, insert: next.slice(head, next.length - tail) } });
       v.focus();
     },
     focusAt(line: number, column: number) {

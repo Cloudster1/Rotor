@@ -22,6 +22,7 @@ import { CheckList } from "./CheckList";
 import { EditorTabs, useEditorView } from "./EditorTabs";
 import { StarterPicker } from "./StarterPicker";
 import { starterNamed } from "./starters";
+import { SkillPicker } from "./SkillPicker";
 import { ToolPicker } from "./ToolPicker";
 import { fileName } from "./template";
 import { useTextHistory } from "./history";
@@ -248,6 +249,7 @@ export function WorkflowEditor({ existing, opened, start }: { existing?: Workflo
               />
             )}
             <ToolPicker onInsert={(yaml) => editor.current?.insert(yaml)} />
+            <SkillPicker editor={editor} />
           </div>
         )}
       </div>

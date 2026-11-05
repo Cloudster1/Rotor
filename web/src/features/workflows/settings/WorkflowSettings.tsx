@@ -69,6 +69,7 @@ export function SharingPage() {
   if (!existing) return null;
   return (
     <SettingsPage title={s.workflowSettings.pages.sharing}>
+      <SectionNote data-skills-note="">{s.skills.workflowNote}</SectionNote>
       <div className="lg:col-span-full">
         <WorkflowGrantsPanel workflow={existing.workflow} />
       </div>

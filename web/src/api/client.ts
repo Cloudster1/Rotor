@@ -1,7 +1,7 @@
 import createClient, { type Middleware } from "openapi-fetch";
 import { API_BASE, HTTP_UNAUTHORIZED } from "@/config";
 import { s } from "@/strings";
-import type { paths } from "./schema";
+import type { components, paths } from "./schema";
 
 // The one place that talks to the API, typed from the server's own OpenAPI document:
 // a path, a body or a response that does not exist fails to compile.
@@ -11,6 +11,8 @@ export interface ApiErrorBody {
   code: string;
   message: string;
   fields?: Record<string, string>;
+  /** What a skill was refused for, each at its file (#219). */
+  problems?: components["schemas"]["Problem"][];
   requestId?: string;
 }
 
@@ -18,6 +20,7 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
   readonly fields: Record<string, string>;
+  readonly problems: components["schemas"]["Problem"][];
   readonly requestId?: string;
 
   constructor(status: number, body: ApiErrorBody) {
@@ -26,6 +29,7 @@ export class ApiError extends Error {
     this.status = status;
     this.code = body.code;
     this.fields = body.fields ?? {};
+    this.problems = body.problems ?? [];
     this.requestId = body.requestId;
   }
 

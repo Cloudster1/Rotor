@@ -91,6 +91,8 @@ export async function renderAt(path: string, { me = ME as Me | null, answers = {
     "/api/v1/connections": { connections: [] },
     "/api/v1/providers": { providers: [] },
     "/api/v1/workflows": { workflows: [] },
+    // The Skills page and the editor's skill picker list the skills the person reads (#223): none unless a test says so.
+    "/api/v1/skills": { skills: [], total: 0, limit: 50, offset: 0 },
     "/api/v1/runs": { runs: [] },
     // The sidebar asks for the badge's number on every page.
     "/api/v1/approvals/count": { waitingOnMe: 0 },

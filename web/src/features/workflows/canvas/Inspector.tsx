@@ -2,6 +2,7 @@ import { type FormEvent, useId, useState } from "react";
 import type { Problem } from "@/api/workflows";
 import { s } from "@/strings";
 import { NodeFields } from "./NodeFields";
+import { NodeSkills } from "./NodeSkills";
 import { NodeWays, type WayEdits } from "./NodeWays";
 import { type ModelRef, NODE_ID, type NodeType, type SpecShape } from "./specDoc";
 import { danger, input, label, secondary } from "./styles";
@@ -12,6 +13,7 @@ export interface NodeEdits extends WayEdits {
   setEntry: () => void;
   setField: (key: string, value: string) => void;
   setModel: (model?: ModelRef) => void;
+  removeSkill: (index: number) => void;
   remove: () => void;
   openYaml: () => void;
   focusAt: (line: number, column: number) => void;
@@ -115,6 +117,7 @@ function Selected({ nodeID, spec, problems, readOnly, edits }: { nodeID: string;
         )
       )}
       <NodeFields node={node} bindings={spec.bindings} readOnly={readOnly} onField={edits.setField} onModel={edits.setModel} />
+      {node.type === "agent" && <NodeSkills node={node} readOnly={readOnly} onRemove={edits.removeSkill} />}
       <NodeWays node={node} spec={spec} readOnly={readOnly} edits={edits} />
       {problems.length > 0 && (
         <div data-node-problems>

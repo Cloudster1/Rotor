@@ -451,6 +451,61 @@ unit tests.
   cursor; the canvas inspector shows an agent's skills.
 - Strings in `web/src/strings_skills.ts`.
 
+### As built (#223)
+
+- **No API changed.** The pages use the endpoints above as #219, #220 and
+  #224 built them; the client's `ApiError` gained `problems`, read from the
+  error envelope, so a 422 from a save or an import is shown at its files.
+- **Pages:** `/skills` (second in the sidebar, after Workflows), `/skills/new`,
+  `/skills/import`, and `/skills/$skillID` with the sections Files (where it
+  opens), Versions, Sharing and General in a side nav, as a workflow's
+  settings have. Import is a page of its own beside New skill rather than a
+  dialog, so the empty state and the list link to both. Archiving and
+  restoring, with the Undo, are on General beside the skill's front matter.
+- **The list** asks `GET /skills` 50 at a time with `q` after a pause in
+  typing and `archived=true` behind the toggle, and pages with the Users
+  page's pager. A built-in skill shows a Built in tag and Rotor as its owner.
+- **Files** reads every file of the version shown through `/file?path=`
+  (versions never change, so each is read once) and shows `SKILL.md` first.
+  An older version opens read-only at `/skills/$skillID/files?version=<n>`.
+  Editing is a text area per file, the version's files loaded in full; a file
+  is added by its path and removed, `SKILL.md` excepted; the files are checked
+  with `POST /skills/validate` after the editor's pause in typing and saved
+  with `PUT` and the version they were opened at. A 409 `skill_changed` is
+  answered with a sentence and a Reload button; 422 problems are listed by
+  file and counted beside each file's name.
+- **New skill** writes `SKILL.md` alone, from a template that passes the
+  checks; other files are added on Files once the skill is made.
+- **Export** is a link to `GET /skills/{id}/versions/{n}/export`, which the
+  browser downloads with the session's cookie under the name the
+  `Content-Disposition` gives; Files offers it for the version shown and
+  Versions for each version. Import sends the file as `application/zip` and
+  refuses one over 2 MiB before sending it.
+- **Sharing** is the workflow's panel made general (`GrantsPanel`), which the
+  workflow's Sharing page now uses too: anybody who reads the skill reads its
+  grants, a Skill administrator changes them, offering Skill reader, Skill
+  editor and Skill administrator, and the page says that Skill reader for
+  Everyone makes the skill available to everyone. A built-in skill has no
+  Sharing section; its address says why.
+- **The picker** asks for up to 200 active skills (the list's most) and a
+  skill's versions once picked, newest chosen. It edits the text of the YAML
+  document as the canvas's edits do (`canvas/skills.ts`), never a raw insert:
+  the agent node is the one whose lines hold the cursor, `skills:` is added at
+  the node's key indent after its last value (or as `skills: [...]` in a node
+  written as a flow map), and a pin is appended in the list's own style. A
+  skill the node names already is pinned to the version picked, so the picker
+  never makes `skill_twice`. Outside a node, in a node that is not an agent,
+  or in YAML that does not parse, it says so and changes nothing. It reads
+  the YAML editor's cursor, also while the Canvas tab is shown. The editor's
+  handle gained `cursor()` and `apply(text)`, which changes only the part that
+  differs, so the cursor stays where it was.
+- **The inspector** lists an agent's skills with their versions, each with a
+  Remove button; the last one removed takes `skills:` with it, so adding a
+  skill and removing it gives the text back. Adding stays in the picker.
+- **The note** about skills sits above the panel on a workflow's Sharing page.
+- **Screenshots:** none added; `docs/screenshots.md` asks for no picture per
+  page.
+
 ## Skills through MCP (#224)
 
 Tool rows on the skill operations, as `docs/api-contract-m10.md` describes:

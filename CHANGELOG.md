@@ -9,6 +9,20 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Skills in the web app (#223). **Skills** in the sidebar lists the skills you
+  may read, built-in ones marked, with a search, the archived ones behind a
+  toggle and an empty state that says what a skill is. **New skill** starts
+  from a `SKILL.md` that passes the checks and checks it as you type; **Import
+  a zip** says whether it made a skill or saved the next version of one. A
+  skill's page shows its files, `SKILL.md` first, and with Skill editor
+  changes, adds and removes them and saves them as a version with a comment,
+  each problem shown at its file; Versions opens, downloads and compares
+  versions file by file; Sharing grants Skill reader, Skill editor and Skill
+  administrator, to Everyone too; General archives and restores, with an
+  Undo. In the workflow editor a **Skills** picker beside the tool picker pins
+  a skill, at the version you pick, under `skills:` of the agent node at the
+  cursor, and the canvas inspector lists an agent's skills and removes one. A
+  workflow's Sharing page says that whoever runs it must read its skills too.
 - Skills through MCP (#224). An assistant lists, reads and checks the skills
   its person may read and, unless connected to read only, creates skills and
   saves their next versions, with `list_skills`, `get_skill`,

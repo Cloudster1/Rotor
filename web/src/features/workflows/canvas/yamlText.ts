@@ -20,11 +20,11 @@ export function applySplices(source: string, splices: Splice[]): string {
   return out;
 }
 
-const lineStart = (source: string, at: number) => source.lastIndexOf("\n", at - 1) + 1;
-const column = (source: string, at: number) => at - lineStart(source, at);
+export const lineStart = (source: string, at: number) => source.lastIndexOf("\n", at - 1) + 1;
+export const column = (source: string, at: number) => at - lineStart(source, at);
 
 /** The start of the line at or after at: a node's end often sits there already. */
-function lineAfter(source: string, at: number): number {
+export function lineAfter(source: string, at: number): number {
   if (at === 0 || source[at - 1] === "\n") return at;
   const next = source.indexOf("\n", at);
   return next === -1 ? source.length : next + 1;
