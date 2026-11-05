@@ -3,6 +3,55 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-11-05: Run tracing, for M18 (#240)
+
+- **Spans live in Postgres.** A run's trace is read where its run is, by the
+  people who read the run, so the rule that decides who sees a run's events
+  decides who sees its trace, in row level security, with nothing new to keep
+  in step. Text in spans is what a run read, so it is sealed with the run's key
+  (#41) and goes when the run goes. A trace is at most `MaxTraceSpans` spans
+  and `MaxTraceBytes`, kept for days, which Postgres holds without trouble.
+- **No bundled Tempo or Jaeger.** Either would be one more stateful service
+  in every installation, with its own storage, retention, backups and access
+  control, which knows nothing of Rotor's grants, so the api would have to
+  stand in front of it and filter. The observe profile's Jaeger stays the
+  operator's, for the control plane's own spans; teams that want a tracing
+  tool send runs to it as a destination.
+- **OpenInference for LangChain and LangGraph.** It traces every chain,
+  graph node, tool and model call through LangChain's own callbacks, with
+  inputs and outputs in attributes that Arize Phoenix, Langfuse and other
+  OTLP tools read, and it is plain OpenTelemetry, so the runner's provider,
+  channel and checks from #37 stay. Writing the spans ourselves would repeat
+  it and lag behind LangChain; LangSmith's own tracer speaks to LangSmith
+  alone. Its text is chosen by one `TraceConfig`, which the runner sets from
+  the run's `trace_content`.
+- **This changes #37's "prompts and answers go to LangSmith alone".** Text
+  now goes where an administrator allowed it: Rotor keeps it while
+  `keep_content` is on, and each destination receives it once an administrator
+  acknowledged that text leaves for it. It still never reaches the operator's
+  collector. A run records text when any of them may keep it, and the control
+  plane strips it from each place that may not. Text kept in Rotor is read by
+  exactly the people who read the run's events, which already carry the
+  tools' answers and the agents' outputs, so keeping it widens nobody's
+  view; it is still opt-in, as the user chose.
+- **One OTLP endpoint for apps and tools.** Any LangChain app speaks OTLP
+  already, so taking OTLP/HTTP with a bearer token means an app sets three
+  standard variables. A span joins a run only when its sender reads that run,
+  and is otherwise kept as the sender's own, so the endpoint answers a run the
+  sender may not see as one that does not exist.
+- **LangSmith becomes a destination.** LangSmith reads OTLP with two
+  headers, so it is one destination among many rather than a setting of its
+  own; carrying it over keeps every installation sending what it sent.
+
+### Alternatives considered
+
+- Keeping text in Rotor whenever any destination has it: simpler, but text
+  would be kept somewhere nobody chose.
+- A per-workflow switch for text: closer to who knows the data, left for
+  later, since the installation answers for what it keeps.
+- Refusing spans into a run the sender may not see with 403: plainer, but it
+  would tell anyone with a trace id whether the run exists.
+
 ## 2026-11-05: Skills for workflow agents, for M17 (#218)
 
 - **The Agent Skills format, unchanged.** A skill is a folder with a

@@ -9,6 +9,13 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- How runs are traced is agreed (#240): `docs/api-contract-m18.md` says how
+  the runner traces every chain, graph node, tool and model call with
+  OpenInference, how Rotor keeps each run's trace for whoever reads the run,
+  how a LangChain app sends spans to Rotor over OTLP, how a trace is read
+  through the API, MCP and the run's page, and how administrators send traces
+  to OTLP destinations, the LangSmith setting carried over as one. The trace,
+  OTLP and destination routes answer 501 until their issues land.
 - Rotor ships the skills `requirements-engineering` and `test-engineering`
   (#225), installed by the api at start as built-ins everyone reads and nobody
   changes. The default workflows use them: the analysing agent of

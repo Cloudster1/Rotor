@@ -51,6 +51,7 @@ func specBuilder() *openapi.Builder {
 	registerAccessSchemas(b)
 	registerSignOnSchemas(b)
 	registerM17Schemas(b)
+	registerM18Schemas(b)
 	return b
 }
 
