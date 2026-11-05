@@ -720,6 +720,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/otlp/v1/traces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take spans over OTLP/HTTP: they join the run whose trace they name, or a trace of the sender's own.
+         * @description OpenTelemetry's ExportTraceServiceRequest as application/x-protobuf or application/json, gzip or not; the answer is an ExportTraceServiceResponse in the same encoding, with partial_success when some spans were not taken. Takes a bearer token alone: a Rotor access token whose grant may act, or an access token of the realm. At most 4 MiB as sent and 16 MiB unpacked (413); too many requests or spans in a minute answer 429 with Retry-After.
+         */
+        post: operations["receiveTraces"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/people": {
         parameters: {
             query?: never;
@@ -1002,6 +1022,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/runs/{runID}/trace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A run's trace as a tree of spans, with timing, status, attributes and, where kept, the start of each input and output.
+         * @description For whoever may read the run's events. state says whether the spans are kept, expired or were never made; cut says the trace reached its cap. A span's whole input and output are read one span at a time.
+         */
+        get: operations["getRunTrace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runs/{runID}/trace/spans/{spanID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One span of a run's trace, with every attribute and its whole input and output where kept. */
+        get: operations["getRunTraceSpan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/schemas/workflow.v1.json": {
         parameters: {
             query?: never;
@@ -1110,6 +1167,87 @@ export interface paths {
          * @description A workflow may keep its runs for fewer days with its own retention, never for more. The audit log is never deleted.
          */
         put: operations["setRetention"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/trace-destinations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The OTLP destinations runs' traces are sent to; never a header's value. */
+        get: operations["listTraceDestinations"];
+        put?: never;
+        /**
+         * Add an OTLP destination; its headers are kept in OpenBao.
+         * @description content true is refused with 422 content_leaves_unacknowledged unless acknowledgeContentLeaves is true. A name another destination has answers 409.
+         */
+        post: operations["addTraceDestination"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/trace-destinations/{destinationID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One OTLP destination; never a header's value. */
+        get: operations["getTraceDestination"];
+        /**
+         * Change an OTLP destination.
+         * @description Leaving headers out keeps the ones held; {} removes them. Turning content on needs acknowledgeContentLeaves.
+         */
+        put: operations["changeTraceDestination"];
+        post?: never;
+        /** Remove an OTLP destination and its headers. */
+        delete: operations["removeTraceDestination"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/trace-destinations/{destinationID}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send the destination one span without text and answer what it said. */
+        post: operations["testTraceDestination"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/traces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How many days Rotor keeps traces, and whether it keeps the prompt, tool and answer text in them. */
+        get: operations["getTraceSetting"];
+        /**
+         * Change how many days traces are kept, from 1 to 90, and whether Rotor keeps their text.
+         * @description Keeping text affects runs started afterwards; a shorter retention applies to traces already kept.
+         */
+        put: operations["setTraceSetting"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1511,6 +1649,60 @@ export interface paths {
         post?: never;
         /** Forget the secret; the tool's events are refused from then on. */
         delete: operations["removeHookSecret"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/traces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The traces senders posted that belong to no run: your own, and everyone's for an administrator.
+         * @description Newest first. A run's trace is read through its run.
+         */
+        get: operations["listTraces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/traces/{traceID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A trace of a sender's own by its 32-hex trace id, as a tree like a run's. */
+        get: operations["getTrace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/traces/{traceID}/spans/{spanID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One span of a sender's own trace, whole. */
+        get: operations["getTraceSpan"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2507,6 +2699,10 @@ export interface components {
             summary?: string;
             tags?: string[];
         };
+        OtlpStatus: {
+            code: number;
+            message: string;
+        };
         Parameter: {
             description?: string;
             in: string;
@@ -2795,6 +2991,24 @@ export interface components {
             hash: string;
             number: number;
         };
+        SpanEvent: {
+            /** Format: date-time */
+            at: string;
+            attributes: {
+                [key: string]: string;
+            };
+            name: string;
+        };
+        SpanTokens: {
+            completion: number;
+            prompt: number;
+            total: number;
+        };
+        SpanValue: {
+            cut: boolean;
+            mimeType: string;
+            value: string;
+        };
         StartRunRequest: {
             /** @description A JSON value. */
             inputs: unknown;
@@ -2824,6 +3038,165 @@ export interface components {
             scopesSupported: string[];
             /** @enum {string} */
             status: "ready" | "needs_registration" | "awaiting_approval";
+        };
+        TraceDestination: {
+            carriedOver: boolean;
+            changedBy: string | null;
+            content: boolean;
+            /** Format: date-time */
+            contentAcknowledgedAt: string | null;
+            contentAcknowledgedBy: string | null;
+            enabled: boolean;
+            endpoint: string;
+            headerNames: string[];
+            /** Format: date-time */
+            headersSetAt: string | null;
+            id: string;
+            name: string;
+            traceLink: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        TraceDestinationList: {
+            destinations: components["schemas"]["TraceDestination"][];
+        };
+        TraceDestinationRequest: {
+            acknowledgeContentLeaves: boolean;
+            content: boolean;
+            enabled: boolean;
+            endpoint: string;
+            headers?: {
+                [key: string]: string;
+            };
+            name: string;
+            traceLink: string | null;
+        };
+        TraceDestinationResponse: {
+            destination: components["schemas"]["TraceDestination"];
+        };
+        TraceDestinationTest: {
+            delivered: boolean;
+            message: string;
+            status: number;
+        };
+        TraceLink: {
+            destination: string;
+            url: string;
+        };
+        TraceList: {
+            limit: number;
+            offset: number;
+            total: number;
+            traces: components["schemas"]["TraceSummary"][];
+        };
+        TraceResponse: {
+            trace: components["schemas"]["TraceTree"];
+        };
+        TraceSettingRequest: {
+            keepContent: boolean;
+            retentionDays: number;
+        };
+        TraceSettingResponse: {
+            changedBy: string | null;
+            keepContent: boolean;
+            retentionDays: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        TraceSpan: {
+            attributes: {
+                [key: string]: string;
+            };
+            children: components["schemas"]["TraceSpan"][];
+            durationMs: number;
+            /** Format: date-time */
+            endedAt: string;
+            events: components["schemas"]["SpanEvent"][];
+            input: components["schemas"]["SpanValue"] | null;
+            /** @enum {string} */
+            kind: "CHAIN" | "LLM" | "TOOL" | "AGENT" | "RETRIEVER" | "EMBEDDING" | "RERANKER" | "GUARDRAIL" | "EVALUATOR" | "PROMPT" | "UNKNOWN";
+            model: string;
+            name: string;
+            omitted: number;
+            output: components["schemas"]["SpanValue"] | null;
+            parentSpanId: string;
+            sender: components["schemas"]["PersonRef"] | null;
+            service: string;
+            /** @enum {string} */
+            source: "runner" | "otlp";
+            spanId: string;
+            /** Format: date-time */
+            startedAt: string;
+            /** @enum {string} */
+            status: "unset" | "ok" | "error";
+            statusMessage: string;
+            tokens: components["schemas"]["SpanTokens"] | null;
+        };
+        TraceSpanDetail: {
+            attributes: {
+                [key: string]: string;
+            };
+            content: {
+                [key: string]: string;
+            };
+            durationMs: number;
+            /** Format: date-time */
+            endedAt: string;
+            events: components["schemas"]["SpanEvent"][];
+            input: components["schemas"]["SpanValue"] | null;
+            /** @enum {string} */
+            kind: "CHAIN" | "LLM" | "TOOL" | "AGENT" | "RETRIEVER" | "EMBEDDING" | "RERANKER" | "GUARDRAIL" | "EVALUATOR" | "PROMPT" | "UNKNOWN";
+            model: string;
+            name: string;
+            output: components["schemas"]["SpanValue"] | null;
+            parentSpanId: string;
+            sender: components["schemas"]["PersonRef"] | null;
+            service: string;
+            /** @enum {string} */
+            source: "runner" | "otlp";
+            spanId: string;
+            /** Format: date-time */
+            startedAt: string;
+            /** @enum {string} */
+            status: "unset" | "ok" | "error";
+            statusMessage: string;
+            tokens: components["schemas"]["SpanTokens"] | null;
+        };
+        TraceSpanResponse: {
+            span: components["schemas"]["TraceSpanDetail"];
+        };
+        TraceSummary: {
+            cut: boolean;
+            /** Format: date-time */
+            endedAt: string | null;
+            failed: boolean;
+            rootName: string;
+            sender: components["schemas"]["PersonRef"];
+            service: string;
+            spans: number;
+            /** Format: date-time */
+            startedAt: string;
+            traceId: string;
+        };
+        TraceTree: {
+            bytes: number;
+            content: boolean;
+            cut: boolean;
+            dropped: number;
+            /** Format: date-time */
+            endedAt: string | null;
+            /** Format: date-time */
+            expiresAt: string | null;
+            links: components["schemas"]["TraceLink"][];
+            roots: components["schemas"]["TraceSpan"][];
+            runId: string | null;
+            sender: components["schemas"]["PersonRef"] | null;
+            spans: number;
+            /** Format: date-time */
+            startedAt: string | null;
+            /** @enum {string} */
+            state: "kept" | "expired" | "none";
+            traceId: string;
         };
         TriggerCondition: {
             /** @enum {string} */
@@ -4905,6 +5278,102 @@ export interface operations {
             };
         };
     };
+    receiveTraces: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-protobuf": string;
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-protobuf": string;
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OtlpStatus"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OtlpStatus"];
+                };
+            };
+            /** @description Unsupported Media Type */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OtlpStatus"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OtlpStatus"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     findPeople: {
         parameters: {
             query?: {
@@ -5933,6 +6402,105 @@ export interface operations {
             };
         };
     };
+    getRunTrace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getRunTraceSpan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runID: string;
+                spanID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceSpanResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     workflowSchema: {
         parameters: {
             query?: never;
@@ -6331,6 +6899,472 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listTraceDestinations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceDestinationList"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    addTraceDestination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TraceDestinationRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceDestinationResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getTraceDestination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                destinationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceDestinationResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    changeTraceDestination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                destinationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TraceDestinationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceDestinationResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    removeTraceDestination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                destinationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    testTraceDestination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                destinationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceDestinationTest"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getTraceSetting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceSettingResponse"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    setTraceSetting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TraceSettingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceSettingResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7883,6 +8917,156 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listTraces: {
+        parameters: {
+            query?: {
+                /** @description Only this sender's traces, by user id. */
+                sender?: string;
+                /** @description At most this many, 50 when left out and never more than 200. */
+                limit?: number;
+                /** @description How many to skip, for the next page. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceList"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getTrace: {
+        parameters: {
+            query?: {
+                /** @description For an administrator: whose trace of that id to read, by user id; yours when left out. */
+                sender?: string;
+            };
+            header?: never;
+            path: {
+                traceID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getTraceSpan: {
+        parameters: {
+            query?: {
+                /** @description For an administrator: whose trace of that id to read, by user id; yours when left out. */
+                sender?: string;
+            };
+            header?: never;
+            path: {
+                traceID: string;
+                spanID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceSpanResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
                 headers: {
                     [name: string]: unknown;
                 };

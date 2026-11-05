@@ -55,6 +55,9 @@
       "name": "tools"
     },
     {
+      "name": "traces"
+    },
+    {
       "name": "triggers"
     },
     {
@@ -2518,6 +2521,120 @@
         }
       }
     },
+    "/otlp/v1/traces": {
+      "post": {
+        "operationId": "receiveTraces",
+        "summary": "Take spans over OTLP/HTTP: they join the run whose trace they name, or a trace of the sender's own.",
+        "description": "OpenTelemetry's ExportTraceServiceRequest as application/x-protobuf or application/json, gzip or not; the answer is an ExportTraceServiceResponse in the same encoding, with partial_success when some spans were not taken. Takes a bearer token alone: a Rotor access token whose grant may act, or an access token of the realm. At most 4 MiB as sent and 16 MiB unpacked (413); too many requests or spans in a minute answer 429 with Retry-After.",
+        "tags": [
+          "traces"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-protobuf": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/x-protobuf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtlpStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request Entity Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtlpStatus"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtlpStatus"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtlpStatus"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/people": {
       "get": {
         "operationId": "findPeople",
@@ -3908,6 +4025,140 @@
         }
       }
     },
+    "/runs/{runID}/trace": {
+      "get": {
+        "operationId": "getRunTrace",
+        "summary": "A run's trace as a tree of spans, with timing, status, attributes and, where kept, the start of each input and output.",
+        "description": "For whoever may read the run's events. state says whether the spans are kept, expired or were never made; cut says the trace reached its cap. A span's whole input and output are read one span at a time.",
+        "tags": [
+          "traces"
+        ],
+        "parameters": [
+          {
+            "name": "runID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs/{runID}/trace/spans/{spanID}": {
+      "get": {
+        "operationId": "getRunTraceSpan",
+        "summary": "One span of a run's trace, with every attribute and its whole input and output where kept.",
+        "tags": [
+          "traces"
+        ],
+        "parameters": [
+          {
+            "name": "runID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "spanID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceSpanResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/schemas/workflow.v1.json": {
       "get": {
         "operationId": "workflowSchema",
@@ -4355,6 +4606,556 @@
           },
           "422": {
             "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/trace-destinations": {
+      "get": {
+        "operationId": "listTraceDestinations",
+        "summary": "The OTLP destinations runs' traces are sent to; never a header's value.",
+        "tags": [
+          "telemetry"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceDestinationList"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "addTraceDestination",
+        "summary": "Add an OTLP destination; its headers are kept in OpenBao.",
+        "description": "content true is refused with 422 content_leaves_unacknowledged unless acknowledgeContentLeaves is true. A name another destination has answers 409.",
+        "tags": [
+          "telemetry"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TraceDestinationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceDestinationResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/trace-destinations/{destinationID}": {
+      "delete": {
+        "operationId": "removeTraceDestination",
+        "summary": "Remove an OTLP destination and its headers.",
+        "tags": [
+          "telemetry"
+        ],
+        "parameters": [
+          {
+            "name": "destinationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getTraceDestination",
+        "summary": "One OTLP destination; never a header's value.",
+        "tags": [
+          "telemetry"
+        ],
+        "parameters": [
+          {
+            "name": "destinationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceDestinationResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "changeTraceDestination",
+        "summary": "Change an OTLP destination.",
+        "description": "Leaving headers out keeps the ones held; {} removes them. Turning content on needs acknowledgeContentLeaves.",
+        "tags": [
+          "telemetry"
+        ],
+        "parameters": [
+          {
+            "name": "destinationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TraceDestinationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceDestinationResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/trace-destinations/{destinationID}/test": {
+      "post": {
+        "operationId": "testTraceDestination",
+        "summary": "Send the destination one span without text and answer what it said.",
+        "tags": [
+          "telemetry"
+        ],
+        "parameters": [
+          {
+            "name": "destinationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceDestinationTest"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/traces": {
+      "get": {
+        "operationId": "getTraceSetting",
+        "summary": "How many days Rotor keeps traces, and whether it keeps the prompt, tool and answer text in them.",
+        "tags": [
+          "telemetry"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceSettingResponse"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setTraceSetting",
+        "summary": "Change how many days traces are kept, from 1 to 90, and whether Rotor keeps their text.",
+        "description": "Keeping text affects runs started afterwards; a shorter retention applies to traces already kept.",
+        "tags": [
+          "telemetry"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TraceSettingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceSettingResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6438,6 +7239,223 @@
             "realmToken": []
           }
         ]
+      }
+    },
+    "/traces": {
+      "get": {
+        "operationId": "listTraces",
+        "summary": "The traces senders posted that belong to no run: your own, and everyone's for an administrator.",
+        "description": "Newest first. A run's trace is read through its run.",
+        "tags": [
+          "traces"
+        ],
+        "parameters": [
+          {
+            "name": "sender",
+            "in": "query",
+            "description": "Only this sender's traces, by user id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "At most this many, 50 when left out and never more than 200.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "How many to skip, for the next page.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceList"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/traces/{traceID}": {
+      "get": {
+        "operationId": "getTrace",
+        "summary": "A trace of a sender's own by its 32-hex trace id, as a tree like a run's.",
+        "tags": [
+          "traces"
+        ],
+        "parameters": [
+          {
+            "name": "traceID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sender",
+            "in": "query",
+            "description": "For an administrator: whose trace of that id to read, by user id; yours when left out.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/traces/{traceID}/spans/{spanID}": {
+      "get": {
+        "operationId": "getTraceSpan",
+        "summary": "One span of a sender's own trace, whole.",
+        "tags": [
+          "traces"
+        ],
+        "parameters": [
+          {
+            "name": "traceID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "spanID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sender",
+            "in": "query",
+            "description": "For an administrator: whose trace of that id to read, by user id; yours when left out.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceSpanResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/triggers": {
@@ -10506,6 +11524,21 @@
           "responses"
         ]
       },
+      "OtlpStatus": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
       "Parameter": {
         "type": "object",
         "properties": {
@@ -11634,6 +12667,67 @@
           "createdAt"
         ]
       },
+      "SpanEvent": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "at",
+          "attributes"
+        ]
+      },
+      "SpanTokens": {
+        "type": "object",
+        "properties": {
+          "completion": {
+            "type": "integer"
+          },
+          "prompt": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "prompt",
+          "completion",
+          "total"
+        ]
+      },
+      "SpanValue": {
+        "type": "object",
+        "properties": {
+          "cut": {
+            "type": "boolean"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "mimeType",
+          "cut"
+        ]
+      },
       "StartRunRequest": {
         "type": "object",
         "properties": {
@@ -11749,6 +12843,711 @@
           "registration",
           "status",
           "addedAt"
+        ]
+      },
+      "TraceDestination": {
+        "type": "object",
+        "properties": {
+          "carriedOver": {
+            "type": "boolean"
+          },
+          "changedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "content": {
+            "type": "boolean"
+          },
+          "contentAcknowledgedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "contentAcknowledgedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "headerNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "headersSetAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "traceLink": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "endpoint",
+          "headerNames",
+          "headersSetAt",
+          "enabled",
+          "content",
+          "contentAcknowledgedBy",
+          "contentAcknowledgedAt",
+          "traceLink",
+          "carriedOver",
+          "changedBy",
+          "updatedAt"
+        ]
+      },
+      "TraceDestinationList": {
+        "type": "object",
+        "properties": {
+          "destinations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceDestination"
+            }
+          }
+        },
+        "required": [
+          "destinations"
+        ]
+      },
+      "TraceDestinationRequest": {
+        "type": "object",
+        "properties": {
+          "acknowledgeContentLeaves": {
+            "type": "boolean"
+          },
+          "content": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "traceLink": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "endpoint",
+          "enabled",
+          "content",
+          "acknowledgeContentLeaves",
+          "traceLink"
+        ]
+      },
+      "TraceDestinationResponse": {
+        "type": "object",
+        "properties": {
+          "destination": {
+            "$ref": "#/components/schemas/TraceDestination"
+          }
+        },
+        "required": [
+          "destination"
+        ]
+      },
+      "TraceDestinationTest": {
+        "type": "object",
+        "properties": {
+          "delivered": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "delivered",
+          "status",
+          "message"
+        ]
+      },
+      "TraceLink": {
+        "type": "object",
+        "properties": {
+          "destination": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "destination",
+          "url"
+        ]
+      },
+      "TraceList": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "traces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceSummary"
+            }
+          }
+        },
+        "required": [
+          "traces",
+          "total",
+          "limit",
+          "offset"
+        ]
+      },
+      "TraceResponse": {
+        "type": "object",
+        "properties": {
+          "trace": {
+            "$ref": "#/components/schemas/TraceTree"
+          }
+        },
+        "required": [
+          "trace"
+        ]
+      },
+      "TraceSettingRequest": {
+        "type": "object",
+        "properties": {
+          "keepContent": {
+            "type": "boolean"
+          },
+          "retentionDays": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "retentionDays",
+          "keepContent"
+        ]
+      },
+      "TraceSettingResponse": {
+        "type": "object",
+        "properties": {
+          "changedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "keepContent": {
+            "type": "boolean"
+          },
+          "retentionDays": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "retentionDays",
+          "keepContent",
+          "changedBy",
+          "updatedAt"
+        ]
+      },
+      "TraceSpan": {
+        "type": "object",
+        "properties": {
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceSpan"
+            }
+          },
+          "durationMs": {
+            "type": "integer"
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpanEvent"
+            }
+          },
+          "input": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SpanValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "CHAIN",
+              "LLM",
+              "TOOL",
+              "AGENT",
+              "RETRIEVER",
+              "EMBEDDING",
+              "RERANKER",
+              "GUARDRAIL",
+              "EVALUATOR",
+              "PROMPT",
+              "UNKNOWN"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "omitted": {
+            "type": "integer"
+          },
+          "output": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SpanValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parentSpanId": {
+            "type": "string"
+          },
+          "sender": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "service": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "runner",
+              "otlp"
+            ]
+          },
+          "spanId": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unset",
+              "ok",
+              "error"
+            ]
+          },
+          "statusMessage": {
+            "type": "string"
+          },
+          "tokens": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SpanTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "spanId",
+          "parentSpanId",
+          "name",
+          "kind",
+          "service",
+          "source",
+          "sender",
+          "startedAt",
+          "endedAt",
+          "durationMs",
+          "status",
+          "statusMessage",
+          "model",
+          "tokens",
+          "attributes",
+          "input",
+          "output",
+          "events",
+          "children",
+          "omitted"
+        ]
+      },
+      "TraceSpanDetail": {
+        "type": "object",
+        "properties": {
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "content": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "durationMs": {
+            "type": "integer"
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpanEvent"
+            }
+          },
+          "input": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SpanValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "CHAIN",
+              "LLM",
+              "TOOL",
+              "AGENT",
+              "RETRIEVER",
+              "EMBEDDING",
+              "RERANKER",
+              "GUARDRAIL",
+              "EVALUATOR",
+              "PROMPT",
+              "UNKNOWN"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "output": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SpanValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parentSpanId": {
+            "type": "string"
+          },
+          "sender": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "service": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "runner",
+              "otlp"
+            ]
+          },
+          "spanId": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unset",
+              "ok",
+              "error"
+            ]
+          },
+          "statusMessage": {
+            "type": "string"
+          },
+          "tokens": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SpanTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "spanId",
+          "parentSpanId",
+          "name",
+          "kind",
+          "service",
+          "source",
+          "sender",
+          "startedAt",
+          "endedAt",
+          "durationMs",
+          "status",
+          "statusMessage",
+          "model",
+          "tokens",
+          "attributes",
+          "input",
+          "output",
+          "events",
+          "content"
+        ]
+      },
+      "TraceSpanResponse": {
+        "type": "object",
+        "properties": {
+          "span": {
+            "$ref": "#/components/schemas/TraceSpanDetail"
+          }
+        },
+        "required": [
+          "span"
+        ]
+      },
+      "TraceSummary": {
+        "type": "object",
+        "properties": {
+          "cut": {
+            "type": "boolean"
+          },
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "rootName": {
+            "type": "string"
+          },
+          "sender": {
+            "$ref": "#/components/schemas/PersonRef"
+          },
+          "service": {
+            "type": "string"
+          },
+          "spans": {
+            "type": "integer"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "traceId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "traceId",
+          "sender",
+          "service",
+          "rootName",
+          "spans",
+          "failed",
+          "cut",
+          "startedAt",
+          "endedAt"
+        ]
+      },
+      "TraceTree": {
+        "type": "object",
+        "properties": {
+          "bytes": {
+            "type": "integer"
+          },
+          "content": {
+            "type": "boolean"
+          },
+          "cut": {
+            "type": "boolean"
+          },
+          "dropped": {
+            "type": "integer"
+          },
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceLink"
+            }
+          },
+          "roots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceSpan"
+            }
+          },
+          "runId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sender": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "spans": {
+            "type": "integer"
+          },
+          "startedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "kept",
+              "expired",
+              "none"
+            ]
+          },
+          "traceId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "traceId",
+          "runId",
+          "sender",
+          "state",
+          "content",
+          "cut",
+          "dropped",
+          "spans",
+          "bytes",
+          "startedAt",
+          "endedAt",
+          "expiresAt",
+          "links",
+          "roots"
         ]
       },
       "TriggerCondition": {
