@@ -208,6 +208,23 @@ are filed and linked, and nobody is asked. A story then gets Rotor's questions a
 comment; the answer of anyone who may comment starts the next run, and Rotor's
 own comments start none.
 
+### Refining a story first
+
+`story-refinement.yaml` (#212) comments a refined story on the ticket before
+anyone writes requirements from it. Its setup is the story workflow's without
+Exciter: Armature connected, its webhook, and a trigger **On a tool's event**
+on Armature's `issue.created` and `comment.added` with the same projects and
+condition, agreeing to `add_comment`.
+
+To run both, start requirements only once a person has adopted the refined
+story: add `issue.transitioned` to Armature's webhook, and give the story
+workflow two triggers instead of one. The first is on `issue.transitioned`
+with the condition `payload.toStatus` `equals` the status your team uses for
+stories ready to plan, such as `Ready`; the second is on `comment.added`, as
+above, so answers to its questions still reach it. A condition holds for
+every topic of its trigger, which is why they are two. Each workflow answers
+only its own questions, so the two conversations on one ticket stay apart.
+
 ### Later
 
 Armature lets a connected app register its own webhook (Armature #281); Rotor
