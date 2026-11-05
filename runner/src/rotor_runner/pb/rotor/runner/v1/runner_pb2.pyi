@@ -446,7 +446,9 @@ class StartRun(_message.Message):
     traceparent: _builtins.str
     """traceparent is the run's W3C trace context; the runner's spans belong to it and none are made without it (#37)."""
     trace_content: _builtins.bool
-    """trace_content lets LLM spans carry the prompt and the answer, redacted and cut short, for LangSmith (#37)."""
+    """trace_content says the run may keep text somewhere, so its spans carry inputs, outputs and messages, redacted and
+    cut short; the control plane strips the text from each place that may not have it (#241).
+    """
     @_builtins.property
     def tools(self) -> _containers.RepeatedCompositeFieldContainer[Global___ToolBinding]: ...
     @_builtins.property
@@ -628,6 +630,7 @@ class RunnerSpan(_message.Message):
     ATTRIBUTES_FIELD_NUMBER: _builtins.int
     ERROR_FIELD_NUMBER: _builtins.int
     STATUS_MESSAGE_FIELD_NUMBER: _builtins.int
+    EVENTS_FIELD_NUMBER: _builtins.int
     trace_id: _builtins.bytes
     span_id: _builtins.bytes
     parent_span_id: _builtins.bytes
@@ -641,6 +644,10 @@ class RunnerSpan(_message.Message):
     def end(self) -> _timestamp_pb2.Timestamp: ...
     @_builtins.property
     def attributes(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]: ...
+    @_builtins.property
+    def events(self) -> _containers.RepeatedCompositeFieldContainer[Global___RunnerSpanEvent]:
+        """events are the span's exceptions and retries, at most MaxSpanEvents of them (#241)."""
+
     def __init__(
         self,
         *,
@@ -653,14 +660,64 @@ class RunnerSpan(_message.Message):
         attributes: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
         error: _builtins.bool = ...,
         status_message: _builtins.str = ...,
+        events: _abc.Iterable[Global___RunnerSpanEvent] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["end", b"end", "start", b"start"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["attributes", b"attributes", "end", b"end", "error", b"error", "name", b"name", "parent_span_id", b"parent_span_id", "span_id", b"span_id", "start", b"start", "status_message", b"status_message", "trace_id", b"trace_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["attributes", b"attributes", "end", b"end", "error", b"error", "events", b"events", "name", b"name", "parent_span_id", b"parent_span_id", "span_id", b"span_id", "start", b"start", "status_message", b"status_message", "trace_id", b"trace_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___RunnerSpan: _TypeAlias = RunnerSpan  # noqa: Y015
+
+@_typing.final
+class RunnerSpanEvent(_message.Message):
+    """RunnerSpanEvent is one event of a span, such as an exception; its attributes are strings, as a span's are."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    @_typing.final
+    class AttributesEntry(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: _builtins.int
+        VALUE_FIELD_NUMBER: _builtins.int
+        key: _builtins.str
+        value: _builtins.str
+        def __init__(
+            self,
+            *,
+            key: _builtins.str = ...,
+            value: _builtins.str = ...,
+        ) -> None: ...
+        _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+    NAME_FIELD_NUMBER: _builtins.int
+    TIME_FIELD_NUMBER: _builtins.int
+    ATTRIBUTES_FIELD_NUMBER: _builtins.int
+    name: _builtins.str
+    @_builtins.property
+    def time(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def attributes(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]: ...
+    def __init__(
+        self,
+        *,
+        name: _builtins.str = ...,
+        time: _timestamp_pb2.Timestamp | None = ...,
+        attributes: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["time", b"time"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["attributes", b"attributes", "name", b"name", "time", b"time"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___RunnerSpanEvent: _TypeAlias = RunnerSpanEvent  # noqa: Y015
 
 @_typing.final
 class ToolBinding(_message.Message):

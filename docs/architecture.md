@@ -418,12 +418,14 @@ sandboxes and `runnerctl` the end of every run, both without an actor.
 
 Each run is one trace. Starting it opens a `run.start` span, whose context
 the run keeps as its `traceparent`; the worker's sandbox steps join it, and
-`StartRun` hands it to the runner, which traces the run, its nodes, its model
-calls and its MCP calls. The runner sends its spans on its stream; the api
-keeps those of the run's own trace, redacts them again and exports them with
-its own over OTLP to the collector, so a sandbox reaches no collector. While
-an administrator allows it, the api also sends the runner's spans, with
-prompts and answers, to LangSmith with a key from OpenBao. The worker and the
+`StartRun` hands it to the runner, which traces the run, its nodes and its
+MCP calls, and with OpenInference every chain, graph node, tool and model call
+of its agents (#241). The runner sends its spans on its stream; the api keeps
+those of the run's own trace, holds them to the span limits, redacts them
+again and exports them with its own over OTLP to the collector, without their
+text, so a sandbox reaches no collector. While an administrator allows it, the
+api also sends the runner's spans, with their inputs, outputs and messages, to
+LangSmith with a key from OpenBao. The worker and the
 api serve Prometheus metrics; `make observe` adds a collector, Jaeger and
 Prometheus to the development stack.
 

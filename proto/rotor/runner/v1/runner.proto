@@ -125,7 +125,8 @@ message StartRun {
   string resume_interrupt_id = 8;
   // traceparent is the run's W3C trace context; the runner's spans belong to it and none are made without it (#37).
   string traceparent = 9;
-  // trace_content lets LLM spans carry the prompt and the answer, redacted and cut short, for LangSmith (#37).
+  // trace_content says the run may keep text somewhere, so its spans carry inputs, outputs and messages, redacted and
+  // cut short; the control plane strips the text from each place that may not have it (#241).
   bool trace_content = 10;
   // agent_models are the models of the agent nodes that name their own, by node id; the others use model (#133).
   // An agent whose model resolved to none is missing here and fails with model_missing.
@@ -174,6 +175,15 @@ message RunnerSpan {
   map<string, string> attributes = 7;
   bool error = 8;
   string status_message = 9;
+  // events are the span's exceptions and retries, at most MaxSpanEvents of them (#241).
+  repeated RunnerSpanEvent events = 10;
+}
+
+// RunnerSpanEvent is one event of a span, such as an exception; its attributes are strings, as a span's are.
+message RunnerSpanEvent {
+  string name = 1;
+  google.protobuf.Timestamp time = 2;
+  map<string, string> attributes = 3;
 }
 
 // ToolBinding is one of the spec's tool bindings, resolved to a tool Rotor knows.

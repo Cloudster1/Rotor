@@ -16,7 +16,7 @@ from langchain_mcp_adapters.tools import load_mcp_tools
 from rotor_runner.events import EventSink, subjects, summary
 from rotor_runner.limits import ToolRate
 from rotor_runner.spec import REVIEW_DECIDING
-from rotor_runner.telemetry import RunTracing
+from rotor_runner.telemetry import TOOL, RunTracing
 
 if TYPE_CHECKING:
     from rotor_runner.repository import Repository
@@ -150,7 +150,8 @@ class McpGateway:
         if self.rate is not None:
             self.rate.check()
         try:
-            with self.tracing.maybe(f"mcp {name}", {"rotor.binding": binding, "mcp.tool": name, "rotor.node": node}):
+            span = {"rotor.binding": binding, "mcp.tool": name, "rotor.node": node}
+            with self.tracing.maybe(f"mcp {name}", span, kind=TOOL):
                 async with (await self._client(b)).session(binding) as session:
                     result = await session.call_tool(name, arguments)
         except Exception as err:
@@ -185,7 +186,7 @@ class McpGateway:
                 self.rate.check()
             token = await self.tokens.token(binding.name)
             span = {"rotor.binding": binding.name, "mcp.tool": request.name, "rotor.node": node}
-            with self.tracing.maybe(f"mcp {request.name}", span):
+            with self.tracing.maybe(f"mcp {request.name}", span, kind=TOOL):
                 result = await handler(request.override(headers={"Authorization": f"Bearer {token}"}))
             try:
                 hints = await self.annotations(binding)

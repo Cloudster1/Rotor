@@ -24,6 +24,7 @@ type RunnerSpan struct {
 	Attributes map[string]string
 	Failed     bool
 	Message    string
+	Events     []SpanEvent
 }
 
 // RunnerSnapshots are runner spans as the exporters take them, under the service rotor-runner of env.
@@ -46,6 +47,13 @@ func RunnerSnapshots(env string, spans []RunnerSpan) []sdktrace.ReadOnlySpan {
 		}
 		for k, v := range s.Attributes {
 			stub.Attributes = append(stub.Attributes, attribute.String(k, v))
+		}
+		for _, e := range s.Events {
+			event := sdktrace.Event{Name: e.Name, Time: e.Time}
+			for k, v := range e.Attributes {
+				event.Attributes = append(event.Attributes, attribute.String(k, v))
+			}
+			stub.Events = append(stub.Events, event)
 		}
 		if s.Failed {
 			stub.Status = sdktrace.Status{Code: codes.Error, Description: s.Message}

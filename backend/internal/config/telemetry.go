@@ -26,19 +26,11 @@ const (
 	DefaultAPIMetricsAddr = ":9465"
 	// DefaultLangSmithEndpoint is LangSmith's own OpenTelemetry endpoint.
 	DefaultLangSmithEndpoint = "https://api.smith.langchain.com/otel/v1/traces"
-	// MaxRunnerSpansPerBatch bounds the spans one message of a runner carries; more are dropped.
-	MaxRunnerSpansPerBatch = 256
 	// RunnerSpanExportTimeout bounds sending one runner batch on, which the exporter would otherwise retry for a
 	// minute against a collector that does not answer (#234).
 	RunnerSpanExportTimeout = 10 * time.Second
 	// MaxRunnerSpanExports bounds the runner batches being sent on at once; a batch beyond them is dropped.
 	MaxRunnerSpanExports = 32
-	// MaxRunnerSpanAttributes bounds the attributes one runner span keeps.
-	MaxRunnerSpanAttributes = 32
-	// MaxSpanAttrChars bounds one attribute's text, as a database statement is cut in its span.
-	MaxSpanAttrChars = 512
-	// MaxSpanNameChars bounds a runner span's name.
-	MaxSpanNameChars = 128
 	// MaxLangSmithKeyChars bounds the key an administrator gives.
 	MaxLangSmithKeyChars = 512
 	// MaxLangSmithProjectChars bounds the project runs are filed under in LangSmith.

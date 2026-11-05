@@ -61,12 +61,22 @@ APPROVAL_PREVIEW_ENTRIES = 50
 # Usage and rate (#38): the tool calls a run may make in a minute unless its limits say, and that minute.
 DEFAULT_TOOL_CALLS_PER_MINUTE = 60
 TOOL_RATE_WINDOW_S = 60
-# Tracing (#37): a run's spans leave over its channel in batches of SPAN_BATCH, or after SPAN_FLUSH_S, each value cut to
-# SPAN_ATTR_CHARS as the control plane cuts them; an LLM span shows LangSmith the last SPAN_PROMPT_MESSAGES messages.
+# Tracing (#37, #241): a run's spans leave over its channel in batches of SPAN_BATCH spans or SPAN_BATCH_BYTES, or after
+# SPAN_FLUSH_S, so a batch stays under the control plane's message size. Each span is held to the control plane's limits
+# (docs/api-contract-m18.md) before it leaves: a name and a key to SPAN_NAME_CHARS, an attribute without text to
+# SPAN_ATTR_CHARS, one with text to SPAN_CONTENT_CHARS, a stack to SPAN_STACK_CHARS, SPAN_ATTRIBUTES attributes,
+# SPAN_EVENTS events and SPAN_BYTES in all. A model call shows its last SPAN_PROMPT_MESSAGES messages.
 SPAN_BATCH = 64
+SPAN_BATCH_BYTES = 2 << 20
 SPAN_FLUSH_S = 2.0
+SPAN_NAME_CHARS = 128
 SPAN_ATTR_CHARS = 512
-SPAN_PROMPT_MESSAGES = 4
+SPAN_CONTENT_CHARS = 16384
+SPAN_STACK_CHARS = 4096
+SPAN_ATTRIBUTES = 128
+SPAN_EVENTS = 16
+SPAN_BYTES = 64 << 10
+SPAN_PROMPT_MESSAGES = 16
 SPAN_FLUSH_TIMEOUT_MS = 30_000
 # W3C trace context's sizes: a trace id is 16 bytes, a span id 8.
 TRACE_ID_BYTES = 16

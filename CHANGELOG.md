@@ -9,6 +9,16 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A run's trace shows every chain, graph node, tool and model call of its
+  agents (#241), traced with OpenInference beside Rotor's run, node and MCP
+  spans, so a trace in Jaeger or LangSmith shows why a run did what it did.
+  Model calls keep their model and token counts. Inputs, outputs and messages
+  are recorded only while LangSmith is on, redacted and cut short, and the
+  operator's collector never gets them; an exception shows with or without
+  them. The model call span is named after the model's class, such as
+  `ChatOpenAI`, instead of `llm <model>`, and its prompt and answer are under
+  `llm.input_messages` and `llm.output_messages` instead of `gen_ai.prompt`
+  and `gen_ai.completion`.
 - How runs are traced is agreed (#240): `docs/api-contract-m18.md` says how
   the runner traces every chain, graph node, tool and model call with
   OpenInference, how Rotor keeps each run's trace for whoever reads the run,

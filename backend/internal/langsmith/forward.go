@@ -68,8 +68,8 @@ func (s *Service) Enabled(ctx context.Context) bool {
 	return err == nil && d.enabled
 }
 
-// Forwarder sends a run's checked spans on: to the process's collector without the prompts and answers, and to
-// LangSmith with them while an administrator allows it. It is the runner protocol's runnerctl.Telemetry.
+// Forwarder sends a run's checked spans on: to the process's collector without their text, and to LangSmith with it
+// while an administrator allows it. It is the runner protocol's runnerctl.Telemetry.
 type Forwarder struct {
 	Tracing   *observability.Tracing
 	LangSmith *Service
@@ -78,7 +78,7 @@ type Forwarder struct {
 
 var _ runnerctl.Telemetry = (*Forwarder)(nil)
 
-// Content says whether runs' LLM spans may carry the prompt and the answer: only while LangSmith is on.
+// Content says whether runs' spans may carry text: until #242 and #246, only while LangSmith is on.
 func (f *Forwarder) Content(ctx context.Context) bool {
 	return f.LangSmith != nil && f.LangSmith.Enabled(ctx)
 }
@@ -90,7 +90,7 @@ func (f *Forwarder) Spans(ctx context.Context, runID uuid.UUID, spans []observab
 	var collector sync.WaitGroup
 	defer collector.Wait()
 	collector.Go(func() {
-		if err := f.Tracing.Export(ctx, observability.RunnerSnapshots(env, runnerctl.WithoutContent(spans))); err != nil {
+		if err := f.Tracing.Export(ctx, observability.RunnerSnapshots(env, observability.WithoutText(spans))); err != nil {
 			f.Log.Debug("the collector refused a runner's spans", "run", runID, "error", err)
 		}
 	})

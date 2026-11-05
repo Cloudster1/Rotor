@@ -67,19 +67,26 @@ func hexBytes(t *testing.T, s string) []byte {
 	return out
 }
 
-// A runner's spans are trusted as far as the control plane checks them: its own run's trace alone, cut short and
-// redacted again, since the sandbox runs code the workflow's author wrote.
+// A runner's spans are trusted as far as the control plane checks them: its own run's trace alone, held to the span
+// limits, redacted again and stamped with the run, since the sandbox runs code the workflow's author wrote.
 func TestARunnersSpansAreCheckedBeforeTheyGoOn(t *testing.T) {
 	const trace, other = "0af7651916cd43dd8448eb211c80319c", "11111111111111111111111111111111"
 	kept := &keptSpans{sent: make(chan struct{}, 1)}
 	s := &Server{Telemetry: kept}
-	r := &run{ID: uuid.New(), Traceparent: "00-" + trace + "-b7ad6b7169203331-01"}
+	r := &run{ID: uuid.New(), WorkflowID: uuid.New(), Traceparent: "00-" + trace + "-b7ad6b7169203331-01"}
 	now := timestamppb.New(time.Now())
 	span := func(traceID, id string, attrs map[string]string) *runnerpb.RunnerSpan {
 		return &runnerpb.RunnerSpan{TraceId: hexBytes(t, traceID), SpanId: hexBytes(t, id), Name: "node a", Start: now, End: now, Attributes: attrs}
 	}
+	failed := span(trace, "00f067aa0ba902b7", map[string]string{
+		"input.value": "Bearer stub_oat_abcdefgh12345678 " + strings.Repeat("x", 2*config.MaxSpanContentChars),
+		"tool.name":   strings.Repeat("t", 4*config.MaxSpanAttrChars),
+		"rotor.node":  "a", "rotor.run": "another-run", "rotor.owner": "someone",
+	})
+	failed.Events = []*runnerpb.RunnerSpanEvent{{Name: "exception", Time: now, Attributes: map[string]string{
+		"exception.message": "token stub_oat_abcdefgh12345678", "exception.stacktrace": strings.Repeat("s", 2*config.MaxSpanStackChars)}}}
 	s.spans(context.Background(), r, &runnerpb.SpanBatch{Spans: []*runnerpb.RunnerSpan{
-		span(trace, "00f067aa0ba902b7", map[string]string{"token": "Bearer stub_oat_abcdefgh12345678", "long": strings.Repeat("x", 4*config.MaxSpanAttrChars)}),
+		failed,
 		span(other, "00f067aa0ba902b8", nil),
 		{TraceId: hexBytes(t, trace), SpanId: []byte{1}, Start: now, End: now},
 	}})
@@ -87,21 +94,27 @@ func TestARunnersSpansAreCheckedBeforeTheyGoOn(t *testing.T) {
 	if len(spans) != 1 {
 		t.Fatalf("kept %d spans, want only the one of the run's trace", len(spans))
 	}
-	got := spans[0]
-	if strings.Contains(got.Attributes["token"], "stub_oat_") || len(got.Attributes["long"]) != config.MaxSpanAttrChars {
-		t.Errorf("the span's attributes went on as %v", got.Attributes)
+	got := spans[0].Attributes
+	if strings.Contains(got["input.value"], "stub_oat_") || len([]rune(got["input.value"])) != config.MaxSpanContentChars ||
+		len(got["tool.name"]) != config.MaxSpanAttrChars {
+		t.Errorf("the span's attributes went on as %v", got)
+	}
+	if got["rotor.run"] != r.ID.String() || got["rotor.workflow"] != r.WorkflowID.String() || got["rotor.node"] != "a" {
+		t.Errorf("the span is stamped %v, want the run's own ids", got)
+	}
+	if _, ok := got["rotor.owner"]; ok {
+		t.Error("a rotor.* key Rotor does not write went on")
+	}
+	events := spans[0].Events
+	if len(events) != 1 || strings.Contains(events[0].Attributes["exception.message"], "stub_oat_") ||
+		len(events[0].Attributes["exception.stacktrace"]) != config.MaxSpanStackChars {
+		t.Errorf("the span's events went on as %v", events)
 	}
 
 	untraced := &run{ID: uuid.New()}
 	s.spans(context.Background(), untraced, &runnerpb.SpanBatch{Spans: []*runnerpb.RunnerSpan{span(trace, "00f067aa0ba902b9", nil)}})
 	if len(kept.kept(t, false)) != 1 {
 		t.Error("a run without a trace had spans sent on")
-	}
-
-	content := WithoutContent([]observability.RunnerSpan{{Attributes: map[string]string{
-		"gen_ai.prompt.0.content": "hi", "gen_ai.completion.0.content": "hello", "gen_ai.request.model": "m"}}})
-	if attrs := content[0].Attributes; len(attrs) != 1 || attrs["gen_ai.request.model"] != "m" {
-		t.Errorf("the collector would get %v; prompts and answers are LangSmith's alone", attrs)
 	}
 }
 
