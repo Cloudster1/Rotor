@@ -165,12 +165,14 @@ func TestARunNeedsItsPersonToReadEverySkill(t *testing.T) {
 		t.Fatalf("the run once the skill is shared ended %v (%v)", done["status"], done["reason"])
 	}
 
-	// Archiving the skill keeps the pinned version starting; the start is what the check decides, so the test does not
-	// wait for a second run to end.
+	// Archiving the skill keeps the pinned version starting. The run is waited for, so no sandbox outlives the test.
 	if status, _ := ob.api(http.MethodDelete, "/skills/"+skillID, nil); status != http.StatusNoContent {
 		t.Fatalf("archiving = %d", status)
 	}
-	startRun(t, ob, workflowID, map[string]any{}, http.StatusCreated)
+	run = startRun(t, ob, workflowID, map[string]any{}, http.StatusCreated)
+	if done := waitRun(t, ob, run["id"].(string), "succeeded", "failed"); done["status"] != "succeeded" {
+		t.Fatalf("the run of an archived skill's pin ended %v (%v)", done["status"], done["reason"])
+	}
 }
 
 func TestATriggerWhoseOwnerMayNotReadASkillIsTurnedOff(t *testing.T) {
