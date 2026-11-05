@@ -1,9 +1,10 @@
 import { useParams, useSearch } from "@tanstack/react-router";
 import { WorkflowEditor, WorkflowPage } from "./WorkflowPage";
 
-/** A new workflow, from the template; loaded on demand with the editor. */
+/** A new workflow, from the blank template or the shipped one the address names; loaded on demand with the editor. */
 export function NewWorkflowRoute() {
-  return <WorkflowEditor />;
+  const { start } = useSearch({ from: "/shell/workflows/new" });
+  return <WorkflowEditor key={start ?? ""} start={start} />;
 }
 
 /** An existing workflow by the id in the address; loaded on demand with the editor. */

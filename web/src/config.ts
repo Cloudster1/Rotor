@@ -94,6 +94,9 @@ export const MAX_BADGE_PROBLEMS = 9;
 /** Where this browser remembers whether the person edits workflows as YAML or on the canvas. */
 export const EDITOR_VIEW_STORAGE_KEY = "rotor.workflowEditorView";
 
+/** The workflows guide on GitHub, where the editor links each shipped workflow's section. */
+export const WORKFLOWS_DOC_URL = "https://github.com/Cloudster1/Rotor/blob/main/docs/workflows.md";
+
 /** The products whose webhook deliveries start event triggers (#35), as the server names them. */
 export const HOOK_PRODUCTS = ["armature", "exciter", "stator"] as const;
 /** What Rotor needs of a tool to act in it and to take its events, as backend/internal/tools/needs.go names them (#43). */

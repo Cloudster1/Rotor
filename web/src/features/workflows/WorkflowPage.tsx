@@ -20,8 +20,10 @@ import { s } from "@/strings";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { CheckList } from "./CheckList";
 import { EditorTabs, useEditorView } from "./EditorTabs";
+import { StarterPicker } from "./StarterPicker";
+import { starterNamed } from "./starters";
 import { ToolPicker } from "./ToolPicker";
-import { NEW_WORKFLOW, fileName } from "./template";
+import { fileName } from "./template";
 import { useTextHistory } from "./history";
 import { YamlEditor, type YamlEditorHandle } from "./YamlEditor";
 
@@ -55,14 +57,14 @@ export function WorkflowPage({ workflowID, openVersion }: { workflowID: string; 
 }
 
 /** A workflow being written: the YAML, the canvas, what is wrong with it as you type, and saving it as a version. */
-export function WorkflowEditor({ existing, opened }: { existing?: WorkflowResponse; opened?: { number: number; specYAML: string } }) {
+export function WorkflowEditor({ existing, opened, start }: { existing?: WorkflowResponse; opened?: { number: number; specYAML: string }; start?: string }) {
   const id = useId();
   const client = useQueryClient();
   const navigate = useNavigate();
   const schema = useQuery(schemaQuery);
   const editor = useRef<YamlEditorHandle>(null);
   const runsOn = useRunsOn();
-  const { text, edit, replace, ...history } = useTextHistory(opened?.specYAML ?? existing?.version.specYAML ?? NEW_WORKFLOW);
+  const { text, edit, replace, ...history } = useTextHistory(opened?.specYAML ?? existing?.version.specYAML ?? starterNamed(start).yaml);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [warnings, setWarnings] = useState<Problem[]>([]);
   const [checking, setChecking] = useState(false);
@@ -70,6 +72,7 @@ export function WorkflowEditor({ existing, opened }: { existing?: WorkflowRespon
   const [running, setRunning] = useState(false);
   const [view, setView] = useEditorView();
   const [jump, setJump] = useState<{ line: number; column: number }>();
+  const [starter, setStarter] = useState(starterNamed(start).name);
   const summary = existing?.workflow;
   const readOnly = summary ? !summary.canEdit || summary.archived : false;
 
@@ -233,6 +236,17 @@ export function WorkflowEditor({ existing, opened }: { existing?: WorkflowRespon
         </section>
         {!readOnly && (
           <div className="flex flex-col gap-4">
+            {/* Beside the editor rather than above it, so the editor and its canvas keep their place on the page. */}
+            {!existing && (
+              <StarterPicker
+                selected={starter}
+                onPick={(picked) => {
+                  setStarter(picked.name);
+                  // An edit, not a replace, so undo brings back what was there before.
+                  edit(picked.yaml);
+                }}
+              />
+            )}
             <ToolPicker onInsert={(yaml) => editor.current?.insert(yaml)} />
           </div>
         )}

@@ -5,10 +5,11 @@ WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
-# The build reads ../VERSION and ../api/openapi.json, as it does in a checkout.
+# The build reads ../VERSION, ../api/openapi.json and ../examples (the starters), as it does in a checkout.
 FROM deps AS build
 COPY VERSION /src/VERSION
 COPY api/ /src/api/
+COPY examples/ /src/examples/
 COPY web/ ./
 RUN npm run build
 
