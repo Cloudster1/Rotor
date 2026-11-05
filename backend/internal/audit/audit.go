@@ -84,6 +84,12 @@ const (
 	ActionMemberAdmitted = "member.admitted"
 	ActionMemberDeclined = "member.declined"
 	ActionOIDCSaved      = "oidc.saved"
+	// ActionSkillCreated, ActionSkillChanged, ActionSkillArchived and ActionSkillRestored are the skill library's (#219);
+	// sharing a skill is role.granted and role.revoked naming it.
+	ActionSkillCreated  = "skill.created"
+	ActionSkillChanged  = "skill.changed"
+	ActionSkillArchived = "skill.archived"
+	ActionSkillRestored = "skill.restored"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
@@ -96,7 +102,8 @@ var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, Actio
 	ActionRetentionChanged, ActionRunDataDeleted, ActionOAuthGranted, ActionOAuthRevoked, ActionOAuthSwitched,
 	ActionUnattendedSwitched, ActionTriggerUnattendedWrite, ActionWorkspacesChanged, ActionRoleGranted, ActionRoleRevoked,
 	ActionRoleRemoved, ActionRoleDefined, ActionRoleRedefined, ActionGroupCreated, ActionGroupDeleted, ActionGroupMemberAdded,
-	ActionGroupMemberRemoved, ActionSwitchedOn, ActionMemberAdmitted, ActionMemberDeclined, ActionOIDCSaved}
+	ActionGroupMemberRemoved, ActionSwitchedOn, ActionMemberAdmitted, ActionMemberDeclined, ActionOIDCSaved,
+	ActionSkillCreated, ActionSkillChanged, ActionSkillArchived, ActionSkillRestored}
 
 // Redacted stands in the record for a value that looked like a credential.
 var Redacted = redact.Redacted

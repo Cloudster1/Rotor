@@ -24,7 +24,7 @@ func toUserView(u perm.User) userView {
 	}
 	for _, g := range u.Grants {
 		out.Grants = append(out.Grants, userGrantView{Role: string(g.Role), RoleName: g.RoleName, WorkflowID: idString(g.WorkflowID),
-			WorkflowName: g.WorkflowName, Group: g.Group})
+			WorkflowName: g.WorkflowName, SkillID: idString(g.SkillID), SkillName: g.SkillName, Group: g.Group})
 	}
 	return out
 }

@@ -25,6 +25,7 @@ type AccessAdmin interface {
 	RemoveFromGroup(ctx context.Context, groupID, userID, actor uuid.UUID) (*perm.Group, error)
 	ListAssignments(ctx context.Context, f perm.AssignmentFilter) (perm.AssignmentPage, error)
 	WorkflowAssignments(ctx context.Context, workflow uuid.UUID) ([]perm.Assignment, error)
+	SkillAssignments(ctx context.Context, skill uuid.UUID) ([]perm.Assignment, error)
 	Assignment(ctx context.Context, id uuid.UUID) (*perm.Assignment, error)
 	Grant(ctx context.Context, in perm.GrantInput, actor uuid.UUID) (uuid.UUID, error)
 	Revoke(ctx context.Context, id, actor uuid.UUID) error

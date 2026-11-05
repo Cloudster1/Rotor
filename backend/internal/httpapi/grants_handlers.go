@@ -28,7 +28,7 @@ func idString(id *uuid.UUID) *string {
 
 func toAssignmentView(a perm.Assignment) assignmentView {
 	return assignmentView{ID: a.ID.String(), Role: string(a.Role), RoleName: a.RoleName, WorkflowID: idString(a.WorkflowID),
-		WorkflowName: a.WorkflowName, UserID: idString(a.UserID), UserName: a.UserName, UserEmail: a.UserEmail,
+		WorkflowName: a.WorkflowName, SkillID: idString(a.SkillID), SkillName: a.SkillName, UserID: idString(a.UserID), UserName: a.UserName, UserEmail: a.UserEmail,
 		GroupID: idString(a.GroupID), GroupName: a.GroupName, GroupBuiltin: a.GroupBuiltin, CreatedAt: a.CreatedAt}
 }
 

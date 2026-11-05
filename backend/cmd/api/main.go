@@ -37,6 +37,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/retention"
 	"github.com/cloudster1/rotor/backend/internal/runnerctl"
 	"github.com/cloudster1/rotor/backend/internal/runs"
+	"github.com/cloudster1/rotor/backend/internal/skills"
 	"github.com/cloudster1/rotor/backend/internal/tools"
 	"github.com/cloudster1/rotor/backend/internal/triggers"
 	"github.com/cloudster1/rotor/backend/internal/usage"
@@ -200,6 +201,7 @@ func run() error {
 		}()
 	}
 	server.Workflows = workflowService
+	server.Skills = skills.NewService(cluster)
 	server.Audit = audit.NewService(cluster)
 	server.Retention = retention.NewService(cluster, log)
 	server.Workspaces = workspaceService

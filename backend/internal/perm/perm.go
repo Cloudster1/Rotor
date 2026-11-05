@@ -1,5 +1,5 @@
-// Package perm answers whether a person may do a thing, over the installation or on one workflow, from the roles
-// granted to them and their groups; row level security asks the same grants through actor_can().
+// Package perm answers whether a person may do a thing, over the installation or on one workflow or skill, from the
+// roles granted to them and their groups; row level security asks the same grants through actor_can().
 package perm
 
 import (
@@ -20,12 +20,18 @@ const (
 	Editor Role = "editor"
 	// Runner sees one workflow and starts runs of it.
 	Runner Role = "runner"
-	// Author creates workflows of their own; Everyone holds it, so anyone who signs in may.
+	// Author creates workflows and skills of their own; Everyone holds it, so anyone who signs in may.
 	Author Role = "author"
+	// SkillAdministrator saves, shares and archives one skill; whoever creates a skill holds it there (#219).
+	SkillAdministrator Role = "skill_administrator"
+	// SkillEditor saves new versions of one skill.
+	SkillEditor Role = "skill_editor"
+	// SkillReader reads one skill, which lets their workflows' agents use it.
+	SkillReader Role = "skill_reader"
 )
 
 // Roles are listed most powerful first, which is the order they should be offered in and a listing reads best in.
-var Roles = []Role{Administrator, WorkflowAdministrator, Editor, Runner, Author}
+var Roles = []Role{Administrator, WorkflowAdministrator, Editor, Runner, Author, SkillAdministrator, SkillEditor, SkillReader}
 
 // Valid reports whether the role is one of the built-in ones.
 func (r Role) Valid() bool { return slices.Contains(Roles, r) }
@@ -49,6 +55,14 @@ const (
 	WorkflowAdminister Permission = "workflow.administer"
 	// WorkflowCreate is making a new workflow, which is an installation-wide act.
 	WorkflowCreate Permission = "workflow.create"
+	// SkillRead is reading a skill, its versions and files, and so giving it to an agent (#219).
+	SkillRead Permission = "skill.read"
+	// SkillEdit is saving new versions of a skill.
+	SkillEdit Permission = "skill.edit"
+	// SkillAdminister is granting roles on a skill, archiving and restoring it.
+	SkillAdminister Permission = "skill.administer"
+	// SkillCreate is making a new skill, which is an installation-wide act.
+	SkillCreate Permission = "skill.create"
 	// RotorAdminister is the installation's own settings: tools, providers, limits, the audit log and everyone's grants.
 	RotorAdminister Permission = "rotor.administer"
 )
@@ -60,7 +74,10 @@ var grants = map[Role][]Permission{
 	WorkflowAdministrator: {WorkflowRead, WorkflowRun, WorkflowEdit, WorkflowAdminister},
 	Editor:                {WorkflowRead, WorkflowRun, WorkflowEdit},
 	Runner:                {WorkflowRead, WorkflowRun},
-	Author:                {WorkflowCreate},
+	Author:                {WorkflowCreate, SkillCreate},
+	SkillAdministrator:    {SkillRead, SkillEdit, SkillAdminister},
+	SkillEditor:           {SkillRead, SkillEdit},
+	SkillReader:           {SkillRead},
 }
 
 // Allows reports whether a built-in role grants a permission.
@@ -69,14 +86,15 @@ func (r Role) Allows(p Permission) bool { return slices.Contains(grants[r], p) }
 // Permissions lists what a built-in role grants, for a page that has to explain itself.
 func (r Role) Permissions() []Permission { return slices.Clone(grants[r]) }
 
-// Grant is one role held over one scope; a nil Workflow is the whole installation, including workflows made after.
+// Grant is one role held over one scope: a workflow, a skill, or with neither the whole installation.
 type Grant struct {
 	Role     Role
 	Workflow uuid.UUID
+	Skill    uuid.UUID
 }
 
 // Installation reports whether the grant answers for the whole installation.
-func (g Grant) Installation() bool { return g.Workflow == uuid.Nil }
+func (g Grant) Installation() bool { return g.Workflow == uuid.Nil && g.Skill == uuid.Nil }
 
 // Set is everything one person may do. It is resolved once per request and carried on the principal, so a handler
 // asks a question of memory rather than of the database.
@@ -85,6 +103,7 @@ type Set struct {
 	// stops a workflow grant leaking.
 	installation map[Permission]bool
 	byWorkflow   map[uuid.UUID]map[Permission]bool
+	bySkill      map[uuid.UUID]map[Permission]bool
 	roles        []Grant
 }
 
@@ -95,17 +114,21 @@ func NewSet(grants []Grant) Set {
 
 // NewSetWith is NewSet over the installation's own roles. A grant of a role the definitions do not name grants nothing.
 func NewSetWith(grants []Grant, defs Definitions) Set {
-	s := Set{installation: map[Permission]bool{}, byWorkflow: map[uuid.UUID]map[Permission]bool{}, roles: slices.Clone(grants)}
+	s := Set{installation: map[Permission]bool{}, byWorkflow: map[uuid.UUID]map[Permission]bool{},
+		bySkill: map[uuid.UUID]map[Permission]bool{}, roles: slices.Clone(grants)}
 	for _, g := range grants {
 		perms, ok := defs[g.Role]
 		if !ok {
 			continue
 		}
 		for _, p := range perms {
-			if g.Installation() {
+			switch {
+			case g.Installation():
 				s.installation[p] = true
-			} else {
-				s.allow(g.Workflow, p)
+			case g.Skill != uuid.Nil:
+				allow(s.bySkill, g.Skill, p)
+			default:
+				allow(s.byWorkflow, g.Workflow, p)
 			}
 		}
 	}
@@ -124,9 +147,14 @@ func (s Set) InstallationPermissions() []Permission {
 }
 
 // WorkflowPermissions lists what is held on each workflow named explicitly.
-func (s Set) WorkflowPermissions() map[uuid.UUID][]Permission {
+func (s Set) WorkflowPermissions() map[uuid.UUID][]Permission { return listed(s.byWorkflow) }
+
+// SkillPermissions lists what is held on each skill named explicitly.
+func (s Set) SkillPermissions() map[uuid.UUID][]Permission { return listed(s.bySkill) }
+
+func listed(scoped map[uuid.UUID]map[Permission]bool) map[uuid.UUID][]Permission {
 	out := map[uuid.UUID][]Permission{}
-	for id, here := range s.byWorkflow {
+	for id, here := range scoped {
 		list := []Permission{}
 		for _, p := range AllPermissions {
 			if here[p] {
@@ -153,22 +181,31 @@ func (s Set) Can(p Permission, workflow uuid.UUID) bool {
 	return s.byWorkflow[workflow][p]
 }
 
+// CanSkill reports whether the permission is held on one skill, from an installation-wide grant or one made there.
+func (s Set) CanSkill(p Permission, skill uuid.UUID) bool {
+	return s.installation[p] || s.bySkill[skill][p]
+}
+
 // CanSomewhere reports whether the permission is held anywhere at all. It answers "should this be offered at all",
 // never "may they do it here", which only Can answers.
 func (s Set) CanSomewhere(p Permission) bool {
 	if s.installation[p] {
 		return true
 	}
-	for _, here := range s.byWorkflow {
-		if here[p] {
-			return true
+	for _, scoped := range []map[uuid.UUID]map[Permission]bool{s.byWorkflow, s.bySkill} {
+		for _, here := range scoped {
+			if here[p] {
+				return true
+			}
 		}
 	}
 	return false
 }
 
 // Empty reports whether the set grants nothing at all, which is what somebody with no roles holds.
-func (s Set) Empty() bool { return len(s.installation) == 0 && len(s.byWorkflow) == 0 }
+func (s Set) Empty() bool {
+	return len(s.installation) == 0 && len(s.byWorkflow) == 0 && len(s.bySkill) == 0
+}
 
 // Workflows lists the workflows this set names explicitly, sorted.
 func (s Set) Workflows() []uuid.UUID {
@@ -180,12 +217,12 @@ func (s Set) Workflows() []uuid.UUID {
 	return out
 }
 
-// allow records one permission on one workflow, making the inner map on demand.
-func (s Set) allow(workflow uuid.UUID, p Permission) {
-	here, ok := s.byWorkflow[workflow]
+// allow records one permission on one workflow or skill, making the inner map on demand.
+func allow(scoped map[uuid.UUID]map[Permission]bool, id uuid.UUID, p Permission) {
+	here, ok := scoped[id]
 	if !ok {
 		here = map[Permission]bool{}
-		s.byWorkflow[workflow] = here
+		scoped[id] = here
 	}
 	here[p] = true
 }

@@ -190,6 +190,51 @@ and `skill.installed` (a built-in version the api added, #225).
 | `skill_too_large` | the path, or `-` | a file or the version is over its limit |
 | `skill_too_many_files` | `-` | more than `MaxSkillFiles` files |
 
+### As built (#219)
+
+- **Migrations:** 01400 makes the tables, the numbering trigger and the fixed
+  name, owner and `builtin` (`skill_fixed`); 01410 adds the permissions, the
+  roles (keys `skill_administrator`, `skill_editor`, `skill_reader`),
+  `role_assignment.skill_id`, `actor_can_skill()`, `skill_change_guard` and
+  the policies. `actor_can()` now passes over grants on a skill, so a role
+  granted on one skill never answers for a workflow or the installation,
+  whatever words it holds; Author's and Administrator's lists gain the skill
+  words rather than being rewritten, since an administrator may have edited
+  them.
+- **A version's files are written with it:** `rotor_app` adds a file only in
+  the transaction that wrote its version, as that version's author. A skill
+  in the archive is refused a save by the service (409 `skill_archived`), not
+  by the database, as a workflow is.
+- **422 answers carry the problems:** the error envelope gains `problems`,
+  each with its `code` and `path`, beside `fields` keyed by path; the code of
+  the refusal is `skill_invalid`. A comment over 500 characters is
+  `comment_too_long` at `-`, as for workflows.
+- **`POST /skills/validate`** checks what the files alone tell; whether
+  another skill has the name is answered by the save
+  (`skill_name_taken`), and only a save knows the skill whose name must not
+  change (`skill_name_changed`).
+- **Front matter** keeps every key as written, not only the ones listed;
+  `metadata` with a value that is not text is `skill_front_matter`, asking
+  for it to be quoted. Line endings may be `\r\n`.
+- **The hash** is sha256 over the files sorted by path, each written as its
+  path, a NUL byte, its content and a NUL byte; neither holds a NUL, so no
+  two sets of files read the same. #225 hashes shipped skills the same way.
+- **Responses:** a skill's `owner` and a version's `createdBy` are null for
+  a built-in skill; a version also answers its `description` and `bytes`.
+  `POST /skills` takes `{files, comment}` alone and `PUT` requires
+  `baseVersion`.
+- **Grants:** a role granted on a skill must give something there (one of
+  `skill.read`, `skill.edit`, `skill.administer`), or it is refused with 422
+  `wrong_scope`; a role over the whole installation is refused as on a
+  workflow. A grant on a built-in skill is refused by `role_assignment_guard`
+  to everyone. `role.granted` and `role.revoked` name the skill as `skill`.
+  Grants on skills show on `GET /access/me` (`skillId`, and
+  `permissions.skills`), on Admin's grants and Users pages (`skillId`,
+  `skillName`), and holding `skill.administer` anywhere lets a person look
+  up people and groups to grant to.
+- **The line diff** moved from `internal/workflows` to `internal/textdiff`,
+  which workflows and skills share.
+
 ## Agent nodes name their skills (#221)
 
 ```yaml

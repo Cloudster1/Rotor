@@ -1174,7 +1174,7 @@ export interface paths {
         put?: never;
         /**
          * Make a skill from its files; its SKILL.md names it, and the first save is version 1.
-         * @description For whoever holds skill.create. A file the checks refuse answers 422 with the problems.
+         * @description For whoever holds skill.create. Files the checks refuse answer 422 with the problems, each with its code.
          */
         post: operations["createSkill"];
         delete?: never;
@@ -1212,7 +1212,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Check a skill's files as a save would, without saving, and answer the problems. */
+        /**
+         * Check a skill's files as a save would, without saving, and answer the problems.
+         * @description What the files alone tell: whether another skill has the name is answered by the save.
+         */
         post: operations["validateSkill"];
         delete?: never;
         options?: never;
@@ -1237,7 +1240,7 @@ export interface paths {
         post?: never;
         /**
          * Archive a skill; its versions stay for the workflows that pin them.
-         * @description For whoever holds skill.administer on it. Skills are archived, never deleted.
+         * @description For whoever holds skill.administer on it. Skills are archived, never deleted; a built-in one is refused with 403.
          */
         delete: operations["archiveSkill"];
         options?: never;
@@ -1945,14 +1948,19 @@ export interface components {
                 [key: string]: string;
             };
             message: string;
+            problems?: components["schemas"]["Problem"][];
             requestId?: string;
         };
         AccessGrant: {
             role: string;
+            skillId?: string;
             workflowId?: string;
         };
         AccessPermissions: {
             installation: string[];
+            skills: {
+                [key: string]: string[];
+            };
             workflows: {
                 [key: string]: string[];
             };
@@ -2058,6 +2066,8 @@ export interface components {
             id: string;
             role: string;
             roleName: string;
+            skillId?: string;
+            skillName?: string;
             userEmail?: string;
             userId?: string;
             userName?: string;
@@ -2156,6 +2166,10 @@ export interface components {
             key?: string;
             name: string;
             permissions: string[];
+        };
+        CreateSkillRequest: {
+            comment?: string;
+            files: components["schemas"]["SkillFileBody"][];
         };
         DecisionRequest: {
             comment?: string;
@@ -2661,7 +2675,7 @@ export interface components {
             issuer: string;
         };
         SaveSkillRequest: {
-            baseVersion?: number;
+            baseVersion: number;
             comment?: string;
             files: components["schemas"]["SkillFileBody"][];
         };
@@ -2725,7 +2739,8 @@ export interface components {
         SkillFileDiff: {
             hunks: components["schemas"]["DiffHunk"][];
             path: string;
-            status: string;
+            /** @enum {string} */
+            status: "added" | "removed" | "changed";
         };
         SkillFileResponse: {
             bytes: number;
@@ -2752,15 +2767,17 @@ export interface components {
             description: string;
             id: string;
             name: string;
-            owner: components["schemas"]["PersonRef"];
+            owner: components["schemas"]["PersonRef"] | null;
             /** Format: date-time */
             updatedAt: string;
         };
         SkillVersionResponse: {
+            bytes: number;
             comment: string;
             /** Format: date-time */
             createdAt: string;
-            createdBy: components["schemas"]["PersonRef"];
+            createdBy: components["schemas"]["PersonRef"] | null;
+            description: string;
             files: components["schemas"]["SkillFile"][];
             frontMatter: {
                 [key: string]: unknown;
@@ -2769,10 +2786,12 @@ export interface components {
             number: number;
         };
         SkillVersionSummary: {
+            bytes: number;
             comment: string;
             /** Format: date-time */
             createdAt: string;
-            createdBy: components["schemas"]["PersonRef"];
+            createdBy: components["schemas"]["PersonRef"] | null;
+            description: string;
             hash: string;
             number: number;
         };
@@ -2895,6 +2914,8 @@ export interface components {
             group?: string;
             role: string;
             roleName: string;
+            skillId?: string;
+            skillName?: string;
             workflowId?: string;
             workflowName?: string;
         };
@@ -6515,15 +6536,6 @@ export interface operations {
                     "application/json": components["schemas"]["SkillList"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
                 headers: {
@@ -6544,7 +6556,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SaveSkillRequest"];
+                "application/json": components["schemas"]["CreateSkillRequest"];
             };
         };
         responses: {
@@ -6557,8 +6569,8 @@ export interface operations {
                     "application/json": components["schemas"]["SkillResponse"];
                 };
             };
-            /** @description Unprocessable Entity */
-            422: {
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6566,8 +6578,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
+            /** @description Unprocessable Entity */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6658,15 +6670,6 @@ export interface operations {
                     "application/json": components["schemas"]["ValidateSkillResponse"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
                 headers: {
@@ -6700,15 +6703,6 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6787,15 +6781,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
                 headers: {
@@ -6836,15 +6821,6 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6897,8 +6873,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
+            /** @description Unprocessable Entity */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6941,15 +6917,6 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7021,15 +6988,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
                 headers: {
@@ -7071,15 +7029,6 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7136,15 +7085,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
                 headers: {
@@ -7187,15 +7127,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
                 headers: {
@@ -7230,15 +7161,6 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7338,8 +7260,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
+            /** @description Unprocessable Entity */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

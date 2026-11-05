@@ -194,42 +194,57 @@ func TestEveryPermissionHasWordsForTheMatrix(t *testing.T) {
 }
 
 // The database's CHECK constraint and seeded roles are the catalogue here: a permission the code checks for that the
-// table refuses, or a built-in seeded otherwise, would make the two disagree.
+// table refuses, or a built-in seeded otherwise, would make the two disagree. Later migrations restate the constraint,
+// seed more roles and add permissions to seeded ones, so the catalogue is every migration's Up, in order.
 func TestTheDatabaseHoldsTheSameCatalogue(t *testing.T) {
-	source := migrationText(t, "access_grants")
-	known := regexp.MustCompile(`role_known_permissions CHECK \(\s*permissions <@ ARRAY\[([^\]]*)\]`).FindStringSubmatch(source)
-	if known == nil {
-		t.Fatal("the migration holds no role_known_permissions constraint")
+	source := migrationsUp(t)
+	all := regexp.MustCompile(`role_known_permissions CHECK \(\s*permissions <@ ARRAY\[([^\]]*)\]`).FindAllStringSubmatch(source, -1)
+	if all == nil {
+		t.Fatal("no migration holds a role_known_permissions constraint")
 	}
-	if got := quoted(known[1]); !slices.Equal(got, words(AllPermissions)) {
+	if got := quoted(all[len(all)-1][1]); !slices.Equal(got, words(AllPermissions)) {
 		t.Errorf("the database knows %v, the code %v", got, words(AllPermissions))
 	}
 	for _, d := range Builtins() {
 		row := regexp.MustCompile(`\('` + string(d.Key) + `', '([^']*)',\s*'((?:[^']|'')*)',\s*(true|false), ARRAY\[([^\]]*)\]`).FindStringSubmatch(source)
 		if row == nil {
-			t.Errorf("the migration does not seed %s", d.Key)
+			t.Errorf("no migration seeds %s", d.Key)
 			continue
 		}
 		if row[1] != d.Name || row[2] != strings.ReplaceAll(d.Description, "'", "''") || (row[3] == "true") != d.InstallationWideOnly {
 			t.Errorf("%s is seeded as %q, %q, %s", d.Key, row[1], row[2], row[3])
 		}
-		if got := quoted(row[4]); !slices.Equal(got, words(d.Permissions)) {
-			t.Errorf("%s is seeded with %v, the code grants %v", d.Key, got, words(d.Permissions))
+		seeded := quoted(row[4])
+		added := regexp.MustCompile(`UPDATE role SET permissions = permissions \|\| ARRAY\[([^\]]*)\]::text\[\]\s*WHERE key = '`+
+			string(d.Key)+`'`).FindAllStringSubmatch(source, -1)
+		for _, more := range added {
+			seeded = append(seeded, quoted(more[1])...)
+		}
+		got, want := slices.Sorted(slices.Values(seeded)), slices.Sorted(slices.Values(words(d.Permissions)))
+		if !slices.Equal(got, want) {
+			t.Errorf("%s is seeded with %v, the code grants %v", d.Key, got, want)
 		}
 	}
 }
 
-func migrationText(t *testing.T, named string) string {
+// migrationsUp is the Up half of every migration, in the order they run.
+func migrationsUp(t *testing.T) string {
 	t.Helper()
-	files, err := fs.Glob(migrations.FS, "*_"+named+"*.sql")
-	if err != nil || len(files) != 1 {
-		t.Fatalf("want one migration named %s, found %v (%v)", named, files, err)
+	files, err := fs.Glob(migrations.FS, "*.sql")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no migrations found (%v)", err)
 	}
-	text, err := fs.ReadFile(migrations.FS, files[0])
-	if err != nil {
-		t.Fatal(err)
+	slices.Sort(files)
+	var out strings.Builder
+	for _, name := range files {
+		text, err := fs.ReadFile(migrations.FS, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		up, _, _ := strings.Cut(string(text), "-- +goose Down")
+		out.WriteString(up)
 	}
-	return string(text)
+	return out.String()
 }
 
 func quoted(list string) []string {
@@ -246,4 +261,40 @@ func words(perms []Permission) []string {
 		out = append(out, string(p))
 	}
 	return out
+}
+
+func onSkill(role Role, id uuid.UUID) Grant { return Grant{Role: role, Skill: id} }
+
+// A grant on a skill answers there alone: never for another skill, a workflow, or the installation.
+func TestASkillGrantDoesNotLeak(t *testing.T) {
+	set := NewSet([]Grant{onSkill(SkillEditor, here)})
+	if !set.CanSkill(SkillEdit, here) || !set.CanSkill(SkillRead, here) || set.CanSkill(SkillAdminister, here) {
+		t.Error("Skill editor on a skill does not read and edit it alone")
+	}
+	if set.CanSkill(SkillRead, elsewhere) || set.CanInstallation(SkillRead) || set.Can(WorkflowRead, here) {
+		t.Error("a grant over one skill answered for another skill, the installation or a workflow")
+	}
+	if !set.CanSomewhere(SkillEdit) || set.Empty() {
+		t.Error("somebody who edits a skill is not offered editing")
+	}
+	if got := set.SkillPermissions()[here]; len(got) != 2 {
+		t.Errorf("the skill's permissions are %v", got)
+	}
+}
+
+func TestEverySkillRoleReadsAndOnlyItsAdministratorShares(t *testing.T) {
+	for _, role := range []Role{SkillAdministrator, SkillEditor, SkillReader} {
+		if !role.Allows(SkillRead) || role.InstallationWideOnly() || role.Allows(SkillCreate) {
+			t.Errorf("%s does not read one skill, or reaches past it", role)
+		}
+		if role.Allows(SkillAdminister) != (role == SkillAdministrator) {
+			t.Errorf("%s administers %v", role, role.Allows(SkillAdminister))
+		}
+	}
+	if !Author.Allows(SkillCreate) || !Administrator.Allows(SkillAdminister) {
+		t.Error("an author does not create skills, or the administrator does not administer them")
+	}
+	if !NewSet([]Grant{installationWide(Administrator)}).CanSkill(SkillEdit, uuid.New()) {
+		t.Error("the administrator does not edit every skill")
+	}
 }

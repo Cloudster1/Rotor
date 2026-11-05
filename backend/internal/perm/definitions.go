@@ -35,6 +35,9 @@ var builtinWords = map[Role][2]string{
 	Editor:                {"Editor", "Saves new versions of one workflow and runs it."},
 	Runner:                {"Runner", "Sees one workflow and starts runs of it."},
 	Author:                {"Author", "Creates workflows of their own."},
+	SkillAdministrator:    {"Skill administrator", "Saves new versions of one skill, shares it and archives it."},
+	SkillEditor:           {"Skill editor", "Saves new versions of one skill."},
+	SkillReader:           {"Skill reader", "Reads one skill and its versions, and gives it to the agents of their workflows."},
 }
 
 // Builtins are the roles every installation starts with. NewSet without definitions reads from here, which is what a
@@ -61,7 +64,8 @@ func builtinDefinitions() Definitions {
 // AllPermissions is every permission the code checks for, in the order the matrix lists them. The database's
 // role_known_permissions constraint holds the same list.
 var AllPermissions = []Permission{
-	WorkflowRead, WorkflowRun, WorkflowEdit, WorkflowAdminister, WorkflowCreate, RotorAdminister,
+	WorkflowRead, WorkflowRun, WorkflowEdit, WorkflowAdminister, WorkflowCreate,
+	SkillRead, SkillEdit, SkillAdminister, SkillCreate, RotorAdminister,
 }
 
 // PermissionWords says what each permission lets somebody do, for a matrix that people read rather than parse.
@@ -71,6 +75,10 @@ var PermissionWords = map[Permission]string{
 	WorkflowEdit:       "Save new versions of a workflow",
 	WorkflowAdminister: "Share and archive a workflow, and see and cancel everyone's runs of it",
 	WorkflowCreate:     "Create workflows",
+	SkillRead:          "Read a skill and its versions, and give it to agents",
+	SkillEdit:          "Save new versions of a skill",
+	SkillAdminister:    "Share and archive a skill",
+	SkillCreate:        "Create skills",
 	RotorAdminister:    "Administer Rotor",
 }
 
