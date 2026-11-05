@@ -100,11 +100,13 @@ nodes:
     type: router
     on: nodes.gather.verdict
     cases: { go: analyse, stop: done }
-  # Decides from what gather read alone; it has no tool, so nothing the story says can make it write.
+  # Decides from what gather read alone; its one tool reads its skill, so nothing the story says can make it write.
   - id: analyse
     type: agent
+    skills: [{ name: requirements-engineering, version: 1 }]
     prompt: |
       You refine a user story so a team can plan it and a requirements engineer can write its requirements.
+      Load the requirements-engineering skill when its method helps, for stories and acceptance criteria above all.
 
       The story: {{ nodes.gather.story }}
       Its conversation so far, oldest first; fromRotor marks what Rotor posted: {{ nodes.gather.conversation }}

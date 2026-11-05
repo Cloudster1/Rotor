@@ -424,6 +424,7 @@ with every problem it found listed, so an operator fixes them in one go.
 | `deploy/` | compose stack, Dockerfiles, realm, OpenBao setup, the suite's Exciter and Armature, and the Helm chart |
 | `mk/`, `run-tests.sh`, `tests/`, `scripts/` | the toolchains in containers, the gate and its own tests |
 | `examples/` | the workflows Rotor ships, the single source of the editor's "Start from" list (#214) |
+| `skills/` | the skills Rotor ships, which the api installs as built-ins at every start (#225) |
 
 </details>
 

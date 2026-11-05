@@ -92,6 +92,8 @@ const (
 	ActionSkillRestored = "skill.restored"
 	// ActionSkillImported is a zip that made a skill or saved its next version (#220), beside skill.created or skill.changed.
 	ActionSkillImported = "skill.imported"
+	// ActionSkillInstalled is a version of a skill Rotor ships, which the api added at its start (#225).
+	ActionSkillInstalled = "skill.installed"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
@@ -105,7 +107,8 @@ var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, Actio
 	ActionUnattendedSwitched, ActionTriggerUnattendedWrite, ActionWorkspacesChanged, ActionRoleGranted, ActionRoleRevoked,
 	ActionRoleRemoved, ActionRoleDefined, ActionRoleRedefined, ActionGroupCreated, ActionGroupDeleted, ActionGroupMemberAdded,
 	ActionGroupMemberRemoved, ActionSwitchedOn, ActionMemberAdmitted, ActionMemberDeclined, ActionOIDCSaved,
-	ActionSkillCreated, ActionSkillChanged, ActionSkillArchived, ActionSkillRestored, ActionSkillImported}
+	ActionSkillCreated, ActionSkillChanged, ActionSkillArchived, ActionSkillRestored, ActionSkillImported,
+	ActionSkillInstalled}
 
 // Redacted stands in the record for a value that looked like a credential.
 var Redacted = redact.Redacted

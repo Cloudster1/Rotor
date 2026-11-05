@@ -126,10 +126,12 @@ nodes:
     maxVisits: 3
     onExhausted: design-decide
     tools: [exciter-read]
+    skills: [{ name: test-engineering, version: 1 }]
     role: |
       You are a test designer. You write test specifications and test cases that a person or an automated test can
       check step by step, and every requirement you are given is verified by at least one of your cases. You keep a
-      test case that still fits, and you never invent a requirement.
+      test case that still fits, and you never invent a requirement. You load the test-engineering skill when its
+      method or templates help.
     prompt: |
       Write the test specification of the feature {{ inputs.featureKey }} and the test cases its changes need.
 
@@ -169,9 +171,11 @@ nodes:
     type: agent
     model: { name: claude-sonnet-5-5 }
     maxSteps: 20
+    skills: [{ name: test-engineering, version: 1 }]
     role: |
       You are a test reviewer. You approve a test design only when every changed requirement is verified by a case,
       and every case can be checked: clear preconditions, concrete actions and expected results someone can observe.
+      You load the test-engineering skill when its review checklist helps.
     prompt: |
       Review this test design of the feature {{ inputs.featureKey }}.
 

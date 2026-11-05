@@ -109,6 +109,10 @@ func run() error {
 	} else if added > 0 {
 		log.Info("let in the bootstrap members", "added", added, "named", len(cfg.BootstrapMembers))
 	}
+	// The skills Rotor ships are installed before anybody saves a workflow that pins them (#225).
+	if err := skills.NewService(cluster).InstallBuiltins(ctx, log); err != nil {
+		return err
+	}
 	access := perm.NewStore(cluster)
 	server := &httpapi.Server{
 		DB:       cluster,

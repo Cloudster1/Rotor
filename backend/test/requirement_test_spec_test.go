@@ -45,10 +45,11 @@ func TestAFeaturesTestCasesAreDesignedReviewedAndFiled(t *testing.T) {
 		"design-review": {changes("Name the currency in the expected result."), submit(map[string]any{"verdict": "approve", "findings": []string{}}),
 			changes("Say how much is refunded."), changes("Say how much is refunded."), changes("Say how much is refunded.")},
 	}
-	providers := map[string]string{}
+	providers, models := map[string]string{}, map[string]*toolStub{}
 	for agent, script := range scripts {
 		key := "llm-key-" + uuid.NewString()
-		providers[agent] = addProvider(t, alice, newToolStub(t, map[string]any{"llmKey": key, "llmScript": script}), key)["name"].(string)
+		models[agent] = newToolStub(t, map[string]any{"llmKey": key, "llmScript": script})
+		providers[agent] = addProvider(t, alice, models[agent], key)["name"].(string)
 	}
 
 	exciterName := "exciter-" + uuid.NewString()[:8]
@@ -96,6 +97,9 @@ func TestAFeaturesTestCasesAreDesignedReviewedAndFiled(t *testing.T) {
 	// First run: the reviewer asks for one change, approves the second draft, and the cases are filed.
 	output := succeeded(start())
 	checkTestCasesFiled(t, exciter)
+	for _, agent := range []string{"design", "design-review"} {
+		offeredShippedSkill(t, models[agent], 0, "test-engineering")
+	}
 	if suspect := suspectOf("RTR-2"); len(suspect) != 0 {
 		t.Errorf("RTR-2's verifies link is still suspect: %v", suspect)
 	}

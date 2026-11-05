@@ -565,6 +565,55 @@ Zips are not tools; `get_skill_file` reads each file instead.
   `requirements-engineering`; `requirement-to-test-spec` gives its designer
   and reviewer `test-engineering`; each pinned to the version shipped.
 
+### As built (#225)
+
+- **No migration:** #219's tables and numbering trigger were enough, so
+  01420-01429 stay unused.
+- **The source and the copy:** `skills/requirements-engineering/` and
+  `skills/test-engineering/` hold each a `SKILL.md` and
+  `references/templates.md`, copied from the repository owner's own skills
+  with `license: Apache-2.0` and `metadata.version: "1"` added, and the
+  adjacent skills Rotor does not ship (`system-architecture`,
+  `software-architecture`) named as architecture work for which Rotor ships no
+  skill. `make skills-builtin` (in `mk/workflow.mk`, beside
+  `workflow-schema`) replaces `backend/internal/skills/builtin/` with a copy
+  of `skills/`, which `//go:embed` takes in; a unit test refuses a copy that
+  differs either way.
+- **Held to the library's rules:** `skills.Builtins()` reads each folder of
+  the copy through `Check`, as a save would, and hashes it with the library's
+  `Hash`. A shipped skill must also be named as its folder and declare
+  `metadata.version` as a whole number from 1; otherwise the api does not
+  start.
+- **Installing:** after the bootstrap members are let in and before the api
+  serves, one `rotor_admin` transaction takes the advisory lock
+  `hashtextextended('rotor.skills.builtin', 0)`, so replicas starting
+  together take turns and the later ones find the work done. For each shipped
+  skill it makes the skill when missing (`builtin`, no owner;
+  `ON CONFLICT ON CONSTRAINT skill_name_unique DO NOTHING`), then compares the
+  declared version: missing, it is added with its files in that transaction,
+  with the comment "Shipped with Rotor." and no author, and audited as
+  `skill.installed` with `{name, version}` and no actor; present with the same
+  hash, nothing happens; present with another hash, the start stops with
+  "a shipped skill changed without a new metadata.version: version N of X is
+  installed with other files; give the shipped skill X a new
+  metadata.version, or put version N back as it shipped". A declared version
+  below the current one that was never installed, as when an older Rotor
+  starts after a newer one, is left out, since the trigger would refuse it.
+- **A name a person took first:** a skill somebody made under a shipped name
+  before the upgrade stays theirs. The api leaves it alone and logs a warning
+  rather than stopping, since a skill cannot be renamed or deleted and the
+  operator could not otherwise start Rotor; the default workflows pinning the
+  name then meet that skill's own versions and grants.
+- **The default workflows** pin `requirements-engineering` version 1 on the
+  `analyse` agent of `story-refinement` and `story-to-requirements`, and
+  `test-engineering` version 1 on `design` and `design-review` of
+  `requirement-to-test-spec`; each prompt or role says to load the skill when
+  it helps. The scripted turns of their integration tests are unchanged; the
+  tests check that each agent's first request lists the skill and offers
+  `read_skill`.
+- **Audit:** `skill.installed` joins `audit.Actions`, labelled "Built-in skill
+  installed" in the web app.
+
 ## Problems and warnings
 
 | Code | Path | Issue |

@@ -513,6 +513,15 @@ to its section below. Choosing one puts its YAML in the editor, and undo takes i
 save, and saving checks it like any workflow, so a tool it binds must be connected first. `/workflows/new?start=<name>`
 opens the editor with that workflow, and an unknown name opens the blank one.
 
+Three of them pin a skill Rotor ships (#225), which their agents load when its method helps
+([`skills.md`](skills.md#skills-rotor-ships)):
+
+| Workflow | Agent | Skill |
+|---|---|---|
+| `story-refinement` | `analyse` | `requirements-engineering` version 1 |
+| `story-to-requirements` | `analyse` | `requirements-engineering` version 1 |
+| `requirement-to-test-spec` | `design`, `design-review` | `test-engineering` version 1 |
+
 ### Clarify a story, then write its requirements
 
 [`story-to-requirements.yaml`](../examples/story-to-requirements.yaml) (#130)
@@ -523,9 +532,9 @@ conversation on the ticket. A trigger on Armature's `issue.created` and
    requirements Rotor filed for it before. It ends the run unless the issue
    is a Story, and, on a comment, unless the comment answers the questions
    Rotor asked last.
-2. **Analyse**, an agent with no tools, reads what gather found and answers
-   either questions or the requirements to create or update. Nothing the
-   story says can make it write.
+2. **Analyse**, an agent whose one tool reads the `requirements-engineering`
+   skill, reads what gather found and answers either questions or the
+   requirements to create or update. Nothing the story says can make it write.
 3. With questions, a code node posts them as one comment headed
    **Questions from Rotor**, and the run ends. The answer starts the next run.
 4. Otherwise a code node writes the requirements in the trigger's Exciter
@@ -554,8 +563,8 @@ trigger's owner:
    refined the story before. Any comment headed "... from Rotor" is Rotor's,
    so the comments of story-to-requirements answer nothing here, and the
    other way round.
-2. **Analyse**, an agent with no tools, checks the story for a real role and
-   benefit, unmeasurable words, hidden design, missing error, boundary and
+2. **Analyse**, an agent whose one tool reads the `requirements-engineering`
+   skill, checks the story for a real role and benefit, unmeasurable words, hidden design, missing error, boundary and
    permission behaviour, and its size. It answers either questions or a
    refinement.
 3. With questions, a code node posts them as one comment headed
@@ -641,7 +650,8 @@ section test cases go under:
 2. **Test design**, at most three rounds, as in `implement-feature.yaml`: a
    test designer drafts the specification (levels, techniques, risks and what
    is not covered) and the cases the changed requirements need, a test
-   reviewer approves or names what to change, and after the third draft a
+   reviewer approves or names what to change, both with the
+   `test-engineering` skill, and after the third draft a
    person decides whether to file it as it is.
 3. **File**, a code node, creates or updates the cases as test case
    requirements under the test section, links each to the requirements it
