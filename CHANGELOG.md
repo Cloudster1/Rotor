@@ -9,6 +9,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Agents load their skills during a run (#222). An agent's instructions list
+  each skill it was given, by name, version and description, and the new
+  built-in tool `read_skill` reads a skill's `SKILL.md` or another of its
+  files when the agent decides to, 64 KiB at a time. What it reads is followed
+  as the workflow's own instruction rather than fenced as data, and is
+  answered only for a version the run's workflow pins and while the run's
+  person may still read the skill. Each read shows in the run's timeline and
+  is recorded as a `skill.read` event, without the text.
 - An agent node names the skills it may follow, each pinned to a version
   (#221), and `not_built` no longer refuses them. Saving a workflow, and the
   editor's check as you type, refuses a skill you may not read as if there

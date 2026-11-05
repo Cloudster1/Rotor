@@ -74,6 +74,15 @@ describe("a run's timeline", () => {
     ]);
     expect(lines).toMatchObject([{ kind: "links", node: "draft", where: "output", count: 2, hosts: ["evil.example"] }]);
   });
+
+  it("says which skill file an agent read, each read its own line (#222)", () => {
+    const read = { node: "draft", skill: "requirements-engineering", version: 2, path: "SKILL.md", offset: 0, bytes: 812 };
+    const lines = entries([event("skill.read", "draft", read), event("skill.read", "draft", { ...read, offset: 812, bytes: 40 })]);
+    expect(lines).toMatchObject([
+      { kind: "skill", node: "draft", skill: "requirements-engineering", version: 2, path: "SKILL.md", offset: 0, bytes: 812 },
+      { kind: "skill", offset: 812, bytes: 40 },
+    ]);
+  });
 });
 
 describe("the graph's layout", () => {

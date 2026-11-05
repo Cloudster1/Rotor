@@ -307,6 +307,7 @@ type Spec struct {
   | `interrupt` | `{node, message}` |
   | `run.finished` | `{status, reason, output}` |
   | `runner.lost` | `{since}` |
+  | `skill.read` | `{node, skill, version, path, offset, bytes}`, one per `read_skill` call answered, never its content; since M17 (#222) |
 
 - **As built (#22):**
   - **The extra move:** besides the moves above, a running run whose sandbox was lost goes back to `starting`, and a fresh sandbox resumes it from the last checkpoint. After `MaxRunAttempts` (3) sandboxes it fails with `runner_lost`.

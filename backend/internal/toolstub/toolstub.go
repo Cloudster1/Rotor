@@ -78,6 +78,8 @@ type Stats struct {
 	GrantsEnded    int `json:"grantsEnded"`
 	MCPCalls       int `json:"mcpCalls"`
 	LLMCalls       int `json:"llmCalls"`
+	// LLMRequests are the chat requests the stub model answered, oldest first, so a test sees what an agent was given.
+	LLMRequests []LLMRequest `json:"llmRequests"`
 	// Exchanges are Armature tokens traded for a grant's (RFC 8693).
 	Exchanges int `json:"exchanges"`
 	// LiveGrants and LiveAccessTokens are counted when asked, not kept.

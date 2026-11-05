@@ -368,6 +368,36 @@ tool names, so an integration test sees the skills listed and `read_skill`
 offered; the runner's `RecordingModel` records bound tools for the same in
 unit tests.
 
+### As built (#222)
+
+- **The pair carries no `seq`,** as the checkpoint requests do not: the
+  runner asks again after a reconnect, and the answer is never stored to be
+  resent. The answer's `offset` is where its `content` starts, in bytes; an
+  offset inside a character moves on to the next one, and one below 0 or past
+  `total` is refused with a sentence. Reading at `total` answers no content.
+- **Who may read:** the control plane asks as `rotor_app` acting for the
+  run's person whether they read the skill, so the policies, built-in skills
+  included, answer it on every read; the version's card and files are then
+  read as `rotor_admin`. A database failure answers a refusal asking to try
+  again rather than ending the stream.
+- **A resume after a grant was revoked** still starts, with that skill left
+  out of `agent_skills`: its description is not read for a person who may no
+  longer read it, so the agent's list and `read_skill` leave it out, and the
+  control plane would refuse its reads in any case.
+- **The cards** list `SKILL.md` first, then the files by path, as the
+  library's version does. A node whose skills are all unreadable gets no
+  entry, and so no tool and no list.
+- **What the agent sees:** the list follows the role as `- name (version):
+  description`, each line neutralised. The text `read_skill` answers is
+  neutralised too, so a skill cannot open or close a fence, though it is
+  never fenced itself. Refusals the runner makes itself, for a skill or a
+  path not on the card, name the skills or files there are. The fencing
+  middleware takes the names of the tools it leaves unfenced, which is
+  `read_skill` alone; the clash check is what makes that name the runner's.
+- **The stub model** keeps the last `ToolStubMaxLLMRequests` (50) requests as
+  `llmRequests` in a tenant's stats: each message's role and text, its
+  content parts joined, and the names of the tools offered.
+
 ## The web app (#223)
 
 - **Skills** in the sidebar, for everyone signed in: the skills the person

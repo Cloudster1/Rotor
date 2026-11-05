@@ -50,6 +50,12 @@ function Line({ entry, hosts }: { entry: Entry; hosts: readonly string[] }) {
         </details>
       );
     }
+    case "skill":
+      return (
+        <p data-skill-read={entry.skill} className="text-ink-muted">
+          {t.skillRead(entry.node, entry.skill, entry.version, entry.path, entry.offset)}
+        </p>
+      );
     case "log":
       return (
         <div>

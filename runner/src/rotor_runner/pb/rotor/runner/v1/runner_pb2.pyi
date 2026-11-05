@@ -70,6 +70,7 @@ class ConnectRequest(_message.Message):
     CHECKPOINT_PUT_FIELD_NUMBER: _builtins.int
     CHECKPOINT_WRITES_FIELD_NUMBER: _builtins.int
     SPANS_FIELD_NUMBER: _builtins.int
+    SKILL_FILE_FIELD_NUMBER: _builtins.int
     seq: _builtins.int
     """seq numbers this message, from 1, when it must not be lost; 0 for heartbeats and acknowledgements alone."""
     ack: _builtins.int
@@ -94,6 +95,8 @@ class ConnectRequest(_message.Message):
     def checkpoint_writes(self) -> Global___CheckpointWritesRequest: ...
     @_builtins.property
     def spans(self) -> Global___SpanBatch: ...
+    @_builtins.property
+    def skill_file(self) -> Global___SkillFileRequest: ...
     def __init__(
         self,
         *,
@@ -109,12 +112,13 @@ class ConnectRequest(_message.Message):
         checkpoint_put: Global___CheckpointPutRequest | None = ...,
         checkpoint_writes: Global___CheckpointWritesRequest | None = ...,
         spans: Global___SpanBatch | None = ...,
+        skill_file: Global___SkillFileRequest | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["checkpoint_get", b"checkpoint_get", "checkpoint_list", b"checkpoint_list", "checkpoint_put", b"checkpoint_put", "checkpoint_writes", b"checkpoint_writes", "done", b"done", "event", b"event", "heartbeat", b"heartbeat", "hello", b"hello", "message", b"message", "spans", b"spans", "token_request", b"token_request"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["checkpoint_get", b"checkpoint_get", "checkpoint_list", b"checkpoint_list", "checkpoint_put", b"checkpoint_put", "checkpoint_writes", b"checkpoint_writes", "done", b"done", "event", b"event", "heartbeat", b"heartbeat", "hello", b"hello", "message", b"message", "skill_file", b"skill_file", "spans", b"spans", "token_request", b"token_request"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["ack", b"ack", "checkpoint_get", b"checkpoint_get", "checkpoint_list", b"checkpoint_list", "checkpoint_put", b"checkpoint_put", "checkpoint_writes", b"checkpoint_writes", "done", b"done", "event", b"event", "heartbeat", b"heartbeat", "hello", b"hello", "message", b"message", "seq", b"seq", "spans", b"spans", "token_request", b"token_request"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["ack", b"ack", "checkpoint_get", b"checkpoint_get", "checkpoint_list", b"checkpoint_list", "checkpoint_put", b"checkpoint_put", "checkpoint_writes", b"checkpoint_writes", "done", b"done", "event", b"event", "heartbeat", b"heartbeat", "hello", b"hello", "message", b"message", "seq", b"seq", "skill_file", b"skill_file", "spans", b"spans", "token_request", b"token_request"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-    _WhichOneofReturnType_message: _TypeAlias = _typing.Literal["hello", "event", "token_request", "heartbeat", "done", "checkpoint_get", "checkpoint_list", "checkpoint_put", "checkpoint_writes", "spans"]  # noqa: Y015
+    _WhichOneofReturnType_message: _TypeAlias = _typing.Literal["hello", "event", "token_request", "heartbeat", "done", "checkpoint_get", "checkpoint_list", "checkpoint_put", "checkpoint_writes", "spans", "skill_file"]  # noqa: Y015
     _WhichOneofArgType_message: _TypeAlias = _typing.Literal["message", b"message"]  # noqa: Y015
     def WhichOneof(self, oneof_group: _WhichOneofArgType_message) -> _WhichOneofReturnType_message | None: ...
 
@@ -138,6 +142,7 @@ class ConnectResponse(_message.Message):
     CHECKPOINT_LIST_FIELD_NUMBER: _builtins.int
     CHECKPOINT_PUT_FIELD_NUMBER: _builtins.int
     CHECKPOINT_WRITES_FIELD_NUMBER: _builtins.int
+    SKILL_FILE_FIELD_NUMBER: _builtins.int
     seq: _builtins.int
     """seq numbers this message, from 1, when it must not be lost."""
     ack: _builtins.int
@@ -162,6 +167,8 @@ class ConnectResponse(_message.Message):
     def checkpoint_put(self) -> Global___CheckpointPutResponse: ...
     @_builtins.property
     def checkpoint_writes(self) -> Global___CheckpointWritesResponse: ...
+    @_builtins.property
+    def skill_file(self) -> Global___SkillFileResponse: ...
     def __init__(
         self,
         *,
@@ -177,12 +184,13 @@ class ConnectResponse(_message.Message):
         checkpoint_list: Global___CheckpointListResponse | None = ...,
         checkpoint_put: Global___CheckpointPutResponse | None = ...,
         checkpoint_writes: Global___CheckpointWritesResponse | None = ...,
+        skill_file: Global___SkillFileResponse | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["cancel", b"cancel", "checkpoint_get", b"checkpoint_get", "checkpoint_list", b"checkpoint_list", "checkpoint_put", b"checkpoint_put", "checkpoint_writes", b"checkpoint_writes", "hello_ack", b"hello_ack", "message", b"message", "resume", b"resume", "secret_grant", b"secret_grant", "start_run", b"start_run", "token_grant", b"token_grant"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["cancel", b"cancel", "checkpoint_get", b"checkpoint_get", "checkpoint_list", b"checkpoint_list", "checkpoint_put", b"checkpoint_put", "checkpoint_writes", b"checkpoint_writes", "hello_ack", b"hello_ack", "message", b"message", "resume", b"resume", "secret_grant", b"secret_grant", "skill_file", b"skill_file", "start_run", b"start_run", "token_grant", b"token_grant"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["ack", b"ack", "cancel", b"cancel", "checkpoint_get", b"checkpoint_get", "checkpoint_list", b"checkpoint_list", "checkpoint_put", b"checkpoint_put", "checkpoint_writes", b"checkpoint_writes", "hello_ack", b"hello_ack", "message", b"message", "resume", b"resume", "secret_grant", b"secret_grant", "seq", b"seq", "start_run", b"start_run", "token_grant", b"token_grant"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["ack", b"ack", "cancel", b"cancel", "checkpoint_get", b"checkpoint_get", "checkpoint_list", b"checkpoint_list", "checkpoint_put", b"checkpoint_put", "checkpoint_writes", b"checkpoint_writes", "hello_ack", b"hello_ack", "message", b"message", "resume", b"resume", "secret_grant", b"secret_grant", "seq", b"seq", "skill_file", b"skill_file", "start_run", b"start_run", "token_grant", b"token_grant"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-    _WhichOneofReturnType_message: _TypeAlias = _typing.Literal["hello_ack", "start_run", "resume", "cancel", "token_grant", "secret_grant", "checkpoint_get", "checkpoint_list", "checkpoint_put", "checkpoint_writes"]  # noqa: Y015
+    _WhichOneofReturnType_message: _TypeAlias = _typing.Literal["hello_ack", "start_run", "resume", "cancel", "token_grant", "secret_grant", "checkpoint_get", "checkpoint_list", "checkpoint_put", "checkpoint_writes", "skill_file"]  # noqa: Y015
     _WhichOneofArgType_message: _TypeAlias = _typing.Literal["message", b"message"]  # noqa: Y015
     def WhichOneof(self, oneof_group: _WhichOneofArgType_message) -> _WhichOneofReturnType_message | None: ...
 
@@ -393,6 +401,27 @@ class StartRun(_message.Message):
         def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
         def WhichOneof(self, oneof_group: _Never) -> None: ...
 
+    @_typing.final
+    class AgentSkillsEntry(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: _builtins.int
+        VALUE_FIELD_NUMBER: _builtins.int
+        key: _builtins.str
+        @_builtins.property
+        def value(self) -> Global___AgentSkills: ...
+        def __init__(
+            self,
+            *,
+            key: _builtins.str = ...,
+            value: Global___AgentSkills | None = ...,
+        ) -> None: ...
+        _HasFieldArgType: _TypeAlias = _typing.Literal["value", b"value"]  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        def WhichOneof(self, oneof_group: _Never) -> None: ...
+
     RUN_ID_FIELD_NUMBER: _builtins.int
     SPEC_YAML_FIELD_NUMBER: _builtins.int
     INPUTS_JSON_FIELD_NUMBER: _builtins.int
@@ -405,6 +434,7 @@ class StartRun(_message.Message):
     TRACE_CONTENT_FIELD_NUMBER: _builtins.int
     AGENT_MODELS_FIELD_NUMBER: _builtins.int
     RESUME_ANSWERS_FIELD_NUMBER: _builtins.int
+    AGENT_SKILLS_FIELD_NUMBER: _builtins.int
     run_id: _builtins.str
     spec_yaml: _builtins.str
     inputs_json: _builtins.str
@@ -433,6 +463,10 @@ class StartRun(_message.Message):
         resume_json and resume_interrupt_id carry one of them for a runner that knows no more.
         """
 
+    @_builtins.property
+    def agent_skills(self) -> _containers.MessageMap[_builtins.str, Global___AgentSkills]:
+        """agent_skills are the skills of the agent nodes that name any, by node id, without their content (#222)."""
+
     def __init__(
         self,
         *,
@@ -448,14 +482,92 @@ class StartRun(_message.Message):
         trace_content: _builtins.bool = ...,
         agent_models: _abc.Mapping[_builtins.str, Global___ModelConfig] | None = ...,
         resume_answers: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
+        agent_skills: _abc.Mapping[_builtins.str, Global___AgentSkills] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["model", b"model"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["agent_models", b"agent_models", "inputs_json", b"inputs_json", "model", b"model", "resume", b"resume", "resume_answers", b"resume_answers", "resume_interrupt_id", b"resume_interrupt_id", "resume_json", b"resume_json", "run_id", b"run_id", "spec_yaml", b"spec_yaml", "tools", b"tools", "trace_content", b"trace_content", "traceparent", b"traceparent"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["agent_models", b"agent_models", "agent_skills", b"agent_skills", "inputs_json", b"inputs_json", "model", b"model", "resume", b"resume", "resume_answers", b"resume_answers", "resume_interrupt_id", b"resume_interrupt_id", "resume_json", b"resume_json", "run_id", b"run_id", "spec_yaml", b"spec_yaml", "tools", b"tools", "trace_content", b"trace_content", "traceparent", b"traceparent"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___StartRun: _TypeAlias = StartRun  # noqa: Y015
+
+@_typing.final
+class AgentSkills(_message.Message):
+    """AgentSkills are the skills one agent node was given, in the order its spec names them."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SKILLS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def skills(self) -> _containers.RepeatedCompositeFieldContainer[Global___SkillCard]: ...
+    def __init__(
+        self,
+        *,
+        skills: _abc.Iterable[Global___SkillCard] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["skills", b"skills"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___AgentSkills: _TypeAlias = AgentSkills  # noqa: Y015
+
+@_typing.final
+class SkillCard(_message.Message):
+    """SkillCard is what an agent sees of a skill before it reads one: its pin, its description and its files."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    NAME_FIELD_NUMBER: _builtins.int
+    VERSION_FIELD_NUMBER: _builtins.int
+    DESCRIPTION_FIELD_NUMBER: _builtins.int
+    FILES_FIELD_NUMBER: _builtins.int
+    name: _builtins.str
+    version: _builtins.int
+    description: _builtins.str
+    @_builtins.property
+    def files(self) -> _containers.RepeatedCompositeFieldContainer[Global___SkillFileInfo]: ...
+    def __init__(
+        self,
+        *,
+        name: _builtins.str = ...,
+        version: _builtins.int = ...,
+        description: _builtins.str = ...,
+        files: _abc.Iterable[Global___SkillFileInfo] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["description", b"description", "files", b"files", "name", b"name", "version", b"version"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SkillCard: _TypeAlias = SkillCard  # noqa: Y015
+
+@_typing.final
+class SkillFileInfo(_message.Message):
+    """SkillFileInfo is one file of a pinned skill version, by its path below the skill's root."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    PATH_FIELD_NUMBER: _builtins.int
+    BYTES_FIELD_NUMBER: _builtins.int
+    path: _builtins.str
+    bytes: _builtins.int
+    def __init__(
+        self,
+        *,
+        path: _builtins.str = ...,
+        bytes: _builtins.int = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["bytes", b"bytes", "path", b"path"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SkillFileInfo: _TypeAlias = SkillFileInfo  # noqa: Y015
 
 @_typing.final
 class SpanBatch(_message.Message):
@@ -1110,3 +1222,71 @@ class CheckpointWritesResponse(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___CheckpointWritesResponse: _TypeAlias = CheckpointWritesResponse  # noqa: Y015
+
+@_typing.final
+class SkillFileRequest(_message.Message):
+    """SkillFileRequest asks for one file of a skill version the run pins, from a byte offset on (#222)."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    REQUEST_ID_FIELD_NUMBER: _builtins.int
+    NAME_FIELD_NUMBER: _builtins.int
+    VERSION_FIELD_NUMBER: _builtins.int
+    PATH_FIELD_NUMBER: _builtins.int
+    OFFSET_FIELD_NUMBER: _builtins.int
+    request_id: _builtins.str
+    name: _builtins.str
+    version: _builtins.int
+    path: _builtins.str
+    offset: _builtins.int
+    def __init__(
+        self,
+        *,
+        request_id: _builtins.str = ...,
+        name: _builtins.str = ...,
+        version: _builtins.int = ...,
+        path: _builtins.str = ...,
+        offset: _builtins.int = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["name", b"name", "offset", b"offset", "path", b"path", "request_id", b"request_id", "version", b"version"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SkillFileRequest: _TypeAlias = SkillFileRequest  # noqa: Y015
+
+@_typing.final
+class SkillFileResponse(_message.Message):
+    """SkillFileResponse answers a SkillFileRequest with part of the file, or a sentence saying why it may not be read.
+    offset is where content starts in the file and total the file's size, both in bytes.
+    """
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    REQUEST_ID_FIELD_NUMBER: _builtins.int
+    CONTENT_FIELD_NUMBER: _builtins.int
+    OFFSET_FIELD_NUMBER: _builtins.int
+    TOTAL_FIELD_NUMBER: _builtins.int
+    REFUSAL_FIELD_NUMBER: _builtins.int
+    request_id: _builtins.str
+    content: _builtins.str
+    offset: _builtins.int
+    total: _builtins.int
+    refusal: _builtins.str
+    def __init__(
+        self,
+        *,
+        request_id: _builtins.str = ...,
+        content: _builtins.str = ...,
+        offset: _builtins.int = ...,
+        total: _builtins.int = ...,
+        refusal: _builtins.str = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["content", b"content", "offset", b"offset", "refusal", b"refusal", "request_id", b"request_id", "total", b"total"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___SkillFileResponse: _TypeAlias = SkillFileResponse  # noqa: Y015

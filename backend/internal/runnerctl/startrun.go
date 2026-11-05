@@ -259,10 +259,11 @@ func (s *Server) secret(ctx context.Context, p providers.Provider) (*runnerpb.Co
 		ProviderId: p.ID.String(), Secret: &runnerpb.SecretGrant_WrappingToken{WrappingToken: wrapped}}}}, nil
 }
 
-// startRun is the run's StartRun: its pinned spec, inputs, bindings and models, and the answer it resumes with, if any.
-func startRun(r *run, bindings []*runnerpb.ToolBinding, model *runnerpb.ModelConfig, agents map[string]*runnerpb.ModelConfig) *runnerpb.ConnectResponse {
+// startRun is the run's StartRun: its pinned spec, inputs, bindings, models and skills, and the answer it resumes with, if any.
+func startRun(r *run, bindings []*runnerpb.ToolBinding, model *runnerpb.ModelConfig, agents map[string]*runnerpb.ModelConfig,
+	skills map[string]*runnerpb.AgentSkills) *runnerpb.ConnectResponse {
 	start := &runnerpb.StartRun{RunId: r.ID.String(), SpecYaml: r.SpecYAML, InputsJson: string(r.Inputs), Tools: bindings, Model: model,
-		AgentModels: agents, Traceparent: r.Traceparent, TraceContent: r.TraceContent}
+		AgentModels: agents, AgentSkills: skills, Traceparent: r.Traceparent, TraceContent: r.TraceContent}
 	if r.ResumeID != "" {
 		start.Resume, start.ResumeJson, start.ResumeInterruptId = true, string(r.Resume), r.ResumeID
 		start.ResumeAnswers = r.ResumeAnswers

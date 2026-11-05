@@ -242,6 +242,8 @@ export const s = {
       finished: (node: string) => `Finished ${node}`,
       failedNode: (node: string) => `${node} failed`,
       called: (tool: string, binding: string) => `Called ${tool} through ${binding}`,
+      skillRead: (node: string, skill: string, version: number, path: string, offset: number) =>
+        `${node} read ${path} of the skill ${skill}, version ${version}${offset > 0 ? `, from byte ${offset}` : ""}`,
       callFailed: (tool: string, binding: string) => `Calling ${tool} through ${binding} failed`,
       arguments: "Arguments",
       answer: "Answer",

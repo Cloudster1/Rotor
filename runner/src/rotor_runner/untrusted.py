@@ -1,5 +1,5 @@
 """An agent's tool calls as untrusted content (#40): links in what it sends a tool are limited to the tools' hosts,
-and every answer comes back fenced as data, whichever gateway made the call."""
+and every answer comes back fenced as data, whichever gateway made the call, but the runner's read_skill (#222)."""
 
 from __future__ import annotations
 
@@ -41,11 +41,14 @@ def message_text(content: Any) -> str:
 
 
 class UntrustedResults(AgentMiddleware):
-    """Fences tool answers and limits the links in tool arguments for one agent node."""
+    """Fences tool answers and limits the links in tool arguments for one agent node. The trusted tools' answers go
+    unfenced: only the runner's own, whose names no binding tool may take."""
 
-    def __init__(self, fence: Fence, links: LinkLimiter, emit: EventSink, node: str) -> None:
+    def __init__(
+        self, fence: Fence, links: LinkLimiter, emit: EventSink, node: str, trusted: frozenset[str] = frozenset()
+    ) -> None:
         super().__init__()
-        self.fence, self.links, self.emit, self.node = fence, links, emit, node
+        self.fence, self.links, self.emit, self.node, self.trusted = fence, links, emit, node, trusted
 
     async def awrap_tool_call(
         self,
@@ -58,7 +61,7 @@ class UntrustedResults(AgentMiddleware):
             request = request.override(tool_call={**call, "args": args})
             await report_removed(self.emit, self.node, "arguments", removed, tool=call["name"])
         result = await handler(request)
-        if isinstance(result, ToolMessage):
+        if isinstance(result, ToolMessage) and call["name"] not in self.trusted:
             fenced = self.fence.wrap(f"tool:{call['name']}", message_text(result.content))
             return result.model_copy(update={"content": fenced})
         return result
