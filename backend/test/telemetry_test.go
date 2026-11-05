@@ -5,6 +5,7 @@ package test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -71,12 +72,16 @@ func tracedRun(t *testing.T, b *browser, workflowID string) string {
 	return trace
 }
 
-// jaegerTrace is a trace as Jaeger's query API answers it: its spans, and the service each comes from.
+// jaegerTrace is a trace as Jaeger's query API answers it: its spans with their tags, and the service each comes from.
 type jaegerTrace struct {
 	Data []struct {
 		Spans []struct {
 			OperationName string `json:"operationName"`
 			ProcessID     string `json:"processID"`
+			Tags          []struct {
+				Key   string `json:"key"`
+				Value any    `json:"value"`
+			} `json:"tags"`
 		} `json:"spans"`
 		Processes map[string]struct {
 			ServiceName string `json:"serviceName"`
@@ -95,8 +100,10 @@ func TestARunIsOneTraceAcrossTheApiTheWorkerAndTheRunner(t *testing.T) {
 	provider := addProvider(t, alice, stub, key)
 	trace := tracedRun(t, bob, createWorkflow(t, bob, agentWorkflow(product, provider["name"].(string))))
 
+	// OpenInference's spans (#241) join Rotor's: the graph, the model call and the tool call that made the MCP call.
 	want := []string{"rotor-api POST /api/v1/workflows/{workflowID}/runs", "rotor-api run.start", "rotor-worker run.start_sandbox",
-		"rotor-runner run", "rotor-runner node ask", "rotor-runner llm", "rotor-runner mcp whoami"}
+		"rotor-runner run", "rotor-runner node ask", "rotor-runner LangGraph", "rotor-runner whoami", "rotor-runner mcp whoami",
+		"rotor-runner kind LLM", "rotor-runner kind AGENT", "rotor-runner tag gen_ai.request.model", "rotor-runner tag rotor.workflow"}
 	var seen map[string]bool
 	deadline := time.Now().Add(traceWait)
 	for time.Now().Before(deadline) {
@@ -108,7 +115,14 @@ func TestARunIsOneTraceAcrossTheApiTheWorkerAndTheRunner(t *testing.T) {
 			resp.Body.Close()
 			for _, d := range got.Data {
 				for _, s := range d.Spans {
-					seen[d.Processes[s.ProcessID].ServiceName+" "+s.OperationName] = true
+					service := d.Processes[s.ProcessID].ServiceName
+					seen[service+" "+s.OperationName] = true
+					for _, tag := range s.Tags {
+						seen[service+" tag "+tag.Key] = true
+						if tag.Key == "openinference.span.kind" {
+							seen[fmt.Sprint(service, " kind ", tag.Value)] = true
+						}
+					}
 				}
 			}
 		}
@@ -119,6 +133,11 @@ func TestARunIsOneTraceAcrossTheApiTheWorkerAndTheRunner(t *testing.T) {
 	}
 	if missing := missingSpans(seen, want); len(missing) > 0 {
 		t.Fatalf("trace %s lacks %v; it holds %v", trace, missingSpans(seen, want), seen)
+	}
+	for _, text := range []string{"input.value", "output.value", "llm.input_messages", "llm.output_messages"} {
+		if found := missingSpans(seen, []string{"rotor-runner tag " + text}); len(found) == 0 {
+			t.Errorf("the collector got %s, and it never gets a span's text", text)
+		}
 	}
 
 	// The worker counts how long the run took once it cleaned up after it; the api serves its own metrics.
@@ -230,7 +249,7 @@ func TestLangSmithGetsARunsSpansOnlyOnceAnAdministratorAllowsIt(t *testing.T) {
 			body = append(body, c.Body...)
 		}
 	}
-	if !bytes.Contains(body, []byte("node ask")) || !bytes.Contains(body, []byte("gen_ai.prompt.0.content")) {
+	if !bytes.Contains(body, []byte("node ask")) || !bytes.Contains(body, []byte("llm.input_messages.0.message.content")) {
 		t.Fatalf("LangSmith did not get the run's spans with their prompts for trace %s", trace)
 	}
 	for _, secret := range []string{key, "stub_oat_", smithKey} {

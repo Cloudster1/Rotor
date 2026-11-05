@@ -279,7 +279,9 @@ class Channel:
             queue.put_nowait(pb.ConnectRequest(heartbeat=pb.Heartbeat(), ack=self._handled_control))
 
     async def _execute(self, start: pb.StartRun) -> None:
-        self.tracing = RunTracing(start.traceparent, self.send, self.redactor.scrub, start.trace_content)
+        self.tracing = RunTracing(
+            start.traceparent, self.send, self.redactor.scrub, start.trace_content, run=start.run_id
+        )
         try:
             outcome = await self._run_workflow(start)
         except asyncio.CancelledError:

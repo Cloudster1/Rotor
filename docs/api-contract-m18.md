@@ -140,6 +140,47 @@ whichever comes first, so a batch of large spans stays under `MaxRunnerMessageBy
   control plane strips the text from each place that may not have it: the store while `keep_content`
   is off, each destination without its acknowledgement, and the operator's collector always.
 
+### As built (#241)
+
+- **Pins:** `openinference-instrumentation-langchain` 0.1.79 (2026-10-09),
+  `openinference-instrumentation` 0.1.71 (2026-10-07) and `openinference-semantic-conventions`
+  0.1.41 (2026-10-01). Of what they pull in, `opentelemetry-instrumentation` is 0.66b1
+  (2026-10-06) and `wrapt` is held at 2.5.1 (2026-10-14), since 2.5.2 was under two weeks old.
+- **The run's own handler, not the instrumentor:** `LangChainInstrumentor().instrument()` patches
+  every callback manager of the process and keeps one tracer, so two runs in one process, as in the
+  runner's tests, would send each other's spans. The runner makes the handler the instrumentor would
+  install, `OpenInferenceTracer`, on the run's tracer provider and passes it in the run's callbacks,
+  as `LlmSpans` was passed. The class sits in the package's `_tracer` module; the exact pin and the
+  runner's tests catch a release that moves it.
+- **One span per node:** OpenInference already makes a span for each LangGraph node, so `node <id>`
+  is that span, renamed and given `rotor.node` and `rotor.node.type`, rather than a second span
+  beside it; where no LangChain run is current, Rotor makes its own. Rotor's spans start under the
+  innermost LangChain run's span, so `mcp <call>` nests in the tool call that made it, or in the
+  tool node. A run's tree reads: `run` (CHAIN) > `LangGraph` (CHAIN) > `node <id>` (AGENT or
+  CHAIN) > the agent's `LangGraph` > `model` (CHAIN) > the model class, such as `ChatOpenAI`
+  (LLM), and `tools` (CHAIN) > the tool, such as `whoami` (TOOL) > `mcp whoami` (TOOL).
+- **`rotor.workflow`:** `StartRun` carries no workflow id, so the runner stamps `rotor.run` alone
+  and the control plane sets both from the run. Besides them it keeps the `rotor.*` keys the runner
+  writes: `rotor.node`, `rotor.node.type`, `rotor.binding`, `rotor.interrupted`,
+  `rotor.messages_omitted` and `rotor.content_cut`.
+- **`gen_ai.request.model`:** a model call without `llm.model_name`, such as a test's fake model,
+  takes the span's name, the model's class.
+- **`api/trace-content.json`:** `text`, `plain` and `never` lists of names, a name covering the key
+  itself and every key below it after a dot; `make trace-content` copies it. `tool_call.id`,
+  `input.mime_type`, `output.mime_type` and `metadata` are plain names; `never` holds `image` and
+  `embedding.vector`, matched as whole segments anywhere in a key.
+- **Limits:** the span limits live in `internal/config/traces.go`, `MaxRunnerSpanAttributes` renamed
+  `MaxSpanAttributes`; #242 onwards add theirs there. Over `MaxSpanBytes` a span loses its text,
+  longest first, then its oldest events, then its longest other attributes but Rotor's;
+  `rotor.content_cut` is `true` and comes on top of `MaxSpanAttributes`. Rotor's own keys come before
+  the other attributes without text when `MaxSpanAttributes` cuts, so the run and the node stay.
+- **Events:** the latest `MaxSpanEvents` are kept; an exception LangGraph raises for its control flow,
+  such as an approval's `GraphInterrupt`, is dropped, as it is no failure. The status message is
+  LangChain's error up to its stack, which the exception event carries.
+- **Messages:** the last 16 of `llm.input_messages.*` are numbered from 0 again.
+- **Destinations until #242 and #246:** the collector gets every span without its text and LangSmith
+  gets it with its text; `trace_content` is still set while LangSmith is on.
+
 ## Keeping traces (#242)
 
 ### Tables

@@ -11,7 +11,6 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/observability"
-	"github.com/cloudster1/rotor/backend/internal/redact"
 	"github.com/cloudster1/rotor/backend/internal/runnerpb"
 )
 
@@ -20,23 +19,18 @@ import (
 type Telemetry interface {
 	// Spans sends a run's spans on by ctx's deadline; no stream waits for it.
 	Spans(ctx context.Context, runID uuid.UUID, spans []observability.RunnerSpan)
-	// Content says whether runs' LLM spans may carry the prompt and the answer: only LangSmith reads them.
+	// Content says whether a run may keep text somewhere, so its spans carry it (#241): until #242 and #246, only
+	// while LangSmith is on. Each place that may not keep text gets the spans without it.
 	Content(ctx context.Context) bool
 }
 
-// ContentPrefix starts the attributes that carry a prompt or an answer, which go to LangSmith alone.
-const ContentPrefix = "gen_ai.prompt."
+// runnerRotorKeys are the rotor.* attributes a runner writes besides the run and the workflow, which the control
+// plane sets from the run; any other rotor.* key is dropped, since the sandbox runs the author's code.
+var runnerRotorKeys = map[string]bool{"rotor.node": true, "rotor.node.type": true, "rotor.binding": true,
+	"rotor.interrupted": true, "rotor.messages_omitted": true, observability.ContentCut: true}
 
-// CompletionPrefix starts the attributes that carry a model's answer.
-const CompletionPrefix = "gen_ai.completion."
-
-// IsContent says whether an attribute carries a prompt or an answer.
-func IsContent(key string) bool {
-	return strings.HasPrefix(key, ContentPrefix) || strings.HasPrefix(key, CompletionPrefix)
-}
-
-// spans checks a runner's batch and sends it on: only spans of the run's own trace, at most so many, their names and
-// attributes cut short and redacted again, since the sandbox runs code the workflow's author wrote.
+// spans checks a runner's batch and sends it on: only spans of the run's own trace, at most so many, held to the span
+// limits and redacted again, since the sandbox runs code the workflow's author wrote.
 func (s *Server) spans(ctx context.Context, r *run, batch *runnerpb.SpanBatch) {
 	if s.Telemetry == nil || batch == nil {
 		return
@@ -51,7 +45,7 @@ func (s *Server) spans(ctx context.Context, r *run, batch *runnerpb.SpanBatch) {
 		if len(out) == config.MaxRunnerSpansPerBatch {
 			break
 		}
-		if span, ok := runnerSpan(sp, traceID); ok {
+		if span, ok := runnerSpan(sp, traceID, r); ok {
 			out = append(out, span)
 		}
 	}
@@ -81,7 +75,7 @@ func (s *Server) export(ctx context.Context, runID uuid.UUID, spans []observabil
 }
 
 // runnerSpan is one span as the control plane trusts it, or false for one of another trace or without an id.
-func runnerSpan(sp *runnerpb.RunnerSpan, traceID trace.TraceID) (observability.RunnerSpan, bool) {
+func runnerSpan(sp *runnerpb.RunnerSpan, traceID trace.TraceID, r *run) (observability.RunnerSpan, bool) {
 	var got trace.TraceID
 	var id, parent trace.SpanID
 	if len(sp.TraceId) != len(got) || len(sp.SpanId) != len(id) || (len(sp.ParentSpanId) != 0 && len(sp.ParentSpanId) != len(parent)) {
@@ -93,32 +87,20 @@ func runnerSpan(sp *runnerpb.RunnerSpan, traceID trace.TraceID) (observability.R
 	if got != traceID || !id.IsValid() || sp.Start == nil || sp.End == nil {
 		return observability.RunnerSpan{}, false
 	}
-	attrs := make(map[string]string, min(len(sp.Attributes), config.MaxRunnerSpanAttributes))
+	attrs := make(map[string]string, min(len(sp.Attributes), config.MaxSpanAttributes)+2)
 	for k, v := range sp.Attributes {
-		if len(attrs) == config.MaxRunnerSpanAttributes {
-			break
+		if !strings.HasPrefix(k, "rotor.") || runnerRotorKeys[k] {
+			attrs[k] = v
 		}
-		attrs[cut(k, config.MaxSpanNameChars)] = cut(redact.Text(v), config.MaxSpanAttrChars)
 	}
-	return observability.RunnerSpan{TraceID: got, SpanID: id, ParentID: parent, Name: cut(redact.Text(sp.Name), config.MaxSpanNameChars),
-		Start: sp.Start.AsTime(), End: sp.End.AsTime(), Attributes: attrs, Failed: sp.Error,
-		Message: cut(redact.Text(sp.StatusMessage), config.MaxSpanAttrChars)}, true
-}
-
-// WithoutContent drops the attributes that carry a prompt or an answer, for a destination other than LangSmith.
-func WithoutContent(spans []observability.RunnerSpan) []observability.RunnerSpan {
-	out := make([]observability.RunnerSpan, len(spans))
-	for i, sp := range spans {
-		attrs := make(map[string]string, len(sp.Attributes))
-		for k, v := range sp.Attributes {
-			if !IsContent(k) {
-				attrs[k] = v
-			}
-		}
-		sp.Attributes = attrs
-		out[i] = sp
+	attrs["rotor.run"], attrs["rotor.workflow"] = r.ID.String(), r.WorkflowID.String()
+	events := make([]observability.SpanEvent, 0, min(len(sp.Events), config.MaxSpanEvents))
+	for _, e := range sp.Events[max(0, len(sp.Events)-config.MaxSpanEvents):] {
+		events = append(events, observability.SpanEvent{Name: e.Name, Time: e.Time.AsTime(), Attributes: e.Attributes})
 	}
-	return out
+	return observability.Hold(observability.RunnerSpan{TraceID: got, SpanID: id, ParentID: parent, Name: sp.Name,
+		Start: sp.Start.AsTime(), End: sp.End.AsTime(), Attributes: attrs, Failed: sp.Error, Message: sp.StatusMessage,
+		Events: events}), true
 }
 
 // mintFailure names why a run's token was not minted, as rotor_token_mint_failures_total counts it.

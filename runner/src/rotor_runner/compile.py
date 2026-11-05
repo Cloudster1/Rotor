@@ -285,13 +285,13 @@ async def _pass(_state: State) -> dict[str, Any]:
 
 
 def _traced(run: Callable[..., Any], node: dict[str, Any], tracing: RunTracing) -> Callable[..., Any]:
-    """A node under a span of its own (#37); wraps keeps its signature, which LangGraph reads to pass its config."""
+    """A node under its span (#37, #241); wraps keeps its signature, which LangGraph reads to pass its config."""
     if not tracing.on:
         return run
 
     @functools.wraps(run)
     async def traced(*args: Any, **kwargs: Any) -> Any:
-        with tracing.span(f"node {node['id']}", {"rotor.node": node["id"], "rotor.node.type": node["type"]}):
+        with tracing.node(node["id"], node["type"]):
             return await run(*args, **kwargs)
 
     return traced
