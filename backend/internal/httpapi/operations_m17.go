@@ -9,8 +9,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/skills"
 )
 
-// The rows of M17: the skills library (#219, #220); docs/api-contract-m17.md says what they mean. Import and export
-// answer 501 until #220 builds them.
+// The rows of M17: the skills library (#219, #220); docs/api-contract-m17.md says what they mean.
 func init() {
 	operations = append(operations, m17Operations...)
 }
@@ -39,12 +38,16 @@ var m17Operations = []operation{
 		summary:     "Check a skill's files as a save would, without saving, and answer the problems.",
 		description: "What the files alone tell: whether another skill has the name is answered by the save.",
 		request:     validateSkillRequest{}, responses: ok(validateSkillResponse{})},
-	{method: "POST", path: "/skills/import", handler: "handleImportSkill", tag: "skills", pending: true,
-		summary: "Make a skill from a zip of one skill, or save the next version of the skill with that name.",
+	{method: "POST", path: "/skills/import", handler: "handleImportSkill", tag: "skills",
+		binaryRequest: zipType,
+		summary:       "Make a skill from a zip of one skill, or save the next version of the skill with that name.",
 		description: "The body is the zip itself (application/zip, at most 2 MiB); the comment goes in the query. For whoever holds " +
-			"skill.create, or skill.edit on the skill named. The answer says which happened.",
-		query:     []param{{name: "comment", description: "The note the version carries, at most 500 characters."}},
-		responses: map[int]any{http.StatusOK: importedSkill{}, http.StatusUnprocessableEntity: errorEnvelope{}}},
+			"skill.create, or skill.edit on the skill named. The answer says which happened: 201 with created true for a new skill, " +
+			"200 with created false for a new version.",
+		query: []param{{name: "comment", description: "The note the version carries, at most 500 characters."}},
+		responses: map[int]any{http.StatusCreated: importedSkill{}, http.StatusOK: importedSkill{}, http.StatusForbidden: errorEnvelope{},
+			http.StatusNotFound: notFound, http.StatusRequestEntityTooLarge: errorEnvelope{}, http.StatusConflict: errorEnvelope{},
+			http.StatusUnprocessableEntity: errorEnvelope{}}},
 	{method: "GET", path: "/skills/{skillID}", handler: "handleGetSkill", tag: "skills",
 		summary:   "A skill with its current version's front matter and files, and what you may do with it.",
 		responses: map[int]any{http.StatusOK: skillResponse{}, http.StatusNotFound: notFound}},
@@ -74,8 +77,8 @@ var m17Operations = []operation{
 		responses: map[int]any{http.StatusOK: skillFileResponse{}, http.StatusNotFound: notFound,
 			http.StatusUnprocessableEntity: errorEnvelope{}}},
 	{method: "GET", path: "/skills/{skillID}/versions/{versionNumber}/export", handler: "handleExportSkillVersion", tag: "skills",
-		pending: true, summary: "One version as a zip that imports unchanged.",
-		description: "The body is application/zip.",
+		binaryResponse: zipType, summary: "One version as a zip that imports unchanged.",
+		description: "The body is application/zip: the files under one folder named after the skill.",
 		responses:   map[int]any{http.StatusOK: nil, http.StatusNotFound: notFound}},
 	{method: "GET", path: "/skills/{skillID}/diff", handler: "handleDiffSkillVersions", tag: "skills",
 		summary: "The files that changed between two versions, line by line.",

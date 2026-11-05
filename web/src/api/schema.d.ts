@@ -1194,7 +1194,7 @@ export interface paths {
         put?: never;
         /**
          * Make a skill from a zip of one skill, or save the next version of the skill with that name.
-         * @description The body is the zip itself (application/zip, at most 2 MiB); the comment goes in the query. For whoever holds skill.create, or skill.edit on the skill named. The answer says which happened.
+         * @description The body is the zip itself (application/zip, at most 2 MiB); the comment goes in the query. For whoever holds skill.create, or skill.edit on the skill named. The answer says which happened: 201 with created true for a new skill, 200 with created false for a new version.
          */
         post: operations["importSkill"];
         delete?: never;
@@ -1369,7 +1369,7 @@ export interface paths {
         };
         /**
          * One version as a zip that imports unchanged.
-         * @description The body is application/zip.
+         * @description The body is application/zip: the files under one folder named after the skill.
          */
         get: operations["exportSkillVersion"];
         put?: never;
@@ -6608,7 +6608,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/zip": string;
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -6619,8 +6623,17 @@ export interface operations {
                     "application/json": components["schemas"]["ImportedSkill"];
                 };
             };
-            /** @description Unprocessable Entity */
-            422: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportedSkill"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6628,8 +6641,35 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7196,19 +7236,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/zip": string;
+                };
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

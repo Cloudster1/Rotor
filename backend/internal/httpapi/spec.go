@@ -89,6 +89,9 @@ func Spec() *openapi.Document {
 	return doc
 }
 
+// binarySchema is a body of bytes, such as a zip.
+var binarySchema = &openapi.Schema{Type: "string", Format: "binary"}
+
 // describe is one row of the table as an OpenAPI operation.
 func (op operation) describe(b *openapi.Builder, errorSchema *openapi.Schema) *openapi.Operation {
 	o := &openapi.Operation{
@@ -126,9 +129,16 @@ func (op operation) describe(b *openapi.Builder, errorSchema *openapi.Schema) *o
 			"application/x-www-form-urlencoded": {Schema: b.SchemaOf(op.form)},
 		}}
 	}
+	if op.binaryRequest != "" {
+		o.RequestBody = &openapi.RequestBody{Required: true, Content: map[string]openapi.MediaType{
+			op.binaryRequest: {Schema: binarySchema},
+		}}
+	}
 	for status, body := range op.responses {
 		r := &openapi.Response{Description: http.StatusText(status)}
 		switch {
+		case status == http.StatusOK && body == nil && op.binaryResponse != "":
+			r.Content = map[string]openapi.MediaType{op.binaryResponse: {Schema: binarySchema}}
 		case isErrorEnvelope(body):
 			r.Content = map[string]openapi.MediaType{"application/json": {Schema: errorSchema}}
 		case body != nil:

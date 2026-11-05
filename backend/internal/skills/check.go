@@ -27,6 +27,7 @@ const (
 	CodeBinary        = "skill_binary"
 	CodeTooLarge      = "skill_too_large"
 	CodeTooManyFiles  = "skill_too_many_files"
+	CodeNotZip        = "skill_not_zip"
 	CodeCommentLength = "comment_too_long"
 )
 

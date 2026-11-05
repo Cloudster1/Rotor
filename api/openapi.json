@@ -4688,7 +4688,7 @@
       "post": {
         "operationId": "importSkill",
         "summary": "Make a skill from a zip of one skill, or save the next version of the skill with that name.",
-        "description": "The body is the zip itself (application/zip, at most 2 MiB); the comment goes in the query. For whoever holds skill.create, or skill.edit on the skill named. The answer says which happened.",
+        "description": "The body is the zip itself (application/zip, at most 2 MiB); the comment goes in the query. For whoever holds skill.create, or skill.edit on the skill named. The answer says which happened: 201 with created true for a new skill, 200 with created false for a new version.",
         "tags": [
           "skills"
         ],
@@ -4702,6 +4702,17 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/zip": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -4713,8 +4724,18 @@
               }
             }
           },
-          "422": {
-            "description": "Unprocessable Entity",
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportedSkill"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -4723,8 +4744,38 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request Entity Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
             "content": {
               "application/json": {
                 "schema": {
@@ -5470,7 +5521,7 @@
       "get": {
         "operationId": "exportSkillVersion",
         "summary": "One version as a zip that imports unchanged.",
-        "description": "The body is application/zip.",
+        "description": "The body is application/zip: the files under one folder named after the skill.",
         "tags": [
           "skills"
         ],
@@ -5495,20 +5546,18 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
-          },
-          "404": {
-            "description": "Not Found",
+            "description": "OK",
             "content": {
-              "application/json": {
+              "application/zip": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
+                  "type": "string",
+                  "format": "binary"
                 }
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {

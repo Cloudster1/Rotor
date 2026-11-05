@@ -76,6 +76,31 @@ A skill is archived, never deleted, so a workflow that names one of its
 versions keeps meaning what it meant. Archiving takes it out of the list;
 restoring puts it back.
 
+## Importing and exporting
+
+A skill travels as a zip in the Agent Skills format, the same as a skill
+folder from Claude Code zipped up.
+
+- **Import** (`POST /skills/import`, the zip as the body, `?comment=` for the
+  version's note) takes `SKILL.md` at the zip's root or inside one folder that
+  holds everything. If no skill has the name in `SKILL.md`, it is made, and
+  you own it; if one has, and you may edit it, the next version is saved on
+  top of its current one. The answer says which happened (`created`). A skill
+  you cannot read answers as if it were not there (404), and one you read but
+  may not edit is refused (403): make a skill under another name instead.
+- **Export** (`GET /skills/{id}/versions/{n}/export`) answers that version as
+  `<name>-v<n>.zip`, its files in one folder named after the skill. The same
+  version always gives the same bytes, and importing the zip gives the same
+  files again.
+
+An import is refused, naming the file, when the body is not a zip or is over
+2 MiB; when `SKILL.md` is missing, or sits in a folder with other files beside
+it or among several folders; when an entry is a link, or its path is absolute
+or holds `..` or a backslash; when the files add up to more than the limits
+above, judged on their unpacked size before anything is unpacked, so a zip
+bomb is refused; and for everything a save refuses: front matter without
+`name` or `description`, a binary file, a hidden file such as `.DS_Store`.
+
 ## Sharing
 
 Skills are shared as workflows are, through roles granted to a person or a
