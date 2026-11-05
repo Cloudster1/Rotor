@@ -34,7 +34,7 @@ var builtinWords = map[Role][2]string{
 	WorkflowAdministrator: {"Workflow administrator", "Shares one workflow, archives it, and sees and cancels everyone's runs of it."},
 	Editor:                {"Editor", "Saves new versions of one workflow and runs it."},
 	Runner:                {"Runner", "Sees one workflow and starts runs of it."},
-	Author:                {"Author", "Creates workflows of their own."},
+	Author:                {"Author", "Creates workflows and skills of their own."},
 	SkillAdministrator:    {"Skill administrator", "Saves new versions of one skill, shares it and archives it."},
 	SkillEditor:           {"Skill editor", "Saves new versions of one skill."},
 	SkillReader:           {"Skill reader", "Reads one skill and its versions, and gives it to the agents of their workflows."},
