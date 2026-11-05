@@ -641,6 +641,9 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- The built-in Author role says it creates workflows and skills of their own,
+  as it has granted since #219. An installation whose administrator reworded
+  the role keeps their words (#236).
 - Sharing is the workflow's grants alone (#205). `PUT /workflows/{id}/sharing`
   is gone, and so are `sharing` and `sharedGroups` on a workflow, which now
   carries `sharedWith`; grant on `/workflows/{id}/grants` instead. The

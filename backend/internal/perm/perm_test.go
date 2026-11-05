@@ -195,7 +195,7 @@ func TestEveryPermissionHasWordsForTheMatrix(t *testing.T) {
 
 // The database's CHECK constraint and seeded roles are the catalogue here: a permission the code checks for that the
 // table refuses, or a built-in seeded otherwise, would make the two disagree. Later migrations restate the constraint,
-// seed more roles and add permissions to seeded ones, so the catalogue is every migration's Up, in order.
+// seed more roles, add permissions to seeded ones and reword them, so the catalogue is every migration's Up, in order.
 func TestTheDatabaseHoldsTheSameCatalogue(t *testing.T) {
 	source := migrationsUp(t)
 	all := regexp.MustCompile(`role_known_permissions CHECK \(\s*permissions <@ ARRAY\[([^\]]*)\]`).FindAllStringSubmatch(source, -1)
@@ -211,8 +211,14 @@ func TestTheDatabaseHoldsTheSameCatalogue(t *testing.T) {
 			t.Errorf("no migration seeds %s", d.Key)
 			continue
 		}
-		if row[1] != d.Name || row[2] != strings.ReplaceAll(d.Description, "'", "''") || (row[3] == "true") != d.InstallationWideOnly {
-			t.Errorf("%s is seeded as %q, %q, %s", d.Key, row[1], row[2], row[3])
+		description := row[2]
+		reworded := regexp.MustCompile(`UPDATE role SET description = '((?:[^']|'')*)'\s*WHERE key = '` + string(d.Key) + `'`).
+			FindAllStringSubmatch(source, -1)
+		if len(reworded) > 0 {
+			description = reworded[len(reworded)-1][1]
+		}
+		if row[1] != d.Name || description != strings.ReplaceAll(d.Description, "'", "''") || (row[3] == "true") != d.InstallationWideOnly {
+			t.Errorf("%s is seeded as %q, %q, %s", d.Key, row[1], description, row[3])
 		}
 		seeded := quoted(row[4])
 		added := regexp.MustCompile(`UPDATE role SET permissions = permissions \|\| ARRAY\[([^\]]*)\]::text\[\]\s*WHERE key = '`+
