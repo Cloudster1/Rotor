@@ -22,7 +22,8 @@ import (
 // The tools docs/api-contract-m10.md names: workflows and runs read, checked, started and cancelled, and approvals
 // read, never decided.
 var contractTools = []string{
-	"cancel_run", "get_approval", "get_run", "get_workflow", "list_approvals", "list_runs", "list_workflows", "start_run",
+	"cancel_run", "create_skill", "get_approval", "get_run", "get_skill", "get_skill_file", "get_skill_version", "get_workflow",
+	"list_approvals", "list_runs", "list_skills", "list_workflows", "save_skill", "start_run", "validate_skill",
 	"validate_workflow", "whoami",
 }
 
@@ -67,7 +68,7 @@ func TestAToolRequiresItsPathAndReadsWhenItGets(t *testing.T) {
 		}
 	}
 	for _, tool := range toolCatalog() {
-		if tool.ReadOnly != (tool.Method == http.MethodGet || tool.Name == "validate_workflow") {
+		if tool.ReadOnly != (tool.Method == http.MethodGet || tool.Name == "validate_workflow" || tool.Name == "validate_skill") {
 			t.Errorf("%s: readOnly %v for %s", tool.Name, tool.ReadOnly, tool.Method)
 		}
 		for _, name := range pathParams(tool.Path) {

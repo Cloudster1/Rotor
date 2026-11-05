@@ -9,6 +9,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Skills through MCP (#224). An assistant lists, reads and checks the skills
+  its person may read and, unless connected to read only, creates skills and
+  saves their next versions, with `list_skills`, `get_skill`,
+  `get_skill_version`, `get_skill_file`, `validate_skill`, `create_skill` and
+  `save_skill`. Sharing, archiving, restoring and importing remain in person.
 - Skills import and export as Agent Skills zips (#220). `POST /skills/import`
   takes a zip of one skill folder, `SKILL.md` at its root or in its one top
   folder, and makes the skill or, when you may edit the skill of that name,

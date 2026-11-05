@@ -76,6 +76,13 @@ answer over 64 KiB is refused with a sentence on how to narrow it.
 | `cancel_run` | `POST /runs/{runID}/cancel` | destructive |
 | `list_approvals` | `GET /approvals` | read |
 | `get_approval` | `GET /approvals/{approvalID}` | read |
+| `list_skills` | `GET /skills`, which takes `q` | read |
+| `get_skill` | `GET /skills/{skillID}` | read |
+| `get_skill_version` | `GET /skills/{skillID}/versions/{versionNumber}` | read |
+| `get_skill_file` | `GET /skills/{skillID}/versions/{versionNumber}/file`; `path` names the file | read |
+| `validate_skill` | `POST /skills/validate` | read: it changes nothing |
+| `create_skill` | `POST /skills` | write |
+| `save_skill` | `PUT /skills/{skillID}`; `baseVersion` is the version read last | write, idempotent |
 
 A grant made to read is offered the read tools alone, and a write it calls
 anyway is refused in a sentence.
@@ -90,6 +97,9 @@ Deciding an approval is no tool, and four layers hold it:
    403 `decided_in_person`.
 4. The database refuses an approval approved or rejected in a transaction
    whose `app.via` names a grant, `insufficient_privilege`.
+
+Sharing, archiving, restoring, importing and exporting a skill carry no tool
+either (#224); `docs/api-contract-m17.md` has how that is held.
 
 Connecting or disconnecting a tool, consenting, ending a grant, signing out
 and every administrator's operation take a session too.

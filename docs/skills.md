@@ -122,6 +122,14 @@ A skill you may not read answers as if it did not exist. Sharing a workflow
 does not share its skills: a run's person must be able to read every skill the
 workflow names, as the next section says.
 
+## Through an assistant
+
+An assistant connected over MCP lists, reads, checks, creates and saves skills
+as the person it acts for (#224): `list_skills`, `get_skill`,
+`get_skill_version`, `get_skill_file`, `validate_skill`, `create_skill` and
+`save_skill`. Sharing, archiving, restoring and importing stay in person, and
+a grant made to read gets only the reading tools.
+
 ## Using a skill in a workflow
 
 An agent node names the skills it may follow, each pinned to a version:
