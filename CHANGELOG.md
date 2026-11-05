@@ -9,6 +9,12 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- How a workflow gets skills is agreed (#218): `docs/api-contract-m17.md`
+  says how Rotor keeps skills in the Agent Skills format as a versioned,
+  shared library, how an agent node pins the ones it may use, how an agent
+  loads them during a run, and how they reach the web app and MCP. The schema
+  carries an agent's `skills`, and a workflow using it is refused as
+  `not_built` until its issue lands; the `/skills` routes answer 501 until then.
 - New workflow offers a Start from list: a blank workflow, then every workflow
   Rotor ships by name and description, each with a link to its section of the
   workflows guide (#214). Choosing one fills the editor (undo takes it back)

@@ -3,6 +3,49 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-11-05: Skills for workflow agents, for M17 (#218)
+
+- **The Agent Skills format, unchanged.** A skill is a folder with a
+  `SKILL.md` and reference files, as Claude Code and other agents read them,
+  so a team brings the skills it has and takes them out again. Rotor keeps the
+  front matter it does not enforce, such as `allowed-tools`, rather than
+  dropping it: what an agent may call stays its node's bindings.
+- **Skills live in Postgres.** Rotor has no file store, and a skill is small
+  text, like a workflow's YAML, which is a text column already. Rows give
+  versions, row level security, the audit log and backups with nothing new to
+  run; an object store would be a new dependency for a few megabytes.
+- **Versions are pinned, and the pin is what makes a skill trusted.** An agent
+  follows a skill as it follows its role, so a skill's text is not fenced as
+  untrusted data. That is safe only because a workflow names the exact version
+  its author chose, and a version never changes: editing a skill makes a new
+  version nobody uses until a workflow pins it.
+- **Names are unique in the installation.** A workflow names skills as it
+  names tools, by a word a person reads in the YAML. One namespace keeps that
+  word meaning one skill; Agent Skills' name rule already keeps names short.
+- **The run's person must read every skill.** A run acts as its person in the
+  tools; reading skills the same way keeps one rule for what a run may see.
+  Sharing a workflow then means sharing its skills, which the editor says.
+  Letting the pin alone grant access would make sharing a workflow a way to
+  hand out skills its owner never shared.
+- **Loaded on demand, over the runner's stream.** An agent first sees each
+  skill's name and description and reads the rest when it decides to, as
+  Agent Skills intends, so a skill costs tokens only when used. The files come
+  through a request and answer on the stream the runner already holds, checked
+  per read against the run's pin and person, rather than whole in `StartRun`,
+  which is rebuilt on every reconnect and shares the 8 MiB message cap with
+  checkpoints. A REST fetch would need a credential the runner does not have.
+- **The skills Rotor ships come from the repository.** `skills/` is their
+  single source, as `examples/` is for workflows; the api installs each
+  declared version at start and never rewrites one, so an upgrade adds
+  versions and every pin keeps its meaning.
+
+### Alternatives considered
+
+- Named prompt snippets included whole in the role: simpler, but every step
+  pays for every snippet, and teams' existing skills would not import.
+- Administrators curating one library: less to share, but skills are written
+  by the people who write workflows, and workflows already have grants.
+
 ## 2026-11-04: A workflow's settings, and sharing retired (#205)
 
 - **Archived, never deleted.** The standard's workflow settings delete with a

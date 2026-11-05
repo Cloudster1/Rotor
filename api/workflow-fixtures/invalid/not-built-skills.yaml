@@ -1,0 +1,12 @@
+# expect: /nodes/0/skills not_built
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+limits: {maxSteps: 5, timeout: 1m}
+entry: a
+nodes:
+  - id: a
+    type: agent
+    prompt: Turn the story into requirements.
+    skills:
+      - {name: requirements-engineering, version: 2}

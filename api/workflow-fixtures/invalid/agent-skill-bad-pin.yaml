@@ -1,0 +1,14 @@
+# expect: /nodes/0/skills/0/version schema
+# expect: /nodes/0/skills/1/name schema
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: broken}
+limits: {maxSteps: 5, timeout: 1m}
+entry: a
+nodes:
+  - id: a
+    type: agent
+    prompt: Turn the story into requirements.
+    skills:
+      - {name: requirements-engineering, version: 0}
+      - {name: Requirements_Engineering, version: 1}

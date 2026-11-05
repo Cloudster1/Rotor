@@ -268,6 +268,7 @@ def check_sense(document: dict[str, Any]) -> list[Problem]:
     out.extend(_repository_sense(tools))
     out.extend(_workspace_sense(nodes, tools, index))
     out.extend(_test_sense(nodes, str(document["limits"]["timeout"])))
+    out.extend(_not_built(nodes))
     if entry in index:
         reached = {entry}
         queue = [entry]
@@ -340,6 +341,15 @@ def form_fields(schema: Any) -> dict[str, Any] | None:
     except Exception:
         return None
     return properties
+
+
+def _not_built(nodes: list[dict[str, Any]]) -> list[Problem]:
+    """Refuses the fields M17 agreed until their issue merges, as Go's notBuilt, so no run takes one it would ignore."""
+    return [
+        Problem(f"/nodes/{i}/skills", "not_built", "A node's skills are not built yet (#221).")
+        for i, node in enumerate(nodes)
+        if node.get("skills")
+    ]
 
 
 def _repository_sense(tools: dict[str, dict[str, Any]]) -> list[Problem]:

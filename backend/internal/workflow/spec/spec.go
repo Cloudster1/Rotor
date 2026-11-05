@@ -36,6 +36,8 @@ const (
 	CodeApprovalForm   = "approval_form"
 	CodeApprovalExpiry = "approval_expiry"
 	CodeDecidesReview  = "decides_review"
+	// CodeNotBuilt is a field a contract agreed whose issue has not merged yet (#218).
+	CodeNotBuilt = "not_built"
 	// An agent's own model, role and steps (#133): a model no administrator allows, more steps than the workflow's,
 	// and a role that is a template.
 	CodeModelNotAllowed = "model_not_allowed"
@@ -170,6 +172,14 @@ type Node struct {
 	Workspace   *Workspace `json:"workspace,omitempty"`
 	Command     []string   `json:"command,omitempty"`
 	Reports     []string   `json:"reports,omitempty"`
+	// Skills are the skills an agent may load, each pinned to a version (#221); refused as not built until then.
+	Skills []SkillRef `json:"skills,omitempty"`
+}
+
+// SkillRef names a skill and the version of it an agent gets (docs/api-contract-m17.md).
+type SkillRef struct {
+	Name    string `json:"name"`
+	Version int    `json:"version"`
 }
 
 // Workspace is the run's branch of a repository binding, checked out for a step in a toolchain image (#136).

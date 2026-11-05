@@ -14,6 +14,9 @@ const (
 	MaxCodeMemory  = 1 << 30
 	// MaxRoleChars bounds an agent's role, as the schema does (#133).
 	MaxRoleChars = 8000
+	// MaxAgentSkills and MaxSkillNameChars bound an agent's skills and a skill's name, as the schema does (#218).
+	MaxAgentSkills    = 10
+	MaxSkillNameChars = 64
 	// MaxVersionComment bounds the note a save carries, as the table does.
 	MaxVersionComment = 500
 	// CatalogTTL is how long a tool's MCP tool list is kept, per tool build and person.
