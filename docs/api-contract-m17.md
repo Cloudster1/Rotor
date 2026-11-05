@@ -1,0 +1,376 @@
+# API contract for M17: skills
+
+M17 gives workflow agents skills: folders in the
+[Agent Skills](https://agentskills.io) format, a `SKILL.md` with a name, a
+description and instructions, plus reference files. Rotor keeps them in a
+library, versioned and shared like workflows; an agent node names the skills
+it may use, each pinned to a version; and in a run the agent sees each skill's
+name and description and loads the rest when it needs it.
+- a library of skills: stored, versioned and shared (#219)
+- importing and exporting a skill as a zip (#220)
+- agent nodes that name their skills, checked on save and at run start (#221)
+- loading a skill during a run (#222)
+- the skills pages and the skill picker in the web app (#223)
+- skills through Rotor's MCP endpoint (#224)
+- the skills Rotor ships, used by the default workflows (#225)
+
+This file is #218. The schema `api/workflow.v1.schema.json` is the source of
+truth for the spec; this file says what it means. Until #221 merges, a
+workflow whose agent names skills is refused when saved and when a run starts,
+with the problem `not_built`. The skill routes carry `pending: true` and
+answer 501 until the issue that builds them merges.
+
+Conventions are M2's: paths under `/api/v1`; refusals are sentences saying
+what to do; a page of a listing takes `limit` (50, at most 200) and `offset`
+and answers `total`.
+
+## Migrations, packages and settings
+
+- Migration ranges:
+
+  | Range | Issue | What |
+  |---|---|---|
+  | 01400-01419 | #219 | `skill`, `skill_version`, `skill_file`; the `skill.*` permissions and roles; `role_assignment.skill_id`; `actor_can_skill()` and the policies |
+  | 01420-01429 | #225 | anything the built-in skills need beyond #219, if any |
+
+- Packages: `internal/skills` (the library, its checks, import and export, and
+  the built-in skills), `internal/workflow/spec` and the runner's `spec.py`
+  (the `skills` field), `internal/runnerctl` and `proto/rotor/runner/v1`
+  (handing skills to a run), `runner/src/rotor_runner/skills.py` (the
+  `read_skill` tool), `web/src/features/skills`.
+- Limits, in `internal/config` and mirrored in the runner where it checks
+  them:
+  - `MaxSkillNameChars` = 64; a name is lowercase letters, digits and single
+    dashes, starting and ending with a letter or digit, as Agent Skills asks.
+  - `MaxSkillDescriptionChars` = 1024.
+  - `MaxSkillFiles` = 50 files in a version, `SKILL.md` included.
+  - `MaxSkillFileBytes` = 256 KiB a file.
+  - `MaxSkillVersionBytes` = 1 MiB for all of a version's files.
+  - `MaxSkillPathDepth` = 5 folders below the skill's root.
+  - `MaxSkillImportBytes` = 2 MiB of zip, uncompressed size judged against
+    `MaxSkillVersionBytes` before anything is unpacked.
+  - `MaxAgentSkills` = 10 skills on one agent node.
+  - `MaxSkillReadBytes` = 64 KiB that one `read_skill` call answers.
+
+## The skill format (#219, #220)
+
+A skill is the files of one folder. `SKILL.md` sits at its root:
+
+```markdown
+---
+name: requirements-engineering
+description: Requirements engineering method for eliciting, writing and reviewing requirements. Use whenever ...
+license: Apache-2.0
+metadata:
+  version: "2"
+---
+
+# Requirements engineering
+
+Turn stakeholder intent into requirements that are ...
+```
+
+- `name` and `description` are required. `name` follows the name rule above
+  and is the skill's name in Rotor; it cannot change after the skill is made,
+  so every version's `name` must be the skill's. `description` is plain text,
+  1 to `MaxSkillDescriptionChars` characters, and says what the skill does and
+  when to use it: an agent decides from it alone whether to load the rest.
+- `license`, `compatibility`, `metadata` (strings to strings) and
+  `allowed-tools` are kept as written and shown, but Rotor enforces none of
+  them; what an agent may call is still its node's bindings.
+- Other files sit under relative paths (`references/templates.md`), at most
+  `MaxSkillPathDepth` folders deep, without `..`, a leading `/`, a backslash
+  or a name starting with `.`. Every file is UTF-8 text without NUL bytes;
+  binary files, and with them images and executables, are left for later.
+
+## The library (#219)
+
+### Tables
+
+- `skill`: `id` (uuidv7), `name` (unique in the installation, as workflows
+  name skills by it), `description` (the current version's), `owner_id` and
+  `owner_name`, `current_version`, `archived_at`, `builtin`. A built-in skill
+  has no owner (`CHECK (builtin OR owner_id IS NOT NULL)`).
+- `skill_version`: `(skill_id, number)`, `front_matter jsonb`, `description`,
+  `hash` (sha256 over the sorted paths and contents), `bytes`, `comment` (at
+  most 500 characters), `created_by`, `created_by_name`, `created_at`.
+  Numbered 1, 2, 3 by a trigger as `workflow_version` is, except that a
+  built-in skill takes the number its `metadata.version` declares (#225).
+  Immutable: `rotor_app` and `rotor_admin` hold no `UPDATE` or `DELETE`.
+- `skill_file`: `(skill_id, number, path)`, `content text`, `bytes`, `sha256`.
+  `SKILL.md` is a file like any other. Immutable with its version.
+
+A skill is archived, never deleted, so a workflow version that pins it keeps
+meaning what it meant.
+
+### Access
+
+Skills take the access model of workflows (`docs/api-contract-access.md`):
+
+- Permissions `skill.read`, `skill.edit`, `skill.administer` and
+  `skill.create`, added to `role_known_permissions` and `perm.AllPermissions`.
+- Built-in roles: Skill administrator (`skill.read`, `skill.edit`,
+  `skill.administer`), Skill editor (`skill.read`, `skill.edit`) and Skill
+  reader (`skill.read`). Author gains `skill.create`; Administrator gains all
+  four over the installation.
+- `role_assignment.skill_id`: a grant on one skill. At most one of
+  `workflow_id` and `skill_id` is set; neither means the installation.
+- `actor_can_skill(permission, skill_id)` answers as `actor_can` does for a
+  workflow. The creator of a skill is granted Skill administrator on it, as
+  the creator of a workflow is.
+- "Available to everyone" is a Skill reader grant to the Everyone group,
+  given like any grant.
+- A built-in skill is readable by everyone signed in. Nobody edits, archives
+  or shares it through the API; only the api's start writes it (#225).
+
+### Endpoints
+
+"Session" means a browser session, never an assistant, as for workflow
+grants.
+
+| Method and path | Who | What |
+|---|---|---|
+| `GET /skills` | signed in | the skills the caller reads, built-in ones included; `archived`, `q` (name or description), `limit`, `offset` |
+| `POST /skills` | `skill.create` | `{files: [{path, content}], comment}` makes the skill from its `SKILL.md` and answers it with version 1 |
+| `POST /skills/validate` | signed in | checks `{files}` as a save would, without saving, and answers the problems |
+| `GET /skills/{skillID}` | `skill.read` | the skill, what the caller may do with it (`canEdit`, `canAdminister`), and its current version's front matter and file list |
+| `PUT /skills/{skillID}` | `skill.edit` | `{baseVersion, files, comment}` saves the next version; a `baseVersion` that is not current is refused with 409 |
+| `DELETE /skills/{skillID}` | `skill.administer` | archives the skill |
+| `POST /skills/{skillID}/restore` | `skill.administer` | takes it out of the archive |
+| `GET /skills/{skillID}/versions` | `skill.read` | its versions, newest first |
+| `GET /skills/{skillID}/versions/{versionNumber}` | `skill.read` | that version's front matter, comment, author and file list: `path`, `bytes`, `sha256` |
+| `GET /skills/{skillID}/versions/{versionNumber}/file` | `skill.read` | `?path=` one file's content |
+| `GET /skills/{skillID}/diff` | `skill.read` | `?from=&to=` answers `{from, to, files: [{path, status, hunks}]}`: each file added, removed or changed between two versions, a changed one with the workflow diff's hunks |
+| `POST /skills/import` | `skill.create`, or `skill.edit` on the skill named | a zip (`application/zip`, at most `MaxSkillImportBytes`) of one skill, `?comment=`; makes the skill, or saves the next version of the one with that name; answers which (#220) |
+| `GET /skills/{skillID}/versions/{versionNumber}/export` | `skill.read` | that version as a zip that imports unchanged (#220) |
+| `GET /skills/{skillID}/grants` | `skill.read` | who holds which role on it |
+| `POST /skills/{skillID}/grants` | `skill.administer`, session | grants a role on it to a person or a group |
+| `DELETE /skills/{skillID}/grants/{grantID}` | `skill.administer`, session | revokes one |
+
+A skill the caller may not read answers 404, as a workflow does; one they read
+but may not change answers 403.
+
+The route table declares JSON and form bodies only, so the import and export
+rows say in their descriptions that the body is a zip; #220 adds a zip body
+kind to the table, and the OpenAPI document then names `application/zip`.
+Pending rows cannot be limited to a session either; the grant handlers refuse
+an assistant when #219 builds them, as the workflow grant handlers do.
+
+### Who reads what
+
+- Everyone signed in reads the `skill` rows `actor_can_skill('skill.read')`
+  allows and every built-in one, with their versions and files.
+- Writing goes through the policies, each tried straight through SQL as
+  `rotor_app` in the tests: inserting a skill needs `skill.create` and the
+  caller as owner; a version needs `skill.edit` and the caller as author;
+  archiving and restoring need `skill.administer`; a built-in skill refuses
+  all three to `rotor_app`.
+- The worker reads a run's pinned skill files through `rotor_admin`, after
+  checking the run's person may read the skill (#222).
+
+### Audit
+
+`skill.created`, `skill.changed` (`{version, comment}`), `skill.shared`
+(through the existing `role.granted` and `role.revoked`, naming the skill),
+`skill.archived`, `skill.restored`, `skill.imported` (`{version, created}`)
+and `skill.installed` (a built-in version the api added, #225).
+
+### Problems a skill is refused with
+
+| Code | Path | When |
+|---|---|---|
+| `skill_missing` | `-` | no `SKILL.md` at the root |
+| `skill_front_matter` | `SKILL.md` | the front matter is missing or not YAML |
+| `skill_name` | `SKILL.md` | `name` is missing or breaks the name rule |
+| `skill_name_taken` | `SKILL.md` | another skill has the name |
+| `skill_name_changed` | `SKILL.md` | a new version names the skill differently |
+| `skill_description` | `SKILL.md` | `description` is missing, empty or too long |
+| `skill_path` | the path | a path breaks the path rule |
+| `skill_binary` | the path | a file is not UTF-8 text |
+| `skill_too_large` | the path, or `-` | a file or the version is over its limit |
+| `skill_too_many_files` | `-` | more than `MaxSkillFiles` files |
+
+## Agent nodes name their skills (#221)
+
+```yaml
+nodes:
+  - id: analyse
+    type: agent
+    prompt: Turn the story into requirements.
+    skills:
+      - { name: requirements-engineering, version: 2 }
+```
+
+- `skills` is a list of at most `MaxAgentSkills` items, each `{name, version}`
+  with no other key; `name` follows the name rule and `version` is a whole
+  number from 1. Only agent nodes take it.
+- Sense, in Go and Python alike: a name twice on one node is `skill_twice` at
+  `/nodes/<i>/skills/<j>`.
+- Saving, and `POST /workflows/validate` for the editor, checks each skill as
+  the person saving:
+  - `skill_unknown`: no skill of that name they may read. One message for
+    both, so a name tells nobody that a skill they may not read exists.
+  - `skill_version_unknown`: the skill has no such version.
+  - `skill_archived`: the skill is archived; a version saved before keeps
+    starting, since its pin still holds.
+- Starting a run, by hand or by a trigger, checks that the run's person may
+  read every skill the workflow version names; otherwise the start is
+  refused with `skill_unreadable` and a sentence naming the skill, as a model
+  an administrator withdrew is. Sharing a workflow therefore means sharing its
+  skills too; the editor says so beside the sharing panel (#223).
+- Until #221 merges, the field is in the schema and refused with
+  `not_built` at `/nodes/<i>/skills`. The golden fixtures
+  `invalid/not-built-skills.yaml` and `invalid/agent-skill-bad-pin.yaml` come
+  with this contract; `invalid/agent-skill-twice.yaml` comes with #221, since
+  `not_built` refuses any `skills` before a sense check sees a name twice.
+
+## Loading a skill during a run (#222)
+
+### What the run is given
+
+`StartRun` gains `map<string, AgentSkills> agent_skills = 13`, keyed by node
+id like `agent_models`:
+
+```proto
+message AgentSkills { repeated SkillCard skills = 1; }
+message SkillCard {
+  string name = 1;
+  int32 version = 2;
+  string description = 3;
+  repeated SkillFileInfo files = 4;
+}
+message SkillFileInfo { string path = 1; int64 bytes = 2; }
+```
+
+It carries no content: a skill's files are read only when an agent asks.
+
+### Reading a file
+
+A request and answer pair on the stream, as checkpoints and tokens are, with
+the next free numbers in the `ConnectRequest` and `ConnectResponse` oneofs:
+
+```proto
+message SkillFileRequest {
+  string request_id = 1;
+  string name = 2;
+  int32 version = 3;
+  string path = 4;
+  int64 offset = 5;
+}
+message SkillFileResponse {
+  string request_id = 1;
+  string content = 2;
+  int64 offset = 3;
+  int64 total = 4;
+  string refusal = 5;
+}
+```
+
+The control plane answers at most `MaxSkillReadBytes` from `offset`, cut on a
+character boundary, only when the run's pinned spec names that skill version
+on one of its agent nodes and the run's person may still read the skill.
+Otherwise `refusal` says why, and the agent sees that sentence.
+
+### What the agent sees
+
+- After the role, its instructions list the skills it was given, each as
+  `name (version): description`, neutralised as the role is, and say that
+  `read_skill` loads a skill's `SKILL.md` and then the files it mentions.
+- A built-in tool, offered only to an agent with skills:
+
+  `read_skill(skill: string, path: string = "SKILL.md", offset: int = 0)`
+
+  It answers the text, and when the file goes on, a last line saying which
+  `offset` reads the rest. A skill the node was not given, or a path not in
+  its file list, answers a sentence saying so. A binding tool of the same
+  name refuses the run with `tool_names`, as a workspace tool's clash does.
+- Its answer is not fenced as untrusted data: a skill is the workflow's own
+  instruction, pinned to the version its author chose. The policy text says
+  so, and that a skill never overrides the policy itself. What a tool, a
+  person or a page writes stays untrusted, as before.
+- Each call is a tool call, so it counts against the agent's `maxSteps`.
+
+### The event
+
+`skill.read`, payload `{node, skill, version, path, offset, bytes}`; never
+the content. The run's timeline shows it as the agent reading that skill
+file. Added to the event table in `docs/api-contract-m2.md`.
+
+### Testing it
+
+The stub model in `internal/toolstub` records each request's messages and
+tool names, so an integration test sees the skills listed and `read_skill`
+offered; the runner's `RecordingModel` records bound tools for the same in
+unit tests.
+
+## The web app (#223)
+
+- **Skills** in the sidebar, for everyone signed in: the skills the person
+  reads, built-in ones marked, with archived ones behind a toggle.
+- A skill's page: its `SKILL.md` and files, editable with `skill.edit` and
+  saved as a version with a comment; Versions, with the diff; Sharing, as a
+  workflow's; archiving and restoring with `skill.administer`; export.
+- New skill, from a template that passes the checks, and import from a zip.
+- In the workflow editor, a skill picker beside the tool picker lists the
+  skills the person reads and their versions and inserts
+  `- { name: ..., version: ... }` under `skills:` of the agent node at the
+  cursor; the canvas inspector shows an agent's skills.
+- Strings in `web/src/strings_skills.ts`.
+
+## Skills through MCP (#224)
+
+Tool rows on the skill operations, as `docs/api-contract-m10.md` describes:
+
+| Tool | Operation | Kind |
+|---|---|---|
+| `list_skills` | `GET /skills` | read |
+| `get_skill` | `GET /skills/{skillID}` | read |
+| `get_skill_version` | `GET /skills/{skillID}/versions/{versionNumber}` | read |
+| `get_skill_file` | `GET /skills/{skillID}/versions/{versionNumber}/file` | read |
+| `validate_skill` | `POST /skills/validate` | read |
+| `create_skill` | `POST /skills` | write |
+| `save_skill` | `PUT /skills/{skillID}` | write |
+
+An assistant allowed only to read is offered only the reads. An assistant
+never shares, archives, restores or imports a skill: those stay in person.
+Zips are not tools; `get_skill_file` reads each file instead.
+
+## The skills Rotor ships (#225)
+
+- `skills/<name>/` at the repository's root is their single source, as
+  `examples/` is for workflows; each `SKILL.md` declares its version as
+  `metadata.version`. `make skills-builtin` copies them into
+  `internal/skills/builtin` for `go:embed`; a test refuses a stale copy.
+- When the api starts, it installs each shipped skill as a built-in: it makes
+  the skill when it is missing and adds the declared version when that version
+  is missing, as `rotor_admin`, auditing `skill.installed`. A version that
+  exists with other content stops the start, with a sentence saying the
+  shipped skill changed without a new `metadata.version`. Older versions stay,
+  so a workflow pinning one keeps working after an upgrade.
+- A fresh installation has only each skill's current version, so the versions
+  of a built-in skill may have gaps.
+- First `requirements-engineering` and `test-engineering`.
+  `story-refinement` and `story-to-requirements` give their analysing agent
+  `requirements-engineering`; `requirement-to-test-spec` gives its designer
+  and reviewer `test-engineering`; each pinned to the version shipped.
+
+## Problems and warnings
+
+| Code | Path | Issue |
+|---|---|---|
+| `not_built` | `/nodes/<i>/skills` | #218, gone with #221 |
+| `skill_twice` | `/nodes/<i>/skills/<j>` | #221 |
+| `skill_unknown` | `/nodes/<i>/skills/<j>` | #221 |
+| `skill_version_unknown` | `/nodes/<i>/skills/<j>/version` | #221 |
+| `skill_archived` | `/nodes/<i>/skills/<j>` | #221 |
+| `skill_unreadable` | a refused start, not a spec problem | #221 |
+
+## What is left for later
+
+- Binary files in a skill, such as images, and running a skill's scripts in a
+  workspace.
+- Enforcing `allowed-tools`.
+- Skills on code nodes, or mounted into a workspace for a coding agent.
+- A pin that follows a skill's latest version.
+- Keeping a skill in step with a folder in a repository.
+- Which runs read which skill, as a page of the skill.
