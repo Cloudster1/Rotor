@@ -6413,7 +6413,7 @@
       "post": {
         "operationId": "addTool",
         "summary": "Add a tool by its address; Rotor registers itself there as an OAuth client.",
-        "description": "Reads the tool's /api/v1/meta, which must offer mcp@1, then its protected resource and authorization server metadata (RFC 9728, RFC 8414), and registers by RFC 7591 unless a client is given. Adding an address Rotor already knows registers again, for a tool that forgot its client.",
+        "description": "Reads the tool's /api/v1/meta, which must offer mcp@1, then its protected resource and authorization server metadata (RFC 9728, RFC 8414), and registers by RFC 7591 unless a client is given. Adding an address Rotor already knows registers again, for a tool that forgot its client, and keeps its name. A name another tool has, case aside, is refused with 409 tool_name_taken (#267).",
         "tags": [
           "tools"
         ],
@@ -6466,6 +6466,16 @@
           },
           "403": {
             "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -7143,6 +7153,162 @@
             "realmToken": []
           }
         ]
+      }
+    },
+    "/tools/{toolID}/name": {
+      "put": {
+        "operationId": "renameTool",
+        "summary": "Rename a tool: the name workflows bind it by.",
+        "description": "Its product, client and connections stay. Workflows that bound the old name no longer find the tool, and the answer lists them for their owners to change. A name another tool has, case aside, is refused with 409 tool_name_taken. The audit log records tool.renamed.",
+        "tags": [
+          "tools"
+        ],
+        "parameters": [
+          {
+            "name": "toolID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameToolRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenameToolResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/{toolID}/workflows": {
+      "get": {
+        "operationId": "toolWorkflows",
+        "summary": "The workflows whose current version binds the tool by its name, which stop finding it once it is renamed.",
+        "description": "Every workflow not archived, whoever owns it, so an administrator renaming the tool knows whom to tell.",
+        "tags": [
+          "tools"
+        ],
+        "parameters": [
+          {
+            "name": "toolID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToolWorkflowsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/traces": {
@@ -9320,6 +9486,9 @@
             "type": "string"
           },
           "clientSecret": {
+            "type": "string"
+          },
+          "name": {
             "type": "string"
           }
         },
@@ -11714,6 +11883,35 @@
           "models"
         ]
       },
+      "RenameToolRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "RenameToolResponse": {
+        "type": "object",
+        "properties": {
+          "tool": {
+            "$ref": "#/components/schemas/ToolResponse"
+          },
+          "workflows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolBinder"
+            }
+          }
+        },
+        "required": [
+          "tool",
+          "workflows"
+        ]
+      },
       "RequestBody": {
         "type": "object",
         "properties": {
@@ -12648,6 +12846,25 @@
           "name"
         ]
       },
+      "ToolBinder": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "ownerName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "ownerName"
+        ]
+      },
       "ToolResponse": {
         "type": "object",
         "properties": {
@@ -12685,6 +12902,9 @@
           "name": {
             "type": "string"
           },
+          "product": {
+            "type": "string"
+          },
           "registration": {
             "type": "string",
             "enum": [
@@ -12713,6 +12933,7 @@
         "required": [
           "id",
           "name",
+          "product",
           "baseURL",
           "resource",
           "mcpURL",
@@ -12724,6 +12945,20 @@
           "registration",
           "status",
           "addedAt"
+        ]
+      },
+      "ToolWorkflowsResponse": {
+        "type": "object",
+        "properties": {
+          "workflows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolBinder"
+            }
+          }
+        },
+        "required": [
+          "workflows"
         ]
       },
       "TraceDestination": {

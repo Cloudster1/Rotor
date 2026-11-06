@@ -802,6 +802,18 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- A tool's name changes only when an administrator changes it, and no two
+  tools share one (#267). Adding a tool under a name another has is refused
+  with a sentence asking for another, and Admin, Tools takes an optional name
+  when adding, for a second Exciter beside the first. Administrators rename a
+  tool under Admin, Tools, which lists the workflows that bind the old name
+  first; renaming is audited. Check again no longer renames a tool after the
+  product its metadata names: it shows the product on the tool's row and
+  keeps the name workflows bind. Tools that already share a name are listed
+  on Admin, Tools to be renamed, and a workflow binding such a name says so
+  when it is validated or saved and when a run starts, where it used to say
+  the tool "is not set up in Rotor".
+
 - A request its client gave up on, such as a page closed while the workflow
   list loads, is no longer logged as `level=ERROR ... 500 context canceled`;
   it is noted at debug level and shows as status 499 in the access log (#269).

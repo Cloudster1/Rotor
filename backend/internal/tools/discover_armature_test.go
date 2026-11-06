@@ -93,7 +93,7 @@ func TestAnExchangeOfAnotherKindIsNeitherAskedForNorUsed(t *testing.T) {
 	if grants, _ := f.registered["grant_types"].([]any); slices.Contains(grants, any(GrantTokenExchange)) {
 		t.Errorf("asked Exciter to register %v, want no exchange", grants)
 	}
-	if (Tool{Name: d.Name, GrantTypes: d.GrantTypes}).OffersExchange() {
+	if (Tool{Name: d.Name, Product: d.Name, GrantTypes: d.GrantTypes}).OffersExchange() {
 		t.Error("an Exciter listing the exchange mints a run's token by it")
 	}
 }

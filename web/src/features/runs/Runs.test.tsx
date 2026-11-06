@@ -200,6 +200,33 @@ describe("starting a run", () => {
     expect(await axeViolations()).toEqual([]);
   });
 
+  it("says a name several tools share must be settled by an administrator, not that the tool is missing (#267)", async () => {
+    await renderAt("/workflows", {
+      answers: {
+        ...listed,
+        [`POST /api/v1/workflows/${DRAFT.id}/runs`]: () =>
+          Response.json(
+            {
+              error: {
+                code: "tool_ambiguous",
+                message: "Several tools are called exciter, so this workflow cannot tell which one to act in.",
+                fields: { exciter: "" },
+              },
+            },
+            { status: 409 },
+          ),
+      },
+    });
+    const dialog = await openDialog();
+    await userEvent.type(within(dialog).getByLabelText(/topic/), "billing");
+    await userEvent.click(within(dialog).getByRole("button", { name: s.runs.dialog.start }));
+    const notice = await within(dialog).findByText(s.toolNames.ambiguousRun);
+    expect(within(notice.parentElement as HTMLElement).getByText("exciter")).toBeInTheDocument();
+    expect(within(dialog).queryByText(s.runs.dialog.missingTool("exciter"))).toBeNull();
+    expect(within(dialog).queryByText(s.runs.dialog.connectFirst)).toBeNull();
+    expect(await axeViolations()).toEqual([]);
+  });
+
   it("passes axe with the dialog open", async () => {
     await renderAt("/workflows", { answers: listed });
     await openDialog();

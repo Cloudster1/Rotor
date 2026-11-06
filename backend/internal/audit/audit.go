@@ -26,14 +26,16 @@ const (
 	ActionToolRemoved            = "tool.removed"
 	ActionToolChecked            = "tool.checked"
 	ActionToolAllowed            = "tool.allowed"
-	ActionConnectionGranted      = "connection.granted"
-	ActionConnectionEnded        = "connection.ended"
-	ActionTokenMinted            = "token.minted"
-	ActionTokenRevoked           = "token.revoked"
-	ActionWorkflowCreated        = "workflow.created"
-	ActionWorkflowChanged        = "workflow.changed"
-	ActionWorkflowShared         = "workflow.shared"
-	ActionWorkflowArchived       = "workflow.archived"
+	// ActionToolRenamed is an administrator changing the name workflows bind a tool by (#267).
+	ActionToolRenamed       = "tool.renamed"
+	ActionConnectionGranted = "connection.granted"
+	ActionConnectionEnded   = "connection.ended"
+	ActionTokenMinted       = "token.minted"
+	ActionTokenRevoked      = "token.revoked"
+	ActionWorkflowCreated   = "workflow.created"
+	ActionWorkflowChanged   = "workflow.changed"
+	ActionWorkflowShared    = "workflow.shared"
+	ActionWorkflowArchived  = "workflow.archived"
 	// ActionWorkflowRestored is a workflow taken out of the archive, which is how archiving is undone (#205).
 	ActionWorkflowRestored  = "workflow.restored"
 	ActionProviderChanged   = "provider.changed"
@@ -107,7 +109,7 @@ const (
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
 var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, ActionSwitchedOff, ActionSessionEndedByProvider,
-	ActionToolAdded, ActionToolRemoved, ActionToolChecked, ActionToolAllowed, ActionConnectionGranted, ActionConnectionEnded, ActionTokenMinted, ActionTokenRevoked, ActionProviderChanged,
+	ActionToolAdded, ActionToolRemoved, ActionToolChecked, ActionToolAllowed, ActionToolRenamed, ActionConnectionGranted, ActionConnectionEnded, ActionTokenMinted, ActionTokenRevoked, ActionProviderChanged,
 	ActionWorkflowCreated, ActionWorkflowChanged, ActionWorkflowShared, ActionWorkflowArchived, ActionWorkflowRestored, ActionRunStarted, ActionRunCancelled,
 	ActionApprovalDecided, ActionTriggerCreated, ActionTriggerChanged, ActionTriggerRemoved, ActionTriggerEnabled, ActionTriggerDisabled,
 	ActionHookSecretChanged, ActionLimitsChanged, ActionLangSmithChanged,

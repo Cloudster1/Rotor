@@ -14,6 +14,8 @@ async function addTool(page: Page, trackTool: (address: string) => void): Promis
   await page.goto("/admin/tools");
   const form = page.locator("[data-add-tool]");
   await form.getByLabel("Address").fill(address);
+  // Names are unique (#267), so a tool of its own also takes a name of its own beside others' Exciters.
+  await form.getByLabel("Name", { exact: true }).fill(address.split("/t/")[1] ?? "");
   await form.locator('[data-action="add-tool"]').click();
   await expect(page.locator("[data-tools] li", { hasText: address })).toHaveAttribute("data-status", "ready");
   return address;

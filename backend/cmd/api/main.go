@@ -174,6 +174,7 @@ func run() error {
 		registry.Connections = people
 		sessions.OnSwitchOff = people.EndPersonConnections
 		server.Tools, server.Connections = registry, people
+		warnSharedToolNames(ctx, registry, log)
 		hookService := hooks.NewService(cluster, secrets)
 		server.Hooks = hookService
 		reader := catalog.NewService(registry, people, boot.ToolClient(cfg), store, log)
@@ -309,5 +310,19 @@ func carryOverLangSmith(ctx context.Context, destinations *tracedest.Service, ke
 		log.Warn("could not carry the LangSmith setting over into its trace destination; the next start tries again", "error", err)
 	case done:
 		log.Info("carried the LangSmith setting over into a trace destination")
+	}
+}
+
+// warnSharedToolNames names the tools that share a name from before names were unique (#267), whose bindings resolve
+// to none until an administrator renames all but one on Admin, Tools, which lists them too.
+func warnSharedToolNames(ctx context.Context, registry *tools.Service, log *slog.Logger) {
+	shared, err := registry.Duplicates(ctx)
+	if err != nil {
+		log.Warn("could not look for tools that share a name", "error", err)
+		return
+	}
+	for name, n := range shared {
+		log.Warn("several tools share a name, so workflows binding it find none; rename all but one on Admin, Tools",
+			"name", name, "tools", n)
 	}
 }

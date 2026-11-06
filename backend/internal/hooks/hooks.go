@@ -85,7 +85,7 @@ func NewService(cluster *db.Cluster, secrets Secrets) *Service {
 func (s *Service) Get(ctx context.Context, toolID uuid.UUID) (Hook, error) {
 	h := Hook{ToolID: toolID}
 	err := s.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		return tx.QueryRow(ctx, `SELECT name, hook_secret_set_at, hook_last_received_at, capabilities FROM tool WHERE id = $1`, toolID).
+		return tx.QueryRow(ctx, `SELECT product, hook_secret_set_at, hook_last_received_at, capabilities FROM tool WHERE id = $1`, toolID).
 			Scan(&h.Product, &h.SecretSetAt, &h.LastReceivedAt, &h.Capabilities)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
