@@ -29,6 +29,8 @@ type Workflows interface {
 	Save(ctx context.Context, id uuid.UUID, source, comment string, base int) error
 	Archive(ctx context.Context, id uuid.UUID) error
 	Restore(ctx context.Context, id uuid.UUID) error
+	// Binding are the workflows binding a tool name, for an administrator renaming the tool (#267).
+	Binding(ctx context.Context, tool string) ([]workflows.Binder, error)
 }
 
 var (
@@ -90,8 +92,27 @@ func toVersionSummary(v workflows.Version) versionSummary {
 		CreatedBy: personRef{ID: v.CreatedByID.String(), Name: v.CreatedByName}}
 }
 
+// products are the tools' products by the names workflows bind them by; a name no tool has stands for its product.
+func (s *Server) products(ctx context.Context) func(name string) string {
+	byName := map[string]string{}
+	if s.Tools != nil {
+		if list, err := s.Tools.List(ctx); err == nil {
+			for _, t := range list {
+				byName[t.Name] = t.Product
+			}
+		}
+	}
+	return func(name string) string {
+		if product, ok := byName[name]; ok {
+			return product
+		}
+		return name
+	}
+}
+
 // toVersionResponse is a version with what a run of it asks for; a version that no longer parses asks for nothing.
-func toVersionResponse(v workflows.Version) versionResponse {
+// product names the product of the tool a binding names, which says how it is asked for scopes (#267).
+func toVersionResponse(v workflows.Version, product func(name string) string) versionResponse {
 	out := versionResponse{versionSummary: toVersionSummary(v), SpecYAML: v.SpecYAML, Inputs: json.RawMessage("null"), Bindings: []bindingRef{},
 		UnattendedCalls: []string{}}
 	parsed, _ := spec.Parse([]byte(v.SpecYAML))
@@ -107,7 +128,7 @@ func toVersionResponse(v workflows.Version) versionResponse {
 			access = spec.AccessRead
 		}
 		// A repository binding that writes also pushes, so the person consents to that too (#137).
-		scopes := profiles.For(b.Tool).BindingScopes(append([]string{}, b.Scopes...), b.Writes(), b.Repository != nil)
+		scopes := profiles.For(product(b.Tool)).BindingScopes(append([]string{}, b.Scopes...), b.Writes(), b.Repository != nil)
 		out.Bindings = append(out.Bindings, bindingRef{Name: name, Tool: b.Tool, Scopes: scopes, Access: access})
 	}
 	sort.Slice(out.Bindings, func(i, j int) bool { return out.Bindings[i].Name < out.Bindings[j].Name })
@@ -149,7 +170,7 @@ func (s *Server) respondWorkflow(w http.ResponseWriter, r *http.Request, id uuid
 		return
 	}
 	respondJSON(w, r, status, workflowResponse{Workflow: toWorkflowSummary(wf),
-		Version: toVersionResponse(v)})
+		Version: toVersionResponse(v, s.products(r.Context()))})
 }
 
 func (s *Server) handleCreateWorkflow(w http.ResponseWriter, r *http.Request) {
@@ -273,7 +294,7 @@ func (s *Server) handleGetWorkflowVersion(w http.ResponseWriter, r *http.Request
 		respondError(w, r, workflowError(err))
 		return
 	}
-	respondJSON(w, r, http.StatusOK, toVersionResponse(v))
+	respondJSON(w, r, http.StatusOK, toVersionResponse(v, s.products(r.Context())))
 }
 
 func (s *Server) handleDiffWorkflowVersions(w http.ResponseWriter, r *http.Request) {

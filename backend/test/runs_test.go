@@ -210,7 +210,8 @@ func TestConnectingFromAWorkflowComesBackToIt(t *testing.T) {
 	if landed != "/workflows/abc?connected="+toolID {
 		t.Errorf("connecting from a workflow landed on %q", landed)
 	}
-	stub2 := newToolStub(t, nil)
+	// Names are unique (#267), so the second tool answers as a product of its own.
+	stub2 := newToolStub(t, map[string]any{"product": "comeback-" + uuid.NewString()[:8]})
 	other := addTool(t, stub2)
 	if landed := bob.landing(t, bob.consentFrom(t, other, "bob", "allow", "https://evil.example/")); landed != "/settings/accounts?connected="+other {
 		t.Errorf("a foreign next landed on %q, want Tool accounts in Settings", landed)

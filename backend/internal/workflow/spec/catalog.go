@@ -20,6 +20,8 @@ type ToolInfo struct {
 	Git bool
 	// Repositories are the names of the repositories the person sees, by project; nil when unknown.
 	Repositories map[string][]string
+	// Shared counts the tools of the name when several have it (#267); the rest says nothing then.
+	Shared int
 }
 
 // CallInfo is what an MCP tool says of itself.
@@ -41,6 +43,11 @@ func (s *Spec) CheckAgainst(c Catalog) []Problem {
 		info, ok := c.Tool(b.Tool)
 		if !ok {
 			add(base+"/tool", CodeUnknownTool, "Rotor has no tool called %s; an administrator adds it in the settings.", b.Tool)
+			continue
+		}
+		if info.Shared > 1 {
+			add(base+"/tool", CodeToolAmbiguous, "%d tools are called %s, so this binding cannot tell which one to act in. "+
+				"Ask an administrator to rename all but one under Admin, Tools.", info.Shared, b.Tool)
 			continue
 		}
 		infos[name] = info

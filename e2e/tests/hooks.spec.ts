@@ -33,6 +33,8 @@ async function addTool(page: Page): Promise<{ address: string; id: string }> {
   await page.goto("/admin/tools");
   const form = page.locator("[data-add-tool]");
   await form.getByLabel("Address").fill(address);
+  // Names are unique (#267), so a tool of its own also takes a name of its own beside others' Exciters.
+  await form.getByLabel("Name", { exact: true }).fill(address.split("/t/")[1] ?? "");
   await form.locator('[data-action="add-tool"]').click();
   await expect(page.locator("[data-tools] li", { hasText: address })).toHaveAttribute("data-status", "ready");
   const tools = (await (await page.request.get("/api/v1/tools")).json()) as { tools: { id: string; baseURL: string }[] };

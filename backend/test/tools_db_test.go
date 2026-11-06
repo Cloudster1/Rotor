@@ -11,27 +11,28 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/db"
 )
 
-// insertTool is the statement the registry runs, reduced to the columns the table requires.
-const insertTool = `INSERT INTO tool (name, base_url, resource, mcp_url, issuer, authorization_endpoint, token_endpoint,
-	client_id, client_auth_method, registration) VALUES ('exciter', $1, $1 || '/api/v1/mcp', $1 || '/api/v1/mcp', $1, $1 || '/a',
+// insertTool is the statement the registry runs, reduced to the columns the table requires: $1 the address, $2 the name.
+const insertTool = `INSERT INTO tool (name, product, base_url, resource, mcp_url, issuer, authorization_endpoint, token_endpoint,
+	client_id, client_auth_method, registration) VALUES ($2, 'exciter', $1, $1 || '/api/v1/mcp', $1 || '/api/v1/mcp', $1, $1 || '/a',
 	$1 || '/t', 'c', 'client_secret_basic', 'dynamic') RETURNING id`
 
 // The registry's guard is the database's too: a member writing straight through SQL as rotor_app is refused.
 func TestOnlyAnAdministratorWritesATool(t *testing.T) {
 	h := newHarness(t)
 	admin, member := h.addPerson(t, "admin"), h.addPerson(t, "member")
-	base := "https://exciter-" + uuid.NewString()[:8] + ".test"
+	name := "exciter-" + uuid.NewString()[:8]
+	base := "https://" + name + ".test"
 	ctx := context.Background()
 
 	err := h.cluster.Write(db.WithUser(ctx, member), func(ctx context.Context, tx db.DBTX) error {
 		var id uuid.UUID
-		return tx.QueryRow(ctx, insertTool, base).Scan(&id)
+		return tx.QueryRow(ctx, insertTool, base, name).Scan(&id)
 	})
 	permissionDenied(t, "a member adding a tool as rotor_app", err)
 
 	var id uuid.UUID
 	if err := h.cluster.Write(db.WithUser(ctx, admin), func(ctx context.Context, tx db.DBTX) error {
-		return tx.QueryRow(ctx, insertTool, base).Scan(&id)
+		return tx.QueryRow(ctx, insertTool, base, name).Scan(&id)
 	}); err != nil {
 		t.Fatalf("an administrator adding a tool as rotor_app: %v", err)
 	}

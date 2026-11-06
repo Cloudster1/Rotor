@@ -232,9 +232,14 @@ func (s *Service) Connected(ctx context.Context, parsed *spec.Spec) error {
 		}
 	}
 	missing, unregistered := map[string]MissingTool{}, map[string]MissingTool{}
+	var ambiguous []string
 	for _, b := range parsed.Tools {
 		tool, err := s.tools.ByName(ctx, b.Tool)
 		switch {
+		case errors.Is(err, tools.ErrAmbiguous):
+			if !slices.Contains(ambiguous, b.Tool) {
+				ambiguous = append(ambiguous, b.Tool)
+			}
 		case errors.Is(err, tools.ErrNotFound):
 			missing[b.Tool] = MissingTool{Name: b.Tool}
 		case err != nil:
@@ -247,6 +252,11 @@ func (s *Service) Connected(ctx context.Context, parsed *spec.Spec) error {
 				missing[b.Tool] = MissingTool{ID: tool.ID, Name: tool.Name}
 			}
 		}
+	}
+	if len(ambiguous) > 0 {
+		// First, since nothing else about such a binding can be told until it names one tool.
+		slices.Sort(ambiguous)
+		return &AmbiguousTools{Names: ambiguous}
 	}
 	if len(unregistered) > 0 {
 		// First, since connecting cannot help until an administrator has registered the tool again.
