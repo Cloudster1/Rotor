@@ -27,7 +27,8 @@ type stuckStore struct {
 	release chan struct{}
 }
 
-func (s *stuckStore) Keep(ctx context.Context, runID uuid.UUID, dataKey string, spans []observability.RunnerSpan) error {
+func (s *stuckStore) Keep(ctx context.Context, runID uuid.UUID, dataKey string, _ observability.RunTracing,
+	spans []observability.RunnerSpan) error {
 	s.calls <- storeCall{ctx: ctx, runID: runID, dataKey: dataKey, spans: spans}
 	select {
 	case <-s.release:

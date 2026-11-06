@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/cloudster1/rotor/backend/internal/observability"
 )
 
 // A guard is not proven by the service refusing: rotor_app writes no runner span, no span into another's trace and
@@ -17,7 +19,7 @@ func TestRotorAppWritesOnlyTheSpansAndTracesTheContractAllows(t *testing.T) {
 	ctx := context.Background()
 	starter, stranger := h.addPerson(t, "member"), h.addPerson(t, "member")
 	r := h.runWithTrace(t, starter)
-	if err := h.traceStore(t).Keep(ctx, r.id, r.dataKey, runnerSpans(r, 1)); err != nil {
+	if err := h.traceStore(t).Keep(ctx, r.id, r.dataKey, observability.AllTracing, runnerSpans(r, 1)); err != nil {
 		t.Fatal(err)
 	}
 	kept, _ := h.keptTraceOf(t, r.id)

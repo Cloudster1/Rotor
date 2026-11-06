@@ -58,6 +58,8 @@ type Server struct {
 	Hooks Hooks
 	// TraceDestinations is nil where OpenBao is not configured; its routes then answer 503 and traces link nowhere (#246).
 	TraceDestinations TraceDestinations
+	// WorkflowTracing is nil where OpenBao is not configured, as TraceDestinations is; its routes then answer 503 (#259).
+	WorkflowTracing WorkflowTracing
 	// Retention is how long a finished run's data is kept (#41); nil answers 503.
 	Retention Retention
 	// Traces is how long runs' traces are kept and whether their text is (#242); nil answers 503.
@@ -172,6 +174,8 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Get("/roles", s.handleListRoles)
 			r.Get("/permissions", s.handleListPermissions)
 			r.Get("/workflows/{workflowID}/grants", s.handleListWorkflowGrants)
+			r.Get("/workflows/{workflowID}/settings/tracing", s.handleGetWorkflowTracing)
+			r.With(requireSession).Put("/workflows/{workflowID}/settings/tracing", s.handleSetWorkflowTracing)
 			// Granting is a person's act, never an assistant's, and so is looking up whom to grant to.
 			r.Group(func(r chi.Router) {
 				r.Use(requireSession)

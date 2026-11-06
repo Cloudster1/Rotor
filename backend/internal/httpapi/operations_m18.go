@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/cloudster1/rotor/backend/internal/openapi"
+	"github.com/cloudster1/rotor/backend/internal/tracedest"
 )
 
-// The rows of M18: run tracing (#242 to #246); docs/api-contract-m18.md says what they mean. The pending ones answer 501 until built.
+// The rows of M18: run tracing (#242 to #246, #259); docs/api-contract-m18.md says what they mean. The pending ones answer 501 until built.
 func init() {
 	operations = append(operations, m18Operations...)
 }
@@ -33,6 +34,7 @@ func registerM18Schemas(b *openapi.Builder) {
 	b.Enums[reflect.TypeOf(spanSource(""))] = []string{"runner", "otlp"}
 	b.Enums[reflect.TypeOf(spanKind(""))] = []string{"CHAIN", "LLM", "TOOL", "AGENT", "RETRIEVER", "EMBEDDING",
 		"RERANKER", "GUARDRAIL", "EVALUATOR", "PROMPT", "UNKNOWN"}
+	b.Enums[reflect.TypeOf(tracingContent(""))] = []string{tracedest.ContentInherit, tracedest.ContentNone}
 }
 
 var senderQuery = param{name: "sender", description: "For an administrator: whose trace of that id to read, by user id; yours when left out."}
@@ -113,6 +115,19 @@ var m18Operations = []operation{
 		tag: "telemetry", admin: true,
 		summary:   "Send the destination one span without text and answer what it said.",
 		responses: map[int]any{http.StatusOK: traceDestinationTest{}, http.StatusNotFound: notFound}},
+	{method: "GET", path: "/workflows/{workflowID}/settings/tracing", handler: "handleGetWorkflowTracing", tag: "telemetry",
+		summary: "Whether the workflow's runs keep trace text, which destinations get them and what share, for whoever reads it.",
+		description: "installation.keepContent and each destination's content say what inherit means; a destination is answered " +
+			"by name alone. canChange says the caller administers the workflow.",
+		responses: map[int]any{http.StatusOK: workflowTracingResponse{}, http.StatusNotFound: notFound}},
+	{method: "PUT", path: "/workflows/{workflowID}/settings/tracing", handler: "handleSetWorkflowTracing", tag: "telemetry",
+		summary: "Choose whether the workflow's runs keep trace text, which destinations get them, and the share of runs sent.",
+		description: "For whoever administers the workflow or Rotor. content none keeps no text of its runs in Rotor or at any " +
+			"destination; there is no more text than the installation keeps. destinations null sends to every enabled one, " +
+			"ones added later too; sampleRatio from 0 to 1 is decided by the trace id. Runs started afterwards follow it.",
+		request: workflowTracingRequest{},
+		responses: map[int]any{http.StatusOK: workflowTracingResponse{}, http.StatusNotFound: notFound,
+			http.StatusForbidden: errorEnvelope{}, http.StatusUnprocessableEntity: errorEnvelope{}}},
 }
 
 // otlpStatus is google.rpc.Status, which OTLP answers a refused export with, in the request's encoding.

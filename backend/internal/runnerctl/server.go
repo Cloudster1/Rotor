@@ -156,7 +156,7 @@ func (s *Server) Connect(stream runnerpb.RunnerControlService_ConnectServer) err
 	var pending []*runnerpb.ConnectResponse
 	if r.Status == StatusStarting {
 		deadline := time.Now().Add(r.spec.Limits.TimeoutDuration() + config.RunDeadlineGrace)
-		r.TraceContent = (s.Traces != nil && s.Traces.KeepContent(ctx)) || (s.Telemetry != nil && s.Telemetry.Content(ctx))
+		r.TraceContent = s.traceContent(ctx, r)
 		skills, err := s.agentSkills(ctx, r)
 		if err != nil {
 			return s.fail(runID, "read the agents' skills", err)
