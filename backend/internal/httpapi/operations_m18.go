@@ -37,6 +37,11 @@ func registerM18Schemas(b *openapi.Builder) {
 	b.Enums[reflect.TypeOf(tracingContent(""))] = []string{tracedest.ContentInherit, tracedest.ContentNone}
 }
 
+// refusedSignalDescription says why metrics and logs are refused and what a sender does instead.
+const refusedSignalDescription = "Answers 501 with a google.rpc.Status (UNIMPLEMENTED) in the request's encoding, JSON when it " +
+	"names none OTLP knows, to anyone and without reading the body: Rotor keeps no metrics or logs. Send them to your own " +
+	"OpenTelemetry collector, or set OTEL_METRICS_EXPORTER=none and OTEL_LOGS_EXPORTER=none."
+
 var senderQuery = param{name: "sender", description: "For an administrator: whose trace of that id to read, by user id; yours when left out."}
 
 var m18Operations = []operation{
@@ -50,6 +55,13 @@ var m18Operations = []operation{
 		responses: map[int]any{http.StatusOK: nil, http.StatusBadRequest: otlpStatus{}, http.StatusUnauthorized: errorEnvelope{},
 			http.StatusForbidden: errorEnvelope{}, http.StatusRequestEntityTooLarge: otlpStatus{},
 			http.StatusUnsupportedMediaType: otlpStatus{}, http.StatusTooManyRequests: otlpStatus{}}},
+	// Metrics and logs are refused, saying so, rather than met with a 404 (#262); the answer is everyone's alike.
+	{method: "POST", path: "/otlp/v1/metrics", handler: "handleRefuseMetrics", tag: "traces", public: true,
+		summary:     "Refuse OTLP metrics: Rotor takes traces alone.",
+		description: refusedSignalDescription, responses: map[int]any{http.StatusNotImplemented: otlpStatus{}}},
+	{method: "POST", path: "/otlp/v1/logs", handler: "handleRefuseLogs", tag: "traces", public: true,
+		summary:     "Refuse OTLP logs: Rotor takes traces alone.",
+		description: refusedSignalDescription, responses: map[int]any{http.StatusNotImplemented: otlpStatus{}}},
 	{method: "GET", path: "/runs/{runID}/trace", handler: "handleGetRunTrace", tag: "traces", tool: "get_run_trace",
 		toolHelp: "Read a run's trace to find where it went wrong: its spans as a tree of chains, nodes, model and tool calls, " +
 			"with timing, status, exceptions, model and tokens. Shortened for you: failed spans and their ancestors come first, " +
@@ -189,6 +201,19 @@ type spanFields struct {
 	Input      *spanValue        `json:"input"`
 	Output     *spanValue        `json:"output"`
 	Events     []spanEvent       `json:"events"`
+	// Links are the spans this one names as related, sent with it over OTLP (#262).
+	Links []spanLink `json:"links"`
+}
+
+// spanLink is a span another names as related. RunID or Sender says whose trace it is when the reader may read it, and
+// both are null otherwise, whether or not Rotor holds such a trace.
+type spanLink struct {
+	TraceID    string            `json:"traceId"`
+	SpanID     string            `json:"spanId"`
+	Attributes map[string]string `json:"attributes"`
+	// RunID is the run whose trace it is; Sender, when no run's, the account whose own trace of that id it is.
+	RunID  *string `json:"runId"`
+	Sender *string `json:"sender"`
 }
 
 // traceSpan is a span in the tree, its input and output cut to a preview.

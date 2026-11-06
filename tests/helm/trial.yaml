@@ -159,6 +159,7 @@ data:
   ROTOR_RUNNER_DIAL: "r-rotor-api.default.svc:9443"
   ROTOR_WORKER_METRICS_ADDR: ":9464"
   ROTOR_API_METRICS_ADDR: ":9465"
+  ROTOR_OTLP_GRPC_ADDR: ":4317"
   ROTOR_TRACE_SAMPLE_RATIO: "1"
 ---
 # Source: rotor/templates/configmap-nginx.yaml
@@ -294,6 +295,10 @@ spec:
     - name: runner
       port: 9443
       targetPort: runner
+    - name: otlp-grpc
+      port: 4317
+      targetPort: otlp-grpc
+      appProtocol: grpc
   selector:
     app.kubernetes.io/name: rotor
     app.kubernetes.io/instance: r
@@ -400,7 +405,7 @@ spec:
         app.kubernetes.io/instance: r
         app.kubernetes.io/component: api
       annotations:
-        checksum/env: 934984f087278478855238b673a6dec86d705f30e455017883c074ff9b41b57c
+        checksum/env: f24089046e056c5b8642b9fc25f9f9789ff43ba57c817aedbb5ee2d87e30f043
     spec:
       serviceAccountName: r-rotor-api
       terminationGracePeriodSeconds: 40
@@ -453,6 +458,8 @@ spec:
               containerPort: 9443
             - name: metrics
               containerPort: 9465
+            - name: otlp-grpc
+              containerPort: 4317
           readinessProbe:
             httpGet: { path: /readyz, port: http }
             periodSeconds: 5
@@ -585,7 +592,7 @@ spec:
         app.kubernetes.io/instance: r
         app.kubernetes.io/component: worker
       annotations:
-        checksum/env: 934984f087278478855238b673a6dec86d705f30e455017883c074ff9b41b57c
+        checksum/env: f24089046e056c5b8642b9fc25f9f9789ff43ba57c817aedbb5ee2d87e30f043
     spec:
       serviceAccountName: r-rotor-worker
       terminationGracePeriodSeconds: 20

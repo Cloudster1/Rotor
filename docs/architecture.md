@@ -432,7 +432,10 @@ trace link puts "Open this trace in" it on the run's page. The LangSmith setting
 of #37 became one such destination (#246) and is gone (#256). Apps and tools post their own spans to the
 api's OTLP endpoint with a bearer token (#243); each joins the run its trace id
 names when the sender may read that run, judged by row level security as the
-sender, and a trace of the sender's own otherwise. The worker and the
+sender, and a trace of the sender's own otherwise. OTLP over gRPC reaches the
+same checks, rates and store on a port of its own (#262, `internal/otlpgrpc`),
+since nothing in front of the api carries gRPC; spans keep their links, and
+metrics and logs are refused. The worker and the
 api serve Prometheus metrics; `make observe` adds a collector, Jaeger and
 Prometheus to the development stack.
 

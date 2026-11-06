@@ -337,7 +337,13 @@ sender may read it, and a trace of the sender's own otherwise. A service that
 should not refresh a token sends with an ingest key an administrator makes
 under Admin, Traces, as
 `OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer%20rotor_ik_...`; each key
-sends as one account and works at the OTLP endpoint alone.
+sends as one account and works at the OTLP endpoint alone. An SDK that
+speaks OTLP over gRPC sends to the api's port 4317 instead, with
+`OTEL_EXPORTER_OTLP_PROTOCOL=grpc`, `OTEL_EXPORTER_OTLP_ENDPOINT` set to that
+host and port, and `OTEL_EXPORTER_OTLP_HEADERS=authorization=Bearer%20<token>`;
+the same tokens, keys and limits hold. Spans keep their links, which the run's
+page opens where the reader may read the linked trace. Metrics and logs are
+refused with a sentence saying so: send them to your own collector.
 `make observe` starts a collector, Jaeger and Prometheus beside the stack.
 
 **Security at the edges.** A session is an opaque token whose SHA-256 alone is
@@ -408,6 +414,7 @@ with every problem it found listed, so an operator fixes them in one go.
 | `ROTOR_SANDBOX_ALLOW_RUNC` | `false` | lets a test cluster without gVisor run sandboxes; refused in production |
 | `ROTOR_APPROVAL_TTL` | `72h` | how long an approval waits when its node says nothing |
 | `ROTOR_OTLP_ENDPOINT` | none | the collector's traces URL, `/v1/traces` included |
+| `ROTOR_OTLP_GRPC_ADDR` | `:4317` | where the api takes OTLP over gRPC, without TLS; blank takes none |
 | `ROTOR_TRACE_SAMPLE_RATIO` | `1` | share of new traces kept |
 | `ROTOR_API_METRICS_ADDR` | `:9465` | the api's metrics listener; blank serves none |
 | `ROTOR_WORKER_METRICS_ADDR` | `:9464` | the worker's metrics listener |

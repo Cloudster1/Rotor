@@ -37,6 +37,8 @@ dev = [
     "types-jsonschema==4.26.0.20260518",
     # The stock exporter a LangChain app sends its spans to Rotor's OTLP endpoint with (#243), held to the SDK's version.
     "opentelemetry-exporter-otlp-proto-http==1.45.1",
+    # And the stock gRPC exporter, which brings no package the runner's grpcio and the HTTP exporter do not (#262).
+    "opentelemetry-exporter-otlp-proto-grpc==1.45.1",
 ]
 
 [build-system]

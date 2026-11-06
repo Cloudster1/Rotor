@@ -39,7 +39,7 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 		// A call MCP makes in this process starts from the outer request's context, whose caller is checked again.
 		ctx := audit.WithIP(forgetCaller(r.Context()), s.clientIP(r))
 		credential, bearer := credentialFrom(r, s.CookieName)
-		if credential == "" || (!bearer && s.Sessions == nil) {
+		if credential == "" || (!bearer && s.Sessions == nil) || refusedSignal(r) {
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}

@@ -2521,6 +2521,70 @@
         }
       }
     },
+    "/otlp/v1/logs": {
+      "post": {
+        "operationId": "refuseLogs",
+        "summary": "Refuse OTLP logs: Rotor takes traces alone.",
+        "description": "Answers 501 with a google.rpc.Status (UNIMPLEMENTED) in the request's encoding, JSON when it names none OTLP knows, to anyone and without reading the body: Rotor keeps no metrics or logs. Send them to your own OpenTelemetry collector, or set OTEL_METRICS_EXPORTER=none and OTEL_LOGS_EXPORTER=none.",
+        "tags": [
+          "traces"
+        ],
+        "responses": {
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtlpStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/otlp/v1/metrics": {
+      "post": {
+        "operationId": "refuseMetrics",
+        "summary": "Refuse OTLP metrics: Rotor takes traces alone.",
+        "description": "Answers 501 with a google.rpc.Status (UNIMPLEMENTED) in the request's encoding, JSON when it names none OTLP knows, to anyone and without reading the body: Rotor keeps no metrics or logs. Send them to your own OpenTelemetry collector, or set OTEL_METRICS_EXPORTER=none and OTEL_LOGS_EXPORTER=none.",
+        "tags": [
+          "traces"
+        ],
+        "responses": {
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtlpStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/otlp/v1/traces": {
       "post": {
         "operationId": "receiveTraces",
@@ -13073,6 +13137,42 @@
           "attributes"
         ]
       },
+      "SpanLink": {
+        "type": "object",
+        "properties": {
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "runId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sender": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "spanId": {
+            "type": "string"
+          },
+          "traceId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "traceId",
+          "spanId",
+          "attributes",
+          "runId",
+          "sender"
+        ]
+      },
       "SpanTokens": {
         "type": "object",
         "properties": {
@@ -13577,6 +13677,12 @@
               "UNKNOWN"
             ]
           },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpanLink"
+            }
+          },
           "model": {
             "type": "string"
           },
@@ -13667,6 +13773,7 @@
           "input",
           "output",
           "events",
+          "links",
           "children",
           "omitted"
         ]
@@ -13724,6 +13831,12 @@
               "PROMPT",
               "UNKNOWN"
             ]
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpanLink"
+            }
           },
           "model": {
             "type": "string"
@@ -13812,6 +13925,7 @@
           "input",
           "output",
           "events",
+          "links",
           "content"
         ]
       },

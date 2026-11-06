@@ -9,6 +9,33 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- OpenTelemetry SDKs that speak OTLP over gRPC send their spans to Rotor
+  without changing protocol (#262). The api takes
+  `opentelemetry.proto.collector.trace.v1.TraceService/Export` on a port of
+  its own, 4317 (`ROTOR_OTLP_GRPC_ADDR`, `api.otlpGrpcPort` in the chart),
+  since the web's nginx cannot carry gRPC; `make up` publishes it on
+  127.0.0.1, and the chart's optional `ingress.otlpGrpc` puts it behind TLS
+  on a host of its own. An app sets `OTEL_EXPORTER_OTLP_PROTOCOL=grpc`,
+  `OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp.rotor.example.com` and
+  `OTEL_EXPORTER_OTLP_HEADERS=authorization=Bearer%20<token>`, with an ingest
+  key, a Rotor access token or a realm token as over HTTP. The same limits
+  hold, as gRPC codes: `UNAUTHENTICATED`, `PERMISSION_DENIED`,
+  `RESOURCE_EXHAUSTED` (with a retry delay when over a rate, which counts
+  across both transports), `INVALID_ARGUMENT`, and partial success naming
+  the spans not taken. gzip is taken.
+- Span links are kept and shown (#262). A span sent over OTLP keeps up to 16
+  links, each with its trace and span ids and up to 16 attributes without
+  text, in the new `trace_span.links` (migration 01580). The trace and span
+  routes answer each span's `links` with `runId` or `sender` set when you may
+  read the linked trace, and both null otherwise, whether or not it exists;
+  the span's details on a run's page and an own trace's page list them under
+  Links, opening the run or the trace you may read. `get_run_trace_span`
+  answers them too.
+- OTLP metrics and logs are refused in a sentence an exporter logs (#262):
+  `POST /api/v1/otlp/v1/metrics` and `/logs` answer 501 and gRPC answers
+  `UNIMPLEMENTED`, saying to send them to your own collector or to set
+  `OTEL_METRICS_EXPORTER=none` and `OTEL_LOGS_EXPORTER=none`. Rotor has no
+  place to keep or show them.
 - Ingest keys let a service send its spans to Rotor's OTLP endpoint without
   refreshing a token (#258). Under Admin, Traces, an administrator makes a
   key with a name, the account it sends as (an account Rotor has let in, such

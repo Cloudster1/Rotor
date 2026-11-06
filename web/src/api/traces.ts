@@ -11,6 +11,7 @@ export type TraceSpan = components["schemas"]["TraceSpan"];
 export type TraceSpanDetail = components["schemas"]["TraceSpanDetail"];
 export type SpanValue = components["schemas"]["SpanValue"];
 export type SpanEvent = components["schemas"]["SpanEvent"];
+export type SpanLink = components["schemas"]["SpanLink"];
 export type SpanKind = TraceSpan["kind"];
 /** A trace a sender posted of no run (#243), as the list of them answers it. */
 export type TraceSummary = components["schemas"]["TraceSummary"];

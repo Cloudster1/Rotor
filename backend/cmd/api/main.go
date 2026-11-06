@@ -31,6 +31,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/oauth"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
+	"github.com/cloudster1/rotor/backend/internal/otlpgrpc"
 	"github.com/cloudster1/rotor/backend/internal/perm"
 	"github.com/cloudster1/rotor/backend/internal/preferences"
 	"github.com/cloudster1/rotor/backend/internal/providers"
@@ -232,9 +233,18 @@ func run() error {
 		origins = devOrigins
 	}
 
+	handler := server.Routes(origins)
+	// OTLP over gRPC (#262) asks the endpoint Routes made, so it shares its rates.
+	if cfg.OTLPGRPCAddr != "" {
+		go func() {
+			if err := otlpgrpc.Serve(ctx, cfg.OTLPGRPCAddr, server, log); err != nil {
+				log.Error("OTLP over gRPC stopped", "error", err)
+			}
+		}()
+	}
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           server.Routes(origins),
+		Handler:           handler,
 		ReadHeaderTimeout: config.ReadHeaderTimeout,
 		ReadTimeout:       config.ReadTimeout,
 		WriteTimeout:      config.WriteTimeout,

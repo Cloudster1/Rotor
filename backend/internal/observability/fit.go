@@ -20,11 +20,19 @@ func spanBytes(s *RunnerSpan) int {
 	for _, e := range s.Events {
 		n += len(e.Name) + attrBytes(e.Attributes)
 	}
+	for _, l := range s.Links {
+		n += linkBytes(l)
+	}
 	return n
 }
 
-// fit holds a span to config.MaxSpanBytes: it drops its text, longest first, then its oldest events, then its longest
-// other attributes but Rotor's, and says so in rotor.content_cut.
+// linkBytes counts a link's ids as hex, as trace_span.links keeps them.
+func linkBytes(l SpanLink) int {
+	return 2*len(l.TraceID) + 2*len(l.SpanID) + attrBytes(l.Attributes)
+}
+
+// fit holds a span to config.MaxSpanBytes: it drops its text, longest first, then its oldest events, its last links,
+// then its longest other attributes but Rotor's, and says so in rotor.content_cut.
 func fit(s *RunnerSpan) {
 	size := spanBytes(s)
 	if size <= config.MaxSpanBytes {
@@ -35,6 +43,11 @@ func fit(s *RunnerSpan) {
 	for size > config.MaxSpanBytes && len(s.Events) > 0 {
 		size -= len(s.Events[0].Name) + attrBytes(s.Events[0].Attributes)
 		s.Events = s.Events[1:]
+	}
+	for size > config.MaxSpanBytes && len(s.Links) > 0 {
+		last := len(s.Links) - 1
+		size -= linkBytes(s.Links[last])
+		s.Links = s.Links[:last]
 	}
 	dropLongest(s.Attributes, plainKeys, size)
 	s.Attributes[ContentCut] = "true"

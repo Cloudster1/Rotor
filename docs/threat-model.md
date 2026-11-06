@@ -40,7 +40,7 @@ finding updates this document in the same pull request.
 | Compromised tool or provider | Answers to Rotor's calls | Tokens of other tools; data from the run |
 | Network attacker | A position between components | Tokens in transit |
 | Supply chain | A dependency or base image | Code in every sandbox or in the control plane |
-| Span sender | An ingest key, a Rotor access token or a realm token, at the OTLP endpoint | To write into another person's run trace, to show readers text of its choosing, or to fill the database |
+| Span sender | An ingest key, a Rotor access token or a realm token, at the OTLP endpoint over HTTP or gRPC | To write into another person's run trace, to show readers text of its choosing, or to fill the database |
 
 Administrators are the trust boundary, not a target inside it: they already
 configure tools, providers, prices, limits and trace destinations,
@@ -68,7 +68,7 @@ cluster hold everything Rotor holds.
        |
        +--(7) webhooks, signed, into the api's public endpoint
 
-  LangChain apps and tools --(8) OTLP spans, with a bearer token--> api
+  LangChain apps and tools --(8) OTLP spans over HTTP or gRPC, with a bearer token--> api
 ```
 
 1. **Browser to web and api:** a person's session.
@@ -82,8 +82,9 @@ cluster hold everything Rotor holds.
    enforces the person's rights.
 6. **Sandbox to provider:** prompts carrying tool content.
 7. **Tools to api:** event deliveries that start runs.
-8. **Apps and tools to api:** spans over OTLP/HTTP, each judged as its
-   sender (#243). Everything a sender sends is treated as untrusted.
+8. **Apps and tools to api:** spans over OTLP/HTTP, and over OTLP/gRPC on a
+   port of its own (#262), each judged as its sender (#243). Everything a
+   sender sends is treated as untrusted.
 
 ## STRIDE by component
 
@@ -232,6 +233,11 @@ listed.
 | D | A sender flooding the endpoint or the database | Per sender and replica, 300 requests and 20000 spans a minute, then 429; 2048 spans a request; 10000 spans and 32 MiB a trace and 100000 spans a sender's own traces, held by a trigger whoever inserts | Built (#243) |
 | D | A sender filling a run's trace to its cap, so the runner's later spans are lost | Only someone who reads the run can; the trace says it was cut and how many spans it refused | Accepted |
 | D | Storing or exporting spans holding up a run | Both run beside the run on bounded pools of their own, dropping a batch rather than waiting | Built (#234) for export; Open #242 for storing |
+| I | Bearer tokens read off the gRPC port, which carries no TLS | The port is the api's alone, published on 127.0.0.1 in development and reached through the chart's gRPC Ingress or the operator's TLS load balancer in production; the deployment guide says never to publish it without TLS in front, as for the HTTP port | Built (#262) |
+| S | A sender taking another way in over gRPC | The gRPC service asks the HTTP endpoint's own checks for the token, the requests and spans a minute and the store; one window counts a sender across both; only the trace service is served and every other method answers `UNIMPLEMENTED` before any credential is read | Built (#262) |
+| D | Large, packed or stalled messages on the gRPC port | The token is checked before the message is read; 16 MiB unpacked is refused by grpc-go and 4 MiB as sent by the service; 64 exports at once on a connection, which lives 10 minutes and then 30 seconds to finish | Built (#262) |
+| I | A span link telling a reader that a trace exists | A link names the run or the own trace it leads to only when row level security lets the reader read it, judged as the reader when the span is read; any other link answers as one to a trace Rotor never held | Built (#262) |
+| I | Text in a span link's attributes | Only attributes without text are kept, redacted and cut, at most 16 a link and 16 links a span | Built (#262) |
 | E | An administrator pointing a destination at an address inside the network | Administrators choose the api's egress for traces as operators do for the collector; the api reads no answer beyond its status | Accepted |
 
 ### Images and dependencies

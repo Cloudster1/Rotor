@@ -33,6 +33,7 @@ hex characters and span ids 16, as W3C trace context writes them.
   | 01540 | #256 | `langsmith_setting` dropped |
   | 01550 | #259 | `workflow_tracing` |
   | 01560 | #258 | `ingest_key`, its policies and the `ingest_key_cap` trigger |
+  | 01580 | #262 | `trace_span.links`, and `trace_span_cap` counting their bytes |
 
 - Packages: `internal/traces` (the store, the cap, sealing, the tree and the sweep; #242, #244),
   `internal/traces/otlp` (decoding OTLP, #243), `internal/tracedest` (destinations, replacing
@@ -87,6 +88,10 @@ Each replaces or joins #37's.
 | `MaxIngestKeys` | 50 | ingest keys an installation holds, each a standing credential to review (#258) |
 | `MaxIngestKeyNameChars` | 64 | as a destination's name |
 | `IngestKeyLastUsedEvery` | 1 minute | how often a key's use is written, as `OAuthLastUsedEvery` |
+| `MaxSpanLinks` | 16 | links a span keeps, the first ones sent: a fan-in of a batch, not a list of every input (#262) |
+| `MaxSpanLinkAttributes` | 16 | attributes without text one link keeps, each cut to `MaxSpanAttrChars` (#262) |
+| `OTLPGRPCMaxStreams` | 64 | exports one gRPC connection carries at once; an exporter sends one at a time (#262) |
+| `OTLPGRPCConnectionAge`, `OTLPGRPCConnectionGrace` | 10 minutes, 30 s | how long a gRPC connection lives, then finishes its exports, so a stalled one ends (#262) |
 
 The runner adds `SPAN_BATCH_BYTES` = 2 MiB: it sends a batch at 64 spans, 2 MiB or 2 seconds,
 whichever comes first, so a batch of large spans stays under `MaxRunnerMessageBytes`.
@@ -843,6 +848,124 @@ rotatedAt}`. The web shows the keys under Admin, Traces, beside the destinations
   a Copy button and the `OTEL_EXPORTER_OTLP_HEADERS` line, until the administrator says it is saved; an expired key
   offers no rotation.
 
+## OTLP over gRPC, span links, metrics and logs (#262)
+
+Any OpenTelemetry SDK sends to Rotor in the protocol it defaults to: OTLP over gRPC beside OTLP/HTTP, held to the
+same tokens, limits and store; the links a span carries are kept and shown; metrics and logs are refused, saying so.
+Each decision, with its reason:
+
+### gRPC
+
+- **The service:** `opentelemetry.proto.collector.trace.v1.TraceService/Export` from `go.opentelemetry.io/proto/otlp`,
+  and nothing else on that server: it is the one OTLP's trace exporters call.
+- **Its own port, served directly:** `ROTOR_OTLP_GRPC_ADDR`, `:4317` unless set, empty serving none. gRPC needs HTTP/2
+  end to end; the web's nginx passes `/api/` to the api over HTTP/1.1 and the chart's Ingress goes to the web, so
+  neither carries it, and sharing the HTTP port through h2c or cmux would put a sniffer before every browser request
+  for a protocol nothing in front could pass anyway. 4317 is OTLP's own gRPC port, so an SDK's default is right.
+- **Compose:** published on 127.0.0.1 as the checkout's twentieth port (`OTLP_GRPC_PORT`, 8319 by default), as every
+  port of the stack is.
+- **Helm:** `api.otlpGrpcPort` (4317) on the api's container and Service, as `otlp-grpc`, and an optional second
+  Ingress `ingress.otlpGrpc` (off; its own host, TLS secret and annotations, `backend-protocol: GRPC` for
+  ingress-nginx), since ingress-nginx sets the backend's protocol per Ingress and the first one speaks HTTP to the web.
+- **TLS:** none in the api, as its HTTP listener has none: TLS ends at the Ingress or the operator's load balancer.
+  The runner port's certificate comes from OpenBao's PKI, which sandboxes trust and no SDK does. The documentation
+  says never to publish the port without TLS in front, since bearer tokens ride on it.
+- **Who:** `authorization: Bearer <token>` in the call's metadata, with the same three kinds as #243 and #258 (an
+  ingest key, a Rotor access token whose grant may act, a realm's token of any account Rotor lets in), checked by the
+  code the HTTP endpoint checks them with. No token, or an unknown or expired one, is `UNAUTHENTICATED`; a grant to
+  read, an account switched off or not let in, `PERMISSION_DENIED`; a realm Rotor cannot reach, or no store,
+  `UNAVAILABLE`, which exporters retry. Each says the HTTP endpoint's sentence.
+- **The order of the checks** is HTTP's: the token, before the message is read; the requests a minute; the message's
+  size and then its body; the spans a minute; the spans one by one. A sender's rates are one window across both
+  transports, since both count in one `Limiter`.
+- **Limits as codes:** over `OTLPRequestsPerMinute` or `OTLPSpansPerMinute`, `RESOURCE_EXHAUSTED` with a
+  `google.rpc.RetryInfo` to the window's end, since OTLP's exporters retry that code only with one; past
+  `MaxOTLPBodyBytes` as sent or `MaxOTLPDecodedBytes` unpacked, `RESOURCE_EXHAUSTED` without it, which they do not
+  retry; a message that is no `ExportTraceServiceRequest`, `INVALID_ARGUMENT`.
+- **Partial success** as HTTP's: the `ExportTraceServiceResponse` carries `partial_success` with `rejected_spans` and
+  the same sentence; spans past `MaxOTLPSpansPerRequest` are among them.
+- **Compression:** gzip or none, as OTLP's exporters offer; another answers `UNIMPLEMENTED`, as grpc-go does.
+- **Connections:** at most `OTLPGRPCMaxStreams` exports at once on one connection, and a connection lives
+  `OTLPGRPCConnectionAge` and then `OTLPGRPCConnectionGrace` to finish, so a sender that stalls mid-message holds
+  nothing for long; exporters dial again on their own.
+
+### Span links
+
+- **Kept:** a span's links from either transport, the first `MaxSpanLinks` with a valid trace id and span id; one
+  without them is dropped and its span kept, since a link is context, not the span. Each keeps its trace id, span id
+  and up to `MaxSpanLinkAttributes` attributes without text, redacted and cut as an event's are; its text attributes,
+  `trace_state` and flags are not kept, since none of them says where the link leads.
+- **Where:** `trace_span.links`, a jsonb array of `{traceId, spanId, attributes}` (migration 01580), at most
+  `MaxSpanLinks` long, whoever inserts. A column rather than events: an event happened at a time and the page lists it
+  as such, while a link has no time. The cap's trigger counts its bytes into the span's and the trace's.
+- **`MaxSpanBytes`:** links count; a span past it loses its text, then its events, then its links, then attributes
+  without text, so the span itself stays.
+- **Sent on:** a run's spans go to the collector and the destinations with their links.
+- **The runner's spans** carry none: `RunnerSpan` has no links and OpenInference's LangChain spans make none, so the
+  runner protocol stays as it is until one does.
+- **In the API** (#244): every span of the tree and of the span routes gains `links`, each
+  `{traceId, spanId, attributes, runId, sender}`. `runId` is the run whose trace has that trace id when the reader may
+  read the run's events; else `sender` is the account whose own trace of that id the reader may read, the reader's
+  own first. Both are null otherwise, for a trace id Rotor holds no trace of, a run the reader may not read and
+  another sender's own trace alike, so a link never tells whether a trace exists. Row level security decides, in the
+  transaction that reads the spans.
+- **Through MCP:** `get_run_trace` leaves links out, since the shortened tree says where the run went and links point
+  elsewhere; `get_run_trace_span` keeps them, their attributes cut as its other values are.
+- **On the page** (#245): the details pane lists a span's links under Links. One the reader may read opens the run's
+  page or the own trace's page (`/traces/{traceId}?sender=`); any other shows its trace and span ids as text and says
+  the reader may not read that trace or Rotor does not hold it. Words in `web/src/strings_telemetry.ts`.
+
+### Metrics and logs
+
+- **Refused for now.** Rotor has no storage, retention, access rules or page for metrics or logs, and the operator's
+  collector takes them already. Passing them on would make Rotor a collector that forwards a sender's data under the
+  operator's credentials with no rule of who may read it, so it is neither trivial nor safe.
+- **Over HTTP:** `POST /otlp/v1/metrics` and `POST /otlp/v1/logs` answer 501 with a `google.rpc.Status`
+  (`UNIMPLEMENTED`) in the request's encoding, JSON when it names none OTLP knows, saying "Rotor takes traces alone
+  over OTLP. Send metrics and logs to your own OpenTelemetry collector, or set OTEL_METRICS_EXPORTER=none and
+  OTEL_LOGS_EXPORTER=none." The answer is the same for everyone, so no credential is looked at and no body read; OTLP's
+  exporters do not retry a 501.
+- **Over gRPC:** `MetricsService` and `LogsService` are not registered; a call to any method but
+  `TraceService/Export` answers `UNIMPLEMENTED` with the same sentence.
+- **Routes:** both rows join the table without `tokensOnly`, and the walk of every row that refuses an ingest key
+  elsewhere expects their 501.
+
+### As built (#262)
+
+- **Migration 01580**, as agreed, since #261's open branch holds 01570. It adds `trace_span.links` and redefines
+  `trace_span_cap` with `CREATE OR REPLACE`; going down restores 01500's. `TestTheMigrationsNumbersAreTheConstants`
+  reads the trigger's numbers and `MaxSpanLinks` from 01580 too.
+- **One core, two transports:** `admitOTLP` (a store, the requests a minute) and `takeOTLP` (the spans a minute, the
+  checks, the store) in `otlp_handlers.go` serve the HTTP handler and `otlp_grpc_intake.go`, whose `OTLPSender`,
+  `OTLPAdmit` and `OTLPTake` the gRPC package asks through its `Intake`. The ingest key's lookup (`ingestKeySender`)
+  and the realm token's refusals (`realmRefusal`) were drawn out of the middleware unchanged, so HTTP answers as
+  before. Refusals cross as `otlp.Refusal` (status and sentence) and `otlp.Busy` (the wait); `otlp.CodeOf` maps a
+  status to its code for both.
+- **`internal/otlpgrpc`:** `Export` is registered as a stream of one message each way, the same call on the wire, so
+  the token is checked before the message is read. grpc-go writes its own status when reading a message fails, so the
+  server's codec hands the message over as bytes and the service parses it, answering `INVALID_ARGUMENT`; the size as
+  sent comes from a stats handler. Past `MaxOTLPDecodedBytes` unpacked grpc-go answers `RESOURCE_EXHAUSTED` itself,
+  in its own words, before the service sees the call.
+- **Codes:** a realm Rotor has no issuer for is `UNAUTHENTICATED`, as HTTP's 401; a fault of Rotor's is `INTERNAL`
+  and logged. Keepalive pings are held to `RunnerKeepaliveMin`, as on the runner port.
+- **Any other method** answers `UNIMPLEMENTED` with the metrics and logs sentence through grpc-go's unknown-service
+  handler, before any credential is read.
+- **Over HTTP**, the session middleware passes the two refused paths through without reading a credential, so a key or
+  a token there is neither looked up nor refused in place of the sentence.
+- **Links:** the decoder keeps the first `MaxSpanLinks` with whole ids and `Hold` again, each link's attributes taken
+  in key order. Keys `api/trace-content.json` does not list as plain count as text, so a link's `messaging.*` keys are
+  not kept. `fit` drops links from the last. The runner's insert writes none, leaving the column's `[]`.
+- **Where a link leads** is one query as the reader per read, by the linked trace ids: a run's trace first, then the
+  reader's own, then another an administrator reads.
+- **Web:** `features/runs/trace/SpanLinks.tsx` in `SpanDetails`, words as `s.trace.details.links`. A link opens the
+  run's page or the own trace's page; choosing the span there waits for #261's `span` search parameter.
+- **Ports:** compose publishes the api's 4317 as `OTLP_GRPC_PORT`, the checkout's port 19, and `.cache/stack.env`
+  names it; the integration suite dials `api:4317` (`ROTOR_TEST_OTLP_GRPC_ADDR`) and the runner's stack tests
+  `http://api:4317`. The chart's Service names the port `otlp-grpc` with `appProtocol: grpc`.
+- **Pins:** `go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc` v1.47.0 (2026-10-02), for the
+  integration tests, with `otlptrace` made direct; the runner's dev group gains
+  `opentelemetry-exporter-otlp-proto-grpc` 1.45.1 (2026-10-06), which brings no package the lock lacked.
+
 ## Audit
 
 | Action | Detail | Issue |
@@ -907,5 +1030,5 @@ Never a header's value, nor an ingest key or its hash. Spans taken, cut or swept
 
 - Sibling tools sending their spans, and trace context in Exciter, Armature and Stator.
 - A page for senders' own traces in the web app, and own traces as MCP tools.
-- Span links, OTLP metrics and logs, and gRPC OTLP.
+- OTLP metrics and logs, which #262 refuses for now; span links on the runner's spans.
 - Searching spans across runs, and evaluations or scores on spans.

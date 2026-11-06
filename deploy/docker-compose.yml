@@ -215,6 +215,8 @@ services:
       sandbox:
     ports:
       - "127.0.0.1:${API_PORT:-8301}:8080"
+      # OTLP over gRPC (#262), which the web's nginx cannot carry, published beside the api's HTTP.
+      - "127.0.0.1:${OTLP_GRPC_PORT:-8319}:4317"
     healthcheck:
       test: ["CMD", "/app/api", "-healthcheck"]
       interval: 10s

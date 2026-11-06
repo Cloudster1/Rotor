@@ -17,8 +17,13 @@ const (
 	MaxSpanStackChars = 4096
 	// MaxSpanEvents bounds a span's events, its exceptions and retries; the latest are kept.
 	MaxSpanEvents = 16
-	// MaxSpanBytes bounds one span's name, attributes and events; its text goes first, longest first, to fit.
+	// MaxSpanBytes bounds one span's name, attributes, events and links; its text goes first, longest first, to fit.
 	MaxSpanBytes = 64 << 10
+	// MaxSpanLinks bounds the links a span keeps, the first ones sent: a batch's fan-in, not every input (#262).
+	// Migration 01580 checks the same number.
+	MaxSpanLinks = 16
+	// MaxSpanLinkAttributes bounds the attributes without text one link keeps, each cut to MaxSpanAttrChars.
+	MaxSpanLinkAttributes = 16
 	// MaxRunnerSpansPerBatch bounds the spans one message of a runner carries; more are dropped.
 	MaxRunnerSpansPerBatch = 256
 )
@@ -67,6 +72,20 @@ const (
 	OTLPSpansPerMinute    = 20000
 	// OTLPRateWindow is the window both rates are counted over; Retry-After says how long until it ends.
 	OTLPRateWindow = time.Minute
+)
+
+// Where and how the api takes OTLP over gRPC (#262), beside OTLP/HTTP and held to its limits.
+const (
+	// Mebibyte writes the OTLP endpoint's size limits in its refusals as the contract does.
+	Mebibyte = 1 << 20
+	// DefaultOTLPGRPCAddr is OTLP's own gRPC port, so an SDK's default port is right inside a network.
+	DefaultOTLPGRPCAddr = ":4317"
+	// OTLPGRPCMaxStreams bounds the exports one connection carries at once; an exporter sends one at a time.
+	OTLPGRPCMaxStreams = 64
+	// OTLPGRPCConnectionAge is how long a connection lives, and OTLPGRPCConnectionGrace how long it then has to finish
+	// its exports, so a sender that stalls mid-message holds nothing for long; exporters dial again on their own.
+	OTLPGRPCConnectionAge   = 10 * time.Minute
+	OTLPGRPCConnectionGrace = 30 * time.Second
 )
 
 // Where runs' traces are sent (#246). Migration 01520 writes the same numbers into its checks and trigger, and a test

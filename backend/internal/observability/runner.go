@@ -25,6 +25,8 @@ type RunnerSpan struct {
 	Failed     bool
 	Message    string
 	Events     []SpanEvent
+	// Links are the spans a sender's span names as related (#262); a runner's span has none.
+	Links []SpanLink
 	// OK is a sender's span its app marked successful, which the runner never does.
 	OK bool
 	// Service is the sender's service.name for a span posted over OTLP, empty for the runner's.
@@ -59,6 +61,13 @@ func RunnerSnapshots(env string, spans []RunnerSpan) []sdktrace.ReadOnlySpan {
 				event.Attributes = append(event.Attributes, attribute.String(k, v))
 			}
 			stub.Events = append(stub.Events, event)
+		}
+		for _, l := range s.Links {
+			link := sdktrace.Link{SpanContext: trace.NewSpanContext(trace.SpanContextConfig{TraceID: l.TraceID, SpanID: l.SpanID})}
+			for k, v := range l.Attributes {
+				link.Attributes = append(link.Attributes, attribute.String(k, v))
+			}
+			stub.Links = append(stub.Links, link)
 		}
 		if s.Service != "" {
 			stub.Resource = serviceResource(s.Service, env)

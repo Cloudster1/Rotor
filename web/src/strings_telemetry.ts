@@ -81,5 +81,12 @@ export const traceStrings = {
     cut: "Cut short when it was kept.",
     notKept: "Not kept: Rotor keeps no text of traces.",
     nothing: "None.",
+    links: {
+      title: "Links",
+      inRun: "Open the linked span's run",
+      inTrace: "Open the linked span's trace",
+      unreadable: "You may not read the linked trace, or Rotor does not hold it.",
+      ids: (traceID: string, spanID: string) => `Trace ${traceID}, span ${spanID}`,
+    },
   },
 } as const;

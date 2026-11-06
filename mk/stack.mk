@@ -15,6 +15,8 @@ POSTGRES_PORT := $(call stack_port,3)
 VALKEY_PORT   := $(call stack_port,4)
 OPENBAO_PORT  := $(call stack_port,5)
 TOOLSTUB_PORT := $(call stack_port,6)
+# OTLP over gRPC (#262) takes the last of the twenty, past the suite's.
+OTLP_GRPC_PORT := $(call stack_port,19)
 # The observe profile's Jaeger and Prometheus (#37); the suite's ports come between.
 JAEGER_PORT     := $(call stack_port,16)
 PROMETHEUS_PORT := $(call stack_port,17)
@@ -39,7 +41,7 @@ realm-check: ## Fail if deploy/keycloak/realm.json differs from Dynamo's canonic
 
 export COMPOSE_FILE := $(ROOT)/deploy/docker-compose.yml
 export COMPOSE_PROJECT_NAME := $(STACK_PROJECT)
-export WEB_PORT API_PORT KEYCLOAK_PORT POSTGRES_PORT VALKEY_PORT OPENBAO_PORT TOOLSTUB_PORT JAEGER_PORT PROMETHEUS_PORT
+export WEB_PORT API_PORT KEYCLOAK_PORT POSTGRES_PORT VALKEY_PORT OPENBAO_PORT TOOLSTUB_PORT JAEGER_PORT PROMETHEUS_PORT OTLP_GRPC_PORT
 export POSTGRES_PASSWORD APP_DB_PASSWORD ADMIN_DB_PASSWORD VALKEY_PASSWORD OPENBAO_ROOT_TOKEN DOCKER_GID
 
 STACK_PG_URL = postgres://$(1):$(2)@$(3):5432/rotor?sslmode=disable
@@ -55,6 +57,7 @@ DOCKER_GO_STACK = $(call go_run,--network $(STACK_NET) \
 	-e ROTOR_DB_ADMIN_URL='$(call STACK_PG_URL,rotor_admin,$(ADMIN_DB_PASSWORD),postgres)' \
 	-e ROTOR_TEST_SUPERUSER_URL='$(call STACK_PG_URL,rotor,$(POSTGRES_PASSWORD),postgres)' \
 	-e ROTOR_TEST_API_URL=http://api:8080 \
+	-e ROTOR_TEST_OTLP_GRPC_ADDR=api:4317 \
 	-e ROTOR_VALKEY_URL='redis://:$(VALKEY_PASSWORD)@valkey:6379/0' \
 	-e ROTOR_TEST_APP_URL=http://localhost:$(WEB_PORT) \
 	-e ROTOR_TEST_KEYCLOAK_URL=http://keycloak:8080 \
@@ -90,8 +93,10 @@ stack-env:
 		'TOOLSTUB_PORT=$(TOOLSTUB_PORT)' \
 		'JAEGER_PORT=$(JAEGER_PORT)' \
 		'PROMETHEUS_PORT=$(PROMETHEUS_PORT)' \
+		'OTLP_GRPC_PORT=$(OTLP_GRPC_PORT)' \
 		'ROTOR_WEB_URL=http://localhost:$(WEB_PORT)' \
 		'ROTOR_API_URL=http://localhost:$(API_PORT)' \
+		'ROTOR_OTLP_GRPC_URL=http://localhost:$(OTLP_GRPC_PORT)' \
 		'ROTOR_KEYCLOAK_URL=http://localhost:$(KEYCLOAK_PORT)' \
 		'ROTOR_OIDC_ISSUER=http://localhost:$(KEYCLOAK_PORT)/realms/$(KEYCLOAK_REALM)' \
 		'ROTOR_OPENBAO_URL=http://localhost:$(OPENBAO_PORT)' \
@@ -111,6 +116,7 @@ up: stack-env $(if $(wildcard $(ROOT)/runner/pyproject.toml),runner-image) ## Bu
 	docker compose up -d --build --wait
 	@$(call STACK_SAY,web,"Web        http://localhost:$(WEB_PORT)")
 	@$(call STACK_SAY,api,"API        http://localhost:$(API_PORT)/api/v1/meta")
+	@$(call STACK_SAY,api,"OTLP gRPC  http://localhost:$(OTLP_GRPC_PORT) (spans with OTEL_EXPORTER_OTLP_PROTOCOL=grpc and a token)")
 	@echo "Keycloak   http://localhost:$(KEYCLOAK_PORT) (admin / admin; realm $(KEYCLOAK_REALM); people alice, bob, carol, dave with password '<name> password')"
 	@echo "OpenBao    http://localhost:$(OPENBAO_PORT) (root token $(OPENBAO_ROOT_TOKEN))"
 	@$(call STACK_SAY,worker,"Worker     starts each run's sandbox (docker compose logs worker)")

@@ -720,6 +720,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/otlp/v1/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refuse OTLP logs: Rotor takes traces alone.
+         * @description Answers 501 with a google.rpc.Status (UNIMPLEMENTED) in the request's encoding, JSON when it names none OTLP knows, to anyone and without reading the body: Rotor keeps no metrics or logs. Send them to your own OpenTelemetry collector, or set OTEL_METRICS_EXPORTER=none and OTEL_LOGS_EXPORTER=none.
+         */
+        post: operations["refuseLogs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/otlp/v1/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refuse OTLP metrics: Rotor takes traces alone.
+         * @description Answers 501 with a google.rpc.Status (UNIMPLEMENTED) in the request's encoding, JSON when it names none OTLP knows, to anyone and without reading the body: Rotor keeps no metrics or logs. Send them to your own OpenTelemetry collector, or set OTEL_METRICS_EXPORTER=none and OTEL_LOGS_EXPORTER=none.
+         */
+        post: operations["refuseMetrics"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/otlp/v1/traces": {
         parameters: {
             query?: never;
@@ -3115,6 +3155,15 @@ export interface components {
             };
             name: string;
         };
+        SpanLink: {
+            attributes: {
+                [key: string]: string;
+            };
+            runId: string | null;
+            sender: string | null;
+            spanId: string;
+            traceId: string;
+        };
         SpanTokens: {
             completion: number;
             prompt: number;
@@ -3240,6 +3289,7 @@ export interface components {
             input: components["schemas"]["SpanValue"] | null;
             /** @enum {string} */
             kind: "CHAIN" | "LLM" | "TOOL" | "AGENT" | "RETRIEVER" | "EMBEDDING" | "RERANKER" | "GUARDRAIL" | "EVALUATOR" | "PROMPT" | "UNKNOWN";
+            links: components["schemas"]["SpanLink"][];
             model: string;
             name: string;
             omitted: number;
@@ -3271,6 +3321,7 @@ export interface components {
             input: components["schemas"]["SpanValue"] | null;
             /** @enum {string} */
             kind: "CHAIN" | "LLM" | "TOOL" | "AGENT" | "RETRIEVER" | "EMBEDDING" | "RERANKER" | "GUARDRAIL" | "EVALUATOR" | "PROMPT" | "UNKNOWN";
+            links: components["schemas"]["SpanLink"][];
             model: string;
             name: string;
             output: components["schemas"]["SpanValue"] | null;
@@ -5417,6 +5468,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Document"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    refuseLogs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OtlpStatus"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    refuseMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OtlpStatus"];
                 };
             };
             /** @description An error, in the one shape every endpoint uses. */
