@@ -198,9 +198,8 @@ func TestAGrantTheToolEndedAsksThePersonToConnectAgain(t *testing.T) {
 	if _, err := plane.Mint(context.Background(), connections.MintRequest{UserID: bobID, ToolID: toolID}); !errors.Is(err, connections.ErrReconnect) {
 		t.Fatalf("minting from an ended grant = %v, want ErrReconnect", err)
 	}
-	_, answer := bob.api(http.MethodGet, "/connections", nil)
-	if list, _ := answer["connections"].([]any); len(list) != 1 || list[0].(map[string]any)["status"] != "reconnect" {
-		t.Errorf("bob's connections after the tool ended the grant = %v", answer)
+	if _, list := bob.connectionsTo(t, toolID.String()); len(list) != 1 || list[0]["status"] != "reconnect" {
+		t.Errorf("bob's connections to the tool after it ended the grant = %v", list)
 	}
 	if secret, err := rootBao(t).Logical().Read("rotor/data/connections/" + bobID.String() + "/" + toolID.String()); err != nil || secret != nil {
 		t.Errorf("the dead refresh token is still in OpenBao: %v %v", secret, err)
@@ -232,8 +231,7 @@ func TestRevokingOneRunsTokenLeavesTheOthers(t *testing.T) {
 	if status, who := whoami(t, stub, second.Value); status != http.StatusOK || who != "bob" {
 		t.Errorf("another run's token after the revocation = %d as %q", status, who)
 	}
-	_, answer := bob.api(http.MethodGet, "/connections", nil)
-	if list, _ := answer["connections"].([]any); len(list) != 1 || list[0].(map[string]any)["lastUsedAt"] == nil {
-		t.Errorf("minting did not mark the connection used: %v", answer)
+	if _, list := bob.connectionsTo(t, toolID.String()); len(list) != 1 || list[0]["lastUsedAt"] == nil {
+		t.Errorf("minting did not mark the connection used: %v", list)
 	}
 }

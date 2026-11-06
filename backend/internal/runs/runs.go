@@ -66,6 +66,14 @@ func (e *NeedsRegistration) Error() string {
 	return "ask an administrator to register " + strings.Join(names, ", ") + " again"
 }
 
+// AmbiguousTools is a run binding a name several tools share from before names were unique (#267), which only an
+// administrator renaming them can settle.
+type AmbiguousTools struct{ Names []string }
+
+func (e *AmbiguousTools) Error() string {
+	return "ask an administrator to rename all but one of the tools called " + strings.Join(e.Names, ", ")
+}
+
 // Run is a run as its viewers see it.
 type Run struct {
 	ID            uuid.UUID

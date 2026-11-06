@@ -22,6 +22,11 @@ function unregisteredTools(error: unknown): string[] {
   return error instanceof ApiError && error.code === "needs_registration" ? Object.keys(error.fields) : [];
 }
 
+/** The names a refused start says several tools share (#267), so an administrator must rename all but one. */
+function sharedTools(error: unknown): string[] {
+  return error instanceof ApiError && error.code === "tool_ambiguous" ? Object.keys(error.fields) : [];
+}
+
 /** The server's word on each field, from a refused start's "inputs/<field>" keys. */
 function serverErrors(error: unknown): Record<string, string> {
   if (!(error instanceof ApiError) || error.code !== "inputs_invalid") return {};
@@ -76,8 +81,10 @@ export function RunDialog({ workflowID, name, onClose }: { workflowID: string; n
 
   const missing = missingTools(start.error);
   const unregistered = unregisteredTools(start.error);
+  const shared = sharedTools(start.error);
   const shown = { ...serverErrors(start.error), ...errors };
-  const refused = start.isError && missing.length === 0 && unregistered.length === 0 && Object.keys(serverErrors(start.error)).length === 0;
+  const refused =
+    start.isError && missing.length === 0 && unregistered.length === 0 && shared.length === 0 && Object.keys(serverErrors(start.error)).length === 0;
   return (
     <dialog
       ref={dialog}
@@ -133,6 +140,16 @@ export function RunDialog({ workflowID, name, onClose }: { workflowID: string; n
           >
             <p>{s.runs.dialog.registerFirst}</p>
             <p className="font-medium">{unregistered.join(", ")}</p>
+          </div>
+        )}
+        {shared.length > 0 && (
+          <div
+            role="alert"
+            className="flex flex-col gap-1 rounded-control border border-warning bg-warning-subtle px-3 py-2 text-sm text-ink"
+            data-tool-ambiguous
+          >
+            <p>{s.toolNames.ambiguousRun}</p>
+            <p className="font-medium">{shared.join(", ")}</p>
           </div>
         )}
         {refused && (

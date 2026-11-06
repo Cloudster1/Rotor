@@ -74,6 +74,8 @@ func (f *fakeWorkflows) Restore(context.Context, uuid.UUID) error {
 
 func (f *fakeWorkflows) Archive(context.Context, uuid.UUID) error { return f.saveErr }
 
+func (f *fakeWorkflows) Binding(context.Context, string) ([]workflows.Binder, error) { return nil, nil }
+
 type fakeCatalogs struct{ err error }
 
 func (f fakeCatalogs) Get(_ context.Context, id uuid.UUID) (catalog.Catalog, error) {

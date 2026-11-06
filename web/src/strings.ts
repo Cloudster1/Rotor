@@ -3,7 +3,7 @@ import { usageStrings } from "./strings_usage";
 import { traceDestinationStrings } from "./strings_destinations";
 import { traceStrings } from "./strings_telemetry";
 import { retentionStrings } from "./strings_retention";
-import { capabilityStrings } from "./strings_tools";
+import { capabilityStrings, toolNameStrings } from "./strings_tools";
 import { untrustedStrings } from "./strings_untrusted";
 import { canvasStrings } from "./strings_canvas";
 import { assistantStrings } from "./strings_assistants";
@@ -480,6 +480,7 @@ export const s = {
   trace: traceStrings,
   retention: retentionStrings,
   capabilities: capabilityStrings,
+  toolNames: toolNameStrings,
   untrusted: untrustedStrings,
   canvas: canvasStrings,
   assistants: assistantStrings,

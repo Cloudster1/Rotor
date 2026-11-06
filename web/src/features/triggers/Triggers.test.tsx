@@ -179,6 +179,7 @@ describe("a workflow's event triggers", () => {
   const EXCITER = {
     id: "0190a5c4-0000-7000-8000-0000000000e1",
     name: "exciter",
+    product: "exciter",
     baseURL: "https://exciter.test",
     resource: "https://exciter.test/api/v1/mcp",
     issuer: "https://exciter.test",
@@ -203,7 +204,7 @@ describe("a workflow's event triggers", () => {
         answers: pageAnswers({
           [`/api/v1/workflows/${WORKFLOW.id}`]: EVENTED,
           [`/api/v1/workflows/${WORKFLOW.id}/triggers`]: { triggers: [] },
-          "/api/v1/tools": { tools: [EXCITER, { ...EXCITER, id: "x", name: "jira" }] },
+          "/api/v1/tools": { tools: [EXCITER, { ...EXCITER, id: "x", name: "jira", product: "jira" }] },
           [`POST /api/v1/workflows/${WORKFLOW.id}/triggers`]: async (request: Request) => {
             posted = (await request.json()) as Record<string, unknown>;
             if (refuse) {

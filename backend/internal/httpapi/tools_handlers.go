@@ -18,6 +18,7 @@ type ToolRegistry interface {
 	Add(ctx context.Context, req tools.AddRequest) (tools.Tool, bool, error)
 	Remove(ctx context.Context, id uuid.UUID) error
 	Check(ctx context.Context, id uuid.UUID) (tools.Tool, error)
+	Rename(ctx context.Context, id uuid.UUID, name string) (tools.Tool, error)
 }
 
 var (
@@ -31,7 +32,12 @@ var (
 // toolError says what went wrong with a tool in the words its caller needs.
 func toolError(err error) error {
 	var refusal *tools.Refusal
+	var taken *tools.NameTaken
 	switch {
+	case errors.As(err, &taken):
+		return &APIError{Status: http.StatusConflict, Code: "tool_name_taken", Message: taken.Error(), Fields: map[string]string{"name": taken.Error()}}
+	case errors.Is(err, tools.ErrBadName):
+		return &APIError{Status: http.StatusUnprocessableEntity, Code: "validation_failed", Message: err.Error(), Fields: map[string]string{"name": err.Error()}}
 	case errors.As(err, &refusal):
 		return &APIError{Status: http.StatusUnprocessableEntity, Code: "tool_refused", Message: refusal.Message}
 	case errors.Is(err, tools.ErrUnreachable):
@@ -47,7 +53,7 @@ func (s *Server) toToolResponse(t tools.Tool) toolResponse {
 	for _, m := range t.Missing() {
 		missing = append(missing, missingCapability{Capability: m.Capability, Message: m.Message})
 	}
-	return toolResponse{ID: t.ID.String(), Name: t.Name, BaseURL: t.BaseURL, Resource: t.Resource, MCPURL: t.MCPURL, HookURL: s.hookURL(t.ID), Issuer: t.Issuer,
+	return toolResponse{ID: t.ID.String(), Name: t.Name, Product: t.Product, BaseURL: t.BaseURL, Resource: t.Resource, MCPURL: t.MCPURL, HookURL: s.hookURL(t.ID), Issuer: t.Issuer,
 		Capabilities: t.Capabilities, Missing: missing, ScopesSupported: t.ScopesSupported, Registration: toolRegistration(t.Registration),
 		Status: toolStatus(t.Status), AddedAt: t.AddedAt}
 }
@@ -101,7 +107,7 @@ func (s *Server) handleAddTool(w http.ResponseWriter, r *http.Request) {
 		respondError(w, r, errToolsUnavailable)
 		return
 	}
-	t, created, err := s.Tools.Add(r.Context(), tools.AddRequest{BaseURL: req.BaseURL, ClientID: req.ClientID, ClientSecret: req.ClientSecret})
+	t, created, err := s.Tools.Add(r.Context(), tools.AddRequest{BaseURL: req.BaseURL, Name: req.Name, ClientID: req.ClientID, ClientSecret: req.ClientSecret})
 	if err != nil {
 		loggerFrom(r.Context()).Warn("tool not added", "base_url", req.BaseURL, "error", err)
 		respondError(w, r, toolError(err))

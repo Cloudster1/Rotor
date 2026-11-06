@@ -75,8 +75,8 @@ export function eventOf(d: EventDraft): EventSpec {
 export function EventFields({ draft, onChange, errors }: { draft: EventDraft; onChange: (d: EventDraft) => void; errors: Record<string, string> }) {
   const id = useId();
   const tools = useQuery(toolsQuery);
-  const offered = (tools.data ?? []).filter((t) => (HOOK_PRODUCTS as readonly string[]).includes(t.name));
-  const product = offered.find((t) => t.id === draft.toolId)?.name ?? "";
+  const offered = (tools.data ?? []).filter((t) => (HOOK_PRODUCTS as readonly string[]).includes(t.product));
+  const product = offered.find((t) => t.id === draft.toolId)?.product ?? "";
   const set = (patch: Partial<EventDraft>) => onChange({ ...draft, ...patch });
   const setCondition = (i: number, patch: Partial<EventDraft["conditions"][number]>) =>
     set({ conditions: draft.conditions.map((c, j) => (j === i ? { ...c, ...patch } : c)) });

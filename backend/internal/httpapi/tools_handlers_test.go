@@ -58,6 +58,16 @@ func (f *fakeTools) Check(_ context.Context, id uuid.UUID) (tools.Tool, error) {
 	return tools.Tool{}, tools.ErrNotFound
 }
 
+func (f *fakeTools) Rename(_ context.Context, id uuid.UUID, name string) (tools.Tool, error) {
+	for i, t := range f.list {
+		if t.ID == id {
+			f.list[i].Name = name
+			return f.list[i], nil
+		}
+	}
+	return tools.Tool{}, tools.ErrNotFound
+}
+
 func toolsServer(t *testing.T) (*Server, *fakeTools) {
 	t.Helper()
 	s, sessions, _ := signedInServer(t)

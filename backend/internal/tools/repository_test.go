@@ -4,7 +4,7 @@ import "testing"
 
 // The clone address is Armature's git proxy path, with an owner's slashes kept in one segment (#137).
 func TestTheCloneAddressIsTheToolsGitProxy(t *testing.T) {
-	armature := Tool{Name: "armature", BaseURL: "https://armature.example.com/", Capabilities: []string{"mcp@1", CapabilityGitProxy}}
+	armature := Tool{Name: "armature", Product: "armature", BaseURL: "https://armature.example.com/", Capabilities: []string{"mcp@1", CapabilityGitProxy}}
 	for name, want := range map[string]string{
 		"acme/portal":         "https://armature.example.com/api/v1/git/CP/acme/portal.git",
 		"acme/web/team/front": "https://armature.example.com/api/v1/git/CP/acme%2Fweb%2Fteam/front.git",

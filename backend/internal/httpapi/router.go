@@ -253,6 +253,8 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Post("/providers/{providerID}/test", s.handleTestProvider)
 				r.Delete("/tools/{toolID}", s.handleRemoveTool)
 				r.Post("/tools/{toolID}/check", s.handleCheckTool)
+				r.Get("/tools/{toolID}/workflows", s.handleToolWorkflows)
+				r.Put("/tools/{toolID}/name", s.handleRenameTool)
 				r.Get("/audit", s.handleListAudit)
 				r.Get("/audit/facets", s.handleAuditFacets)
 				r.Get("/audit/export", s.handleExportAudit)
