@@ -29,6 +29,8 @@ var armatureOperations = map[string]struct{ method, path, status string }{
 	// The label tools (#270).
 	ListLabelsTool:     {"get", "/labels", "200"},
 	BulkEditIssuesTool: {"post", "/issues/bulk", "200"},
+	// The digest's reading (#271).
+	ListProjectIssuesTool: {"get", "/projects/{projectKey}/issues", "200"},
 }
 
 // notArmatureAPI are the stub's routes an Armature tenant serves that are no operation of Armature's API: its

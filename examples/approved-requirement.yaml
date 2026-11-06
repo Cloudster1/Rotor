@@ -1,0 +1,85 @@
+# Drafts one requirement from a need and files it in Exciter once a member of the quality group has corrected and
+# approved it (#271). The write binding asks for approval before it writes, and the review node is that approval: the
+# check wants one on every way to the write, so the run asks once, and files what the approver left in the form.
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata:
+  name: approved-requirement
+  description: Drafts a requirement from a need, lets the quality group correct and approve it, then files it in Exciter.
+inputs:
+  type: object
+  required: [projectKey, need]
+  properties:
+    projectKey: { type: string, title: Project key, description: "The Exciter project the requirement goes to, such as RTR." }
+    need: { type: string, title: Need, description: "What someone needs and why, in their own words." }
+tools:
+  exciter-read:
+    tool: exciter
+    scopes: [mcp:read]
+    allowTools: [search_requirements]
+  exciter-write:
+    tool: exciter
+    scopes: [mcp]
+    access: write
+    approval: beforeWrite
+    allowTools: [create_requirement]
+limits:
+  maxSteps: 20
+  timeout: 15m
+  maxTokens: 100000
+entry: draft
+nodes:
+  # Reads the project only to find what is said already; it cannot write, and what it drafts is a proposal.
+  - id: draft
+    type: agent
+    tools: [exciter-read]
+    skills: [{ name: requirements-engineering, version: 1 }]
+    prompt: |
+      Draft one requirement for the Exciter project {{ inputs.projectKey }} from this need:
+      {{ inputs.need }}
+
+      Load the requirements-engineering skill when its method helps. Search the project for requirements that say
+      the same already, and name them in notes. Write a short title; a statement in Markdown that says what the
+      system shall do, singular, verifiable and free of design; and a rationale that says why, from the need.
+      In notes, say in one or two sentences what you assumed or what the approver should check.
+    output:
+      schema:
+        type: object
+        required: [title, statement, rationale, notes]
+        properties:
+          title: { type: string, maxLength: 200 }
+          statement: { type: string }
+          rationale: { type: string }
+          notes: { type: string, maxLength: 1000 }
+  # The approver reads the draft as the run proposes it, changes what is wrong, and approves; the values approved
+  # are the node's output, and nothing else reaches Exciter.
+  - id: review
+    type: approval
+    message: 'File "{{ nodes.draft.title }}" in {{ inputs.projectKey }}? The drafter notes: {{ nodes.draft.notes }}'
+    approvers: { group: quality }
+    expiresIn: 120h
+    form:
+      schema:
+        type: object
+        required: [title, statement, rationale]
+        properties:
+          title: { type: string, title: Title, minLength: 1, maxLength: 200 }
+          statement: { type: string, title: Statement, minLength: 1 }
+          rationale: { type: string, title: Rationale }
+      values:
+        title: "{{ nodes.draft.title }}"
+        statement: "{{ nodes.draft.statement }}"
+        rationale: "{{ nodes.draft.rationale }}"
+  - id: file
+    type: tool
+    tool: exciter-write
+    call: create_requirement
+    arguments:
+      projectKey: "{{ inputs.projectKey }}"
+      title: "{{ nodes.review.title }}"
+      statementMarkdown: "{{ nodes.review.statement }}"
+      rationaleMarkdown: "{{ nodes.review.rationale }}"
+      comment: Drafted by a Rotor workflow and approved by the quality group.
+edges:
+  - { from: draft, to: review }
+  - { from: review, to: file }

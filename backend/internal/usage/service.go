@@ -100,11 +100,11 @@ func (s *Service) CheckStart(ctx context.Context, userID uuid.UUID, sp *spec.Spe
 }
 
 // runModels resolves every model a run's agents use, refusing an agent's own model no administrator allows (#133); a
-// workflow's model that resolves to none is left out, and its agents fail with model_missing, which says more.
+// workflow's model that resolves to none is left out, and so is one no agent runs on, so code alone never costs (#271).
 func (s *Service) runModels(ctx context.Context, sp *spec.Spec) ([]providers.Resolution, error) {
 	var out []providers.Resolution
 	agents := sp.AgentModels()
-	if sp.UsesWorkflowModel() || len(agents) == 0 {
+	if sp.UsesWorkflowModel() {
 		if r, err := s.models.Resolve(ctx, sp.Model); err == nil {
 			out = append(out, r)
 		}
