@@ -12,6 +12,7 @@ from support import ToolCallingModel
 from test_compile import FakeTools, workflow
 
 from rotor_runner.compile import RunContext, run_workflow
+from rotor_runner.mcp import Binding, McpGateway
 from rotor_runner.pb.rotor.runner.v1 import runner_pb2 as pb
 from rotor_runner.spans import is_text
 from rotor_runner.spec import parse
@@ -147,3 +148,33 @@ async def test_without_a_sampled_traceparent_there_are_no_spans() -> None:
             pass
         await tracing.flush()
     assert sent == []
+
+
+class OneToken:
+    async def token(self, binding: str) -> str:
+        return SECRET
+
+
+async def test_an_mcp_request_carries_the_traceparent_of_its_span() -> None:
+    sent: list[pb.ConnectRequest] = []
+    tracing = RunTracing(TRACEPARENT, sent.append, scrub, run=RUN)
+
+    async def emit(_kind: str, _node: str, _payload: dict[str, Any]) -> None:
+        return None
+
+    binding = Binding(name="t", mcp_url="http://tool.test/mcp", scopes=(), access="read", allow_tools=())
+    gateway = McpGateway(bindings={"t": binding}, tokens=OneToken(), emit=emit, tracing=tracing)
+    with tracing.root("run"), tracing.maybe("mcp whoami", {"mcp.tool": "whoami"}, kind=TOOL):
+        connection = await gateway._connection(binding)
+    await tracing.flush()
+    span = next(s for message in sent for s in message.spans.spans if s.name == "mcp whoami")
+    headers = connection["headers"]
+    version, trace_id, span_id, flags = headers["traceparent"].split("-")
+    assert (headers["Authorization"], version, trace_id, span_id) == (
+        f"Bearer {SECRET}",
+        "00",
+        TRACE,
+        span.span_id.hex(),
+    )
+    assert int(flags, 16) & 1, "the tool continues a sampled trace"
+    assert RunTracing().headers() == {}, "a run that is not traced sends no trace context"

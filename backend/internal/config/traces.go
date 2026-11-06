@@ -53,3 +53,18 @@ const (
 	// another replica takes at most this long to reach this one.
 	TraceSettingTTL = 30 * time.Second
 )
+
+// What the OTLP endpoint takes from one sender (#243); docs/api-contract-m18.md gives the reasons.
+const (
+	// MaxOTLPBodyBytes bounds one request as sent: four of the OpenTelemetry SDK's default 512-span batches.
+	MaxOTLPBodyBytes = 4 << 20
+	// MaxOTLPDecodedBytes bounds a request after gzip, so a small body cannot unpack into a large one.
+	MaxOTLPDecodedBytes = 16 << 20
+	// MaxOTLPSpansPerRequest bounds the spans taken from one request; those past it are rejected.
+	MaxOTLPSpansPerRequest = 2048
+	// OTLPRequestsPerMinute and OTLPSpansPerMinute bound one sender at one api replica, counted in its memory.
+	OTLPRequestsPerMinute = 300
+	OTLPSpansPerMinute    = 20000
+	// OTLPRateWindow is the window both rates are counted over; Retry-After says how long until it ends.
+	OTLPRateWindow = time.Minute
+)

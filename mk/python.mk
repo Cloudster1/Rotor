@@ -53,7 +53,8 @@ test-runner: | $(UV_CACHE) ## Run the runner's tests against this checkout's run
 	@mkdir -p $(REPORTS)
 	$(call uv_run,--network $(STACK_NET) -e ROTOR_TEST_TOOLSTUB_INTERNAL_URL=http://tool-stub:8080 \
 		-e ROTOR_TEST_TOOLSTUB_CONTROL_URL=http://tool-stub:8081 \
-		-e ROTOR_TEST_OPENBAO_URL=http://openbao:8200 -e ROTOR_TEST_OPENBAO_ROOT_TOKEN='$(OPENBAO_ROOT_TOKEN)') \
+		-e ROTOR_TEST_OPENBAO_URL=http://openbao:8200 -e ROTOR_TEST_OPENBAO_ROOT_TOKEN='$(OPENBAO_ROOT_TOKEN)' \
+		-e ROTOR_TEST_API_URL=http://api:8080 -e ROTOR_TEST_KEYCLOAK_URL=http://keycloak:8080) \
 		sh -c 'uv sync --locked --quiet && uv run --no-sync pytest -m stack --junitxml=/work/reports/pytest-stack.xml'
 
 .PHONY: check-python

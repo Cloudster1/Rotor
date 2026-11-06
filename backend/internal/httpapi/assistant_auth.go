@@ -40,12 +40,16 @@ type OAuthServer interface {
 	Switch(ctx context.Context, in oauth.SettingInput) (oauth.Setting, error)
 }
 
-// mcpPath is where assistants call Rotor.
-const mcpPath = APIPrefix + oauth.MCPPath
+// mcpPath is where assistants call Rotor, and otlpPath where apps send spans with a token of Rotor's (#243).
+const (
+	mcpPath  = APIPrefix + oauth.MCPPath
+	otlpPath = APIPrefix + "/otlp/v1/traces"
+)
 
 var (
 	errMCPOnly = &APIError{Status: http.StatusUnauthorized, Code: "invalid_token",
-		Message: "This token is for Rotor's MCP endpoint alone. Call " + mcpPath + " with it, or sign in to Rotor in your browser."}
+		Message: "This token is for Rotor's MCP endpoint and its OTLP endpoint alone. Call " + mcpPath + " or send spans to " +
+			otlpPath + " with it, or sign in to Rotor in your browser."}
 	errAssistantsOff = &APIError{Status: http.StatusUnauthorized, Code: "invalid_token",
 		Message: "Assistants are switched off on this Rotor. Ask its administrators to switch them on."}
 	errSessionOnly = &APIError{Status: http.StatusForbidden, Code: "session_only",
@@ -70,12 +74,13 @@ func credentialFrom(r *http.Request, cookieName string) (credential string, bear
 	return "", false
 }
 
-// assistantOf reads who an access token acts for: at MCP and for the calls it carries, nowhere else.
+// assistantOf reads who an access token acts for: at MCP and for the calls it carries, and at the OTLP endpoint,
+// nowhere else.
 func (s *Server) assistantOf(r *http.Request, token string) (*auth.Principal, error) {
 	if s.OAuth == nil || !oauth.IsAccessToken(token) {
 		return nil, oauth.ErrInvalidToken
 	}
-	if r.URL.Path != mcpPath && !inProcessCall(r.Context()) {
+	if r.URL.Path != mcpPath && r.URL.Path != otlpPath && !inProcessCall(r.Context()) {
 		return nil, errMCPOnly
 	}
 	p, err := s.OAuth.Authenticate(r.Context(), token)

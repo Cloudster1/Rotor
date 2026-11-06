@@ -2612,16 +2612,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
           "default": {
             "description": "An error, in the one shape every endpoint uses.",
             "content": {
@@ -2632,7 +2622,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "rotorToken": []
+          },
+          {
+            "realmToken": []
+          }
+        ]
       }
     },
     "/people": {
@@ -14287,7 +14285,12 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "An access token of the realm Rotor signs in with, whose audience holds Rotor's client and whose groups hold rotor-administrators, such as a service account's from client credentials."
+        "description": "An access token of the realm Rotor signs in with, whose audience holds Rotor's client, such as a service account's from client credentials: of an account in rotor-administrators, or at the OTLP endpoint of any account Rotor lets in."
+      },
+      "rotorToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "An access token from Rotor's own authorization server, made for an assistant or an app; taken at MCP and the OTLP endpoint alone."
       },
       "session": {
         "type": "apiKey",

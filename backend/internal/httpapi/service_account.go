@@ -17,7 +17,10 @@ import (
 
 // ServiceAccounts lets in the account a realm's access token names; *oidc.Service is the real one.
 type ServiceAccounts interface {
+	// Authenticate lets in an account in rotor-administrators, at the serviceAccount routes.
 	Authenticate(ctx context.Context, token string) (*auth.Principal, error)
+	// AuthenticateSender lets in any account Rotor lets in, at the tokensOnly routes.
+	AuthenticateSender(ctx context.Context, token string) (*auth.Principal, error)
 }
 
 var (
@@ -86,7 +89,7 @@ func realmTokenError(w http.ResponseWriter, r *http.Request, err error) error {
 	switch {
 	case errors.As(err, &refusal):
 		loggerFrom(r.Context()).Warn("realm token refused", "error", refusal.Reason)
-		if errors.Is(err, oidc.ErrTokenNotAdmin) {
+		if errors.Is(err, oidc.ErrTokenNotAdmin) || errors.Is(err, oidc.ErrNotAMember) {
 			return &APIError{Status: http.StatusForbidden, Code: "forbidden", Message: refusal.Message}
 		}
 		w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)

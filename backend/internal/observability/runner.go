@@ -25,9 +25,14 @@ type RunnerSpan struct {
 	Failed     bool
 	Message    string
 	Events     []SpanEvent
+	// OK is a sender's span its app marked successful, which the runner never does.
+	OK bool
+	// Service is the sender's service.name for a span posted over OTLP, empty for the runner's.
+	Service string
 }
 
-// RunnerSnapshots are runner spans as the exporters take them, under the service rotor-runner of env.
+// RunnerSnapshots are runner spans as the exporters take them, under the service rotor-runner of env, or the
+// sender's own for a span posted over OTLP.
 func RunnerSnapshots(env string, spans []RunnerSpan) []sdktrace.ReadOnlySpan {
 	res := serviceResource(RunnerService, env)
 	stubs := make(tracetest.SpanStubs, 0, len(spans))
@@ -55,8 +60,13 @@ func RunnerSnapshots(env string, spans []RunnerSpan) []sdktrace.ReadOnlySpan {
 			}
 			stub.Events = append(stub.Events, event)
 		}
+		if s.Service != "" {
+			stub.Resource = serviceResource(s.Service, env)
+		}
 		if s.Failed {
 			stub.Status = sdktrace.Status{Code: codes.Error, Description: s.Message}
+		} else if s.OK {
+			stub.Status = sdktrace.Status{Code: codes.Ok}
 		}
 		stubs = append(stubs, stub)
 	}

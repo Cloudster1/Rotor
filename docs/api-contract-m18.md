@@ -345,6 +345,55 @@ The route table declares the protobuf body and answer as binary (`binaryRequest`
 `binaryResponse`) and the refusals as `OtlpStatus`; the JSON encoding is said in the row's
 description, since a row names one media type. This section is the full description.
 
+### As built (#243)
+
+- **Pins:** `go.opentelemetry.io/proto/otlp` v1.11.1 (2026-09-30), made a direct dependency; it moved
+  `grpc-gateway` to v2.31.0 (2026-09-25) and `go-openapi/swag` to v0.29.2 (2026-09-04). `google.rpc.Status` is
+  `google.golang.org/genproto/googleapis/rpc` at the version already locked (2026-10-05). The runner's Python
+  test pins `opentelemetry-exporter-otlp-proto-http` 1.45.1 (2026-10-06), as a dev dependency beside the SDK's
+  1.45.1; it brings `googleapis-common-protos` 1.76.0 (2026-10-22).
+- **The row's flag** is `tokensOnly`, and the OpenAPI document gains a `rotorToken` scheme beside `realmToken` for
+  it. The sentence refusing a Rotor token elsewhere names the OTLP endpoint beside MCP. A grant to read is refused
+  by the middleware that refuses its every write, with its sentence. A realm's token is checked as #168's without
+  the group (`oidc.Service.AuthenticateSender`); an account nobody has let in answers 403 `forbidden` and is not
+  made a person, nor does it ask to be let in, since no person is at a keyboard. No token, an unknown or expired
+  token of Rotor's, and a cookie answer 401 `unauthorized`; a realm's token that fails a check, `invalid_token`.
+- **The order of the checks:** the token, then the media type and encoding (415, in JSON when the type is none
+  OTLP knows), then the requests a minute (429), then the body's size (413, at once when `Content-Length` says so),
+  then the body (400), then the spans a minute (429), then the spans one by one. A request is counted once it
+  reaches the second check; spans are counted as sent, at most `MaxOTLPSpansPerRequest`, before their checks, and
+  a request whose spans would take the sender past `OTLPSpansPerMinute` is refused whole and counts none. A window
+  is a minute from a sender's first request in it (`OTLPRateWindow`), and `Retry-After` the whole seconds left,
+  at least one.
+- **Reading:** OTLP's JSON is read through proto3's after its hex ids are written as base64; fields Rotor does not
+  know are ignored, and an id that is not hex costs its span alone. Attribute values that are not text are
+  written as text, lists and maps as JSON and bytes as base64. An event's text attributes are dropped, as the
+  runner's are. A resource without `service.name` is `unknown_service`; a name is redacted and cut to
+  `MaxSpanNameChars`. A span the app marked OK is stored `ok`.
+- **Partial success** names, in one sentence with their counts: spans past `MaxOTLPSpansPerRequest`, without
+  valid ids, without a name, ending before they start, with a span id twice in the request, and those the cap's
+  trigger skipped. The trigger skips a span past a cap and a span id the trace holds already alike, so the last
+  reason names both. JSON writes `rejectedSpans` as a string, as proto3's JSON writes 64-bit numbers.
+- **Joining a run:** the sender's runs are found by `run.trace_id` in one query as the sender; where two runs from
+  before #242 share a trace id, the earlier one is joined, and should its trace hold another id the spans are
+  rejected as naming a run whose trace id an earlier run holds. The run's trace is made as the sender when the
+  sender's span comes first.
+- **An owned trace's key** is made by OpenBao transit when its trace first seals text and bound to the trace row's
+  id: its text opens with `Keys.For(trace.id, trace.data_key)` and the row `envelope.TraceSpanRow(trace.id,
+  span_id)`, as a run's does. A trace made before it had text is given its key through `rotor_admin`, since
+  `rotor_app` holds no `UPDATE` on `trace` and the counts must move by the trigger alone; the update is held to the
+  sender's own trace, which the sender's read found just before, and sets a key only where none is. No migration
+  was needed, so 01530-01539 stay free.
+- **Storing** happens in the request, bounded by `TraceStoreTimeout`, rather than on the pool of
+  `MaxTraceStoreWrites`, since the answer says what was kept; a failure answers 500 in Rotor's envelope. Spans
+  that join a run are sent on through the runner's forwarder (the collector as the sample ratio says, without text;
+  LangSmith while it is on), on a pool of `MaxRunnerSpanExports` of their own, under the sender's `service.name`;
+  #246 puts destinations behind the same forwarder.
+- **Tools that call back:** the runner sends the `traceparent` of the span current at each MCP request: the
+  `mcp <call>` span for a call, and the span current where a tool's tools are listed.
+- **Headers:** the changelog writes `OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer%20<token>`, percent-encoded
+  as OpenTelemetry's specification has it; the Python SDK takes a plain space too.
+
 ## Reading a trace (#244)
 
 | Method and path | Who | What |

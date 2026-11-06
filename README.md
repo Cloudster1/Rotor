@@ -320,6 +320,10 @@ and the worker send OpenTelemetry spans, each run one trace. The runner's
 spans travel over the runner protocol and the api sends them on, redacted
 again, so a sandbox reaches no collector. An administrator may also send runs'
 spans, prompts and answers included, to LangSmith with a key kept in OpenBao.
+A LangChain app or a tool sends its own spans to `/api/v1/otlp/v1/traces`
+with a bearer token, setting `OTEL_EXPORTER_OTLP_ENDPOINT` to
+`<rotor>/api/v1/otlp`; they join the run whose trace they name when the
+sender may read it, and a trace of the sender's own otherwise.
 `make observe` starts a collector, Jaeger and Prometheus beside the stack.
 
 **Security at the edges.** A session is an opaque token whose SHA-256 alone is

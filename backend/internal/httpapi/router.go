@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/cloudster1/rotor/backend/internal/config"
+	"github.com/cloudster1/rotor/backend/internal/traces/otlp"
 )
 
 // APIPrefix is where every endpoint but the probes lives.
@@ -63,6 +64,8 @@ type Server struct {
 	Retention Retention
 	// Traces is how long runs' traces are kept and whether their text is (#242); nil answers 503.
 	Traces TraceSettings
+	// Spans keeps what senders post to the OTLP endpoint (#243); nil answers 503.
+	Spans SpanStore
 	// Workspaces is what workspaces may use (#136); nil answers 503.
 	Workspaces Workspaces
 	// Preferences are what a person chooses for themselves (#206); nil answers 503.
@@ -103,6 +106,8 @@ type Server struct {
 
 	// handler is the whole router, which MCP sends the calls of its tools through; Routes sets it.
 	handler http.Handler
+	// otlpRates counts each sender's requests and spans at the OTLP endpoint in this replica; Routes makes it.
+	otlpRates *otlp.Limiter
 }
 
 // Routes builds the HTTP surface. The order matters: an id first so every later
@@ -113,6 +118,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 		timeout = config.DefaultRequestTimeout
 	}
 
+	s.otlpRates = otlp.NewLimiter(time.Now)
 	r := chi.NewRouter()
 	r.Use(traced)
 	r.Use(requestID)
@@ -140,6 +146,8 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 		r.Post("/hooks/{toolID}", s.handleReceiveHook)
 		s.mountOAuth(r)
 		r.With(s.requireMCPAuth).Post("/mcp", s.handleMCP)
+		// Apps send spans with a token alone (#243); the session cookie is refused there.
+		r.With(s.tokensOnly).Post("/otlp/v1/traces", s.handleReceiveTraces)
 		mountPending(r, true, false)
 		// A service account of the realm adds tools and hands Rotor their hook secrets (#168); nothing else takes its
 		// token. The table marks these rows serviceAccount, and a test holds the two to each other.
