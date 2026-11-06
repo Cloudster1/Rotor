@@ -40,6 +40,8 @@ COPY --from=builder /out/ /app/
 # What the tool-stub answers to tools/list: Exciter's and Armature's, as recorded (make tool-snapshots TOOL=...).
 COPY api/tools/exciter/tools-list.json /app/tools/exciter/tools-list.json
 COPY api/tools/armature/tools-list.json /app/tools/armature/tools-list.json
+# Where the tool-stub keeps its state on a volume (#268); the volume takes this owner.
+RUN mkdir -p /var/lib/tool-stub && chown rotor /var/lib/tool-stub
 USER rotor
 EXPOSE 8080
 CMD ["/app/api"]

@@ -252,6 +252,11 @@ services:
   tool-stub:
     <<: *backend
     command: ["/app/tool-stub"]
+    # Clients and grants survive a rebuild of the backend image, which recreates this service (#268).
+    environment:
+      TOOLSTUB_STATE_FILE: /var/lib/tool-stub/state.json
+    volumes:
+      - tool-stub-data:/var/lib/tool-stub
     # Sandboxes reach the tools on the internal network, as they reach the api.
     networks:
       - default
@@ -319,3 +324,4 @@ volumes:
   postgres-data:
   valkey-data:
   openbao-data:
+  tool-stub-data:

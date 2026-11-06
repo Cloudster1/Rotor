@@ -61,12 +61,15 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	if path := os.Getenv(toolstub.StateFileEnv); path != "" {
+		stub.KeepStateIn(path)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	servers := []*http.Server{
-		{Addr: addr, Handler: stub.Public(), ReadHeaderTimeout: config.ReadHeaderTimeout},
-		{Addr: controlAddr, Handler: stub.Control(), ReadHeaderTimeout: config.ReadHeaderTimeout},
+		{Addr: addr, Handler: stub.Persisted(stub.Public()), ReadHeaderTimeout: config.ReadHeaderTimeout},
+		{Addr: controlAddr, Handler: stub.Persisted(stub.Control()), ReadHeaderTimeout: config.ReadHeaderTimeout},
 	}
 	served := make(chan error, len(servers))
 	for _, srv := range servers {
