@@ -187,9 +187,10 @@ type contract struct {
 	served  map[string]bool
 }
 
-func newContract(t *testing.T) *contract {
-	s := newTestStub(t)
-	public, control := httptest.NewServer(s.Public()), httptest.NewServer(s.Control())
+func newContract(t *testing.T) *contract { return newContractFor(t, newTestStub(t)) }
+
+func newContractFor(t *testing.T, s *Stub) *contract {
+	public, control := httptest.NewServer(s.Persisted(s.Public())), httptest.NewServer(s.Persisted(s.Control()))
 	t.Cleanup(public.Close)
 	t.Cleanup(control.Close)
 	return &contract{t: t, doc: loadDocument(t, "exciter"), base: public.URL, control: control.URL, served: map[string]bool{},

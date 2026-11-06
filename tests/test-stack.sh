@@ -84,6 +84,13 @@ if [[ -n "${config:-}" ]] && jq -e .services <<< "$config" > /dev/null 2>&1; the
   # The control API lets anyone end grants and forget clients, so only the stack's network may reach it.
   [[ "$(jq -r '[.services["tool-stub"].ports[]?.target] | map(tostring) | join(" ")' <<< "$config")" == 8080 ]] \
     && pass "tool-stub publishes its tools alone, never its control API" || fail "tool-stub publishes other than port 8080"
+  # A backend rebuild recreates the stub, so its clients and grants live on a volume (#268).
+  jq -e '.services["tool-stub"].volumes[] | select(.target == "/var/lib/tool-stub" and .type == "volume")' <<< "$config" > /dev/null \
+    && pass "tool-stub keeps its state on a volume" || fail "tool-stub keeps its state nowhere that survives a rebuild"
+  [[ "$(jq -r '.services["tool-stub"].environment.TOOLSTUB_STATE_FILE // ""' <<< "$config")" == /var/lib/tool-stub/state.json ]] \
+    && pass "tool-stub is told to keep its state on that volume" || fail "tool-stub is not told where to keep its state"
+  [[ "$(jq -r '[.services | to_entries[] | select(.key != "tool-stub") | .value.volumes // [] | .[] | select(.source == "tool-stub-data")] | length' <<< "$config")" == 0 ]] \
+    && pass "no other service shares the stub's state volume" || fail "another service mounts the stub's state volume"
   stub_port="$(jq -r '.services["tool-stub"].ports[0].published' <<< "$config")"
   [[ ",$(jq -r '.services.api.environment.ROTOR_TOOLS_BACKCHANNEL // ""' <<< "$config")," == *",http://localhost:$stub_port=http://tool-stub:8080,"* ]] \
     && pass "the api reaches the tool-stub's published address on the stack's network" \

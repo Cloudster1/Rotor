@@ -280,6 +280,14 @@ to the documents vendored in `api/tools/` and the `tools/list` recorded beside
 them. Each test makes a tenant of its own,
 `/t/<name>`, so tests never share a tool.
 
+The dev stack's `tool-stub` keeps its tenants' OAuth clients, grants and tokens
+on the `tool-stub-data` volume, so `make up` after a rebuild leaves every tool
+connection working. What a test wrote at a tenant (comments, records,
+repositories) and consent requests in flight are not kept. `make down` keeps
+the volume too; `make tool-stub-reset` (or `make clean`) forgets everything the
+stub held, and Rotor's connections then need connecting again. The control API's
+`DELETE /control/tenants` does the same from inside the stack's network.
+
 What only a real sibling or a cluster can settle runs outside the gate:
 `make test-suite` against the real Exciter and Armature (`make suite-up` first),
 `make test-kube` and `make test-chart-install` against a kind cluster
