@@ -128,7 +128,8 @@ not exist is 404. A refusal is a sentence that says what to do.
   no grant has used for 24 hours, and an idle one after 30 days). An
   `invalid_client` from the tool marks it `needs_registration`; `POST /tools`
   with its base URL registers again and answers 200. Connections made with
-  the old client must be made again.
+  the old client must be made again: since #266, registering again with a new
+  client marks each `reconnect` and deletes its refresh token.
 - **Removing** ends every connection to the tool as #11 does, revoking at
   the tool where it still answers, then deletes the client secret and the
   tool.
@@ -183,8 +184,9 @@ response or the database.
 - **Who sees what.** A person sees and ends only their own connections; the
   database refuses `rotor_app` anyone else's.
 - **Audit:** `connection.granted` (tool, scopes) and `connection.ended`
-  (tool, `by`: `self`, `tool_removed`, `switched_off` or `tool` for an
-  `invalid_grant`, and whether the tool confirmed the revocation).
+  (tool, `by`: `self`, `tool_removed`, `switched_off`, `tool` for an
+  `invalid_grant` or `registered_again` (#266), and whether the tool confirmed
+  the revocation).
 
 ## #12 Minting
 

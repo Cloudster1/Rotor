@@ -88,6 +88,15 @@ func (s *Service) Mint(ctx context.Context, req MintRequest) (Token, error) {
 	return Token{}, fmt.Errorf("the connection to %s kept changing while minting a token; try again", tool.Name)
 }
 
+// State is a person's connection to a tool as minting would find it: ErrNotConnected, ErrReconnect or nil.
+func (s *Service) State(ctx context.Context, userID, toolID uuid.UUID) error {
+	_, status, err := s.consent(ctx, userID, toolID)
+	if err == nil && status == StatusReconnect {
+		return ErrReconnect
+	}
+	return err
+}
+
 func (s *Service) consent(ctx context.Context, userID, toolID uuid.UUID) ([]string, string, error) {
 	var scopes []string
 	var status string

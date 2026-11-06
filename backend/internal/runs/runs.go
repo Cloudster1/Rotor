@@ -20,7 +20,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/workflows"
 )
 
-// Errors a caller tells apart; *InputsRefused and *NeedsConnections say what to fix.
+// Errors a caller tells apart; *InputsRefused, *NeedsConnections and *NeedsRegistration say what to fix.
 var (
 	ErrNotFound = errors.New("no such run")
 	// ErrKeyReused is an idempotency key the caller already used to start a run of another workflow.
@@ -53,6 +53,17 @@ func (e *NeedsConnections) Error() string {
 		names[i] = t.Name
 	}
 	return "connect " + strings.Join(names, ", ") + " first"
+}
+
+// NeedsRegistration is a run binding a tool that forgot Rotor's client, which only an administrator can fix (#266).
+type NeedsRegistration struct{ Tools []MissingTool }
+
+func (e *NeedsRegistration) Error() string {
+	names := make([]string, len(e.Tools))
+	for i, t := range e.Tools {
+		names[i] = t.Name
+	}
+	return "ask an administrator to register " + strings.Join(names, ", ") + " again"
 }
 
 // Run is a run as its viewers see it.

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useId, useState } from "react";
 import { ApiError } from "@/api/client";
+import { connectionsQueryKey } from "@/api/connections";
 import { addTool, checkTool, lacks, removeTool, type Tool, toolName, toolsQuery, toolsQueryKey } from "@/api/tools";
 import { CAPABILITY_WEBHOOKS, CONNECTION_CALLBACK_PATH, HOOK_PRODUCTS } from "@/config";
 import { danger, input, item, itemGrid, primary, secondary } from "@/features/settings/styles";
@@ -40,8 +41,10 @@ function ToolRow({ tool }: { tool: Tool }) {
   const client = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const remove = useMutation({ mutationFn: () => removeTool(tool.id), onSuccess: () => client.invalidateQueries({ queryKey: toolsQueryKey }) });
-  const again = useMutation({ mutationFn: () => addTool({ baseURL: tool.baseURL }), onSuccess: () => client.invalidateQueries({ queryKey: toolsQueryKey }) });
-  const check = useMutation({ mutationFn: () => checkTool(tool.id), onSuccess: () => client.invalidateQueries({ queryKey: toolsQueryKey }) });
+  // Registering again and checking again change what Tool accounts shows, so both lists are read again.
+  const changed = () => Promise.all([client.invalidateQueries({ queryKey: toolsQueryKey }), client.invalidateQueries({ queryKey: connectionsQueryKey })]);
+  const again = useMutation({ mutationFn: () => addTool({ baseURL: tool.baseURL }), onSuccess: changed });
+  const check = useMutation({ mutationFn: () => checkTool(tool.id), onSuccess: changed });
   const missing = tool.missing ?? [];
   const name = toolName(tool);
   const ready = tool.status === "ready";
@@ -55,6 +58,11 @@ function ToolRow({ tool }: { tool: Tool }) {
       </div>
       <p className="break-all text-sm text-ink-muted">{tool.baseURL}</p>
       {tool.status === "awaiting_approval" && <p className="mt-1 text-sm text-ink-muted">{s.capabilities.awaiting(name)}</p>}
+      {tool.status === "needs_registration" && (
+        <p className="mt-1 text-sm text-ink-muted" data-needs-registration>
+          {s.tools.needsRegistration}
+        </p>
+      )}
       <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs">
         <dt className="text-ink-muted">{s.tools.capabilities}</dt>
         <dd className="break-words text-ink">{tool.capabilities.join(", ")}</dd>

@@ -104,6 +104,34 @@ func (s *Service) EndToolConnections(ctx context.Context, tool tools.Tool) (int,
 	return len(people), nil
 }
 
+// ReconnectToolConnections marks everyone's connection to a tool registered again to be made again: its refresh
+// tokens belong to the client the tool forgot, so they are deleted, not revoked.
+func (s *Service) ReconnectToolConnections(ctx context.Context, tool tools.Tool) (int, error) {
+	people, err := s.connected(ctx, `SELECT user_id FROM connection WHERE tool_id = $1 AND status = 'connected'`, tool.ID)
+	if err != nil {
+		return 0, err
+	}
+	actor := uuid.Nil
+	if p := auth.PrincipalFrom(ctx); p != nil {
+		actor = p.UserID
+	}
+	for _, userID := range people {
+		if err := s.vault.DeleteConnection(context.WithoutCancel(ctx), userID, tool.ID); err != nil {
+			return 0, err
+		}
+		if err := s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
+			if _, err := tx.Exec(ctx, `UPDATE connection SET status = $3 WHERE user_id = $1 AND tool_id = $2`,
+				userID, tool.ID, StatusReconnect); err != nil {
+				return err
+			}
+			return audit.Write(ctx, tx, ended(actor, userID, tool, EndedByRegisteredAgain, false))
+		}); err != nil {
+			return 0, err
+		}
+	}
+	return len(people), nil
+}
+
 // EndPersonConnections ends every connection of a person who was switched off.
 func (s *Service) EndPersonConnections(ctx context.Context, userID uuid.UUID) error {
 	toolIDs, err := s.connected(ctx, `SELECT tool_id FROM connection WHERE user_id = $1`, userID)

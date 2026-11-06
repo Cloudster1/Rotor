@@ -31,7 +31,7 @@ from rotor_runner.config import (
     TOKEN_WAIT_S,
 )
 from rotor_runner.limits import ToolRate
-from rotor_runner.mcp import Binding, McpGateway, ToolFailedError
+from rotor_runner.mcp import Binding, McpGateway, TokenError
 from rotor_runner.models import build_model
 from rotor_runner.pb.rotor.runner.v1 import runner_pb2 as pb
 from rotor_runner.pb.rotor.runner.v1 import runner_pb2_grpc as pb_grpc
@@ -81,13 +81,15 @@ class Tokens:
                 self._waiting.pop(binding, None)
                 continue
             if grant.error:
-                raise ToolFailedError(f"no token for {binding}: {grant.error}")
+                raise TokenError(f"no token for {binding}: {grant.error}")
             if grant.WhichOneof("token") != "wrapping_token":
-                raise ToolFailedError(f"the token for {binding} did not arrive wrapped, so the runner refuses it")
+                raise TokenError(f"the token for {binding} did not arrive wrapped, so the runner refuses it")
             try:
                 opened = await self._channel.unwrapper.unwrap(grant.wrapping_token)
             except UnwrapError as err:
-                raise ToolFailedError(f"no token for {binding}: {err}") from err
+                # The error names OpenBao's address in the sandbox, which only the log keeps (#266).
+                log.warning("no token for %s: %s", binding, err)
+                raise TokenError(f"no token for {binding}: the runner could not open it. Try the run again.") from err
             token = str(opened.get("access_token", ""))
             self._channel.redactor.hold(token)
             self._held[binding] = (token, grant.expires_at.ToSeconds())

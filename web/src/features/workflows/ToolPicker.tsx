@@ -1,6 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
-import { useId, useState } from "react";
-import { toolName, toolsQuery } from "@/api/tools";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useId, useState } from "react";
+import { ApiError } from "@/api/client";
+import { connectionsQueryKey, startConnection } from "@/api/connections";
+import { toolName, toolsQuery, toolsQueryKey } from "@/api/tools";
 import { catalogQuery } from "@/api/workflows";
 import { s } from "@/strings";
 import { bindingYAML } from "./template";
@@ -9,13 +11,27 @@ const card = "rounded-overlay border border-border bg-surface p-4 shadow-1";
 const input = "h-8 w-full rounded-control border border-border-strong bg-surface px-2 text-sm text-ink";
 const secondary = "h-8 rounded-control border border-border-strong px-3 text-sm font-medium text-ink hover:bg-surface-raised disabled:opacity-60";
 
+/** Why a catalog was refused, by the server's code (#266): the person connects, connects again, or waits for an administrator. */
+function refusal(error: unknown): string {
+  return error instanceof ApiError ? error.code : "";
+}
+
 /** Builds a tool binding from what the person's connection may call there, with the tools' own hints. */
 export function ToolPicker({ onInsert }: { onInsert: (yaml: string) => void }) {
   const id = useId();
   const tools = useQuery(toolsQuery);
   const [toolID, setToolID] = useState("");
+  const client = useQueryClient();
   const catalog = useQuery({ ...catalogQuery(toolID), enabled: toolID !== "" });
   const tool = tools.data?.find((t) => t.id === toolID);
+  const refused = refusal(catalog.error);
+  useEffect(() => {
+    // Reading the catalog is what found the tool or the connection ended, so Tool accounts and Admin, Tools say so too.
+    if (refused === "reconnect" || refused === "needs_registration") {
+      void client.invalidateQueries({ queryKey: connectionsQueryKey });
+      void client.invalidateQueries({ queryKey: toolsQueryKey });
+    }
+  }, [refused, client]);
   const [binding, setBinding] = useState("");
   const [scope, setScope] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
@@ -72,9 +88,19 @@ export function ToolPicker({ onInsert }: { onInsert: (yaml: string) => void }) {
           )}
           {catalog.isPending && toolID && <p className="text-sm text-ink-muted">{s.workflows.tools.loading}</p>}
           {catalog.isError && (
-            <p role="alert" className="text-sm text-danger" data-picker-error>
-              {catalog.error.message}
-            </p>
+            <div role="alert" className="flex flex-col items-start gap-2 text-sm text-danger" data-picker-error={refused || "error"}>
+              <p>{catalog.error.message}</p>
+              {tool && (refused === "not_connected" || refused === "reconnect") && (
+                <button
+                  type="button"
+                  className={secondary}
+                  onClick={async () => window.location.assign(await startConnection(tool.id, window.location.pathname))}
+                  data-picker-connect
+                >
+                  {refused === "reconnect" ? s.connections.connectAgain(toolName(tool)) : s.connections.connect(toolName(tool))}
+                </button>
+              )}
+            </div>
           )}
           {catalog.data && (
             <fieldset className="flex max-h-72 flex-col gap-1 overflow-y-auto" data-picker-calls>
