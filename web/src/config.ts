@@ -173,6 +173,10 @@ export const MAX_DESTINATION_NAME = 64;
 export const MAX_DESTINATION_HEADERS = 16;
 export const MAX_DESTINATION_HEADER = 4096;
 export const MAX_DESTINATION_URL = 2048;
+/** What the server takes of ingest keys (MaxIngestKeys, MaxIngestKeyNameChars) and how an exporter sends one (#258). */
+export const MAX_INGEST_KEYS = 50;
+export const MAX_INGEST_KEY_NAME = 64;
+export const OTLP_HEADERS_VARIABLE = "OTEL_EXPORTER_OTLP_HEADERS";
 /** The longest a trace is kept (MaxTraceRetentionDays) and the shortest. */
 export const MAX_TRACE_RETENTION_DAYS = 90;
 export const MIN_TRACE_RETENTION_DAYS = 1;

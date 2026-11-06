@@ -32,6 +32,8 @@ var (
 type Sender struct {
 	ID   uuid.UUID
 	Name string
+	// Key is the ingest key the spans were sent with (#258), uuid.Nil for a token.
+	Key uuid.UUID
 }
 
 // Forwarder sends a run's spans on as the runner's go, to the collector and the destinations; *tracedest.Forwarder
@@ -111,6 +113,9 @@ func held(spans []observability.RunnerSpan, sender Sender, run seenRun, joins bo
 			attrs = map[string]string{}
 		}
 		attrs["rotor.sender"] = sender.ID.String()
+		if sender.Key != uuid.Nil {
+			attrs["rotor.ingest_key"] = sender.Key.String()
+		}
 		if joins {
 			attrs["rotor.run"], attrs["rotor.workflow"] = run.id.String(), run.workflow.String()
 		}

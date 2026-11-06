@@ -68,6 +68,8 @@ type Server struct {
 	TraceReads TraceReader
 	// Workspaces is what workspaces may use (#136); nil answers 503.
 	Workspaces Workspaces
+	// IngestKeys are the keys services send spans with (#258); nil answers 503 and refuses every key.
+	IngestKeys IngestKeys
 	// Preferences are what a person chooses for themselves (#206); nil answers 503.
 	Preferences Preferences
 	// OAuth is Rotor as the authorization server of its MCP endpoint (#47); nil answers 503 and refuses every token.
@@ -268,6 +270,10 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Put("/settings/trace-destinations/{destinationID}", s.handleChangeTraceDestination)
 				r.Delete("/settings/trace-destinations/{destinationID}", s.handleRemoveTraceDestination)
 				r.Post("/settings/trace-destinations/{destinationID}/test", s.handleTestTraceDestination)
+				r.Get("/settings/ingest-keys", s.handleListIngestKeys)
+				r.Post("/settings/ingest-keys", s.handleCreateIngestKey)
+				r.Post("/settings/ingest-keys/{keyID}/rotate", s.handleRotateIngestKey)
+				r.Delete("/settings/ingest-keys/{keyID}", s.handleRevokeIngestKey)
 				r.Get("/settings/retention", s.handleGetRetention)
 				r.Put("/settings/retention", s.handleSetRetention)
 				r.Put("/settings/traces", s.handleSetTraceSetting)

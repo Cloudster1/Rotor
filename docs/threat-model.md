@@ -40,7 +40,7 @@ finding updates this document in the same pull request.
 | Compromised tool or provider | Answers to Rotor's calls | Tokens of other tools; data from the run |
 | Network attacker | A position between components | Tokens in transit |
 | Supply chain | A dependency or base image | Code in every sandbox or in the control plane |
-| Span sender | A Rotor access token or a realm token, at the OTLP endpoint | To write into another person's run trace, to show readers text of its choosing, or to fill the database |
+| Span sender | An ingest key, a Rotor access token or a realm token, at the OTLP endpoint | To write into another person's run trace, to show readers text of its choosing, or to fill the database |
 
 Administrators are the trust boundary, not a target inside it: they already
 configure tools, providers, prices, limits and trace destinations,
@@ -222,6 +222,10 @@ listed.
 | S | A sender naming a run's trace id to write into a run it may not read | A span joins a run only when its sender reads the run, judged by row level security as the sender; otherwise it joins the sender's own trace, answered as a trace id of no run, so nothing tells whether the run exists | Built (#243) |
 | S | A sender posing as the runner or as another run | `source`, `service`, `rotor.run`, `rotor.workflow` and `rotor.sender` are set by Rotor and `rotor.*` keys a sender sends are dropped; the page shows who sent each span | Built (#243, #245) |
 | S | A token taken from an app used to send spans | Bearer tokens alone, never the cookie; Rotor's tokens last an hour and work at MCP and the endpoint alone; a grant to read is refused; a realm token is checked as #168's, for an account Rotor lets in | Built (#243) |
+| S | An ingest key stolen from a service's configuration used to send spans | A key sends spans and nothing else: it is refused with 401 at every other route, MCP included, before any lookup; it sends as one account, so it writes only where that account may, at that account's rates; an administrator revokes or rotates it under Admin, Traces, refused from the next request, and may give it an expiry; its last use shows on the list | Built (#258) |
+| I | An ingest key read from the database or a backup | Only its SHA-256 and its last four characters are kept; 256 random bits make the hash useless to guess from; the table is administrators' alone for `rotor_app` | Built (#258) |
+| I | An ingest key in a log line, the audit log or a later answer | Requests are logged by path; the audit log names a key by name and id; the key is answered once, with `Cache-Control: no-store`, and never listed; the `rotor_ik_` prefix is among the patterns redaction cuts everywhere | Built (#258) |
+| R | Spans an administrator's key sends passed off as a person's own | A key's spans carry `rotor.ingest_key`; making, rotating and revoking a key are audited with who did it and the account it sends as | Built (#258) |
 | T | A span reusing a span id to replace the runner's | A span id already in the trace is skipped; spans are immutable to `rotor_app` | Open #242 |
 | T | Text in a span steering whoever reads the trace, or the assistant reading it | Span text is shown as text, never markdown or HTML, and no address in it is a link; a sender's spans say who sent them; `get_run_trace` answers spans as data, as `get_run` answers outputs | Built (#244, #245) |
 | D | Large or packed bodies at the endpoint | 4 MiB as sent and 16 MiB unpacked, read through a limit, 413 past it | Built (#243) |
@@ -331,6 +335,7 @@ make hard.
 | Session cookies | Only the hash is stored; ending a session at Keycloak or in Rotor deletes the row |
 | Assistants' codes and refresh tokens | A code is used once and a refresh token turns over; either used twice ends the whole grant (#47) |
 | Assistants' access tokens | Only the hash is stored; they last an hour, work at MCP alone, and end with their grant or when assistants are switched off |
+| Ingest keys | Not refused by design, since a service sends with one for months: only the hash is stored, a key works at the OTLP endpoint alone and only sends, and an administrator revokes or rotates it at once (#258) |
 
 ### Webhook spoofing
 
