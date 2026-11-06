@@ -869,6 +869,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The integration suite runs under a 20 minute timeout, set as
+  `INTEGRATION_TIMEOUT` in `mk/go.mk`, instead of being cut off at go test's
+  default ten minutes as it outgrew them (#289).
+
 - The dev and CI stack starts OpenBao more reliably and says why when it does
   not (#278). OpenBao's entrypoint now waits until the node is active before
   its first write, where it used to exit 2 now and then right after unsealing,
