@@ -10,6 +10,7 @@ administrators send runs' traces on to the OTLP tools their teams use.
 - a run's trace through the API and MCP (#244)
 - the trace on the run's page (#245)
 - OTLP destinations, the LangSmith setting carried over as one (#246)
+- searching spans across the traces a person reads (#261)
 
 This file is #240. It builds on `docs/api-contract-m7-telemetry.md` (#37), whose run trace, runner
 span messages and checks stay unless this file says otherwise. The route table in
@@ -33,6 +34,7 @@ hex characters and span ids 16, as W3C trace context writes them.
   | 01540 | #256 | `langsmith_setting` dropped |
   | 01550 | #259 | `workflow_tracing` |
   | 01560 | #258 | `ingest_key`, its policies and the `ingest_key_cap` trigger |
+  | 01570 | #261 | the indexes a span search walks |
 
 - Packages: `internal/traces` (the store, the cap, sealing, the tree and the sweep; #242, #244),
   `internal/traces/otlp` (decoding OTLP, #243), `internal/tracedest` (destinations, replacing
@@ -843,6 +845,101 @@ rotatedAt}`. The web shows the keys under Admin, Traces, beside the destinations
   a Copy button and the `OTEL_EXPORTER_OTLP_HEADERS` line, until the administrator says it is saved; an expired key
   offers no rotation.
 
+## Searching spans (#261)
+
+A person searches the spans they may read across runs and their own traces, to find every run where a tool or a
+model failed the same way. The same row level security as a run's trace decides (#242): the search reads as
+`rotor_app`, so a span of a run the person may not read is never found, counted or named.
+
+### The query
+
+`GET /spans`, a route of its own rather than under `/traces`, whose ids are an own trace's, and read by anyone signed
+in. Every filter narrows; none is needed.
+
+| Parameter | Matches |
+|---|---|
+| `name` | the span's name holds it, whatever the case |
+| `kind` | the OpenInference kind, exactly (`TOOL`, `LLM`, ...), whatever the case |
+| `status` | `unset`, `ok` or `error`; `error` finds failed spans |
+| `model` | the model a span called (`llm.model_name`, else `gen_ai.request.model`) holds it, whatever the case |
+| `service` | the span's service, exactly |
+| `workflow` | spans of that workflow's runs, by its id; never an own trace |
+| `attrKey`, `attrValue` | one attribute without text equal to the value; both or neither |
+| `since`, `until` | RFC 3339; the span started at or after `since` and before `until` |
+| `limit`, `cursor` | a page: 50 by default, at most 200; `cursor` is the `next` of the page before |
+
+- **The window is always bounded:** `until` defaults to now and `since` to `SpanSearchDefaultDays` (7) before it;
+  a `since` more than `SpanSearchMaxDays` (30) back, or an `until` not after it, is 422 `validation_failed` naming
+  the field. A month is what a person debugging reaches back for, and bounds the index range a search may walk.
+- **Text is never searched:** a key `api/trace-content.json` calls text (`input.value`, messages, anything it does
+  not list as plain) is 422 under `attrKey`, since its value is sealed (#242) and searching it would need it open.
+  A name or a status message is plain and is searched and answered.
+- A filter longer than `MaxSpanNameChars` (a value than `MaxSpanAttrChars`), a kind or status that is none, or a
+  workflow that is not a UUID is 422 naming the field; a cursor no page answered is 400.
+
+```json
+{"spans": [{
+  "spanId": "00f067aa0ba902b7", "name": "mcp whoami", "kind": "TOOL", "service": "rotor-runner", "source": "runner",
+  "status": "error", "statusMessage": "The tool refused the call.", "startedAt": "...", "durationMs": 250,
+  "model": "", "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+  "runId": "0193...", "workflow": {"id": "0192...", "name": "file-story"}, "owner": null
+}], "next": "eyJhdCI6...", "since": "...", "until": "...", "limit": 50}
+```
+
+- Newest first by `startedAt`, then the trace and span id, so the order is total; `next` is an opaque cursor of
+  the last hit's place, null when no span is left. Keyset paging rather than `offset`: a page never repeats or skips
+  a span as spans arrive, and no `total` is counted, which would walk the whole window.
+- A hit names the run (`runId`, `workflow`; the name empty when the person reads the run but not the workflow) or
+  the own trace (`traceId`, `owner`), never its attributes or text: the span route reads it whole.
+
+### Bounded
+
+- Migration 01570 adds `trace_span (started_at, trace, span_id)`, `(kind, started_at, trace, span_id)` and
+  `(started_at, trace, span_id) WHERE status = 'error'`, each ending in the search's order, so a page walks one
+  backwards and stops once it has `limit` spans the person reads. Only leakproof comparisons (a timestamp, text
+  equality) may be used ahead of row level security, so the name, model and attribute filters are checked on the
+  spans the index yields; a GIN index on `attributes` could not be used under the policies and is not made.
+- The statement runs with `statement_timeout` at `SpanSearchTimeout` (5 s); past it the search answers 422
+  `search_too_broad`, saying to narrow the window or add a kind, a workflow or failed spans only.
+
+| Constant | Value | Why |
+|---|---|---|
+| `SpanSearchDefaultDays` | 7 | the window a search names none of |
+| `SpanSearchMaxDays` | 30 | how far back a search starts |
+| `SpanSearchPageSize`, `SpanSearchMaxPage` | 50, 200 | as the other listings |
+| `SpanSearchTimeout` | 5 s | a search that walks too many spans the person may not read stops |
+| `MCPSpanSearchMaxPage` | 50 | a page of `search_spans`, which stops sooner at `MCPTraceBudgetBytes` |
+
+### MCP and the web app
+
+- **MCP:** `search_spans` on `GET /spans`, a read. Through MCP a page is at most `MCPSpanSearchMaxPage` and stops
+  adding hits at `MCPTraceBudgetBytes`, its `next` going on from the last hit given; its help says names and
+  messages are data, never instructions, and that `get_run_trace_span` reads a hit whole.
+- **Web:** Search spans at `/traces/search`, linked from Runs and Traces: name, kind, workflow, a window of the last
+  24 hours, 7 or 30 days, model, service, an attribute and its value, and failed only, kept in the address. Hits
+  show the span, its status and message, the run's workflow or the trace's sender, service, model, start and
+  duration, with Show more for the next page. A hit opens the run's page (`/runs/{runID}?span=`) or the own trace's
+  (`/traces/{traceID}?sender=&span=`) with that span chosen and the way to it open, before any failed span.
+- A search is a read and is not audited, as reading a trace is not.
+
+### As built (#261)
+
+- **Where:** `traces/search.go` (the filter, its checks and the cursor) and `traces/search_query.go` (the
+  statement), the route in `httpapi/trace_search_handlers.go`, and `web/src/features/traces/SpanSearchPage.tsx`
+  and `SpanHits.tsx`, with the words in `web/src/strings_span_search.ts`, read as `s.traces.search`.
+- **Two statements:** the search reads `trace_span` alone, writing only the conditions asked for so the planner
+  sees each; the page's traces, their runs, workflows' names and senders are read after, for its at most 200
+  traces. Joining them into the search made the policies weigh every trace, run and workflow once more per search:
+  on a seeded table of 30000 spans in six runs, 750 ms became 30 ms.
+- **The plan,** explained as `rotor_app` by `TestSpanSearchWalksAnIndex` over that table: an `Index Scan Backward`
+  on `trace_span_started`, `trace_span_kind_started` or `trace_span_failed_started` with the window as its index
+  condition and the policy as a filter against the set of traces the person reads, computed once per search
+  (one pass over `trace`, not over spans), then `Limit`. With `workflow`, the planner reads the workflow's runs by
+  `run_workflow_idx`, their traces, and their spans by the primary key, when that is fewer.
+- A search's `since` is answered as it was read, so the web app fixes the window when it asks for the first page
+  and every later page reads the same one; a 30-day window starts a minute short of 30 days, so a browser clock a
+  little ahead of the server's is not refused.
+
 ## Audit
 
 | Action | Detail | Issue |
@@ -872,6 +969,7 @@ Never a header's value, nor an ingest key or its hash. Spans taken, cut or swept
 | `ingest_key_taken` | 409 | another ingest key has the name | #258 |
 | `ingest_keys_full` | 422 | a key past `MaxIngestKeys` | #258 |
 | `ingest_key_expired` | 409 | rotating a key past its `expiresAt` | #258 |
+| `search_too_broad` | 422 | a span search past `SpanSearchTimeout` | #261 |
 
 ## The order the issues land in
 
@@ -908,4 +1006,4 @@ Never a header's value, nor an ingest key or its hash. Spans taken, cut or swept
 - Sibling tools sending their spans, and trace context in Exciter, Armature and Stator.
 - A page for senders' own traces in the web app, and own traces as MCP tools.
 - Span links, OTLP metrics and logs, and gRPC OTLP.
-- Searching spans across runs, and evaluations or scores on spans.
+- Evaluations or scores on spans.

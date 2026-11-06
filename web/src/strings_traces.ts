@@ -1,4 +1,6 @@
-/** The words of the Traces page (#257), the traces senders posted of no run, spread into s as s.traces. */
+import { spanSearchStrings } from "./strings_span_search";
+
+/** The words of the Traces page (#257), the traces senders posted of no run, spread into s as s.traces; Search spans (#261) is its search. */
 export const ownTraceStrings = {
   intro: "Traces your own apps sent Rotor that belong to no run, newest first. Open one to read its spans as a run's trace reads.",
   introAdmin:
@@ -23,6 +25,7 @@ export const ownTraceStrings = {
   token:
     "The token is an access token of an assistant you connected that may act, or an access token of the realm for your account, such as a service account's.",
   docs: "How to send spans (opens in a new tab)",
+  search: spanSearchStrings,
   page: {
     back: "All traces",
     title: (name: string) => (name ? `Trace ${name}` : "Trace"),

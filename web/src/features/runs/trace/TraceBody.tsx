@@ -76,20 +76,22 @@ interface SpansProps {
   trace: Trace;
   spanQuery: SpanQuery;
   openFailure: boolean;
+  focus?: string;
   labelledBy: string;
 }
 
-/** The spans of a kept trace and the chosen one's details; with openFailure, the span it failed in is chosen. */
-function Spans({ trace, spanQuery, openFailure, labelledBy }: SpansProps) {
+/** The spans of a kept trace and the chosen one's details: the span focus names, else with openFailure the failed one. */
+function Spans({ trace, spanQuery, openFailure, focus, labelledBy }: SpansProps) {
   const [chosen, setChosen] = useState<string | null>(null);
   const [toggled, setToggled] = useState<ReadonlySet<string>>(new Set());
   const [shown, setShown] = useState<ReadonlyMap<string, number>>(new Map());
   const index = useMemo(() => indexSpans(trace.roots), [trace.roots]);
-  const failure = useMemo(() => (openFailure ? firstFailure(index) : null), [index, openFailure]);
-  const path = useMemo(() => new Set(failure ? [...failure.ancestors, failure.span.spanId] : []), [failure]);
+  // A span the address names, as a search opens it, comes before the failure: the person asked for that one.
+  const opened = useMemo(() => (focus && index.get(focus)) || (openFailure ? firstFailure(index) : null), [index, focus, openFailure]);
+  const path = useMemo(() => new Set(opened ? [...opened.ancestors, opened.span.spanId] : []), [opened]);
   const rows = useMemo(() => visibleRows(trace.roots, { total: index.size, toggled, shown, path }), [trace.roots, index.size, toggled, shown, path]);
   const timeline = useMemo(() => traceWindow(trace, index), [trace, index]);
-  const selected = chosen ?? failure?.span.spanId ?? null;
+  const selected = chosen ?? opened?.span.spanId ?? null;
   const span = selected ? index.get(selected)?.span : undefined;
 
   const toggle = (id: string) =>
@@ -118,6 +120,8 @@ export interface TraceBodyProps {
   spanQuery: SpanQuery;
   /** Whether to choose the span the trace failed in, and open the way to it. */
   openFailure: boolean;
+  /** A span to choose and open the way to before any failure, as a search's hit names it. */
+  focus?: string;
   /** What to say of a trace that holds no span yet. */
   none: string;
   /** The heading that names the tree. */
@@ -127,11 +131,13 @@ export interface TraceBodyProps {
 }
 
 /** A trace's notices, then its spans and the chosen one's details once it holds any. */
-export function TraceBody({ trace, spanQuery, openFailure, none, labelledBy, days }: TraceBodyProps) {
+export function TraceBody({ trace, spanQuery, openFailure, focus, none, labelledBy, days }: TraceBodyProps) {
   return (
     <>
       <Notices trace={trace} none={none} days={days} />
-      {trace.state === "kept" && trace.roots.length > 0 && <Spans trace={trace} spanQuery={spanQuery} openFailure={openFailure} labelledBy={labelledBy} />}
+      {trace.state === "kept" && trace.roots.length > 0 && (
+        <Spans trace={trace} spanQuery={spanQuery} openFailure={openFailure} focus={focus} labelledBy={labelledBy} />
+      )}
     </>
   );
 }

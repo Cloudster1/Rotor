@@ -3,6 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useId } from "react";
 import { RUN_STATUSES, type RunFilter, type RunStatus, runsQuery } from "@/api/runs";
 import { workflowsQuery } from "@/api/workflows";
+import { link } from "@/features/settings/styles";
 import { EmptyState, PageHeader } from "@/features/shell/EmptyState";
 import { Icon } from "@/features/shell/icons";
 import { s } from "@/strings";
@@ -40,6 +41,9 @@ export function RunsPage({ search }: { search: RunsSearch }) {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={s.places.runs} />
+      <Link to="/traces/search" className={`${link} self-start`} data-span-search-open>
+        {s.traces.search.open}
+      </Link>
       <form className="flex flex-wrap items-end gap-4" aria-label={s.runs.list.filters} onSubmit={(e) => e.preventDefault()}>
         <label className="flex flex-col gap-1 text-sm font-medium text-ink" htmlFor={`${id}-workflow`}>
           {s.runs.list.workflow}

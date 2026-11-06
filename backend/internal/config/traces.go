@@ -101,3 +101,18 @@ const (
 	// MCPTraceBudgetBytes is where get_run_trace stops adding values, under MCPMaxToolResultBytes.
 	MCPTraceBudgetBytes = 48 << 10
 )
+
+// How spans are searched across traces (#261); docs/api-contract-m18.md gives the reasons.
+const (
+	// SpanSearchDefaultDays is the window a search reads when it names none: a week of debugging.
+	SpanSearchDefaultDays = 7
+	// SpanSearchMaxDays bounds how far back a search starts, so its index range stays a month at most.
+	SpanSearchMaxDays = 30
+	// SpanSearchPageSize and SpanSearchMaxPage are a page of hits when the search names none, and the most it may ask.
+	SpanSearchPageSize = 50
+	SpanSearchMaxPage  = 200
+	// SpanSearchTimeout bounds one search's statement, which row level security may make walk many spans it skips.
+	SpanSearchTimeout = 5 * time.Second
+	// MCPSpanSearchMaxPage bounds a page of search_spans, and its answer stops at MCPTraceBudgetBytes before that.
+	MCPSpanSearchMaxPage = 50
+)

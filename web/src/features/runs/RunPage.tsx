@@ -42,7 +42,7 @@ function WaitingForApproval({ approvalIDs, nodes }: { approvalIDs: string[]; nod
 }
 
 /** One run, live: where it is, its graph lit up node by node, what it did step by step, and cancelling it. */
-export function RunPage({ runID }: { runID: string }) {
+export function RunPage({ runID, focus }: { runID: string; focus?: string }) {
   const client = useQueryClient();
   const run = useQuery(runQuery(runID));
   // A run's state moves with these events, so the page asks for the run again then.
@@ -140,7 +140,7 @@ export function RunPage({ runID }: { runID: string }) {
           </pre>
         </section>
       )}
-      <TraceSection run={r} />
+      <TraceSection run={r} focus={focus} />
     </div>
   );
 }
