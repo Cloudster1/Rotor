@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { buildVersion } from "../fixtures/stack";
-import { openShell, PLACES, scrollsSideways } from "../fixtures/shell";
+import { expectAccessible, openShell, PLACES, scrollsSideways } from "../fixtures/shell";
 
 test("the index opens the first place", async ({ page }) => {
   await openShell(page, "/");
@@ -57,3 +57,55 @@ test("a narrow screen never scrolls sideways @mobile", async ({ page }) => {
     expect(await scrollsSideways(page), place.path).toBe(false);
   }
 });
+
+// The longest workflow Rotor ships, so the editor runs far past the bottom of the window.
+const LONG_STARTER = "story-to-requirements";
+const SIZES = [
+  { tag: "@desktop", viewport: { width: 1440, height: 900 } },
+  { tag: "@mobile", viewport: { width: 390, height: 844 } },
+] as const;
+
+for (const { tag, viewport } of SIZES) {
+  test.describe(() => {
+    test.use({ viewport });
+
+    // A visually hidden control placed beyond the window once stretched the document, so the window scrolled the shell away (#264).
+    test(`the window never scrolls past the shell, even to a hidden control at the end of a long workflow, at ${viewport.width}x${viewport.height} ${tag}`, async ({
+      page,
+    }) => {
+      await page.goto(`/workflows/new?start=${LONG_STARTER}`);
+      await expect(page.locator("[data-yaml-editor] .cm-content")).toContainText(`name: ${LONG_STARTER}`);
+      await page.getByRole("tab", { name: "Canvas" }).click();
+      await expect(page.locator("[data-canvas] .react-flow__node").first()).toBeVisible();
+      // Once the checks have answered, whatever tools the stack holds, the page has its full length.
+      await expect(page.locator("[data-problems]")).not.toBeEmpty();
+      await expect(page.locator("[data-problems]")).not.toContainText("Checking...");
+
+      const main = page.locator("main#main");
+      // Again until it holds, since the canvas may still settle and lengthen the page after a scroll.
+      await expect(async () => {
+        const content = await main.evaluate((element) => {
+          element.scrollTo(0, element.scrollHeight);
+          return {
+            // The content must really run past the window, or there is nothing past the end to escape to.
+            overflows: element.scrollHeight > element.clientHeight,
+            atEnd: element.scrollTop + element.clientHeight >= element.scrollHeight - 1,
+          };
+        });
+        expect(content).toEqual({ overflows: true, atEnd: true });
+      }).toPass();
+      // A wheel past the end, in the content's own padding, must not carry on to the window.
+      const box = await main.boundingBox();
+      if (!box) throw new Error("main has no box");
+      await page.mouse.move(box.x + 4, box.y + box.height - 4);
+      await page.mouse.wheel(0, viewport.height);
+      await page.locator("[data-import]").focus();
+      await expect(page.locator("[data-import]")).toBeFocused();
+
+      const windowScroll = await page.evaluate(() => ({ height: document.documentElement.scrollHeight, top: window.scrollY }));
+      expect(windowScroll).toEqual({ height: viewport.height, top: 0 });
+      await expect(page.locator("[data-top-bar]")).toBeInViewport({ ratio: 1 });
+      await expectAccessible(page);
+    });
+  });
+}
