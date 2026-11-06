@@ -32,6 +32,7 @@ export const Icon = {
   Workflow: glyph(["M6 3v6", "M6 15v6", "M18 9v6", "M6 9a3 3 0 1 0 0 6 3 3 0 1 0 0-6", "M9 12h6", "M18 3a3 3 0 1 0 0 6 3 3 0 1 0 0-6"]),
   Skill: glyph(["M5 4h11l3 3v13H5z", "M9 9h6", "M9 13h6", "M9 17h3"]),
   Run: glyph(["M6 4l14 8-14 8z"]),
+  Trace: glyph(["M4 5h10", "M8 10h12", "M8 15h7", "M12 20h6", "M4 5v15"]),
   Approval: glyph(["M4 12l5 5L20 6"]),
   Connection: glyph(["M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1", "M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"]),
   Settings: glyph(["M12 9a3 3 0 1 0 0 6 3 3 0 1 0 0-6", "M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"]),

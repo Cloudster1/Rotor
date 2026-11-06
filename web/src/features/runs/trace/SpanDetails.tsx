@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { runTraceSpanQuery, type TraceSpan } from "@/api/traces";
+import type { SpanQuery, TraceSpan } from "@/api/traces";
 import { formatTime } from "@/lib/dates";
 import { s } from "@/strings";
 import { Events, Pairs, Pre, TIME_WITH_SECONDS, Value } from "./SpanText";
@@ -18,7 +18,8 @@ function Term({ term, children }: { term: string; children: ReactNode }) {
 }
 
 interface DetailsProps {
-  runID: string;
+  /** Asks for a span of the trace whole, a run's or an owned one's. */
+  spanQuery: SpanQuery;
   span: TraceSpan;
   /** When the trace began, in milliseconds, so a span says how far into it it started. */
   traceStart: number;
@@ -28,9 +29,9 @@ interface DetailsProps {
 }
 
 /** One span: what it was, when, how it ended, and what it read and wrote, the whole of each read when it opens. */
-export function SpanDetails({ runID, span, traceStart, textKept, headingID }: DetailsProps) {
+export function SpanDetails({ spanQuery, span, traceStart, textKept, headingID }: DetailsProps) {
   const d = s.trace.details;
-  const whole = useQuery({ ...runTraceSpanQuery(runID, span.spanId), enabled: textKept });
+  const whole = useQuery({ ...spanQuery(span.spanId), enabled: textKept });
   const failed = isFailed(span);
   const wholeValue = (which: "input" | "output") => (whole.data ? whole.data[which] : undefined);
   const error = whole.isError ? whole.error.message : null;
