@@ -13,6 +13,7 @@ export const PLACES = [
   { path: "/workflows", label: "Workflows", opens: "/workflows", heading: "Workflows" },
   { path: "/skills", label: "Skills", opens: "/skills", heading: "Skills" },
   { path: "/runs", label: "Runs", opens: "/runs", heading: "Runs" },
+  { path: "/traces", label: "Traces", opens: "/traces", heading: "Traces" },
   { path: "/approvals", label: "Approvals", opens: "/approvals", heading: "Approvals" },
   { path: "/settings", label: "Settings", opens: "/settings/profile", heading: "Profile" },
   { path: "/admin", label: "Admin", opens: "/admin/access", heading: "Access" },

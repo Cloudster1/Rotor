@@ -9,6 +9,17 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A Traces page beside Runs lists the traces your own apps sent Rotor over
+  OTLP that belong to no run (#257), newest first, 50 a page: each with its
+  root span, service, span count, start and whether a span failed or the
+  trace was cut. Administrators see every sender's, with who sent each, and
+  their own alone with Only mine. A trace opens in the same tree and details
+  as a run's trace, the span it failed in chosen, with the same notices for
+  expired, cut and text not kept. With no trace yet, the page shows the two
+  variables an app sets to send its spans and links the README's section on
+  it. Own traces are not MCP tools yet, as the M18 contract leaves them for
+  later.
+
 - Two workflows to start from that show what no other example does (#271),
   and `docs/workflows.md` opens its examples with a table of every example
   and the capabilities it shows. `examples/weekly-digest.yaml` is meant for a

@@ -2,6 +2,7 @@ import { audit } from "./strings_audit";
 import { usageStrings } from "./strings_usage";
 import { traceDestinationStrings } from "./strings_destinations";
 import { traceStrings } from "./strings_telemetry";
+import { ownTraceStrings } from "./strings_traces";
 import { retentionStrings } from "./strings_retention";
 import { capabilityStrings, toolNameStrings } from "./strings_tools";
 import { untrustedStrings } from "./strings_untrusted";
@@ -33,6 +34,7 @@ export const s = {
     workflows: "Workflows",
     skills: "Skills",
     runs: "Runs",
+    traces: "Traces",
     approvals: "Approvals",
     settings: "Settings",
     admin: "Admin",
@@ -478,6 +480,7 @@ export const s = {
   },
   traceDestinations: traceDestinationStrings,
   trace: traceStrings,
+  traces: ownTraceStrings,
   retention: retentionStrings,
   capabilities: capabilityStrings,
   toolNames: toolNameStrings,

@@ -117,6 +117,13 @@ export const EDITOR_VIEW_STORAGE_KEY = "rotor.workflowEditorView";
 /** The workflows guide on GitHub, where the editor links each shipped workflow's section. */
 export const WORKFLOWS_DOC_URL = "https://github.com/Cloudster1/Rotor/blob/main/docs/workflows.md";
 
+/** The README's Operations section, whose Traces paragraph says how an app sends Rotor its spans (#243). */
+export const SENDING_SPANS_DOC_URL = "https://github.com/Cloudster1/Rotor/blob/main/README.md#operations";
+/** The path an app's OpenTelemetry exporter is pointed at, to which the SDK adds /v1/traces. */
+export const OTLP_PATH = "/api/v1/otlp";
+/** How many owned traces a page of the Traces list shows. */
+export const OWN_TRACES_PAGE_SIZE = 50;
+
 /** The products whose webhook deliveries start event triggers (#35), as the server names them. */
 export const HOOK_PRODUCTS = ["armature", "exciter", "stator"] as const;
 /** What Rotor needs of a tool to act in it and to take its events, as backend/internal/tools/needs.go names them (#43). */
