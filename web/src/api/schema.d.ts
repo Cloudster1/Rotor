@@ -1097,6 +1097,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings/ingest-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The keys services send spans to the OTLP endpoint with, by name; never a key itself. */
+        get: operations["listIngestKeys"];
+        put?: never;
+        /**
+         * Make a key that sends spans as one account; the answer holds the key, which is never shown again.
+         * @description accountEmail names an account Rotor has let in and not switched off, your own when left out. The key is taken at POST /api/v1/otlp/v1/traces alone. A name another key has answers 409 ingest_key_taken; a key past the most there can be 422 ingest_keys_full. The audit log records ingest_key.created.
+         */
+        post: operations["createIngestKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/ingest-keys/{keyID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a key: it is refused from the next request. The audit log records ingest_key.revoked. */
+        delete: operations["revokeIngestKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/ingest-keys/{keyID}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a key a new secret, shown once; the old one is refused from the next request.
+         * @description The name, account and expiry stay. An expired key answers 409 ingest_key_expired. The audit log records ingest_key.rotated.
+         */
+        post: operations["rotateIngestKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings/limits": {
         parameters: {
             query?: never;
@@ -2513,6 +2571,40 @@ export interface components {
             description?: string;
             title: string;
             version: string;
+        };
+        IngestKey: {
+            account: components["schemas"]["IngestKeyAccount"];
+            /** Format: date-time */
+            createdAt: string;
+            createdBy: string | null;
+            expired: boolean;
+            /** Format: date-time */
+            expiresAt: string | null;
+            hint: string;
+            id: string;
+            /** Format: date-time */
+            lastUsedAt: string | null;
+            name: string;
+            /** Format: date-time */
+            rotatedAt: string | null;
+        };
+        IngestKeyAccount: {
+            email: string;
+            id: string;
+            name: string;
+        };
+        IngestKeyList: {
+            keys: components["schemas"]["IngestKey"][];
+        };
+        IngestKeyRequest: {
+            accountEmail?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+            name: string;
+        };
+        IngestKeySecret: {
+            key: components["schemas"]["IngestKey"];
+            secret: string;
         };
         InstallationTracing: {
             keepContent: boolean;
@@ -6680,6 +6772,209 @@ export interface operations {
             };
             /** @description Forbidden: for administrators of Rotor alone. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listIngestKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestKeyList"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    createIngestKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IngestKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestKeySecret"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    revokeIngestKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                keyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    rotateIngestKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                keyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestKeySecret"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

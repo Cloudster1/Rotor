@@ -33,6 +33,7 @@ hex characters and span ids 16, as W3C trace context writes them.
   | 01530-01539 | #243 | anything the endpoint needs beyond #242, if any |
   | 01540 | #256 | `langsmith_setting` dropped |
   | 01550 | #259 | `workflow_tracing` |
+  | 01560 | #258 | `ingest_key`, its policies and the `ingest_key_cap` trigger |
   | 01570 | #261 | the indexes a span search walks |
 
 - Packages: `internal/traces` (the store, the cap, sealing, the tree and the sweep; #242, #244),
@@ -85,6 +86,9 @@ Each replaces or joins #37's.
 | `MCPTraceValueChars` | 1000 | an input or output in `get_run_trace` |
 | `MCPTraceSpanBudgetBytes` | 32 KiB | where `get_run_trace` stops adding spans, so values have room (#244, as built) |
 | `MCPTraceBudgetBytes` | 48 KiB | where `get_run_trace` stops adding values, under `MCPMaxToolResultBytes` |
+| `MaxIngestKeys` | 50 | ingest keys an installation holds, each a standing credential to review (#258) |
+| `MaxIngestKeyNameChars` | 64 | as a destination's name |
+| `IngestKeyLastUsedEvery` | 1 minute | how often a key's use is written, as `OAuthLastUsedEvery` |
 
 The runner adds `SPAN_BATCH_BYTES` = 2 MiB: it sends a batch at 64 spans, 2 MiB or 2 seconds,
 whichever comes first, so a batch of large spans stays under `MaxRunnerMessageBytes`.
@@ -760,6 +764,86 @@ other settings (#205).
 - **Web:** the workflow's settings gain Tracing (`/workflows/$workflowID/settings/tracing`,
   `features/workflows/settings/TracingSection.tsx`), with the words in `web/src/strings_workflow_tracing.ts`; it says
   whether the installation keeps text and which destinations take it, and is read only without `canChange`.
+## Ingest keys (#258)
+
+A service sends spans with a long-lived key in place of a token it refreshes:
+`OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer%20rotor_ik_...`. Each decision, with its reason:
+
+- **Who manages keys:** administrators alone, in the browser (`admin`, behind `requireSession`), as the issue says; a
+  member does not make one even for themselves, since a secret that outlives every session is the installation's to
+  answer for, and a member already sends with an assistant's or the realm's token.
+- **Which account a key sends as:** one account Rotor has let in and not switched off, named by its email when the key is
+  made and fixed for the key's life; the administrator's own when none is named. People and service accounts are the
+  same rows to Rotor, and a service account's id is known to nobody, while its email is.
+- **Spans say a key sent them:** `rotor.ingest_key` holds the key's id beside `rotor.sender`, so a reader tells a key's
+  spans from the account's own, and an administrator who made a key for a person cannot pass its spans off as theirs.
+- **The format:** `rotor_ik_` and 32 random bytes in unpadded base64url, 52 characters, shown once in the answer that
+  makes or rotates it (`Cache-Control: no-store`). The prefix tells it from Rotor's other tokens before any lookup and
+  lets redaction find it (`api/secret-patterns.json`).
+- **Storage:** the SHA-256 of the whole key (`auth.Hash`), unique, and its last 4 characters as a `hint` to tell keys
+  apart; never the key. 256 random bits need no slow or keyed hash, as sessions and assistants' tokens show.
+- **Lookup:** by the hash, as `rotor_admin`, since nobody is signed in yet; a value of another shape is refused
+  without a query.
+- **Expiry:** optional `expiresAt`, in the future when given; none lasts until revoked. A key is long-lived on purpose,
+  so expiry is the administrator's choice, not a default.
+- **Naming:** a name of 1 to 64 characters, unique case aside, as destinations are, so a list and the audit log tell
+  keys apart.
+- **Rotation:** `POST /settings/ingest-keys/{keyID}/rotate` answers a new secret for the same key, name, account and
+  expiry, and the old secret is refused at once, for a key that leaked. For a change without a gap, make a second key
+  and revoke the first once the service sends with it. An expired key is not rotated (409 `ingest_key_expired`), since
+  its new secret would not send.
+- **Revocation:** `DELETE /settings/ingest-keys/{keyID}` deletes the row, so the key is refused from the next request;
+  the audit log keeps who made, rotated and revoked it. A revoked key has no use a kept row would serve.
+- **`last_used_at`:** written at most once a minute per key (`IngestKeyLastUsedEvery`), as an assistant's grant is,
+  so a busy exporter writes once a minute at most.
+- **Limits:** `MaxIngestKeys` = 50 per installation, held by a trigger whoever inserts, since each is a standing
+  credential to review; `MaxIngestKeyNameChars` = 64. A key's account shares its rates
+  (`OTLPRequestsPerMinute`, `OTLPSpansPerMinute`) with that account's other tokens, since rates are per sender.
+- **Only the OTLP endpoint:** a value with the prefix at any other route, MCP and the calls it makes included, answers
+  401 `invalid_token` saying where a key is taken, before any lookup; a unit test walks every row of the table.
+- **At the endpoint:** an unknown, revoked or rotated-away key, and an expired one, answer 401 `invalid_token`; a key
+  whose account was switched off 403 `account_switched_off`, and one whose account is no longer let in 403
+  `forbidden`. A grant's read-only rule does not apply, since a key does nothing but send.
+- **Where its spans go:** as the account's, judged as the account by row level security (#243): they join a run the
+  account may read, and its own trace otherwise.
+- **Never seen again:** the key appears in no list, log line, audit detail or later answer; requests are logged by
+  path, and the audit log names the key by name and id.
+
+### Table and routes
+
+`ingest_key` (migration 01560): `id`, `name`, `account_id` (the account it sends as; deleted with it), `secret_hash`,
+`hint`, `expires_at`, `last_used_at`, `created_by`, `created_at`, `rotated_at`. Row level security holds it to
+administrators for `rotor_app`, every statement alike; `rotor_admin` reads it to let a key in and writes `last_used_at`.
+
+| Route | Answer |
+|---|---|
+| `GET /settings/ingest-keys` | 200 `{keys: [IngestKey]}`, by name |
+| `POST /settings/ingest-keys` `{name, accountEmail?, expiresAt?}` | 201 `{key: IngestKey, secret}`; 409 `ingest_key_taken`, 422 `ingest_keys_full` or `validation_failed` |
+| `POST /settings/ingest-keys/{keyID}/rotate` | 200 `{key, secret}`; 404, 409 `ingest_key_expired` |
+| `DELETE /settings/ingest-keys/{keyID}` | 204; 404 |
+
+`IngestKey` is `{id, name, account: {id, name, email}, hint, expiresAt, expired, lastUsedAt, createdBy, createdAt,
+rotatedAt}`. The web shows the keys under Admin, Traces, beside the destinations.
+
+### As built (#258)
+
+- **Migration 01560**, not 01550, which #259's open branch holds for `workflow_tracing`.
+- **Package** `internal/ingestkeys`: `key.go` makes, shapes and hashes a key, `store.go` keeps them; the routes are
+  `operations_ingest_keys.go` and `ingest_keys_handlers.go`. The session middleware hands any bearer value with the
+  prefix to `ingest_key_auth.go` before Rotor's or the realm's tokens are tried, so a key never reaches either check.
+  The answer that holds a key carries `Cache-Control: no-store`.
+- **The route table** takes no new flag: the OTLP row's `tokensOnly` also takes a key, and the OpenAPI document lists
+  an `ingestKey` scheme first among its three.
+- **Names** of a key's account and maker are read as `rotor_admin` once the key rows were read as the administrator,
+  since `app_user`'s policy shows `rotor_app` only the person it acts for.
+- **The account** must be let in (`standing` set) and switched on when the key is made; one let in no longer or
+  switched off later is refused at the endpoint (403), and the key comes back when it is let in or switched on again.
+  An unknown email answers 422 `validation_failed` on `accountEmail`.
+- **`rotor.ingest_key`** is set by Rotor, as `rotor.sender` is; a sender's own `rotor.*` keys are dropped as before.
+- **Web:** `IngestKeysSection` and `IngestKeyForm` under `web/src/features/settings/`, words in
+  `web/src/strings_ingest_keys.ts` as `s.traceDestinations.ingestKeys`. A key is shown once in a read-only field with
+  a Copy button and the `OTEL_EXPORTER_OTLP_HEADERS` line, until the administrator says it is saved; an expired key
+  offers no rotation.
 
 ## Searching spans (#261)
 
@@ -867,7 +951,11 @@ in. Every filter narrows; none is needed.
 | `trace_destination.carried_over` | `{name, enabled, content}`, by the api's start | #246 |
 | `workflow.tracing_changed` | `{content, destinations: [names] or null, sampleRatio}` | #259 |
 
-Never a header's value. Spans taken, cut or swept are not audited: they are data, and
+| `ingest_key.created` | `{name, account, expiresAt}`, the account by email | #258 |
+| `ingest_key.rotated` | `{name, account}` | #258 |
+| `ingest_key.revoked` | `{name, account}` | #258 |
+
+Never a header's value, nor an ingest key or its hash. Spans taken, cut or swept are not audited: they are data, and
 `trace.dropped` counts what a cap refused.
 
 ## Problems
@@ -878,6 +966,9 @@ Never a header's value. Spans taken, cut or swept are not audited: they are data
 | `trace_destination_taken` | 409 | another destination has the name | #246 |
 | `trace_destinations_full` | 422 | an add past `MaxTraceDestinations` | #246 |
 | `read_only` | 403 | the OTLP endpoint with a grant to read | #243 |
+| `ingest_key_taken` | 409 | another ingest key has the name | #258 |
+| `ingest_keys_full` | 422 | a key past `MaxIngestKeys` | #258 |
+| `ingest_key_expired` | 409 | rotating a key past its `expiresAt` | #258 |
 | `search_too_broad` | 422 | a span search past `SpanSearchTimeout` | #261 |
 
 ## The order the issues land in
@@ -912,7 +1003,6 @@ Never a header's value. Spans taken, cut or swept are not audited: they are data
 
 ## What is left for later
 
-- Long-lived ingest keys for the endpoint, in place of tokens an app refreshes.
 - Sibling tools sending their spans, and trace context in Exciter, Armature and Stator.
 - A page for senders' own traces in the web app, and own traces as MCP tools.
 - Span links, OTLP metrics and logs, and gRPC OTLP.

@@ -27,8 +27,8 @@ type SpanStore interface {
 // errBearerOnly refuses a request without a token at the OTLP endpoint, a session cookie included: a browser sends
 // no OTLP, and taking no cookie leaves nothing for another site to forge.
 var errBearerOnly = ErrUnauthorized("The OTLP endpoint takes a bearer token alone, never the session cookie. Send " +
-	"Authorization: Bearer with a Rotor access token or an access token of the realm that has not expired, as " +
-	"OTEL_EXPORTER_OTLP_HEADERS sets it.")
+	"Authorization: Bearer with an ingest key, a Rotor access token or an access token of the realm that has not " +
+	"expired, as OTEL_EXPORTER_OTLP_HEADERS sets it.")
 
 // mebibyte writes the body limits as the contract does.
 const mebibyte = 1 << 20
@@ -46,8 +46,8 @@ var (
 		config.OTLPSpansPerMinute)
 )
 
-// tokensOnly lets in the sender a bearer token names at the rows marked tokensOnly: an assistant's or an app's token
-// of Rotor, which authenticate read, or a realm's of any account Rotor lets in. Anything else is refused with 401.
+// tokensOnly lets in the sender a bearer token names at the rows marked tokensOnly: an ingest key or an assistant's or
+// an app's token of Rotor, which authenticate read, or a realm's of any account Rotor lets in. Else 401.
 func (s *Server) tokensOnly(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -123,7 +123,7 @@ func (s *Server) handleReceiveTraces(w http.ResponseWriter, r *http.Request) {
 	if len(spans) > 0 {
 		ctx, cancel := context.WithTimeout(r.Context(), config.TraceStoreTimeout)
 		defer cancel()
-		notKept, err := s.Spans.Receive(ctx, traces.Sender{ID: p.UserID, Name: senderName(p)}, spans)
+		notKept, err := s.Spans.Receive(ctx, traces.Sender{ID: p.UserID, Name: senderName(p), Key: ingestKeyFrom(r.Context())}, spans)
 		if err != nil {
 			respondError(w, r, ErrInternal(err))
 			return
