@@ -754,12 +754,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- LangSmith is a trace destination like any other (#246). An installation that
-  gave LangSmith a key finds a destination named LangSmith, on and sending text
-  as LangSmith was; the api's first start moves the key and project into its
-  headers in OpenBao and audits it as `trace_destination.carried_over`.
-  Admin's LangSmith page is now Admin, Traces, and `/admin/langsmith` leads
-  there.
+- LangSmith is a trace destination like any other (#246): an administrator
+  adds it under Admin, Traces from the LangSmith preset, its key and project
+  being the headers `x-api-key` and `Langsmith-Project`. Admin's LangSmith page
+  is now Admin, Traces.
 
 - The built-in Author role says it creates workflows and skills of their own,
   as it has granted since #219. An installation whose administrator reworded
@@ -806,13 +804,15 @@ and the versioning [Semantic Versioning](https://semver.org/).
   `sandbox.namespace` to keep it. The `ClusterImagePolicy` objects that
   admit signed sandbox images are named after that namespace too.
 
-### Deprecated
+### Removed
 
-- `GET` and `PUT /api/v1/settings/langsmith` and
-  `DELETE /api/v1/settings/langsmith/key` (#246). They keep their shapes and
-  refusals and act on the destination LangSmith became, making it where none
-  was, and go one minor release later with `ROTOR_LANGSMITH_ENDPOINT` (the
-  chart's `telemetry.langsmithEndpoint`). Use `/settings/trace-destinations`.
+- The LangSmith setting (#256): `GET` and `PUT /api/v1/settings/langsmith`,
+  `DELETE /api/v1/settings/langsmith/key` and `ROTOR_LANGSMITH_ENDPOINT` (the
+  chart's `telemetry.langsmithEndpoint`) are gone, as is `/admin/langsmith`.
+  LangSmith is a destination under Admin, Traces; use
+  `/settings/trace-destinations`. A development database whose LangSmith key
+  the api of #246 never moved into its destination is refused by the
+  migration, which says to start the previous version once first.
 
 ### Fixed
 

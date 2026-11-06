@@ -429,7 +429,7 @@ at most eight, each with its headers in OpenBao, side by side on the export
 pool and never holding the run up, with inputs, outputs and messages only for a
 destination an administrator acknowledged text may leave for. A destination's
 trace link puts "Open this trace in" it on the run's page. The LangSmith setting
-of #37 became one such destination, its key moved by the api's start. Apps and tools post their own spans to the
+of #37 became one such destination (#246) and is gone (#256). Apps and tools post their own spans to the
 api's OTLP endpoint with a bearer token (#243); each joins the run its trace id
 names when the sender may read that run, judged by row level security as the
 sender, and a trace of the sender's own otherwise. The worker and the

@@ -100,7 +100,4 @@ func TestTheMigrationsNumbersAreTheConstants(t *testing.T) {
 			t.Errorf("%s: the migration says %d, config says %d", name, got, c.want)
 		}
 	}
-	if !strings.Contains(up, "'"+config.DefaultLangSmithEndpoint+"'") {
-		t.Errorf("the carried-over destination is not sent to %s", config.DefaultLangSmithEndpoint)
-	}
 }

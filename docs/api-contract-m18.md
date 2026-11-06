@@ -30,6 +30,7 @@ hex characters and span ids 16, as W3C trace context writes them.
   | 01500-01519 | #242 | `trace`, `trace_span`, `trace_setting`, `run.trace_id`, the policies and the `trace_span_cap` trigger |
   | 01520-01529 | #246 | `trace_destination`, and the LangSmith setting carried over into it |
   | 01530-01539 | #243 | anything the endpoint needs beyond #242, if any |
+  | 01540 | #256 | `langsmith_setting` dropped |
 
 - Packages: `internal/traces` (the store, the cap, sealing, the tree and the sweep; #242, #244),
   `internal/traces/otlp` (decoding OTLP, #243), `internal/tracedest` (destinations, replacing
@@ -40,8 +41,8 @@ hex characters and span ids 16, as W3C trace context writes them.
   tool or a model wrote. Go and Python both read it, and a test on each side refuses a copy that
   differs, as for `api/secret-patterns.json`.
 - Settings, `ROTOR_` variables: none new. `ROTOR_OTLP_ENDPOINT` and `ROTOR_TRACE_SAMPLE_RATIO` keep
-  their meaning for the operator's collector. `ROTOR_LANGSMITH_ENDPOINT` is read only to carry
-  LangSmith over (#246) and goes when `langsmith_setting` is dropped.
+  their meaning for the operator's collector. `ROTOR_LANGSMITH_ENDPOINT` was read only to carry
+  LangSmith over (#246) and went with `langsmith_setting` (#256).
 
 ### Limits
 
@@ -656,6 +657,26 @@ and write it, `rotor_admin` for the api's sending; a trigger refuses a row past
   acknowledges it again in the editor's name. The words are `s.traceDestinations` in `web/src/strings_destinations.ts`.
   The run page's notice that text is not kept now links an administrator to Admin, Traces.
 
+### As built (#256)
+
+- **Removed before the first release** rather than one minor release after #246, as the user chose, since Rotor was
+  never released: `GET`/`PUT /settings/langsmith`, `DELETE /settings/langsmith/key`, `tracedest/langsmith.go`, the
+  start's carry-over (`tracedest/carry.go`, `vault/langsmith.go`), `ROTOR_LANGSMITH_ENDPOINT` with the chart's
+  `telemetry.langsmithEndpoint`, the tool stub's LangSmith stand-in (a test sends to a sink with LangSmith's headers),
+  `rotor/{data,metadata}/settings/langsmith/*` from the control plane's OpenBao policy, and `/admin/langsmith` in the
+  web, which only development ever linked to. The old routes answer 404.
+- **Migration 01540** drops `langsmith_setting` and `trace_destination_one_carried`, whose one reader was the old
+  routes; `carried_over` stays, so the row 01520 made still shows as carried over. Its Down makes the table again as
+  01520 left it, with one row whose `carried_at` is set, so the start of #246 has nothing to move and its routes find
+  the row they read.
+- **The key not yet moved:** SQL cannot reach OpenBao, and goose cannot run the start of #246 between two migrations,
+  so 01540 refuses (`55000`, a sentence saying what to do) while a row has `key_set_at` set and `carried_at` null,
+  rather than lose the key. Starting the previous version once with OpenBao reachable moves it; then the migrations
+  run again. A key whose move committed but whose old copy a stopped start never deleted stays at the old path, as
+  nothing reads or deletes it any more.
+- **Audit:** `langsmith.changed` and `trace_destination.carried_over` stay among the actions, as entries of them stay
+  in the log.
+
 ## Audit
 
 | Action | Detail | Issue |
@@ -716,5 +737,3 @@ Never a header's value. Spans taken, cut or swept are not audited: they are data
 - A page for senders' own traces in the web app, and own traces as MCP tools.
 - Span links, OTLP metrics and logs, and gRPC OTLP.
 - Searching spans across runs, and evaluations or scores on spans.
-- Dropping `langsmith_setting`, `ROTOR_LANGSMITH_ENDPOINT` and the `/settings/langsmith` routes, one
-  minor release after #246.

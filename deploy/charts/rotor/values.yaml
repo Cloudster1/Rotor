@@ -79,8 +79,6 @@ telemetry:
   otlpEndpoint: ""
   # The share of new traces kept; a trace a caller began keeps its own decision.
   sampleRatio: 1
-  # Deprecated (#246): the endpoint the LangSmith setting's trace destination takes when the api carries it over.
-  langsmithEndpoint: https://api.smith.langchain.com/otel/v1/traces
 
 web:
   replicas: 2

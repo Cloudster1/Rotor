@@ -212,12 +212,10 @@ administrator chooses and Rotor does not hold to its network guard, as `telemetr
 never do. A destination gets prompt, tool and answer text only once an administrator acknowledges that it leaves.
 `docs/api-contract-m18.md` says what is sent.
 
-Upgrading from a release with LangSmith: migration 01520 makes the LangSmith setting a destination named LangSmith, and
-the api's first start moves its key and project from `rotor/settings/langsmith/key` into that destination's headers,
-takes `telemetry.langsmithEndpoint` as its endpoint, deletes the old key and audits it, under a lock so replicas
-starting together do it once. A start that cannot reach OpenBao logs a warning and leaves the move to the next one; the
-destination sends nothing until it is done. `/settings/langsmith` and `telemetry.langsmithEndpoint` are deprecated and
-go one minor release later; the control plane's OpenBao policy keeps the old path until then.
+LangSmith is a destination like the others, with the headers `x-api-key` and `Langsmith-Project` (#246); its setting of
+#37, `/settings/langsmith` and `telemetry.langsmithEndpoint` are gone (#256). A development database that still holds a
+LangSmith key the api of #246 never moved is refused by migration 01540, which says to start the previous version once
+with OpenBao reachable, so its api moves the key into the destination, and then to migrate again.
 
 Apps and tool services send their own spans to `/api/v1/otlp/v1/traces` (#243). The nginx of the compose file and the
 chart passes `/api/` through and leaves body sizes to the api, which takes 4 MiB a request; a proxy or ingress of your

@@ -99,8 +99,6 @@ type Stub struct {
 	// statePath, when set, is the file the OAuth state is kept in; lastSaved is what it holds.
 	statePath string
 	lastSaved []byte
-	// langsmith is what reached the LangSmith stand-in (#37), newest last.
-	langsmith []LangSmithCall
 	// otlp is what reached each OTLP sink (#246), newest last, at most config.ToolStubMaxOTLPSinks of them.
 	otlp map[string][]OTLPCall
 }
@@ -222,7 +220,6 @@ func (s *Stub) Public() http.Handler {
 		r.Get(llmPath+"/models", s.withTenant(s.handleLLMModels))
 		r.Post(llmPath+"/chat/completions", s.thinking(s.withTenant(s.handleLLMChat)))
 	})
-	r.Post(LangSmithPath, s.handleLangSmith)
 	r.Post(OTLPPath, s.handleOTLP)
 	r.Get("/.well-known/oauth-authorization-server"+TenantPrefix+"/{tenant}", s.withOAuth(s.handleServerMetadata))
 	r.Get("/.well-known/oauth-protected-resource"+TenantPrefix+"/{tenant}"+mcpPath, s.withOAuth(s.handleProtectedResource))

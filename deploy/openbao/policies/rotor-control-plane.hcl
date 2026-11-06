@@ -57,15 +57,6 @@ path "sys/wrapping/wrap" {
   capabilities = ["update"]
 }
 
-# The LangSmith key an administrator gave (#37), which the api moves into its trace destination once (#246).
-path "rotor/data/settings/langsmith/*" {
-  capabilities = ["create", "read", "update", "delete"]
-}
-
-path "rotor/metadata/settings/langsmith/*" {
-  capabilities = ["read", "list", "delete"]
-}
-
 # The headers an administrator gives a trace destination, which the control plane alone sends runs' spans with (#246).
 path "rotor/data/settings/trace-destinations/*" {
   capabilities = ["create", "read", "update", "delete"]
