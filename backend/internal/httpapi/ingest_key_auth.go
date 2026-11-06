@@ -44,36 +44,46 @@ func (s *Server) authenticateIngestKey(w http.ResponseWriter, r *http.Request, k
 		respondError(w, r, errIngestKeyOTLPOnly)
 		return
 	}
-	if s.IngestKeys == nil {
-		respondError(w, r, errIngestKeyUnknown)
+	p, keyID, refused := s.ingestKeySender(ctx, key)
+	if refused != nil {
+		// A key that was taken for what it is but whose account may not send is no challenge to answer anew.
+		if refused.Status == http.StatusForbidden {
+			w.Header().Del("WWW-Authenticate")
+		}
+		respondError(w, r, refused)
 		return
+	}
+	w.Header().Del("WWW-Authenticate")
+	next.ServeHTTP(w, r.WithContext(withIngestKeySender(ctx, p, keyID)))
+}
+
+// ingestKeySender is the account a key sends as, with its permissions, and the key's id; or why the key is refused.
+// OTLP over HTTP and over gRPC (#262) both ask it.
+func (s *Server) ingestKeySender(ctx context.Context, key string) (*auth.Principal, uuid.UUID, *APIError) {
+	if s.IngestKeys == nil {
+		return nil, uuid.Nil, errIngestKeyUnknown
 	}
 	sending, err := s.IngestKeys.Authenticate(ctx, key)
 	switch {
 	case errors.Is(err, ingestkeys.ErrUnknown):
-		respondError(w, r, errIngestKeyUnknown)
-		return
+		return nil, uuid.Nil, errIngestKeyUnknown
 	case errors.Is(err, ingestkeys.ErrExpired):
-		respondError(w, r, errIngestKeyExpired)
-		return
+		return nil, uuid.Nil, errIngestKeyExpired
 	case errors.Is(err, ingestkeys.ErrNotLetIn):
-		w.Header().Del("WWW-Authenticate")
-		respondError(w, r, errIngestKeyNotLetIn)
-		return
+		return nil, uuid.Nil, errIngestKeyNotLetIn
 	case errors.Is(err, auth.ErrSwitchedOff):
-		w.Header().Del("WWW-Authenticate")
-		respondError(w, r, errSwitchedOff)
-		return
+		return nil, uuid.Nil, errSwitchedOff
 	case err != nil:
-		respondError(w, r, ErrInternal(err))
-		return
+		return nil, uuid.Nil, ErrInternal(err)
 	}
-	w.Header().Del("WWW-Authenticate")
 	p := sending.Principal
 	if err := s.resolveAccess(ctx, p); err != nil {
-		respondError(w, r, ErrInternal(err))
-		return
+		return nil, uuid.Nil, ErrInternal(err)
 	}
-	ctx = context.WithValue(db.WithUser(auth.WithPrincipal(ctx, p), p.UserID), ctxKeyIngestKey{}, sending.KeyID)
-	next.ServeHTTP(w, r.WithContext(ctx))
+	return p, sending.KeyID, nil
+}
+
+// withIngestKeySender acts as the key's account and remembers the key, which its spans name.
+func withIngestKeySender(ctx context.Context, p *auth.Principal, keyID uuid.UUID) context.Context {
+	return context.WithValue(db.WithUser(auth.WithPrincipal(ctx, p), p.UserID), ctxKeyIngestKey{}, keyID)
 }

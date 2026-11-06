@@ -163,6 +163,17 @@ check "no signature is required unless asked" "$(grep -c 'kind: ClusterImagePoli
 check "Valkey is reached over TLS with its password" "$(env_value "${RENDERED}" ROTOR_VALKEY_URL)" \
     "rediss://:\$(VALKEY_PASSWORD)@valkey.example:6379/0"
 check "OpenBao without an audit device is refused" "$(env_value "${RENDERED}" ROTOR_OPENBAO_REQUIRE_AUDIT)" "true"
+check "the api takes OTLP over gRPC on its own port" "$(config_value "${RENDERED}" ROTOR_OTLP_GRPC_ADDR)" ":4317"
+check "the api's Service carries OTLP over gRPC" "$(grep -B1 -A3 'name: otlp-grpc$' <<<"${RENDERED}" | grep -c 'appProtocol: grpc')" "1"
+check "no Ingress carries gRPC unless asked" "$(grep -c "name: ${FULL}-otlp-grpc$" <<<"${RENDERED}")" "0"
+
+echo "== OTLP over gRPC on a host of its own (#262)"
+render "OTLP over gRPC" "${PRODUCTION[@]}" --set ingress.otlpGrpc.enabled=true --set ingress.otlpGrpc.host=otlp.example.com
+GRPC_INGRESS="$(sed -n "/name: ${FULL}-otlp-grpc\$/,/^---/p" <<<"${RENDERED}")"
+check "its Ingress tells ingress-nginx the backend speaks gRPC" \
+    "$(grep -c 'nginx.ingress.kubernetes.io/backend-protocol: GRPC' <<<"${GRPC_INGRESS}")" "1"
+check "it goes straight to the api's gRPC port" "$(grep -A2 "name: ${FULL}-api$" <<<"${GRPC_INGRESS}" | grep -c 'name: otlp-grpc')" "1"
+check "it ends TLS for its own host" "$(grep -c 'secretName: rotor-otlp-tls' <<<"${GRPC_INGRESS}")" "1"
 
 echo "== sandboxes run signed images only"
 # A cosign public key, made for this test alone; the chart only passes it on.

@@ -31,3 +31,39 @@ spec:
                 port:
                   name: http
 {{- end }}
+{{- with .Values.ingress.otlpGrpc }}
+{{- if .enabled }}
+---
+{{/* OTLP over gRPC goes straight to the api over HTTP/2 (#262); the web's nginx speaks HTTP/1.1 to it. */}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "rotor.fullname" $ }}-otlp-grpc
+  labels:
+    {{- include "rotor.labels" $ | nindent 4 }}
+  {{- with .annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .tls.enabled }}
+  tls:
+    - hosts: [{{ .host | quote }}]
+      secretName: {{ .tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "rotor.fullname" $ }}-api
+                port:
+                  name: otlp-grpc
+{{- end }}
+{{- end }}

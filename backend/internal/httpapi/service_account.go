@@ -85,21 +85,30 @@ func (s *Server) serviceAccount(next http.Handler) http.Handler {
 
 // realmTokenError says why a realm's token was not taken, in the sentence the check wrote.
 func realmTokenError(w http.ResponseWriter, r *http.Request, err error) error {
+	refused, challenge := realmRefusal(r.Context(), err)
+	if challenge {
+		w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
+	}
+	return refused
+}
+
+// realmRefusal is the refusal of a realm's token the check refused, and whether it asks for another token; OTLP over
+// gRPC (#262) answers it too.
+func realmRefusal(ctx context.Context, err error) (*APIError, bool) {
 	var refusal *oidc.Refusal
 	switch {
 	case errors.As(err, &refusal):
-		loggerFrom(r.Context()).Warn("realm token refused", "error", refusal.Reason)
+		loggerFrom(ctx).Warn("realm token refused", "error", refusal.Reason)
 		if errors.Is(err, oidc.ErrTokenNotAdmin) || errors.Is(err, oidc.ErrNotAMember) {
-			return &APIError{Status: http.StatusForbidden, Code: "forbidden", Message: refusal.Message}
+			return &APIError{Status: http.StatusForbidden, Code: "forbidden", Message: refusal.Message}, false
 		}
-		w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
-		return &APIError{Status: http.StatusUnauthorized, Code: "invalid_token", Message: refusal.Message}
+		return &APIError{Status: http.StatusUnauthorized, Code: "invalid_token", Message: refusal.Message}, true
 	case errors.Is(err, auth.ErrSwitchedOff):
-		return errSwitchedOff
+		return errSwitchedOff, false
 	case errors.Is(err, oidc.ErrNotConfigured):
-		return errRealmUnconfigured
+		return errRealmUnconfigured, false
 	case errors.Is(err, oidc.ErrUnreachable):
-		return errRealmUnreachable
+		return errRealmUnreachable, false
 	}
-	return ErrInternal(err)
+	return ErrInternal(err), false
 }

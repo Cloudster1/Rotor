@@ -56,12 +56,13 @@ const findRuns = `SELECT DISTINCT ON (trace_id) trace_id, id, workflow_id, coale
 
 // insertSent writes a sender's spans as rotor_app, whose policy holds the sender and the trace to the sender's own.
 const insertSent = `INSERT INTO trace_span (trace, span_id, parent_span_id, name, kind, service, source, sender_id, sender_name,
-		started_at, ended_at, status, status_message, attributes, events, sealed_content)
+		started_at, ended_at, status, status_message, attributes, events, links, sealed_content)
 	SELECT $1, s.span_id, s.parent, s.name, s.kind, s.service, $2, $3, $4, s.started_at, s.ended_at, s.status, s.message,
-		s.attributes::jsonb, s.events::jsonb, s.sealed
+		s.attributes::jsonb, s.events::jsonb, s.links::jsonb, s.sealed
 	FROM unnest($5::text[], $6::text[], $7::text[], $8::text[], $9::text[], $10::timestamptz[], $11::timestamptz[],
-		$12::text[], $13::text[], $14::text[], $15::text[], $16::bytea[])
-		WITH ORDINALITY AS s(span_id, parent, name, kind, service, started_at, ended_at, status, message, attributes, events, sealed, n)
+		$12::text[], $13::text[], $14::text[], $15::text[], $16::text[], $17::bytea[])
+		WITH ORDINALITY AS s(span_id, parent, name, kind, service, started_at, ended_at, status, message, attributes, events,
+			links, sealed, n)
 	ORDER BY s.n`
 
 // Receive keeps a sender's checked spans as the sender on ctx: a span whose trace id is a run's the sender reads joins
@@ -265,7 +266,8 @@ func insertRows(ctx context.Context, tx db.DBTX, traceRow uuid.UUID, sender Send
 		return 0, err
 	}
 	tag, err := tx.Exec(ctx, insertSent, traceRow, sourceOTLP, sender.ID, clean(sender.Name), rows.ids, rows.parents, rows.names,
-		rows.kinds, rows.services, rows.starts, rows.ends, rows.statuses, rows.messages, rows.attributes, rows.events, rows.sealed)
+		rows.kinds, rows.services, rows.starts, rows.ends, rows.statuses, rows.messages, rows.attributes, rows.events, rows.links,
+		rows.sealed)
 	if err != nil {
 		return 0, err
 	}

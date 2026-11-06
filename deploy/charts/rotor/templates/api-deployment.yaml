@@ -49,6 +49,8 @@ spec:
               containerPort: {{ .Values.api.runnerPort }}
             - name: metrics
               containerPort: {{ .Values.api.metricsPort }}
+            - name: otlp-grpc
+              containerPort: {{ .Values.api.otlpGrpcPort }}
           readinessProbe:
             httpGet: { path: /readyz, port: http }
             periodSeconds: 5

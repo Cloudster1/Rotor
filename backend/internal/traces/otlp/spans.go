@@ -86,8 +86,8 @@ func Count(req *coltracepb.ExportTraceServiceRequest) int {
 	return n
 }
 
-// Spans are a request's spans that pass the checks, each with its resource's service.name and without the rotor.*
-// keys only Rotor writes; links and the other resource attributes are dropped. Limits and redaction come after.
+// Spans are a request's spans that pass the checks, each with its resource's service.name, its links and without the
+// rotor.* keys only Rotor writes; the other resource attributes are dropped. Limits and redaction come after.
 func Spans(req *coltracepb.ExportTraceServiceRequest) ([]observability.RunnerSpan, Rejections) {
 	var out []observability.RunnerSpan
 	var rejected Rejections
@@ -158,7 +158,30 @@ func spanOf(sp *tracepb.Span, service string) (observability.RunnerSpan, string)
 		out.Events = append(out.Events, observability.SpanEvent{Name: e.GetName(), Time: timeOf(e.GetTimeUnixNano()),
 			Attributes: attributes(e.GetAttributes())})
 	}
+	out.Links = links(sp.GetLinks())
 	return out, ""
+}
+
+// links are the first config.MaxSpanLinks of a span's links whose ids are whole; one that is not costs itself alone,
+// since a link is context and not the span.
+func links(in []*tracepb.Span_Link) []observability.SpanLink {
+	var out []observability.SpanLink
+	for _, l := range in {
+		if len(out) == config.MaxSpanLinks {
+			break
+		}
+		var traceID trace.TraceID
+		var spanID trace.SpanID
+		if len(l.GetTraceId()) != len(traceID) || len(l.GetSpanId()) != len(spanID) {
+			continue
+		}
+		copy(traceID[:], l.GetTraceId())
+		copy(spanID[:], l.GetSpanId())
+		if traceID.IsValid() && spanID.IsValid() {
+			out = append(out, observability.SpanLink{TraceID: traceID, SpanID: spanID, Attributes: attributes(l.GetAttributes())})
+		}
+	}
+	return out
 }
 
 // timeOf reads nanoseconds since the epoch, holding a value past what Go's time keeps to the latest it does.

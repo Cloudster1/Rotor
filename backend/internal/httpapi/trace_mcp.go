@@ -111,6 +111,8 @@ func flatten(n *traces.Node, parent *pick, all *[]*pick) *pick {
 		}
 	}
 	p.fields.Events = events
+	// The tree says where the run went, and a link points elsewhere; get_run_trace_span answers a span's links.
+	p.fields.Links = []spanLink{}
 	// The most it can say it omitted stands in for the count, which is known only once the tree is chosen.
 	p.cost = jsonSize(traceSpan{spanFields: p.fields, Children: []traceSpan{}, Omitted: len(n.Children)}) + len(",")
 	*all = append(*all, p)
@@ -161,6 +163,15 @@ func cutSpan(in traceSpanResponse, chars int) traceSpanResponse {
 	out.Span.Events = make([]spanEvent, 0, len(in.Span.Events))
 	for _, e := range in.Span.Events {
 		out.Span.Events = append(out.Span.Events, cutEvent(e, chars))
+	}
+	out.Span.Links = make([]spanLink, 0, len(in.Span.Links))
+	for _, l := range in.Span.Links {
+		attrs := map[string]string{}
+		for k, v := range l.Attributes {
+			attrs[k], _ = cutChars(v, chars)
+		}
+		l.Attributes = attrs
+		out.Span.Links = append(out.Span.Links, l)
 	}
 	return out
 }

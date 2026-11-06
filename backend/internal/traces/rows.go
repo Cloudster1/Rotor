@@ -29,9 +29,9 @@ var kinds = map[string]bool{"CHAIN": true, "LLM": true, "TOOL": true, "AGENT": t
 
 // spanRows are a batch of spans as the columns of trace_span, one array per column, for a single insert.
 type spanRows struct {
-	ids, parents, names, kinds, statuses, messages, attributes, events, services []string
-	starts, ends                                                                 []time.Time
-	sealed                                                                       [][]byte
+	ids, parents, names, kinds, statuses, messages, attributes, events, services, links []string
+	starts, ends                                                                        []time.Time
+	sealed                                                                              [][]byte
 }
 
 // Event is a span event as trace_span.events keeps it.
@@ -39,6 +39,16 @@ type Event struct {
 	Name       string            `json:"name"`
 	Time       time.Time         `json:"time"`
 	Attributes map[string]string `json:"attributes"`
+}
+
+// Link is a span's link as trace_span.links keeps it (#262): the span it names, and its attributes without text. A
+// reader learns where it leads from RunID or Owner, set only when the reader may read that trace.
+type Link struct {
+	TraceID    string            `json:"traceId"`
+	SpanID     string            `json:"spanId"`
+	Attributes map[string]string `json:"attributes"`
+	RunID      *uuid.UUID        `json:"-"`
+	Owner      *uuid.UUID        `json:"-"`
 }
 
 // rowsOf turns checked spans into rows of the trace: attributes without text kept plain, the text sealed with box,
@@ -67,6 +77,15 @@ func rowsOf(trace uuid.UUID, spans []observability.RunnerSpan, box *envelope.Box
 		if err != nil {
 			return spanRows{}, err
 		}
+		links := make([]Link, 0, len(s.Links))
+		for _, l := range s.Links {
+			linkPlain, _ := split(l.Attributes)
+			links = append(links, Link{TraceID: l.TraceID.String(), SpanID: l.SpanID.String(), Attributes: linkPlain})
+		}
+		linksJSON, err := json.Marshal(links)
+		if err != nil {
+			return spanRows{}, err
+		}
 		var sealed []byte
 		if box != nil && len(text) > 0 {
 			content, err := json.Marshal(text)
@@ -89,6 +108,7 @@ func rowsOf(trace uuid.UUID, spans []observability.RunnerSpan, box *envelope.Box
 		out.kinds, out.statuses = append(out.kinds, kind(plain[kindKey])), append(out.statuses, status)
 		out.messages, out.services = append(out.messages, clean(s.Message)), append(out.services, clean(s.Service))
 		out.attributes, out.events = append(out.attributes, string(attrs)), append(out.events, string(eventsJSON))
+		out.links = append(out.links, string(linksJSON))
 		out.starts, out.ends, out.sealed = append(out.starts, s.Start.UTC()), append(out.ends, s.End.UTC()), append(out.sealed, sealed)
 	}
 	return out, nil

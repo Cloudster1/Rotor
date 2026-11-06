@@ -221,6 +221,26 @@ Apps and tool services send their own spans to `/api/v1/otlp/v1/traces` (#243). 
 chart passes `/api/` through and leaves body sizes to the api, which takes 4 MiB a request; a proxy or ingress of your
 own in front of Rotor must pass that path and such a body too, or exporters see its 404 or 413.
 
+OTLP over gRPC (#262) has a port of its own on the api, `api.otlpGrpcPort` (4317, `ROTOR_OTLP_GRPC_ADDR`), since gRPC
+needs HTTP/2 all the way and the web's nginx speaks HTTP/1.1 to the api. The port carries no TLS, as the api's HTTP port
+carries none: never publish it without TLS in front, since bearer tokens ride on it. Set `ingress.otlpGrpc.enabled`
+and `ingress.otlpGrpc.host` for a second Ingress on a host of its own, with its own TLS secret
+(`ingress.otlpGrpc.tls.secretName`) and `nginx.ingress.kubernetes.io/backend-protocol: GRPC`, which ingress-nginx sets
+per Ingress; another controller needs its own way of saying the backend speaks gRPC, or put a TLS load balancer in
+front of the Service's `otlp-grpc` port. An SDK then sends with:
+
+```sh
+OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp.rotor.example.com
+OTEL_EXPORTER_OTLP_HEADERS=authorization=Bearer%20rotor_ik_...
+```
+
+The endpoint is the host alone, as gRPC takes no path, and the header's name is written in lower case, as gRPC's
+metadata wants it. The same tokens, ingest keys and limits hold as over HTTP, and a sender's rates count across both.
+Metrics and logs are refused at either (`/api/v1/otlp/v1/metrics` and `/logs` answer 501, gRPC `UNIMPLEMENTED`):
+send them to your own collector, or set `OTEL_METRICS_EXPORTER=none` and `OTEL_LOGS_EXPORTER=none`. In development,
+`make up` publishes the port on 127.0.0.1 and says where.
+
 In development, `make observe` starts the stack with a collector, Jaeger and Prometheus and says where they are.
 
 ## Tests

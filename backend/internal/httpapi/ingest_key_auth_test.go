@@ -33,8 +33,8 @@ func messageOf(t *testing.T, rec *httptest.ResponseRecorder) string {
 	return msg
 }
 
-// A key is looked up at the OTLP endpoint alone; every other row, MCP and the public ones included, refuses it with
-// 401 before any lookup, so a key never reads or administers anything.
+// A key is looked up at the OTLP endpoint alone; every other row refuses it before any lookup, with 401 or with the 501
+// metrics and logs answer everyone (#262), so a key never reads or administers anything.
 func TestAnIngestKeyIsRefusedAtEveryRouteButTheOTLPEndpoint(t *testing.T) {
 	s, _, _ := serviceAccountServer(t)
 	s.OAuth = &fakeOAuth{}
@@ -57,6 +57,12 @@ func TestAnIngestKeyIsRefusedAtEveryRouteButTheOTLPEndpoint(t *testing.T) {
 		if op.tokensOnly {
 			if keys.asked != 1 || rec.Code != http.StatusUnauthorized || !strings.Contains(messageOf(t, rec), "no such ingest key") {
 				t.Errorf("%s with an unknown key = %d %q, looked up %d times", row, rec.Code, rec.Body.String(), keys.asked)
+			}
+			continue
+		}
+		if path == otlpMetricsPath || path == otlpLogsPath {
+			if keys.asked != 0 || rec.Code != http.StatusNotImplemented || !strings.Contains(rec.Body.String(), "takes traces alone") {
+				t.Errorf("%s with a key = %d %q, looked up %d times; want 501 before any lookup", row, rec.Code, rec.Body.String(), keys.asked)
 			}
 			continue
 		}

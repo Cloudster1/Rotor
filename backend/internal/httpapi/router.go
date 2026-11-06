@@ -152,6 +152,8 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 		r.With(s.requireMCPAuth).Post("/mcp", s.handleMCP)
 		// Apps send spans with a token alone (#243); the session cookie is refused there.
 		r.With(s.tokensOnly).Post("/otlp/v1/traces", s.handleReceiveTraces)
+		r.Post("/otlp/v1/metrics", s.handleRefuseMetrics)
+		r.Post("/otlp/v1/logs", s.handleRefuseLogs)
 		mountPending(r, true, false)
 		// A service account of the realm adds tools and hands Rotor their hook secrets (#168); nothing else takes its
 		// token. The table marks these rows serviceAccount, and a test holds the two to each other.

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { SpanQuery, TraceSpan } from "@/api/traces";
 import { formatTime } from "@/lib/dates";
 import { s } from "@/strings";
+import { SpanLinks } from "./SpanLinks";
 import { Events, Pairs, Pre, TIME_WITH_SECONDS, Value } from "./SpanText";
 import { isFailed } from "./tree";
 
@@ -64,6 +65,7 @@ export function SpanDetails({ spanQuery, span, traceStart, textKept, headingID }
         </div>
       )}
       <Events events={span.events} />
+      <SpanLinks links={span.links} />
       <Value title={d.input} name="input" preview={span.input} whole={wholeValue("input")} reading={whole.isFetching} error={error} textKept={textKept} />
       <Value title={d.output} name="output" preview={span.output} whole={wholeValue("output")} reading={whole.isFetching} error={error} textKept={textKept} />
       <div className="flex flex-col gap-1">

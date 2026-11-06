@@ -1,4 +1,5 @@
-{{/* The HTTP API for the web and the Ingress, and the runner protocol sandboxes dial by this Service's name. */}}
+{{/* The HTTP API for the web and the Ingress, the runner protocol sandboxes dial by this Service's name, and OTLP over
+gRPC for ingress.otlpGrpc (#262). */}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -15,6 +16,10 @@ spec:
     - name: runner
       port: {{ .Values.api.runnerPort }}
       targetPort: runner
+    - name: otlp-grpc
+      port: {{ .Values.api.otlpGrpcPort }}
+      targetPort: otlp-grpc
+      appProtocol: grpc
   selector:
     {{- include "rotor.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: api
