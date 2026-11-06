@@ -1,14 +1,16 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { PEOPLE, signIn } from "../fixtures/auth";
 import { expectAccessible, startInScheme, type ColourScheme } from "../fixtures/shell";
 import { toolStubURL } from "../fixtures/stack";
+import { test } from "../fixtures/tools";
 
 const SCHEMES: ColourScheme[] = ["light", "dark"];
 
 /** Adds a tool of its own at the double as alice, the administrator the default browser is signed in as. */
-async function addTool(page: Page): Promise<string> {
+async function addTool(page: Page, trackTool: (address: string) => void): Promise<string> {
   const address = `${toolStubURL()}/t/e2e-${randomUUID().slice(0, 12)}`;
+  trackTool(address);
   await page.goto("/admin/tools");
   const form = page.locator("[data-add-tool]");
   await form.getByLabel("Address").fill(address);
@@ -19,17 +21,9 @@ async function addTool(page: Page): Promise<string> {
   return address;
 }
 
-async function removeTool(page: Page, address: string): Promise<void> {
-  await page.goto("/admin/tools");
-  const row = page.locator("[data-tools] li", { hasText: address });
-  await row.locator('[data-action="remove-tool"]').click();
-  await row.locator('[data-action="confirm-remove"]').click();
-  await expect(row).toHaveCount(0);
-}
-
 for (const scheme of SCHEMES) {
-  test(`a person connects at the tool's consent page, sees what was allowed and disconnects, in ${scheme} @desktop`, async ({ page, browser }) => {
-    const address = await addTool(page);
+  test(`a person connects at the tool's consent page, sees what was allowed and disconnects, in ${scheme} @desktop`, async ({ page, browser, trackTool }) => {
+    const address = await addTool(page, trackTool);
     const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const bob = await context.newPage();
     try {
@@ -55,24 +49,19 @@ for (const scheme of SCHEMES) {
       await expect(card).toHaveAttribute("data-status", "none");
     } finally {
       await context.close();
-      await removeTool(page, address);
     }
   });
 }
 
-test("cancelling at the tool says so, and connects nothing @desktop", async ({ page }) => {
-  const address = await addTool(page);
-  try {
-    await page.goto("/settings/accounts");
-    const card = page.locator("li[data-connection]", { hasText: address });
-    await card.locator('[data-action="connect"]').click();
-    await page.waitForURL(`${toolStubURL()}/**`);
-    await page.locator('button[data-action="deny"]').click();
-    await expect(page).toHaveURL(/\/settings\/accounts\?error=denied/);
-    await expect(page.locator("[data-connect-error]")).toBeVisible();
-    await expect(card).toHaveAttribute("data-status", "none");
-    await expectAccessible(page);
-  } finally {
-    await removeTool(page, address);
-  }
+test("cancelling at the tool says so, and connects nothing @desktop", async ({ page, trackTool }) => {
+  const address = await addTool(page, trackTool);
+  await page.goto("/settings/accounts");
+  const card = page.locator("li[data-connection]", { hasText: address });
+  await card.locator('[data-action="connect"]').click();
+  await page.waitForURL(`${toolStubURL()}/**`);
+  await page.locator('button[data-action="deny"]').click();
+  await expect(page).toHaveURL(/\/settings\/accounts\?error=denied/);
+  await expect(page.locator("[data-connect-error]")).toBeVisible();
+  await expect(card).toHaveAttribute("data-status", "none");
+  await expectAccessible(page);
 });

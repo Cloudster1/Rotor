@@ -806,6 +806,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
   when it is validated or saved and when a run starts, where it used to say
   the tool "is not set up in Rotor".
 
+- A request its client gave up on, such as a page closed while the workflow
+  list loads, is no longer logged as `level=ERROR ... 500 context canceled`;
+  it is noted at debug level and shows as status 499 in the access log (#269).
+
 - Rotor says and acts on the true state of a tool and of your connection to
   it (#266). The workflow editor's tool picker tells a tool that must be
   registered again (an administrator does it under Admin, Tools) from a
