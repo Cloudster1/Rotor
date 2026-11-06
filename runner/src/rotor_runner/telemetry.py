@@ -12,9 +12,6 @@ from langchain_core.callbacks import BaseCallbackHandler, BaseCallbackManager
 from langchain_core.runnables.config import var_child_runnable_config
 from langgraph.errors import GraphBubbleUp
 from openinference.instrumentation import OITracer, TraceConfig
-
-# The handler LangChainInstrumentor installs in every callback manager of the process; Rotor gives it to the run alone.
-from openinference.instrumentation.langchain._tracer import OpenInferenceTracer
 from opentelemetry import trace
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, TracerProvider
@@ -22,6 +19,7 @@ from opentelemetry.trace import Span, Status, StatusCode
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from rotor_runner.config import SPAN_BATCH, SPAN_BATCH_BYTES, SPAN_FLUSH_S, SPAN_FLUSH_TIMEOUT_MS
+from rotor_runner.langchain_tracer import OpenInferenceTracer, handler
 from rotor_runner.pb.rotor.runner.v1 import runner_pb2 as pb
 from rotor_runner.spans import KIND, NODE_TYPE, to_message
 
@@ -149,7 +147,7 @@ class RunTracing:
         provider.add_span_processor(self._processor)
         self._tracer, self._root = provider.get_tracer(TRACER), root
         tracer = OITracer(provider.get_tracer(LANGCHAIN_TRACER), config=trace_config(content))
-        self._langchain = OpenInferenceTracer(cast(trace.Tracer, tracer), separate_trace_from_runtime_context=False)
+        self._langchain = handler(cast(trace.Tracer, tracer))
 
     @property
     def on(self) -> bool:
