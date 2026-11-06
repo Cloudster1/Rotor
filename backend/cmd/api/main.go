@@ -198,10 +198,9 @@ func run() error {
 		runners.Checkpoints = runs.NewCheckpoints(cluster, keys)
 		runners.Signals, runners.Wrap, runners.Events, runners.Host = store, secrets, store, cfg.Runner.Host
 		runners.ApprovalTTL = cfg.Approvals.TTL
-		// Runs' traces go to the OTLP destinations administrators choose (#246), LangSmith carried over as one.
-		destinations := tracedest.NewService(cluster, secrets, cfg.Telemetry.LangSmithEndpoint, log)
-		carryOverLangSmith(ctx, destinations, secrets, log)
-		server.TraceDestinations, server.LangSmith = destinations, destinations
+		// Runs' traces go to the OTLP destinations administrators choose (#246).
+		destinations := tracedest.NewService(cluster, secrets, log)
+		server.TraceDestinations = destinations
 		forwarder := &tracedest.Forwarder{Tracing: tracing, Destinations: destinations, Log: log}
 		runners.Telemetry = forwarder
 		// A sender's spans that join a run go where the run's runner's go.
@@ -299,18 +298,6 @@ func flushTraces(ctx context.Context, tracing *observability.Tracing) {
 	flush, cancel := context.WithTimeout(context.WithoutCancel(ctx), config.ShutdownGrace)
 	defer cancel()
 	_ = tracing.Shutdown(flush)
-}
-
-// carryOverLangSmith moves the LangSmith key into the destination migration 01520 made of it (#246); a start that
-// cannot reach OpenBao serves anyway, the destination sending nothing until a later start finishes the move.
-func carryOverLangSmith(ctx context.Context, destinations *tracedest.Service, keys tracedest.LangSmithKeys, log *slog.Logger) {
-	done, err := destinations.CarryOver(ctx, keys)
-	switch {
-	case err != nil:
-		log.Warn("could not carry the LangSmith setting over into its trace destination; the next start tries again", "error", err)
-	case done:
-		log.Info("carried the LangSmith setting over into a trace destination")
-	}
 }
 
 // warnSharedToolNames names the tools that share a name from before names were unique (#267), whose bindings resolve

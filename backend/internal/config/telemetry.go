@@ -14,8 +14,6 @@ type Telemetry struct {
 	SampleRatio float64
 	// APIMetricsAddr is where the api serves /metrics, beside its public listener; empty serves none.
 	APIMetricsAddr string
-	// LangSmithEndpoint is LangSmith's OpenTelemetry endpoint, which runs' spans go to once an administrator allows it.
-	LangSmithEndpoint string
 }
 
 // Telemetry (#37); docs/api-contract-m7-telemetry.md describes it.
@@ -24,19 +22,11 @@ const (
 	DefaultSampleRatio = 1.0
 	// DefaultAPIMetricsAddr is where the api serves /metrics, on the stack's network alone.
 	DefaultAPIMetricsAddr = ":9465"
-	// DefaultLangSmithEndpoint is LangSmith's own OpenTelemetry endpoint.
-	DefaultLangSmithEndpoint = "https://api.smith.langchain.com/otel/v1/traces"
 	// RunnerSpanExportTimeout bounds sending one runner batch on, which the exporter would otherwise retry for a
 	// minute against a collector that does not answer (#234).
 	RunnerSpanExportTimeout = 10 * time.Second
 	// MaxRunnerSpanExports bounds the runner batches being sent on at once; a batch beyond them is dropped.
 	MaxRunnerSpanExports = 32
-	// MaxLangSmithKeyChars bounds the key an administrator gives.
-	MaxLangSmithKeyChars = 512
-	// MaxLangSmithProjectChars bounds the project runs are filed under in LangSmith.
-	MaxLangSmithProjectChars = 128
-	// DefaultLangSmithProject is the project when an administrator names none.
-	DefaultLangSmithProject = "rotor"
 	// MetricsCollectTimeout bounds a gauge read from the database while Prometheus scrapes.
 	MetricsCollectTimeout = 5 * time.Second
 )
@@ -55,9 +45,8 @@ func loadTelemetry(l *loader) Telemetry {
 		}
 	}
 	return Telemetry{
-		OTLPEndpoint:      l.str("ROTOR_OTLP_ENDPOINT", ""),
-		SampleRatio:       ratio,
-		APIMetricsAddr:    l.orEmpty("ROTOR_API_METRICS_ADDR", DefaultAPIMetricsAddr),
-		LangSmithEndpoint: l.str("ROTOR_LANGSMITH_ENDPOINT", DefaultLangSmithEndpoint),
+		OTLPEndpoint:   l.str("ROTOR_OTLP_ENDPOINT", ""),
+		SampleRatio:    ratio,
+		APIMetricsAddr: l.orEmpty("ROTOR_API_METRICS_ADDR", DefaultAPIMetricsAddr),
 	}
 }

@@ -56,8 +56,6 @@ type Server struct {
 	Usage Usage
 	// Hooks is nil where OpenBao is not configured; its routes then answer 503.
 	Hooks Hooks
-	// LangSmith is nil where OpenBao is not configured; its deprecated routes then answer 503 (#37, #246).
-	LangSmith LangSmith
 	// TraceDestinations is nil where OpenBao is not configured; its routes then answer 503 and traces link nowhere (#246).
 	TraceDestinations TraceDestinations
 	// Retention is how long a finished run's data is kept (#41); nil answers 503.
@@ -264,9 +262,6 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Put("/settings/limits", s.handleSetLimits)
 				r.Get("/providers/{providerID}/prices", s.handleGetPrices)
 				r.Put("/providers/{providerID}/prices", s.handleSetPrices)
-				r.Get("/settings/langsmith", s.handleGetLangSmith)
-				r.Put("/settings/langsmith", s.handleSetLangSmith)
-				r.Delete("/settings/langsmith/key", s.handleRemoveLangSmithKey)
 				r.Get("/settings/trace-destinations", s.handleListTraceDestinations)
 				r.Post("/settings/trace-destinations", s.handleAddTraceDestination)
 				r.Get("/settings/trace-destinations/{destinationID}", s.handleGetTraceDestination)

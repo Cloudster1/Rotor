@@ -160,7 +160,6 @@ data:
   ROTOR_WORKER_METRICS_ADDR: ":9464"
   ROTOR_API_METRICS_ADDR: ":9465"
   ROTOR_TRACE_SAMPLE_RATIO: "1"
-  ROTOR_LANGSMITH_ENDPOINT: "https://api.smith.langchain.com/otel/v1/traces"
 ---
 # Source: rotor/templates/configmap-nginx.yaml
 apiVersion: v1
@@ -401,7 +400,7 @@ spec:
         app.kubernetes.io/instance: r
         app.kubernetes.io/component: api
       annotations:
-        checksum/env: b9d9de175ed15917797eeee250b772e73f285c1317a950e72b81b483b0089e83
+        checksum/env: 934984f087278478855238b673a6dec86d705f30e455017883c074ff9b41b57c
     spec:
       serviceAccountName: r-rotor-api
       terminationGracePeriodSeconds: 40
@@ -586,7 +585,7 @@ spec:
         app.kubernetes.io/instance: r
         app.kubernetes.io/component: worker
       annotations:
-        checksum/env: b9d9de175ed15917797eeee250b772e73f285c1317a950e72b81b483b0089e83
+        checksum/env: 934984f087278478855238b673a6dec86d705f30e455017883c074ff9b41b57c
     spec:
       serviceAccountName: r-rotor-worker
       terminationGracePeriodSeconds: 20

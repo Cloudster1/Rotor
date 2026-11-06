@@ -244,7 +244,6 @@ ROTOR_API_METRICS_ADDR: {{ printf ":%d" (int .Values.api.metricsPort) | quote }}
 ROTOR_OTLP_ENDPOINT: {{ . | quote }}
 {{- end }}
 ROTOR_TRACE_SAMPLE_RATIO: {{ .Values.telemetry.sampleRatio | quote }}
-ROTOR_LANGSMITH_ENDPOINT: {{ .Values.telemetry.langsmithEndpoint | quote }}
 {{- end -}}
 
 {{/* The credentials the api and the worker read, by reference to their Secrets. */}}

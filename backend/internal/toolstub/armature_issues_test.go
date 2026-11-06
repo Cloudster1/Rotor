@@ -97,7 +97,7 @@ func TestEveryRouteOfAnArmatureTenantIsAnArmatureOperation(t *testing.T) {
 	router, _ := newTestStub(t).Public().(chi.Routes)
 	_ = chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		path := documentPath(method, route)
-		if path == "" || strings.HasPrefix(path, llmPath+"/") || path == LangSmithPath || path == OTLPPath || notArmatureAPI[method+" "+path] {
+		if path == "" || strings.HasPrefix(path, llmPath+"/") || path == OTLPPath || notArmatureAPI[method+" "+path] {
 			return nil
 		}
 		if item, ok := doc.Paths[path]; !ok || item[strings.ToLower(method)] == nil {

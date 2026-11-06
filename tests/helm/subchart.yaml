@@ -167,7 +167,6 @@ data:
   ROTOR_WORKER_METRICS_ADDR: ":9464"
   ROTOR_API_METRICS_ADDR: ":9465"
   ROTOR_TRACE_SAMPLE_RATIO: "1"
-  ROTOR_LANGSMITH_ENDPOINT: "https://api.smith.langchain.com/otel/v1/traces"
 ---
 # Source: suite/charts/rotor/templates/configmap-nginx.yaml
 apiVersion: v1
@@ -358,7 +357,7 @@ spec:
         app.kubernetes.io/instance: suite
         app.kubernetes.io/component: api
       annotations:
-        checksum/env: dc3e9c768dcf550a0cb078be6fecab43a7f3a8d887f23346ec959e74e2fe008e
+        checksum/env: f04ff40892190fd3f240aeaf8e9a192ae3891490d93e4ec9bbb09db2abeb1dcf
     spec:
       serviceAccountName: rotor-api
       terminationGracePeriodSeconds: 40
@@ -546,7 +545,7 @@ spec:
         app.kubernetes.io/instance: suite
         app.kubernetes.io/component: worker
       annotations:
-        checksum/env: dc3e9c768dcf550a0cb078be6fecab43a7f3a8d887f23346ec959e74e2fe008e
+        checksum/env: f04ff40892190fd3f240aeaf8e9a192ae3891490d93e4ec9bbb09db2abeb1dcf
     spec:
       serviceAccountName: rotor-worker
       terminationGracePeriodSeconds: 20
@@ -824,15 +823,6 @@ data:
     # Tokens and keys reach a sandbox wrapped: single use and short lived, unwrapped by the runner itself (#23).
     path "sys/wrapping/wrap" {
       capabilities = ["update"]
-    }
-    
-    # The LangSmith key an administrator gave (#37), which the api moves into its trace destination once (#246).
-    path "rotor/data/settings/langsmith/*" {
-      capabilities = ["create", "read", "update", "delete"]
-    }
-    
-    path "rotor/metadata/settings/langsmith/*" {
-      capabilities = ["read", "list", "delete"]
     }
     
     # The headers an administrator gives a trace destination, which the control plane alone sends runs' spans with (#246).

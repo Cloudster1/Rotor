@@ -405,7 +405,6 @@ with every problem it found listed, so an operator fixes them in one go.
 | `ROTOR_APPROVAL_TTL` | `72h` | how long an approval waits when its node says nothing |
 | `ROTOR_OTLP_ENDPOINT` | none | the collector's traces URL, `/v1/traces` included |
 | `ROTOR_TRACE_SAMPLE_RATIO` | `1` | share of new traces kept |
-| `ROTOR_LANGSMITH_ENDPOINT` | LangSmith's own | deprecated: read once, to carry the LangSmith setting over into a trace destination |
 | `ROTOR_API_METRICS_ADDR` | `:9465` | the api's metrics listener; blank serves none |
 | `ROTOR_WORKER_METRICS_ADDR` | `:9464` | the worker's metrics listener |
 

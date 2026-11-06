@@ -61,8 +61,6 @@ x-control-plane-env: &control-plane-env
   ROTOR_HOOKS_URL: http://rotor-api:8080
   # Traces go to the observe profile's collector (#37); without it running they are dropped, quietly.
   ROTOR_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
-  # LangSmith, once an administrator turns it on, is the tool double's stand-in, which records what reaches it.
-  ROTOR_LANGSMITH_ENDPOINT: http://tool-stub:8080/langsmith/otel/v1/traces
 
 services:
   postgres:

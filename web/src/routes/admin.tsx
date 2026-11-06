@@ -33,15 +33,6 @@ const adminIndexRoute = createRoute({
   },
 });
 
-// The page of #37 moved to Traces (#246); old links and bookmarks still arrive.
-const langsmithRoute = createRoute({
-  getParentRoute: () => adminRoute,
-  path: "langsmith",
-  beforeLoad: () => {
-    throw redirect({ to: "/admin/traces", replace: true });
-  },
-});
-
 /** A page of one section, under its own heading. */
 function page<TPath extends string>(path: TPath, title: string, section: () => ReactNode) {
   return createRoute({
@@ -86,7 +77,6 @@ const usersRoute = createRoute({
 
 export const adminTree = adminRoute.addChildren([
   adminIndexRoute,
-  langsmithRoute,
   accessRoute,
   usersRoute,
   page("workspaces", s.admin.pages.workspaces, () => <WorkspacesSection />),

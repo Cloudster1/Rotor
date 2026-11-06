@@ -34,7 +34,7 @@ const (
 	ToolStubCompletionTokens = 5
 	// ToolStubMaxLLMRequests is how many chat requests a tenant keeps for tests to read, the oldest dropped (#222).
 	ToolStubMaxLLMRequests = 50
-	// ToolStubMaxOTLPBytes bounds one export the LangSmith stand-in or an OTLP sink takes, ToolStubMaxOTLPCalls how
+	// ToolStubMaxOTLPBytes bounds one export an OTLP sink takes, ToolStubMaxOTLPCalls how
 	// many each keeps, and ToolStubMaxOTLPSinks how many sinks are kept before all are forgotten (#246).
 	ToolStubMaxOTLPBytes = 4 << 20
 	ToolStubMaxOTLPCalls = 200

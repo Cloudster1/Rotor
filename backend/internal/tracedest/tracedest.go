@@ -1,5 +1,5 @@
-// Package tracedest keeps the OTLP destinations runs' traces are sent to (#246), sends them there, and carries the
-// LangSmith setting over as one. docs/api-contract-m18.md says what is sent where.
+// Package tracedest keeps the OTLP destinations runs' traces are sent to (#246) and sends them there.
+// docs/api-contract-m18.md says what is sent where.
 package tracedest
 
 import (
@@ -69,10 +69,8 @@ type Headers interface {
 type Service struct {
 	db      *db.Cluster
 	headers Headers
-	// langSmithEndpoint is where a LangSmith destination made through the deprecated routes sends.
-	langSmithEndpoint string
-	log               *slog.Logger
-	now               func() time.Time
+	log     *slog.Logger
+	now     func() time.Time
 
 	mu        sync.Mutex
 	targets   []target
@@ -81,9 +79,8 @@ type Service struct {
 }
 
 // NewService returns the destinations kept in cluster, their headers in headers.
-func NewService(cluster *db.Cluster, headers Headers, langSmithEndpoint string, log *slog.Logger) *Service {
-	return &Service{db: cluster, headers: headers, langSmithEndpoint: langSmithEndpoint, log: log, now: time.Now,
-		exporters: map[uuid.UUID]*exporter{}}
+func NewService(cluster *db.Cluster, headers Headers, log *slog.Logger) *Service {
+	return &Service{db: cluster, headers: headers, log: log, now: time.Now, exporters: map[uuid.UUID]*exporter{}}
 }
 
 const columns = `d.id, d.name, d.endpoint, d.header_names, d.headers_set_at, d.enabled, d.content,
