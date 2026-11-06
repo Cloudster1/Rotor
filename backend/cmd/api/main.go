@@ -164,7 +164,7 @@ func run() error {
 	// Each run's trace is kept in Postgres for whoever reads the run (#242), for as long as an administrator says.
 	traceService := traces.NewService(cluster, log)
 	// Apps and tools send their spans to the OTLP endpoint (#243), kept beside the runners'.
-	server.Traces, server.Spans = traceService, traceService
+	server.Traces, server.Spans, server.TraceReads = traceService, traceService, traceService
 	if secrets != nil {
 		server.Vault = secrets
 		realm.Secrets = secrets

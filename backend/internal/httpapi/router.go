@@ -66,6 +66,8 @@ type Server struct {
 	Traces TraceSettings
 	// Spans keeps what senders post to the OTLP endpoint (#243); nil answers 503.
 	Spans SpanStore
+	// TraceReads reads runs' traces and senders' own as the caller (#244); nil answers 503.
+	TraceReads TraceReader
 	// Workspaces is what workspaces may use (#136); nil answers 503.
 	Workspaces Workspaces
 	// Preferences are what a person chooses for themselves (#206); nil answers 503.
@@ -205,6 +207,11 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Get("/runs/{runID}", s.handleGetRun)
 			r.Post("/runs/{runID}/cancel", s.handleCancelRun)
 			r.Get("/runs/{runID}/events", s.handleRunEvents)
+			r.Get("/runs/{runID}/trace", s.handleGetRunTrace)
+			r.Get("/runs/{runID}/trace/spans/{spanID}", s.handleGetRunTraceSpan)
+			r.Get("/traces", s.handleListTraces)
+			r.Get("/traces/{traceID}", s.handleGetTrace)
+			r.Get("/traces/{traceID}/spans/{spanID}", s.handleGetTraceSpan)
 			r.Get("/approvals", s.handleListApprovals)
 			r.Get("/approvals/count", s.handleCountApprovals)
 			r.Get("/approvals/{approvalID}", s.handleGetApproval)

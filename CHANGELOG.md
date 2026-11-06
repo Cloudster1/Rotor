@@ -9,6 +9,19 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A run's trace reads through the API and MCP (#244).
+  `GET /api/v1/runs/{runID}/trace` answers its spans as a tree, each with its
+  kind, timing, status, model, tokens, attributes, events and the first 200
+  characters of its input and output where Rotor kept text, and says whether
+  the trace is kept, expired or not begun and whether it was cut;
+  `GET /api/v1/runs/{runID}/trace/spans/{spanID}` answers one span whole.
+  Whoever reads the run reads its trace, and a run anyone else asks for is
+  answered as one that does not exist. A run carries its `traceId`.
+  `GET /api/v1/traces`, `/traces/{traceID}` and its spans read the traces a
+  sender posted of no run, for the sender and administrators. Assistants get
+  `get_run_trace`, the tree shortened for a model (failed spans and their
+  ancestors first, at most 300 spans in 32 KiB, values cut to 1000 characters
+  and given while 48 KiB lasts), and `get_run_trace_span` for one span whole.
 - Any LangChain app or tool service sends its spans to Rotor over OTLP/HTTP
   (#243), at `POST /api/v1/otlp/v1/traces`, as protobuf or JSON, gzip or not.
   The app sets two variables and its stock exporter does the rest:

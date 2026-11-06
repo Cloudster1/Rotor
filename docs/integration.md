@@ -77,8 +77,9 @@ An assistant works with workflows, runs and approvals over MCP 2025-11-25 or
 authorization server (RFC 9728, RFC 8414, PKCE S256); an assistant registers
 (RFC 7591) or names its client ID metadata document (#114). Its tools are
 `whoami`, `list_workflows`, `get_workflow`, `validate_workflow`, `start_run`,
-`list_runs`, `get_run`, `cancel_run`, `list_approvals` and `get_approval`;
-approvals are decided in Rotor's pages alone.
+`list_runs`, `get_run`, `get_run_trace`, `get_run_trace_span` (#244),
+`cancel_run`, `list_approvals` and `get_approval`; approvals are decided in
+Rotor's pages alone.
 [`docs/api-contract-m10.md`](api-contract-m10.md) has the whole contract and
 [`docs/assistants.md`](assistants.md) how to connect one.
 
