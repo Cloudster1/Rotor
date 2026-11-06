@@ -116,10 +116,6 @@ export const HOOK_TOPICS: Record<string, string[]> = {
   stator: ["page.published", "page.moved", "page.deleted", "comment.created"],
 };
 
-/** The longest LangSmith key and project the server takes (MaxLangSmithKeyChars, MaxLangSmithProjectChars). */
-export const MAX_LANGSMITH_KEY = 512;
-export const MAX_LANGSMITH_PROJECT = 128;
-
 /** How many grants the Roles tab shows a page, and how many people the Users page shows (#203). */
 export const ROLE_ASSIGNMENT_PAGE_SIZE = 50;
 export const USERS_PAGE_SIZE = 50;
@@ -148,3 +144,15 @@ export const SKILL_MD = "SKILL.md";
 export const SKILL_NO_PATH = "-";
 /** The largest zip an import takes (MaxSkillImportBytes), checked before it is sent. */
 export const MAX_SKILL_IMPORT_BYTES = 2 * 1024 * 1024;
+
+/** What the server takes of a trace destination (MaxTraceDestinations, MaxDestinationNameChars, MaxDestinationHeaders, MaxDestinationHeaderChars, MaxDestinationURLChars). */
+export const MAX_TRACE_DESTINATIONS = 8;
+export const MAX_DESTINATION_NAME = 64;
+export const MAX_DESTINATION_HEADERS = 16;
+export const MAX_DESTINATION_HEADER = 4096;
+export const MAX_DESTINATION_URL = 2048;
+/** The longest a trace is kept (MaxTraceRetentionDays) and the shortest. */
+export const MAX_TRACE_RETENTION_DAYS = 90;
+export const MIN_TRACE_RETENTION_DAYS = 1;
+/** Headers the server sets itself and refuses to take from an administrator. */
+export const RESERVED_DESTINATION_HEADERS = ["Content-Type", "Content-Encoding", "Content-Length", "Host"] as const;

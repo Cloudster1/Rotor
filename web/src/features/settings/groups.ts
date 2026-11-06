@@ -16,7 +16,7 @@ export interface SettingsNavPage {
     | "/admin/workspaces"
     | "/admin/unattended-writes"
     | "/admin/providers"
-    | "/admin/langsmith"
+    | "/admin/traces"
     | "/admin/tools"
     | "/admin/assistants"
     | "/admin/audit"
@@ -77,7 +77,7 @@ export const ADMIN_GROUPS: readonly SettingsNavGroup[] = [
     title: s.admin.groups.integrations,
     pages: [
       { slug: "providers", path: "/admin/providers", label: s.admin.pages.providers },
-      { slug: "langsmith", path: "/admin/langsmith", label: s.admin.pages.langsmith },
+      { slug: "traces", path: "/admin/traces", label: s.admin.pages.traces },
       { slug: "tools", path: "/admin/tools", label: s.admin.pages.tools },
       { slug: "assistants", path: "/admin/assistants", label: s.admin.pages.assistants },
     ],

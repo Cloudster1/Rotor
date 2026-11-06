@@ -236,6 +236,13 @@ func TestLangSmithGetsARunsSpansOnlyOnceAnAdministratorAllowsIt(t *testing.T) {
 		t.Fatalf("turning it on = %d %v", status, answer)
 	}
 
+	// The setting is the destination LangSmith became (#246), which the deprecated route made where none was.
+	_, list := alice.api(http.MethodGet, "/settings/trace-destinations", nil)
+	if listed := stringify(list); !strings.Contains(listed, `"carriedOver":true`) || !strings.Contains(listed, `"Langsmith-Project","x-api-key"`) ||
+		strings.Contains(listed, smithKey) {
+		t.Errorf("the destinations read %s", listed)
+	}
+
 	trace := tracedRun(t, bob, workflowID)
 	var body []byte
 	deadline := time.Now().Add(traceWait)
@@ -264,8 +271,9 @@ func TestLangSmithGetsARunsSpansOnlyOnceAnAdministratorAllowsIt(t *testing.T) {
 	}
 	h := newHarness(t)
 	var entries string
-	if err := h.super.QueryRow(t.Context(), `SELECT coalesce(string_agg(data::text, ' '), '') FROM audit_log WHERE action = 'langsmith.changed'`).Scan(&entries); err != nil ||
-		!strings.Contains(entries, `"key": "set"`) || strings.Contains(entries, smithKey) {
+	if err := h.super.QueryRow(t.Context(), `SELECT coalesce(string_agg(data::text, ' '), '') FROM audit_log
+		WHERE action LIKE 'trace_destination.%' AND data->>'name' = 'LangSmith'`).Scan(&entries); err != nil ||
+		!strings.Contains(entries, `"headers": "removed"`) || strings.Contains(entries, smithKey) {
 		t.Errorf("the audit log holds %q (%v)", entries, err)
 	}
 }

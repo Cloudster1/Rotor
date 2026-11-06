@@ -14,13 +14,13 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/runnerpb"
 )
 
-// Telemetry is where a run's spans go once the control plane checked them (#37); *langsmith.Forwarder is the real
-// one, sending them to the collector and, when an administrator allows it, to LangSmith.
+// Telemetry is where a run's spans go once the control plane checked them (#37); *tracedest.Forwarder is the real
+// one, sending them to the collector and to the trace destinations an administrator chose (#246).
 type Telemetry interface {
 	// Spans sends a run's spans on by ctx's deadline; no stream waits for it.
 	Spans(ctx context.Context, runID uuid.UUID, spans []observability.RunnerSpan)
-	// Content says whether a destination may get text, so a run's spans carry it (#241): until #246, while LangSmith
-	// is on. Each place that may not keep text gets the spans without it.
+	// Content says whether a destination may get text, so a run's spans carry it (#241, #246). Each place that may
+	// not keep text gets the spans without it.
 	Content(ctx context.Context) bool
 }
 

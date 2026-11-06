@@ -47,3 +47,10 @@ export const traceSettingQuery = queryOptions({
     return data as TraceSetting;
   },
 });
+
+export const traceSettingQueryKey = traceSettingQuery.queryKey;
+
+export async function setTraceSetting(body: components["schemas"]["TraceSettingRequest"]): Promise<TraceSetting> {
+  const { data } = await api.PUT("/settings/traces", { body });
+  return data as TraceSetting;
+}

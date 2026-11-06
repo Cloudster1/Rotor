@@ -9,6 +9,24 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Administrators send runs' traces to the OTLP tools their teams use (#246),
+  such as Langfuse, Arize Phoenix or Jaeger, under Admin, Traces: at most eight
+  destinations, each a name, the whole OTLP/HTTP traces URL, headers Rotor
+  keeps in OpenBao and never shows again, and an optional trace link holding
+  `{traceId}` and `{runId}`. Each destination gets every run's trace, the
+  runner's spans and those that joined the run, beside the run and never
+  holding it up; it gets prompt, tool and answer text only once an
+  administrator acknowledges that this text leaves Rotor for it. A Test button
+  sends one span without text and says what the destination answered. A run's
+  trace links to each destination with a trace link ("Open this trace in").
+  The same page sets how many days Rotor keeps traces and whether it keeps
+  their text, and the run page's notice that text is not kept points
+  administrators there. `GET`, `POST /api/v1/settings/trace-destinations` and
+  `GET`, `PUT`, `DELETE /api/v1/settings/trace-destinations/{id}` and
+  `POST .../{id}/test` keep them; adding, changing and removing one is audited
+  as `trace_destination.added`, `.changed` and `.removed`, never with a
+  header's value.
+
 - A run's page shows its trace (#245): each step, model call and tool call as
   a tree of spans, each with its kind, its duration and a bar placed on the
   run's time, and the chosen span's details: kind, timing, status and message,
@@ -714,6 +732,13 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- LangSmith is a trace destination like any other (#246). An installation that
+  gave LangSmith a key finds a destination named LangSmith, on and sending text
+  as LangSmith was; the api's first start moves the key and project into its
+  headers in OpenBao and audits it as `trace_destination.carried_over`.
+  Admin's LangSmith page is now Admin, Traces, and `/admin/langsmith` leads
+  there.
+
 - The built-in Author role says it creates workflows and skills of their own,
   as it has granted since #219. An installation whose administrator reworded
   the role keeps their words (#236).
@@ -758,6 +783,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
   (#169). An install that relied on `<release namespace>-sandboxes` sets
   `sandbox.namespace` to keep it. The `ClusterImagePolicy` objects that
   admit signed sandbox images are named after that namespace too.
+
+### Deprecated
+
+- `GET` and `PUT /api/v1/settings/langsmith` and
+  `DELETE /api/v1/settings/langsmith/key` (#246). They keep their shapes and
+  refusals and act on the destination LangSmith became, making it where none
+  was, and go one minor release later with `ROTOR_LANGSMITH_ENDPOINT` (the
+  chart's `telemetry.langsmithEndpoint`). Use `/settings/trace-destinations`.
 
 ### Fixed
 

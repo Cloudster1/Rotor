@@ -34,9 +34,11 @@ const (
 	ToolStubCompletionTokens = 5
 	// ToolStubMaxLLMRequests is how many chat requests a tenant keeps for tests to read, the oldest dropped (#222).
 	ToolStubMaxLLMRequests = 50
-	// ToolStubMaxOTLPBytes bounds one export the LangSmith stand-in takes, and ToolStubMaxOTLPCalls how many it keeps.
+	// ToolStubMaxOTLPBytes bounds one export the LangSmith stand-in or an OTLP sink takes, ToolStubMaxOTLPCalls how
+	// many each keeps, and ToolStubMaxOTLPSinks how many sinks are kept before all are forgotten (#246).
 	ToolStubMaxOTLPBytes = 4 << 20
 	ToolStubMaxOTLPCalls = 200
+	ToolStubMaxOTLPSinks = 64
 	// ToolStubMaxPushBytes is the largest push Armature's git proxy forwards, and ToolStubMaxObjectBytes the largest
 	// object the stand-in inflates, so a hostile pack cannot fill the stub's memory (#137).
 	ToolStubMaxPushBytes   = 32 << 20

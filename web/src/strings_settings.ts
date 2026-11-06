@@ -41,7 +41,7 @@ export const adminStrings = {
     workspaces: "Workspaces",
     unattendedWrites: "Unattended writes",
     providers: "Model providers",
-    langsmith: "LangSmith",
+    traces: "Traces",
     tools: "Tools",
     assistants: "Connected apps",
     audit: "Audit log",

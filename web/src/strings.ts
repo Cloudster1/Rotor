@@ -1,6 +1,7 @@
 import { audit } from "./strings_audit";
 import { usageStrings } from "./strings_usage";
-import { langSmithStrings, traceStrings } from "./strings_telemetry";
+import { traceDestinationStrings } from "./strings_destinations";
+import { traceStrings } from "./strings_telemetry";
 import { retentionStrings } from "./strings_retention";
 import { capabilityStrings } from "./strings_tools";
 import { untrustedStrings } from "./strings_untrusted";
@@ -473,7 +474,7 @@ export const s = {
   api: {
     unexpected: (status: number) => `The server answered ${status} without saying why. Try again in a moment.`,
   },
-  langsmith: langSmithStrings,
+  traceDestinations: traceDestinationStrings,
   trace: traceStrings,
   retention: retentionStrings,
   capabilities: capabilityStrings,

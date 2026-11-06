@@ -5,14 +5,15 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/cloudster1/rotor/backend/internal/langsmith"
+	"github.com/cloudster1/rotor/backend/internal/tracedest"
 )
 
-// LangSmith is whether runs' spans also go to LangSmith (#37); *langsmith.Service is the real one.
+// LangSmith is the destination the LangSmith setting became (#246), in the deprecated routes' shape (#37);
+// *tracedest.Service is the real one.
 type LangSmith interface {
-	Get(ctx context.Context) (langsmith.Setting, error)
-	Set(ctx context.Context, in langsmith.Input) (langsmith.Setting, error)
-	RemoveKey(ctx context.Context) (langsmith.Setting, error)
+	LangSmith(ctx context.Context) (tracedest.LangSmithSetting, error)
+	SetLangSmith(ctx context.Context, in tracedest.LangSmithInput) (tracedest.LangSmithSetting, error)
+	RemoveLangSmithKey(ctx context.Context) (tracedest.LangSmithSetting, error)
 }
 
 var (
@@ -33,14 +34,14 @@ var (
 
 func langSmithError(err error) error {
 	switch {
-	case errors.Is(err, langsmith.ErrNotAcknowledged):
+	case errors.Is(err, tracedest.ErrNotAcknowledged):
 		return errDataLeaves
-	case errors.Is(err, langsmith.ErrNoKey):
+	case errors.Is(err, tracedest.ErrLangSmithNoKey):
 		return errLangSmithKeyMissing
-	case errors.Is(err, langsmith.ErrBadInput):
+	case errors.Is(err, tracedest.ErrLangSmithInput):
 		return errLangSmithInput
 	}
-	return err
+	return traceDestinationError(err)
 }
 
 func (s *Server) langSmithReady(w http.ResponseWriter, r *http.Request) bool {
@@ -55,7 +56,7 @@ func (s *Server) handleGetLangSmith(w http.ResponseWriter, r *http.Request) {
 	if !s.langSmithReady(w, r) {
 		return
 	}
-	setting, err := s.LangSmith.Get(r.Context())
+	setting, err := s.LangSmith.LangSmith(r.Context())
 	s.answerLangSmith(w, r, setting, err)
 }
 
@@ -68,7 +69,7 @@ func (s *Server) handleSetLangSmith(w http.ResponseWriter, r *http.Request) {
 	if !s.langSmithReady(w, r) {
 		return
 	}
-	setting, err := s.LangSmith.Set(r.Context(), langsmith.Input{Enabled: req.Enabled, Project: req.Project, Key: req.Key,
+	setting, err := s.LangSmith.SetLangSmith(r.Context(), tracedest.LangSmithInput{Enabled: req.Enabled, Project: req.Project, Key: req.Key,
 		AcknowledgeDataLeaves: req.AcknowledgeDataLeaves})
 	s.answerLangSmith(w, r, setting, err)
 }
@@ -77,15 +78,15 @@ func (s *Server) handleRemoveLangSmithKey(w http.ResponseWriter, r *http.Request
 	if !s.langSmithReady(w, r) {
 		return
 	}
-	setting, err := s.LangSmith.RemoveKey(r.Context())
+	setting, err := s.LangSmith.RemoveLangSmithKey(r.Context())
 	s.answerLangSmith(w, r, setting, err)
 }
 
-func (s *Server) answerLangSmith(w http.ResponseWriter, r *http.Request, setting langsmith.Setting, err error) {
+func (s *Server) answerLangSmith(w http.ResponseWriter, r *http.Request, setting tracedest.LangSmithSetting, err error) {
 	if err != nil {
 		respondError(w, r, langSmithError(err))
 		return
 	}
 	respondJSON(w, r, http.StatusOK, langSmithResponse{Enabled: setting.Enabled, Project: setting.Project, KeySet: setting.KeySetAt != nil,
-		KeySetAt: setting.KeySetAt, ChangedBy: setting.ChangedBy, UpdatedAt: setting.UpdatedAt, Endpoint: s.LangSmithEndpoint})
+		KeySetAt: setting.KeySetAt, ChangedBy: setting.ChangedBy, UpdatedAt: setting.UpdatedAt, Endpoint: setting.Endpoint})
 }

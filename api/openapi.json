@@ -4266,6 +4266,7 @@
       "get": {
         "operationId": "getLangSmith",
         "summary": "Whether runs' spans also go to LangSmith, and under which project; never the key.",
+        "description": "Answers as before #246, from the carried-over destination. Deprecated: acts on the trace destination LangSmith became; use /settings/trace-destinations.",
         "tags": [
           "telemetry"
         ],
@@ -4300,12 +4301,13 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true
       },
       "put": {
         "operationId": "setLangSmith",
         "summary": "Turn LangSmith on or off, name its project, or give a new key, kept in OpenBao.",
-        "description": "Turning it on is refused with 422 data_leaves_unacknowledged unless acknowledgeDataLeaves is true, since run data then leaves the installation, and with 422 langsmith_key_missing while no key is held. Leaving key out keeps the one held.",
+        "description": "Turning it on is refused with 422 data_leaves_unacknowledged unless acknowledgeDataLeaves is true, since run data then leaves the installation, and with 422 langsmith_key_missing while no key is held. Leaving key out keeps the one held. Makes the destination where none was carried over. Deprecated: acts on the trace destination LangSmith became; use /settings/trace-destinations.",
         "tags": [
           "telemetry"
         ],
@@ -4360,13 +4362,15 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true
       }
     },
     "/settings/langsmith/key": {
       "delete": {
         "operationId": "removeLangSmithKey",
         "summary": "Forget the LangSmith key, which turns LangSmith off.",
+        "description": "Keeps the project. Deprecated: acts on the trace destination LangSmith became; use /settings/trace-destinations.",
         "tags": [
           "telemetry"
         ],
@@ -4401,7 +4405,8 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true
       }
     },
     "/settings/limits": {
@@ -4633,16 +4638,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
           "default": {
             "description": "An error, in the one shape every endpoint uses.",
             "content": {
@@ -4658,7 +4653,7 @@
       "post": {
         "operationId": "addTraceDestination",
         "summary": "Add an OTLP destination; its headers are kept in OpenBao.",
-        "description": "content true is refused with 422 content_leaves_unacknowledged unless acknowledgeContentLeaves is true. A name another destination has answers 409.",
+        "description": "content true is refused with 422 content_leaves_unacknowledged unless acknowledgeContentLeaves is true. A name another destination has answers 409 trace_destination_taken; a ninth destination 422 trace_destinations_full. traceLink holds {traceId} and may hold {runId}, which a run's trace fills.",
         "tags": [
           "telemetry"
         ],
@@ -4705,16 +4700,6 @@
           },
           "422": {
             "description": "Unprocessable Entity",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4770,16 +4755,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4848,16 +4823,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
           "default": {
             "description": "An error, in the one shape every endpoint uses.",
             "content": {
@@ -4873,7 +4838,7 @@
       "put": {
         "operationId": "changeTraceDestination",
         "summary": "Change an OTLP destination.",
-        "description": "Leaving headers out keeps the ones held; {} removes them. Turning content on needs acknowledgeContentLeaves.",
+        "description": "Leaving headers out keeps the ones held; {} removes them. Turning content on, or moving the endpoint of a destination that gets text, needs acknowledgeContentLeaves.",
         "tags": [
           "telemetry"
         ],
@@ -4949,16 +4914,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
           "default": {
             "description": "An error, in the one shape every endpoint uses.",
             "content": {
@@ -5013,16 +4968,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
             "content": {
               "application/json": {
                 "schema": {

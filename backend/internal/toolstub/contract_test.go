@@ -137,8 +137,8 @@ func TestEveryRouteIsAnExciterOperation(t *testing.T) {
 	_ = chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		path := documentPath(method, route)
 		// The stub model stands in for a language model provider, not for Exciter; its contract is OpenAI's chat API.
-		// The LangSmith stand-in takes OTLP, whose contract is OpenTelemetry's. The git proxy is Armature's alone.
-		if path == "" || strings.HasPrefix(path, llmPath+"/") || path == LangSmithPath || strings.HasPrefix(path, "/git/") {
+		// The LangSmith stand-in and the OTLP sinks take OTLP, whose contract is OpenTelemetry's. The git proxy is Armature's alone.
+		if path == "" || strings.HasPrefix(path, llmPath+"/") || path == LangSmithPath || path == OTLPPath || strings.HasPrefix(path, "/git/") {
 			return nil
 		}
 		if item, ok := doc.Paths[path]; !ok || item[strings.ToLower(method)] == nil {

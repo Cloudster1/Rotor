@@ -49,8 +49,8 @@ const (
 	TraceSweepEvery = time.Hour
 	// TraceSweepLockKey is the advisory lock one worker holds while it sweeps traces, "rotor" and the issue in hex.
 	TraceSweepLockKey = 0x726f746f72_0242
-	// TraceSettingTTL is how long a replica trusts what it read of the trace setting and LangSmith's; one changed on
-	// another replica takes at most this long to reach this one.
+	// TraceSettingTTL is how long a replica trusts what it read of the trace setting and the destinations; one changed
+	// on another replica takes at most this long to reach this one.
 	TraceSettingTTL = 30 * time.Second
 )
 
@@ -67,6 +67,25 @@ const (
 	OTLPSpansPerMinute    = 20000
 	// OTLPRateWindow is the window both rates are counted over; Retry-After says how long until it ends.
 	OTLPRateWindow = time.Minute
+)
+
+// Where runs' traces are sent (#246). Migration 01520 writes the same numbers into its checks and trigger, and a test
+// holds them to these.
+const (
+	// MaxTraceDestinations bounds the destinations, since each is one more export per batch.
+	MaxTraceDestinations = 8
+	// MaxDestinationNameChars bounds a destination's name.
+	MaxDestinationNameChars = 64
+	// MaxDestinationHeaders and MaxDestinationHeaderChars bound a destination's headers, which carry keys and basic
+	// credentials; the chars bound each name and each value.
+	MaxDestinationHeaders     = 16
+	MaxDestinationHeaderChars = 4096
+	// MaxDestinationURLChars bounds a destination's endpoint and its trace link.
+	MaxDestinationURLChars = 2048
+	// DestinationTestTimeout bounds the one span a test sends, as RunnerSpanExportTimeout bounds a batch.
+	DestinationTestTimeout = RunnerSpanExportTimeout
+	// MaxDestinationTestBodyBytes bounds what Rotor reads of a destination's answer to a test.
+	MaxDestinationTestBodyBytes = 4 << 10
 )
 
 // How a trace is read back (#244); docs/api-contract-m18.md gives the reasons.
