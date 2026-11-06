@@ -75,10 +75,13 @@ describe("text contrast", () => {
   });
 });
 
-// Links and the current item in the accent, errors in danger, each on any surface and on its own tint.
+// Links and the current item in the accent, errors in danger, states in success and warning (badges since #266),
+// each on any surface and on its own tint.
 const COLOURED_TEXT = [
   { text: "accent", tint: "accent-subtle" },
   { text: "danger", tint: "danger-subtle" },
+  { text: "success", tint: "success-subtle" },
+  { text: "warning", tint: "warning-subtle" },
 ];
 
 // The fills a label is written on, with the token that writes it, hover included.

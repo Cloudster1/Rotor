@@ -56,6 +56,8 @@ var m2Operations = []operation{
 		summary: "The JSON Schema of workflow version 1, for editors.", responses: ok(map[string]any{})},
 	{method: "GET", path: "/tools/{toolID}/catalog", handler: "handleToolCatalog", tag: "tools",
 		summary: "The MCP tools you may call at a tool, as your connection sees them, with their read-only and destructive hints.",
+		description: "409 says why in its code: not_connected (connect your account), reconnect (the tool ended your connection; " +
+			"connect again) or needs_registration (the tool forgot Rotor's client; an administrator registers it again).",
 		responses: map[int]any{http.StatusOK: catalogResponse{}, http.StatusNotFound: notFound, http.StatusConflict: errorEnvelope{},
 			http.StatusBadGateway: errorEnvelope{}}},
 
@@ -79,7 +81,7 @@ var m2Operations = []operation{
 	{method: "POST", path: "/workflows/{workflowID}/runs", handler: "handleStartRun", tool: "start_run",
 		toolHelp: "Start a run of a workflow as the person you act for, with its inputs. Runs act in the tools with the person's own permissions and may write to them; one waits at an approval until a person decides it in Rotor. Send a new idempotencyKey for each run, and the same one to retry.", destructive: true, openWorld: true, tag: "runs",
 		summary:     "Start a run of a workflow as yourself.",
-		description: "An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false. A skill the version names that you may not read refuses the start with 422 code skill_unreadable.",
+		description: "An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). A binding to a tool that no longer knows Rotor's client is refused with 409 code needs_registration, whose fields map each such tool's name to its id, until an administrator registers it again. An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false. A skill the version names that you may not read refuses the start with 422 code skill_unreadable.",
 		request:     startRunRequest{},
 		headers: []param{{name: idempotencyHeader, arg: "idempotencyKey",
 			description: "Any text of at most 200 characters, new for each run; a retry sends the same."}},

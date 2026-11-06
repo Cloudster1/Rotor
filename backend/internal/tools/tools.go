@@ -119,9 +119,11 @@ type Secrets interface {
 	DeleteWebhookSecret(ctx context.Context, toolID uuid.UUID) error
 }
 
-// ConnectionEnder ends every connection to a tool before it goes, revoking them at the tool.
+// ConnectionEnder ends every connection to a tool before it goes, revoking them at the tool, and marks them to be
+// made again once the tool holds a new client of Rotor's.
 type ConnectionEnder interface {
 	EndToolConnections(ctx context.Context, tool Tool) (int, error)
+	ReconnectToolConnections(ctx context.Context, tool Tool) (int, error)
 }
 
 // Service is the registry.

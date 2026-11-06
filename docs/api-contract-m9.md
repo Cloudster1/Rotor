@@ -43,6 +43,13 @@ and its authorization server's metadata again, and keeps its name, endpoints,
 scopes and capabilities as they answer now. It never registers again, so every
 person's connection stays.
 
+**As built (#266):** it also proves Rotor's client: it asks the tool's token
+endpoint to refresh a token that was never issued, authenticating as the client.
+`invalid_grant` (or any refusal but `invalid_client`) shows the tool knows the
+client; `invalid_client` makes a `ready` tool `needs_registration`, as minting
+would. A tool awaiting approval is not asked, since its tool refuses a pending
+client the same way. `tool.checked` records the status.
+
 | Status | When |
 |---|---|
 | 200 | `{tool}`, as it answers now; a tool that stopped offering `mcp@1` is kept, with it under `missing` |

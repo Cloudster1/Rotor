@@ -1590,7 +1590,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The MCP tools you may call at a tool, as your connection sees them, with their read-only and destructive hints. */
+        /**
+         * The MCP tools you may call at a tool, as your connection sees them, with their read-only and destructive hints.
+         * @description 409 says why in its code: not_connected (connect your account), reconnect (the tool ended your connection; connect again) or needs_registration (the tool forgot Rotor's client; an administrator registers it again).
+         */
         get: operations["toolCatalog"];
         put?: never;
         post?: never;
@@ -1611,7 +1614,7 @@ export interface paths {
         put?: never;
         /**
          * Read the tool's meta and metadata again, for a tool that was updated, without registering again.
-         * @description Keeps the tool's name, endpoints, scopes and capabilities as they answer now. A tool that stopped offering mcp@1 is kept and lists it under missing, so its pages say what to update.
+         * @description Keeps the tool's name, endpoints, scopes and capabilities as they answer now. A tool that stopped offering mcp@1 is kept and lists it under missing, so its pages say what to update. A token request with Rotor's client proves the tool still knows it; one refused with invalid_client makes the tool needs_registration.
          */
         post: operations["checkTool"];
         delete?: never;
@@ -2075,7 +2078,7 @@ export interface paths {
         put?: never;
         /**
          * Start a run of a workflow as yourself.
-         * @description An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false. A skill the version names that you may not read refuses the start with 422 code skill_unreadable.
+         * @description An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). A binding to a tool that no longer knows Rotor's client is refused with 409 code needs_registration, whose fields map each such tool's name to its id, until an administrator registers it again. An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false. A skill the version names that you may not read refuses the start with 422 code skill_unreadable.
          */
         post: operations["startRun"];
         delete?: never;
