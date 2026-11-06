@@ -18,7 +18,7 @@ const HIDDEN_TRACE = "4bf92f3577b34da6a3ce929d0e0e4736";
 
 const LINKS: SpanLink[] = [
   { traceId: "5b8efff798038103d269b633813fc60c", spanId: "eee19b7ec3c1b174", attributes: { "llm.system": "openai" }, runId: LINKED_RUN, sender: null },
-  { traceId: OWN_TRACE, spanId: "1111111111111111", attributes: {}, runId: null, sender: BOB.id },
+  { traceId: OWN_TRACE, spanId: "11111111111111ab", attributes: {}, runId: null, sender: BOB.id },
   { traceId: HIDDEN_TRACE, spanId: "2222222222222222", attributes: {}, runId: null, sender: null },
 ];
 
@@ -34,8 +34,8 @@ describe("a span's links (#262)", () => {
 
     const items = details.querySelectorAll("[data-span-link]");
     expect(items).toHaveLength(LINKS.length);
-    expect(within(details).getByRole("link", { name: t.inRun })).toHaveAttribute("href", `/runs/${LINKED_RUN}`);
-    expect(within(details).getByRole("link", { name: t.inTrace })).toHaveAttribute("href", `/traces/${OWN_TRACE}?sender=${BOB.id}`);
+    expect(within(details).getByRole("link", { name: t.inRun })).toHaveAttribute("href", `/runs/${LINKED_RUN}?span=eee19b7ec3c1b174`);
+    expect(within(details).getByRole("link", { name: t.inTrace })).toHaveAttribute("href", `/traces/${OWN_TRACE}?sender=${BOB.id}&span=11111111111111ab`);
     expect(within(details).getAllByRole("link", { name: /linked span/ })).toHaveLength(2);
 
     // A trace the reader may not read says so whether or not it exists, and leads nowhere.
