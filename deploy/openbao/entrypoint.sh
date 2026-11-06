@@ -40,6 +40,22 @@ fi
 
 bao operator unseal "$(field unseal_keys_b64)" >/dev/null
 
+# Unsealed is not yet active: a write in between is refused and exits 2 (#278). sys/leader names the active node,
+# and says ha_enabled false for storage that cannot do HA, where the node is active as soon as it is unsealed.
+leading() {
+  leader="$(bao read -format=json sys/leader 2>/dev/null | tr -d ' \n')" || return 1
+  case "$leader" in
+    *'"ha_enabled":false'* | *'"is_self":true'*) return 0 ;;
+  esac
+  return 1
+}
+tries=0
+until leading; do
+  tries=$((tries + 1))
+  [ "$tries" -lt 60 ] || { echo "OpenBao was unsealed but did not become the active node within a minute" >&2; exit 1; }
+  sleep 1
+done
+
 # The documented root token is made from the first one, so docs and tests name a token that never changes.
 if ! bao token lookup "$BAO_TOKEN" >/dev/null 2>&1; then
   BAO_TOKEN="$(field root_token)" bao token create -id="$BAO_TOKEN" -policy=root -orphan >/dev/null

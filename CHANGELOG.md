@@ -802,6 +802,13 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The dev and CI stack starts OpenBao more reliably and says why when it does
+  not (#278). OpenBao's entrypoint now waits until the node is active before
+  its first write, where it used to exit 2 now and then right after unsealing,
+  and retries the JWT auth configuration that fetches Keycloak's keys. A
+  `make stack-up` that fails saves the logs of every service that is not
+  healthy to `reports/stack-logs/`, which CI uploads with the other reports.
+
 - `make up` no longer breaks every tool and connection on the dev stack: the
   tool stub keeps its OAuth clients, grants and tokens on a volume, so
   recreating it with a rebuilt backend image leaves Rotor's connections
