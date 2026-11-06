@@ -794,6 +794,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- A request its client gave up on, such as a page closed while the workflow
+  list loads, is no longer logged as `level=ERROR ... 500 context canceled`;
+  it is noted at debug level and shows as status 499 in the access log (#269).
+
 - A failed span's status message on the run page holds the error alone, such
   as `RunEnded: file raised ValueError: The story has no title (line 2)`, and
   no longer ends with a stray `Traceback (most recent call last):`; the whole
