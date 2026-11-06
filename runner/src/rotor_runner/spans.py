@@ -3,6 +3,7 @@ held to the control plane's limits, so what leaves the sandbox is already what t
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 from collections.abc import Callable
@@ -34,6 +35,9 @@ NODE_TYPE = "rotor.node.type"
 CONTENT_CUT = "rotor.content_cut"
 MESSAGES_OMITTED = "rotor.messages_omitted"
 STACK = "exception.stacktrace"
+# Where Python starts a stack trace; the status message is cut before it.
+TRACEBACK = "Traceback (most recent call last):"
+REPR = re.compile(r"(?P<type>\w+)\((?P<args>(?:'.*'|\".*\"))\)", re.DOTALL)
 # What OpenInference writes where its TraceConfig hides a value; the runner drops the key rather than send it.
 HIDDEN = "__REDACTED__"
 # OpenInference's names for a model call's model and tokens, copied to the gen_ai keys #37's readers know.
@@ -176,8 +180,18 @@ def fit(message: pb.RunnerSpan) -> None:
 
 
 def _status(span: ReadableSpan, scrub: Scrub) -> str:
-    # LangChain's error is its repr, a blank line, then the stack, which the span's exception event carries already.
-    return scrub(span.status.description or "").split("\n\n", 1)[0][:SPAN_ATTR_CHARS]
+    """The error alone, as Python prints it: `Type: message`. The stack stays in the exception event."""
+    # LangChain's error is repr(error) with the stack glued on, no newline between; Rotor's own spans hold str(error).
+    text = (span.status.description or "").split(TRACEBACK, 1)[0].strip()
+    shown = REPR.fullmatch(text)
+    if shown:
+        try:
+            message = ast.literal_eval(shown["args"])
+        except (ValueError, SyntaxError):
+            message = None
+        if isinstance(message, str):
+            text = f"{shown['type']}: {message}"
+    return scrub(text)[:SPAN_ATTR_CHARS]
 
 
 def to_message(span: ReadableSpan, scrub: Scrub, content: bool = False) -> pb.RunnerSpan:

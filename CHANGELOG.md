@@ -794,6 +794,10 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- A failed span's status message on the run page holds the error alone, such
+  as `RunEnded: file raised ValueError: The story has no title (line 2)`, and
+  no longer ends with a stray `Traceback (most recent call last):`; the whole
+  stack trace stays in the span's exception event (#254).
 - A run stops at its approval, and the approval opens, as soon as the runner
   reaches it, whatever the trace collector does. The control plane used to
   send a runner's last spans on before it handled the run's end, so with the
