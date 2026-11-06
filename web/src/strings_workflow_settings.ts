@@ -1,3 +1,5 @@
+import { workflowTracingStrings } from "./strings_workflow_tracing";
+
 /** The words of a workflow's settings pages (#205) and of its row in the list, spread into s; strings.ts holds the rest. */
 export const workflowSettingsStrings = {
   nav: "Workflow settings pages",
@@ -7,7 +9,8 @@ export const workflowSettingsStrings = {
   editor: "Open the editor",
   loading: "Asking the server for the workflow.",
   notFound: "There is no such workflow, or it is not shared with you.",
-  pages: { general: "General", versions: "Versions", sharing: "Sharing", triggers: "Triggers" },
+  tracing: workflowTracingStrings,
+  pages: { general: "General", versions: "Versions", sharing: "Sharing", triggers: "Triggers", tracing: "Tracing" },
   general: {
     detailsTitle: "Name and description",
     detailsBody: "They are the workflow's metadata: saving them saves a new version, as the editor does.",

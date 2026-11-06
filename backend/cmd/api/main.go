@@ -200,7 +200,7 @@ func run() error {
 		runners.ApprovalTTL = cfg.Approvals.TTL
 		// Runs' traces go to the OTLP destinations administrators choose (#246).
 		destinations := tracedest.NewService(cluster, secrets, log)
-		server.TraceDestinations = destinations
+		server.TraceDestinations, server.WorkflowTracing = destinations, destinations
 		forwarder := &tracedest.Forwarder{Tracing: tracing, Destinations: destinations, Log: log}
 		runners.Telemetry = forwarder
 		// A sender's spans that join a run go where the run's runner's go.

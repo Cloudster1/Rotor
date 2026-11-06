@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
@@ -139,13 +140,13 @@ type Forwarder struct {
 
 var _ runnerctl.Telemetry = (*Forwarder)(nil)
 
-// Content says whether some destination may get runs' spans' text, so the runner sends it.
-func (f *Forwarder) Content(ctx context.Context) bool {
-	if f.Destinations == nil {
+// Content says whether a destination the run's trace goes to may get its spans' text, so the runner sends it.
+func (f *Forwarder) Content(ctx context.Context, choice observability.RunTracing, traceID trace.TraceID) bool {
+	if f.Destinations == nil || choice.NoText {
 		return false
 	}
 	for _, t := range f.Destinations.sending(ctx) {
-		if t.content {
+		if t.content && choice.SendsTo(traceID, t.id) {
 			return true
 		}
 	}
@@ -153,7 +154,8 @@ func (f *Forwarder) Content(ctx context.Context) bool {
 }
 
 // Spans sends a run's spans on, each place side by side within ctx's deadline; one that fails loses this batch alone.
-func (f *Forwarder) Spans(ctx context.Context, runID uuid.UUID, spans []observability.RunnerSpan) {
+// The destinations are those the run's workflow chose, without text where it chose none (#259).
+func (f *Forwarder) Spans(ctx context.Context, runID uuid.UUID, choice observability.RunTracing, spans []observability.RunnerSpan) {
 	if len(spans) == 0 {
 		return
 	}
@@ -174,9 +176,12 @@ func (f *Forwarder) Spans(ctx context.Context, runID uuid.UUID, spans []observab
 		return
 	}
 	for _, t := range f.Destinations.sending(ctx) {
+		if !choice.SendsTo(spans[0].TraceID, t.id) {
+			continue
+		}
 		wg.Go(func() {
 			batch := bare
-			if t.content {
+			if t.content && !choice.NoText {
 				batch = spans
 			}
 			export, err := f.Destinations.exporter(ctx, t)

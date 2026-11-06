@@ -9,6 +9,15 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A workflow's administrators choose how its runs are traced, under its
+  settings, Tracing (#259): keep text as the installation does, or none at
+  all, in Rotor or at any destination, whatever the installation keeps;
+  every enabled trace destination or only the ones chosen; and the share of
+  its runs sent to them, from 0 to 1. The page shows whether the installation
+  keeps text and which destinations take it, so inheriting says what it
+  means. An administrator of Rotor may change it on any workflow;
+  `GET`/`PUT /workflows/{workflowID}/settings/tracing` do the same, and each
+  change is audited as `workflow.tracing_changed`.
 - Two workflows to start from that show what no other example does (#271),
   and `docs/workflows.md` opens its examples with a table of every example
   and the capabilities it shows. `examples/weekly-digest.yaml` is meant for a
