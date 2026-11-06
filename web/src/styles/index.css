@@ -30,6 +30,13 @@
     font-feature-settings: "calt", "tnum", "cv11";
   }
 
+  /* The shell fills the window and scrolls its content itself, so the window never scrolls it away (#264);
+     a page without the shell, like sign-in, keeps the window's own scrolling. */
+  html:has([data-app-shell]),
+  html:has([data-app-shell]) body {
+    overflow: hidden;
+  }
+
   ::selection {
     background-color: var(--color-selection);
   }

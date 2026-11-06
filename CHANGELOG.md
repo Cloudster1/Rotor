@@ -798,6 +798,13 @@ and the versioning [Semantic Versioning](https://semver.org/).
   as `RunEnded: file raised ValueError: The story has no title (line 2)`, and
   no longer ends with a stray `Traceback (most recent call last):`; the whole
   stack trace stays in the span's exception event (#254).
+
+- The page scrolls inside the app and never past it: the sidebar and top bar
+  stay put at the end of a long page, and moving focus to the editor's
+  Import YAML button no longer scrolls the window and blanks the screen on a
+  phone. A visually hidden control at the end of a page used to stretch the
+  window below the app (#264).
+
 - A run stops at its approval, and the approval opens, as soon as the runner
   reaches it, whatever the trace collector does. The control plane used to
   send a runner's last spans on before it handled the run's end, so with the
