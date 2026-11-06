@@ -14,6 +14,7 @@ import (
 
 	"github.com/cloudster1/rotor/backend/internal/config"
 	sealing "github.com/cloudster1/rotor/backend/internal/envelope"
+	"github.com/cloudster1/rotor/backend/internal/observability"
 )
 
 // A run is traced without asking (#242): its runner's spans land in Postgres beside their export, read through SQL
@@ -100,11 +101,11 @@ func TestASpansTextIsKeptSealedOnlyWhileAllowed(t *testing.T) {
 	ctx := context.Background()
 	r := h.runWithTrace(t, h.addPerson(t, "member"))
 	h.keepContent(t, true)
-	if err := h.traceStore(t).Keep(ctx, r.id, r.dataKey, runnerSpans(r, 1)); err != nil {
+	if err := h.traceStore(t).Keep(ctx, r.id, r.dataKey, observability.AllTracing, runnerSpans(r, 1)); err != nil {
 		t.Fatal(err)
 	}
 	h.keepContent(t, false)
-	if err := h.traceStore(t).Keep(ctx, r.id, r.dataKey, runnerSpans(r, 1)); err != nil {
+	if err := h.traceStore(t).Keep(ctx, r.id, r.dataKey, observability.AllTracing, runnerSpans(r, 1)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -159,7 +160,7 @@ func TestATracePastItsCapIsCutAndMarked(t *testing.T) {
 	ctx := context.Background()
 	person := h.addPerson(t, "member")
 	r := h.runWithTrace(t, person)
-	if err := h.traceStore(t).Keep(ctx, r.id, r.dataKey, runnerSpans(r, 1)); err != nil {
+	if err := h.traceStore(t).Keep(ctx, r.id, r.dataKey, observability.AllTracing, runnerSpans(r, 1)); err != nil {
 		t.Fatal(err)
 	}
 	kept, _ := h.keptTraceOf(t, r.id)
@@ -178,7 +179,7 @@ func TestATracePastItsCapIsCutAndMarked(t *testing.T) {
 
 	// A span id taken already is skipped, and the cap holds rotor_app too: a sender's span into a trace at its bytes.
 	other := h.runWithTrace(t, person)
-	if err := h.traceStore(t).Keep(ctx, other.id, other.dataKey, runnerSpans(other, 1)); err != nil {
+	if err := h.traceStore(t).Keep(ctx, other.id, other.dataKey, observability.AllTracing, runnerSpans(other, 1)); err != nil {
 		t.Fatal(err)
 	}
 	full, _ := h.keptTraceOf(t, other.id)

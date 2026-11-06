@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/traces"
 )
 
@@ -40,7 +41,7 @@ func TestSpansPastTheRetentionGo(t *testing.T) {
 	store := h.traceStore(t)
 	keep := func(spans int) (tracedByHand, keptTrace) {
 		r := h.runWithTrace(t, person)
-		if err := store.Keep(ctx, r.id, r.dataKey, runnerSpans(r, spans)); err != nil {
+		if err := store.Keep(ctx, r.id, r.dataKey, observability.AllTracing, runnerSpans(r, spans)); err != nil {
 			t.Fatal(err)
 		}
 		kept, _ := h.keptTraceOf(t, r.id)

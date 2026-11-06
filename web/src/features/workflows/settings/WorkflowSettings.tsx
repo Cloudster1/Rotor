@@ -13,6 +13,7 @@ import { WorkflowGrantsPanel } from "../WorkflowGrantsPanel";
 import { SectionNote, useSettingsWorkflow } from "./shared";
 
 export { GeneralPage } from "./GeneralSection";
+export { TracingPage } from "./TracingSection";
 
 /** A workflow's settings: whose they are, a way back to its editor, and its sections beside the one open. */
 export function WorkflowSettingsLayout() {

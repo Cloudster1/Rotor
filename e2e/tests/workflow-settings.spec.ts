@@ -5,7 +5,7 @@ import { PEOPLE, signIn } from "../fixtures/auth";
 import { confirmDialog, expectAccessible, openShell } from "../fixtures/shell";
 import { createWorkflow } from "../fixtures/runs";
 
-// A workflow's settings are pages of their own (#205): General, Versions, Sharing and Triggers, beside the editor.
+// A workflow's settings are pages of their own (#205): General, Versions, Sharing, Triggers and Tracing, beside the editor.
 
 test("the editor keeps the YAML, the canvas and the checks, and links to the workflow's settings", async ({ page }) => {
   const name = `e2e-${randomUUID().slice(0, 12)}`;
@@ -104,6 +104,29 @@ test("a runner opens every section of a workflow's settings, read only but for t
     await expect(carol.locator("[data-settings-not-found]")).toBeVisible();
   } finally {
     await context.close();
+    await archiveWorkflow(page, id);
+  }
+});
+
+test("its administrator keeps no trace text of a workflow, and the choice survives a reload", async ({ page }) => {
+  const name = `e2e-${randomUUID().slice(0, 12)}`;
+  const id = await createWorkflow(page, plainWorkflow(name));
+  try {
+    await openShell(page, `/workflows/${id}/settings/general`);
+    await page.locator('[data-settings-page="tracing"]').click();
+    await expect(page).toHaveURL(new RegExp(`/workflows/${id}/settings/tracing$`));
+    await expect(page.locator("main h1")).toHaveText("Tracing");
+    await expect(page.locator("[data-tracing-installation]")).toBeVisible();
+    await page.locator('[data-tracing-text] input[value="none"]').check();
+    await page.locator('[data-action="save-tracing"]').click();
+    await expect(page.locator("[role=status]", { hasText: "Tracing saved." })).toBeVisible();
+    await expectAccessible(page);
+
+    await page.reload();
+    await expect(page.locator('[data-tracing-text] input[value="none"]')).toBeChecked();
+    await expect(page.locator('[data-tracing-text] input[value="inherit"]')).not.toBeChecked();
+    await expectAccessible(page);
+  } finally {
     await archiveWorkflow(page, id);
   }
 });

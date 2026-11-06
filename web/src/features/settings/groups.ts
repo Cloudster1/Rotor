@@ -26,6 +26,7 @@ export interface SettingsNavPage {
     | "/workflows/$workflowID/settings/versions"
     | "/workflows/$workflowID/settings/sharing"
     | "/workflows/$workflowID/settings/triggers"
+    | "/workflows/$workflowID/settings/tracing"
     | "/skills/$skillID/files"
     | "/skills/$skillID/versions"
     | "/skills/$skillID/sharing"
@@ -107,6 +108,7 @@ export function workflowSettingsGroups(workflowID: string): readonly SettingsNav
         { slug: "versions", path: "/workflows/$workflowID/settings/versions", params, label: s.workflowSettings.pages.versions },
         { slug: "sharing", path: "/workflows/$workflowID/settings/sharing", params, label: s.workflowSettings.pages.sharing },
         { slug: "triggers", path: "/workflows/$workflowID/settings/triggers", params, label: s.workflowSettings.pages.triggers },
+        { slug: "tracing", path: "/workflows/$workflowID/settings/tracing", params, label: s.workflowSettings.pages.tracing },
       ],
     },
   ];

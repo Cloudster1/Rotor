@@ -97,7 +97,8 @@ func (s *Service) keyOwn(ctx context.Context, owner, id uuid.UUID) (uuid.UUID, *
 
 // forward sends spans that joined a run on as the runner's go, on a pool of its own and without the request waiting;
 // with every slot taken the batch is dropped, as a runner's export is.
-func (s *Service) forward(ctx context.Context, runID uuid.UUID, spans []observability.RunnerSpan) {
+func (s *Service) forward(ctx context.Context, run seenRun, spans []observability.RunnerSpan) {
+	runID := run.id
 	if s.Forward == nil {
 		return
 	}
@@ -113,6 +114,6 @@ func (s *Service) forward(ctx context.Context, runID uuid.UUID, spans []observab
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), config.RunnerSpanExportTimeout)
 	go func() {
 		defer func() { cancel(); <-s.forwarding }()
-		s.Forward.Spans(ctx, runID, spans)
+		s.Forward.Spans(ctx, runID, run.tracing, spans)
 	}()
 }

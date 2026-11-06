@@ -27,13 +27,14 @@ const insertSpans = `INSERT INTO trace_span (trace, span_id, parent_span_id, nam
 	ORDER BY s.n`
 
 // Keep stores a run's checked spans in its trace, made with the first of them, beside their export. Their text is
-// sealed with the run's data key while Rotor keeps text, and dropped otherwise.
-func (s *Service) Keep(ctx context.Context, runID uuid.UUID, dataKey string, spans []observability.RunnerSpan) error {
+// sealed with the run's data key while Rotor keeps text and the workflow did not choose none, and dropped otherwise.
+func (s *Service) Keep(ctx context.Context, runID uuid.UUID, dataKey string, choice observability.RunTracing,
+	spans []observability.RunnerSpan) error {
 	if len(spans) == 0 {
 		return nil
 	}
 	var box *envelope.Box
-	if s.Keys != nil && s.KeepContent(ctx) {
+	if s.Keys != nil && !choice.NoText && s.KeepContent(ctx) {
 		var err error
 		if box, err = s.Keys.For(ctx, runID, dataKey); err != nil {
 			return err

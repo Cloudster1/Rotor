@@ -2138,6 +2138,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/{workflowID}/settings/tracing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether the workflow's runs keep trace text, which destinations get them and what share, for whoever reads it.
+         * @description installation.keepContent and each destination's content say what inherit means; a destination is answered by name alone. canChange says the caller administers the workflow.
+         */
+        get: operations["getWorkflowTracing"];
+        /**
+         * Choose whether the workflow's runs keep trace text, which destinations get them, and the share of runs sent.
+         * @description For whoever administers the workflow or Rotor. content none keeps no text of its runs in Rotor or at any destination; there is no more text than the installation keeps. destinations null sends to every enabled one, ones added later too; sampleRatio from 0 to 1 is decided by the trace id. Runs started afterwards follow it.
+         */
+        put: operations["setWorkflowTracing"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/{workflowID}/triggers": {
         parameters: {
             query?: never;
@@ -2561,6 +2585,9 @@ export interface components {
         IngestKeySecret: {
             key: components["schemas"]["IngestKey"];
             secret: string;
+        };
+        InstallationTracing: {
+            keepContent: boolean;
         };
         JoinRequestView: {
             email: string;
@@ -3296,6 +3323,12 @@ export interface components {
             state: "kept" | "expired" | "none";
             traceId: string;
         };
+        TracingDestination: {
+            content: boolean;
+            enabled: boolean;
+            id: string;
+            name: string;
+        };
         TriggerCondition: {
             /** @enum {string} */
             op: "equals" | "notEquals" | "in" | "notIn" | "exists" | "absent";
@@ -3471,6 +3504,27 @@ export interface components {
             sharedWith: number;
             /** Format: date-time */
             updatedAt: string;
+        };
+        WorkflowTracing: {
+            changedBy: string | null;
+            /** @enum {string} */
+            content: "inherit" | "none";
+            destinations: string[] | null;
+            sampleRatio: number;
+            /** Format: date-time */
+            updatedAt: string | null;
+        };
+        WorkflowTracingRequest: {
+            /** @enum {string} */
+            content: "inherit" | "none";
+            destinations: string[] | null;
+            sampleRatio: number;
+        };
+        WorkflowTracingResponse: {
+            canChange: boolean;
+            destinations: components["schemas"]["TracingDestination"][];
+            installation: components["schemas"]["InstallationTracing"];
+            tracing: components["schemas"]["WorkflowTracing"];
         };
         WorkspaceImage: {
             name: string;
@@ -10446,6 +10500,108 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getWorkflowTracing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflowID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowTracingResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    setWorkflowTracing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflowID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowTracingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowTracingResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

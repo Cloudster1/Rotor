@@ -105,6 +105,8 @@ const (
 	ActionTraceDestinationRemoved = "trace_destination.removed"
 	// ActionTraceDestinationCarriedOver is the api's start making the LangSmith setting a destination (#246).
 	ActionTraceDestinationCarriedOver = "trace_destination.carried_over"
+	// ActionWorkflowTracingChanged is a workflow's administrator choosing what its runs' traces keep and where they go (#259).
+	ActionWorkflowTracingChanged = "workflow.tracing_changed"
 	// ActionIngestKeyCreated, ActionIngestKeyRotated and ActionIngestKeyRevoked are an administrator keeping the keys
 	// services send spans with (#258), never a key or its hash.
 	ActionIngestKeyCreated = "ingest_key.created"
@@ -125,8 +127,8 @@ var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, Actio
 	ActionGroupMemberRemoved, ActionSwitchedOn, ActionMemberAdmitted, ActionMemberDeclined, ActionOIDCSaved,
 	ActionSkillCreated, ActionSkillChanged, ActionSkillArchived, ActionSkillRestored, ActionSkillImported,
 	ActionSkillInstalled, ActionTracesChanged, ActionTraceDestinationAdded, ActionTraceDestinationChanged,
-	ActionTraceDestinationRemoved, ActionTraceDestinationCarriedOver, ActionIngestKeyCreated, ActionIngestKeyRotated,
-	ActionIngestKeyRevoked}
+	ActionTraceDestinationRemoved, ActionTraceDestinationCarriedOver, ActionWorkflowTracingChanged, ActionIngestKeyCreated,
+	ActionIngestKeyRotated, ActionIngestKeyRevoked}
 
 // Redacted stands in the record for a value that looked like a credential.
 var Redacted = redact.Redacted

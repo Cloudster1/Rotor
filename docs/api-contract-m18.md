@@ -31,6 +31,7 @@ hex characters and span ids 16, as W3C trace context writes them.
   | 01520-01529 | #246 | `trace_destination`, and the LangSmith setting carried over into it |
   | 01530-01539 | #243 | anything the endpoint needs beyond #242, if any |
   | 01540 | #256 | `langsmith_setting` dropped |
+  | 01550 | #259 | `workflow_tracing` |
   | 01560 | #258 | `ingest_key`, its policies and the `ingest_key_cap` trigger |
 
 - Packages: `internal/traces` (the store, the cap, sealing, the tree and the sweep; #242, #244),
@@ -681,6 +682,86 @@ and write it, `rotor_admin` for the api's sending; a trigger refuses a row past
 - **Audit:** `langsmith.changed` and `trace_destination.carried_over` stay among the actions, as entries of them stay
   in the log.
 
+## Per-workflow tracing (#259)
+
+An administrator of a workflow chooses whether its runs' traces keep text and where they are sent, beside its
+other settings (#205).
+
+### What a workflow chooses
+
+- **Text:** `content` is `inherit` (the default: as the installation's `keep_content` and each destination's
+  `content` say) or `none` (no text, whatever the installation says). There is no `keep`: a workflow only ever
+  has less text than the installation, since an installation administrator's choice to keep none must hold.
+- **What `none` means:** the runner is started with `trace_content` false, Rotor stores none of the run's text,
+  and no destination gets any, spans joining the run through the OTLP endpoint included. Only then is the choice
+  safe to rely on for a sensitive workflow.
+- **Destinations:** `destinations` is null (the default: every enabled destination, ones added later included)
+  or a list of destination ids (those of them that are enabled; an empty list is none). A list is chosen so a
+  sensitive workflow does not start sending to a destination added later without its administrators knowing.
+  A destination removed drops out of every list.
+- **Sampling:** `sampleRatio`, 0 to 1, default 1, is the share of the workflow's runs sent to its destinations,
+  decided by the trace id as the collector's ratio is, so a trace is sent whole or not at all, to each chosen
+  destination alike. Rotor's own store keeps every run's trace and `ROTOR_TRACE_SAMPLE_RATIO` still bounds the
+  collector alone, since the ratio is about what leaves Rotor for a shared tool.
+
+### Storage and who changes it
+
+- Migration 01550 makes `workflow_tracing`: `workflow_id` (the key, cascading with the workflow), `content`
+  (`inherit` or `none`), `destinations uuid[]` (null for all, at most `MaxTraceDestinations`), `sample_ratio`
+  (`double precision`, 0 to 1), `changed_by`, `updated_at`. A table of its own rather than columns on
+  `workflow`, since `workflow_change_guard` tells columns apart by who may change them and this takes its own
+  policies; a workflow without a row has the defaults, so no workflow needs filling in.
+- Policies: whoever reads the workflow (`workflow.read`) reads its row, whoever administers it
+  (`workflow.administer`) adds, changes and removes it, an installation administrator through the
+  installation-wide grant; `rotor_admin` reads every row for the api's runs and the OTLP endpoint.
+- `destinations` is not a foreign key, since Postgres has none for an array: the api refuses an id that is
+  not a destination, and a removed one is left out wherever the list is read.
+
+### Endpoints
+
+| Method and path | Who | What |
+|---|---|---|
+| `GET /workflows/{workflowID}/settings/tracing` | whoever reads the workflow | `{tracing, installation: {keepContent}, destinations: [{id, name, enabled, content}], canChange}` |
+| `PUT /workflows/{workflowID}/settings/tracing` | its administrators, session | `{content, destinations, sampleRatio}` changes it; answers as `GET` |
+
+- A route of its own rather than the workflow's `PUT`, which saves a version: the choice is the
+  installation's handling of runs, not part of the spec, and a version restored must not undo it.
+- `tracing` is `{content, destinations, sampleRatio, changedBy, updatedAt}`, `changedBy` and `updatedAt` null
+  while the workflow has the defaults. `installation.keepContent` and each destination's `content` say what
+  `inherit` means for the person choosing, who need not be an installation administrator; a destination is
+  answered by name alone, as a run's trace links already show it, never its endpoint or headers.
+- A workflow it does not read is 404; one it reads but does not administer is 403 `forbidden`. A `content`
+  other than the two, a ratio outside 0 to 1, or a destination id that is none, twice, or past
+  `MaxTraceDestinations` is 422 `validation_failed` naming the field.
+- A change is audited as `workflow.tracing_changed` on the workflow, naming the destinations rather than their ids.
+
+### Applying it
+
+- **The runner's spans:** the stream reads the workflow's row with the run, once per runner stream as
+  `rotor_admin` (`loadRun`), so no batch reads the database; a change reaches runs started afterwards, and a
+  running run at its runner's next stream. `StartRun.trace_content` is `content` not `none` and (`keep_content`,
+  or some destination the run's trace is sent to, chosen, enabled and sampled, takes text).
+- **Rotor's store** keeps no text of a `none` run's spans, as with `keep_content` off.
+- **The forwarder** takes the run's choice with each batch and sends to the destinations it read within
+  `TraceSettingTTL` that the choice names and the ratio keeps; the collector is untouched.
+- **Spans joining a run** through the OTLP endpoint: the choices of the runs a request joins are read once per
+  request beside finding the runs, and applied as to the runner's.
+
+### As built (#259)
+
+- **Where:** `tracedest/workflow.go` (reading, checking and changing the choice), the routes in
+  `httpapi/workflow_tracing_handlers.go`, and `observability.RunTracing` (`choice.go`), the choice as a run carries it
+  to the runner protocol, the store and the forwarder; its `SendsTo` decides by the trace id with the SDK's
+  `TraceIDRatioBased`, as the collector's ratio does. A Go test holds the migration's cap to `MaxTraceDestinations`.
+- **Who:** the api asks `actor_can('workflow.administer', id)` of a workflow the caller reads, so an administrator of
+  Rotor needs no grant on it; an editor or runner reads it with `canChange` false. Like the destinations, the routes
+  answer 503 `traces_unavailable` where Rotor has no OpenBao, since nothing would run there either. A destination id
+  that is not a UUID is refused as one that is none.
+- **Spans joining a run:** the choices are read as `rotor_admin` in one query for the workflows of the runs a request
+  joins, since a run's starter may no longer read its workflow.
+- **Web:** the workflow's settings gain Tracing (`/workflows/$workflowID/settings/tracing`,
+  `features/workflows/settings/TracingSection.tsx`), with the words in `web/src/strings_workflow_tracing.ts`; it says
+  whether the installation keeps text and which destinations take it, and is read only without `canChange`.
 ## Ingest keys (#258)
 
 A service sends spans with a long-lived key in place of a token it refreshes:
@@ -771,6 +852,8 @@ rotatedAt}`. The web shows the keys under Admin, Traces, beside the destinations
 | `trace_destination.changed` | `{name, endpoint, headers: set\|kept\|removed, enabled, content, acknowledged}` | #246 |
 | `trace_destination.removed` | `{name}` | #246 |
 | `trace_destination.carried_over` | `{name, enabled, content}`, by the api's start | #246 |
+| `workflow.tracing_changed` | `{content, destinations: [names] or null, sampleRatio}` | #259 |
+
 | `ingest_key.created` | `{name, account, expiresAt}`, the account by email | #258 |
 | `ingest_key.rotated` | `{name, account}` | #258 |
 | `ingest_key.revoked` | `{name, account}` | #258 |
@@ -823,7 +906,6 @@ Never a header's value, nor an ingest key or its hash. Spans taken, cut or swept
 ## What is left for later
 
 - Sibling tools sending their spans, and trace context in Exciter, Armature and Stator.
-- Text kept per workflow rather than per installation, and per-workflow sampling for destinations.
 - A page for senders' own traces in the web app, and own traces as MCP tools.
 - Span links, OTLP metrics and logs, and gRPC OTLP.
 - Searching spans across runs, and evaluations or scores on spans.

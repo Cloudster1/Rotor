@@ -9191,6 +9191,140 @@
         }
       }
     },
+    "/workflows/{workflowID}/settings/tracing": {
+      "get": {
+        "operationId": "getWorkflowTracing",
+        "summary": "Whether the workflow's runs keep trace text, which destinations get them and what share, for whoever reads it.",
+        "description": "installation.keepContent and each destination's content say what inherit means; a destination is answered by name alone. canChange says the caller administers the workflow.",
+        "tags": [
+          "telemetry"
+        ],
+        "parameters": [
+          {
+            "name": "workflowID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowTracingResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setWorkflowTracing",
+        "summary": "Choose whether the workflow's runs keep trace text, which destinations get them, and the share of runs sent.",
+        "description": "For whoever administers the workflow or Rotor. content none keeps no text of its runs in Rotor or at any destination; there is no more text than the installation keeps. destinations null sends to every enabled one, ones added later too; sampleRatio from 0 to 1 is decided by the trace id. Runs started afterwards follow it.",
+        "tags": [
+          "telemetry"
+        ],
+        "parameters": [
+          {
+            "name": "workflowID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowTracingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowTracingResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workflows/{workflowID}/triggers": {
       "get": {
         "operationId": "listWorkflowTriggers",
@@ -10865,6 +10999,17 @@
         "required": [
           "key",
           "secret"
+        ]
+      },
+      "InstallationTracing": {
+        "type": "object",
+        "properties": {
+          "keepContent": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "keepContent"
         ]
       },
       "JoinRequestView": {
@@ -13825,6 +13970,29 @@
           "roots"
         ]
       },
+      "TracingDestination": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "enabled",
+          "content"
+        ]
+      },
       "TriggerCondition": {
         "type": "object",
         "properties": {
@@ -14533,6 +14701,105 @@
           "canRun",
           "canEdit",
           "canAdminister"
+        ]
+      },
+      "WorkflowTracing": {
+        "type": "object",
+        "properties": {
+          "changedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "enum": [
+              "inherit",
+              "none"
+            ]
+          },
+          "destinations": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "sampleRatio": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "content",
+          "destinations",
+          "sampleRatio",
+          "changedBy",
+          "updatedAt"
+        ]
+      },
+      "WorkflowTracingRequest": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "enum": [
+              "inherit",
+              "none"
+            ]
+          },
+          "destinations": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "sampleRatio": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "content",
+          "destinations",
+          "sampleRatio"
+        ]
+      },
+      "WorkflowTracingResponse": {
+        "type": "object",
+        "properties": {
+          "canChange": {
+            "type": "boolean"
+          },
+          "destinations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TracingDestination"
+            }
+          },
+          "installation": {
+            "$ref": "#/components/schemas/InstallationTracing"
+          },
+          "tracing": {
+            "$ref": "#/components/schemas/WorkflowTracing"
+          }
+        },
+        "required": [
+          "tracing",
+          "installation",
+          "destinations",
+          "canChange"
         ]
       },
       "WorkspaceImage": {

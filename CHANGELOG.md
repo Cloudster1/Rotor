@@ -30,6 +30,16 @@ and the versioning [Semantic Versioning](https://semver.org/).
   /settings/ingest-keys/{keyID}/rotate` and `DELETE
   /settings/ingest-keys/{keyID}`.
 
+- A workflow's administrators choose how its runs are traced, under its
+  settings, Tracing (#259): keep text as the installation does, or none at
+  all, in Rotor or at any destination, whatever the installation keeps;
+  every enabled trace destination or only the ones chosen; and the share of
+  its runs sent to them, from 0 to 1. The page shows whether the installation
+  keeps text and which destinations take it, so inheriting says what it
+  means. An administrator of Rotor may change it on any workflow;
+  `GET`/`PUT /workflows/{workflowID}/settings/tracing` do the same, and each
+  change is audited as `workflow.tracing_changed`.
+
 - A Traces page beside Runs lists the traces your own apps sent Rotor over
   OTLP that belong to no run (#257), newest first, 50 a page: each with its
   root span, service, span count, start and whether a span failed or the

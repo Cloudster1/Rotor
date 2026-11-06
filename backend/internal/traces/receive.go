@@ -39,13 +39,14 @@ type Sender struct {
 // Forwarder sends a run's spans on as the runner's go, to the collector and the destinations; *tracedest.Forwarder
 // is the real one.
 type Forwarder interface {
-	Spans(ctx context.Context, runID uuid.UUID, spans []observability.RunnerSpan)
+	Spans(ctx context.Context, runID uuid.UUID, choice observability.RunTracing, spans []observability.RunnerSpan)
 }
 
-// seenRun is a run a sender reads, found by its trace id.
+// seenRun is a run a sender reads, found by its trace id, and what its workflow chose of its trace (#259).
 type seenRun struct {
 	id, workflow uuid.UUID
 	dataKey      string
+	tracing      observability.RunTracing
 }
 
 // findRuns answers the runs among traceIDs that the sender on ctx reads, judged by row level security as the
@@ -85,7 +86,7 @@ func (s *Service) Receive(ctx context.Context, sender Sender, spans []observabil
 		batch := held(byTrace[id], sender, run, joins)
 		var kept int
 		if joins {
-			kept, err = s.intoRun(ctx, sender, run, id, batch, keep)
+			kept, err = s.intoRun(ctx, sender, run, id, batch, keep && !run.tracing.NoText)
 		} else {
 			kept, err = s.intoOwn(ctx, sender, id, batch, keep)
 		}
@@ -98,7 +99,7 @@ func (s *Service) Receive(ctx context.Context, sender Sender, spans []observabil
 		}
 		rejected.Add(ReasonCapped, len(batch)-kept)
 		if joins && kept > 0 {
-			s.forward(ctx, run.id, batch)
+			s.forward(ctx, run, batch)
 		}
 	}
 	return rejected, nil
@@ -170,7 +171,45 @@ func (s *Service) runsOf(ctx context.Context, ids []trace.TraceID) (map[trace.Tr
 		}
 		return rows.Err()
 	})
-	return out, err
+	if err != nil || len(out) == 0 {
+		return out, err
+	}
+	return out, s.choicesOf(ctx, out)
+}
+
+// choicesOf reads what the runs' workflows chose of their traces, as rotor_admin, since a run's starter may no longer
+// read its workflow; once per request, beside finding the runs.
+func (s *Service) choicesOf(ctx context.Context, runs map[trace.TraceID]seenRun) error {
+	ids := make([]uuid.UUID, 0, len(runs))
+	for _, r := range runs {
+		ids = append(ids, r.workflow)
+	}
+	chosen := map[uuid.UUID]observability.RunTracing{}
+	err := s.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
+		rows, err := tx.Query(ctx, `SELECT w.id, `+observability.RunTracingColumns+` FROM unnest($1::uuid[]) AS w(id)
+			LEFT JOIN workflow_tracing t ON t.workflow_id = w.id`, ids)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id uuid.UUID
+			var c observability.RunTracing
+			if err := rows.Scan(&id, &c.NoText, &c.Chosen, &c.Destinations, &c.SampleRatio); err != nil {
+				return err
+			}
+			chosen[id] = c
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return err
+	}
+	for id, r := range runs {
+		r.tracing = chosen[r.workflow]
+		runs[id] = r
+	}
+	return nil
 }
 
 // intoRun keeps spans in the run's trace, made with the first of them as the runner's store would; their text is
