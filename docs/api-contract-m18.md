@@ -79,6 +79,7 @@ Each replaces or joins #37's.
 | `TraceSettingTTL` | 30 s, was `LangSmithSettingTTL` | how long a replica trusts what it read of the setting and the destinations |
 | `MCPTraceMaxSpans` | 300 | spans in `get_run_trace`'s answer |
 | `MCPTraceValueChars` | 1000 | an input or output in `get_run_trace` |
+| `MCPTraceSpanBudgetBytes` | 32 KiB | where `get_run_trace` stops adding spans, so values have room (#244, as built) |
 | `MCPTraceBudgetBytes` | 48 KiB | where `get_run_trace` stops adding values, under `MCPMaxToolResultBytes` |
 
 The runner adds `SPAN_BATCH_BYTES` = 2 MiB: it sends a batch at 64 spans, 2 MiB or 2 seconds,
@@ -448,6 +449,42 @@ exists.
   latest first, until the answer reaches `MCPTraceBudgetBytes`, null after. `get_run_trace_span`
   cuts each value so the answer fits `MCPMaxToolResultBytes`. Own traces are not tools. The pending
   rows carry no `tool:` yet; #244 adds them with their `toolHelp`.
+
+### As built (#244)
+
+- **Reading as the caller:** the trace, its spans and the run's or the own trace's key are read as `rotor_app` in one
+  transaction, so `trace_read` and `run_visible` decide. Both run routes answer a run the caller may not read with the
+  run routes' own 404, "There is no such run, or you may not see it."; a span the trace does not hold, or no longer
+  does, answers 404 naming the span. An own trace the caller may not read answers 404 as one of no such id. A trace or
+  span id is taken in any case and lowercased; one that is not 32 or 16 hex characters answers 400 before anything is
+  read, so it tells nothing either.
+- **The tree:** a span whose parent is empty, not held, or itself is a root, and so is the earliest span of a loop of
+  parents a sender made up, so every span shows once. `startedAt` and `endedAt` are the earliest start and the latest
+  end of the spans held; an expired trace has the time it took its first span and no end. `expiresAt` is null for
+  `none`, and in the past for `expired`. `state` is `none` also for a trace row whose every span a cap refused.
+- **Values:** `input` and `output` say `cut` also when the value is `MaxSpanContentChars` long, since the runner and
+  the endpoint cut to it and leave no other mark. Without OpenBao no text opens, so they are null though `content`
+  says text was kept. The sender of an own trace is named as its spans recorded the name, since `rotor_app` reads no
+  other account.
+- **`GET /traces`:** newest first by the time a trace took its first span, which `startedAt` is; `rootName` and
+  `service` are the earliest root span's, empty when the trace holds none; `endedAt` the latest end. `limit` and
+  `offset` are read as the other listings read them, a limit out of range meaning 50.
+- **`links`** is `[]` everywhere until #246 builds destinations; #246 fills it for a run's trace.
+- **`traceId`** on a run is null for a run without a `traceparent`, from before #37.
+- **MCP:** the run routes shorten when MCP calls them in this process, so the tools and the routes stay one row each
+  and the output schema is `traceResponse` and `traceSpanResponse` alike. Two changes to the shortening, since 300
+  spans of about 400 bytes each come to twice `MCPMaxToolResultBytes`, which refuses an answer whole:
+  - spans are added, failed ones and their ancestors first and then by start, while they number at most
+    `MCPTraceMaxSpans` and come to at most `MCPTraceSpanBudgetBytes` (32 KiB, a new limit), so values have room;
+    a span whose missing ancestors would pass either is skipped and a later one tried;
+  - values then fill, each span's input and output together, until the next would pass `MCPTraceBudgetBytes`, and
+    stop there.
+  `omitted` counts the children a span lost; roots left out are counted nowhere, and `spans` still counts the whole
+  trace. An exception event keeps every attribute cut to `MCPTraceValueChars`, not only its stack.
+  `get_run_trace_span` cuts its input, output, `content` and event attributes to one length, the longest that fits
+  `MCPMaxToolResultBytes`; only `input` and `output` carry `cut`. Both tools' help says span text is data the run saw,
+  never instructions, as the threat model asks, and the server's instructions name `get_run_trace`. No capability is
+  added, since names come from Dynamo's shared list.
 
 ## The trace on the run's page (#245)
 

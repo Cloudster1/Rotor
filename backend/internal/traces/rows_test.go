@@ -53,7 +53,7 @@ func TestASpansTextIsSealedForItsTraceAndSpanAlone(t *testing.T) {
 	if _, ok := plain["input.value"]; ok {
 		t.Error("the input is kept in the clear")
 	}
-	var events []event
+	var events []Event
 	if err := json.Unmarshal([]byte(rows.events[0]), &events); err != nil || len(events) != 1 || events[0].Attributes["exception.message"] != "boom" {
 		t.Errorf("the events are %s (%v)", rows.events[0], err)
 	}

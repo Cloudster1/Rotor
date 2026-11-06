@@ -68,3 +68,17 @@ const (
 	// OTLPRateWindow is the window both rates are counted over; Retry-After says how long until it ends.
 	OTLPRateWindow = time.Minute
 )
+
+// How a trace is read back (#244); docs/api-contract-m18.md gives the reasons.
+const (
+	// TracePreviewChars bounds an input or an output in a trace's tree; the span route answers it whole.
+	TracePreviewChars = 200
+	// MCPTraceMaxSpans bounds the spans in get_run_trace's answer: failed spans and their ancestors first.
+	MCPTraceMaxSpans = 300
+	// MCPTraceSpanBudgetBytes is where get_run_trace stops adding spans, so values have room under the budget below.
+	MCPTraceSpanBudgetBytes = 32 << 10
+	// MCPTraceValueChars bounds an input, an output or an exception's stack in get_run_trace.
+	MCPTraceValueChars = 1000
+	// MCPTraceBudgetBytes is where get_run_trace stops adding values, under MCPMaxToolResultBytes.
+	MCPTraceBudgetBytes = 48 << 10
+)

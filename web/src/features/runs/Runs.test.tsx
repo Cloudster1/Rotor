@@ -72,6 +72,7 @@ const RUN: Run = {
   ended: false,
   approvalId: null,
   approvalIds: [],
+  traceId: null,
   trigger: null,
   usage: { inputTokens: 0, outputTokens: 0, cost: 0 },
 };

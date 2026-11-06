@@ -36,7 +36,7 @@ var MCPProtocolVersions = []string{"2025-11-25", "2025-06-18"}
 // mcpInstructions is what the model is told of Rotor before it calls anything.
 const mcpInstructions = "Rotor runs workflows that read and write Exciter, Armature and Stator as the person you act for, with " +
 	"their own permissions there. list_workflows finds a workflow and get_workflow reads its inputs; start_run starts it and " +
-	"get_run follows it to its end. A run may wait at an approval: list_approvals and get_approval read it, and a person " +
+	"get_run follows it to its end; get_run_trace shows where a run went wrong. A run may wait at an approval: list_approvals and get_approval read it, and a person " +
 	"decides it in Rotor's browser pages, never through a tool, so tell the person where to decide it."
 
 const (

@@ -1,5 +1,5 @@
-// Package traces keeps each run's trace in Postgres for whoever reads the run (#242): the store, the cap's numbers,
-// sealing a span's text with the run's key, the retention setting and the sweep. docs/api-contract-m18.md says what.
+// Package traces keeps each run's trace in Postgres for whoever reads the run (#242): the store, the cap, sealing, the
+// retention setting, the sweep, and reading a trace back as a tree (#244). docs/api-contract-m18.md says what.
 package traces
 
 import (

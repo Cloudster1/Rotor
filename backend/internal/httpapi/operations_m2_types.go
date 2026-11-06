@@ -226,6 +226,8 @@ type runResponse struct {
 	Trigger *runTrigger `json:"trigger"`
 	// Usage is what the run's model calls used so far (#38).
 	Usage runUsage `json:"usage"`
+	// TraceID is the 32-hex trace id its spans carry, read with /runs/{runID}/trace (#244); null for a run before tracing.
+	TraceID *string `json:"traceId"`
 	// Graph is the pinned version's nodes and edges, for the run's page; one run alone carries it, not a list.
 	Graph *spec.Graph `json:"graph,omitempty"`
 	// LinkHosts are the hosts of the run's tools, the only ones its page makes links to (#40); one run alone has them.

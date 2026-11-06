@@ -34,8 +34,8 @@ type spanRows struct {
 	sealed                                                                       [][]byte
 }
 
-// event is a span event as trace_span.events keeps it.
-type event struct {
+// Event is a span event as trace_span.events keeps it.
+type Event struct {
 	Name       string            `json:"name"`
 	Time       time.Time         `json:"time"`
 	Attributes map[string]string `json:"attributes"`
@@ -57,11 +57,11 @@ func rowsOf(trace uuid.UUID, spans []observability.RunnerSpan, box *envelope.Box
 		if err != nil {
 			return spanRows{}, err
 		}
-		events := make([]event, 0, len(s.Events))
+		events := make([]Event, 0, len(s.Events))
 		for _, e := range s.Events {
 			// An event's text has no place of its own; exceptions carry none, as api/trace-content.json says.
 			eventPlain, _ := split(e.Attributes)
-			events = append(events, event{Name: clean(e.Name), Time: e.Time.UTC(), Attributes: eventPlain})
+			events = append(events, Event{Name: clean(e.Name), Time: e.Time.UTC(), Attributes: eventPlain})
 		}
 		eventsJSON, err := json.Marshal(events)
 		if err != nil {

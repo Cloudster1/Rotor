@@ -20,10 +20,10 @@ import (
 )
 
 // The tools docs/api-contract-m10.md names: workflows and runs read, checked, started and cancelled, and approvals
-// read, never decided.
+// read, never decided; M17's skills and M18's run traces (#244).
 var contractTools = []string{
-	"cancel_run", "create_skill", "get_approval", "get_run", "get_skill", "get_skill_file", "get_skill_version", "get_workflow",
-	"list_approvals", "list_runs", "list_skills", "list_workflows", "save_skill", "start_run", "validate_skill",
+	"cancel_run", "create_skill", "get_approval", "get_run", "get_run_trace", "get_run_trace_span", "get_skill", "get_skill_file",
+	"get_skill_version", "get_workflow", "list_approvals", "list_runs", "list_skills", "list_workflows", "save_skill", "start_run", "validate_skill",
 	"validate_workflow", "whoami",
 }
 

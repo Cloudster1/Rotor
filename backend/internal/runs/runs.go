@@ -86,6 +86,8 @@ type Run struct {
 	Cost                      float64
 	// Agents is the model each agent node ran on and what it used (#133); Get alone fills it.
 	Agents []AgentUsage
+	// TraceID is the run's W3C trace id, which its spans carry (#244); empty for a run from before tracing.
+	TraceID string
 	// Manages says the caller started the run, owns its workflow or administers Rotor, and so may cancel it; a group
 	// approver sees the run without managing it.
 	Manages bool
@@ -185,12 +187,12 @@ const runColumns = `r.id, r.workflow_id, r.workflow_name, r.version, r.user_id, 
 	r.trigger_id, (SELECT t.name FROM trigger t WHERE t.id = r.trigger_id),
 	COALESCE((SELECT u.input_tokens FROM run_usage u WHERE u.run_id = r.id), 0),
 	COALESCE((SELECT u.output_tokens FROM run_usage u WHERE u.run_id = r.id), 0),
-	COALESCE((SELECT u.cost FROM run_usage u WHERE u.run_id = r.id), 0)::float8`
+	COALESCE((SELECT u.cost FROM run_usage u WHERE u.run_id = r.id), 0)::float8, COALESCE(r.trace_id, '')`
 
 func scanRun(row pgx.Row) (Run, error) {
 	var r Run
 	err := row.Scan(&r.ID, &r.WorkflowID, &r.WorkflowName, &r.Version, &r.UserID, &r.StartedByName, &r.Status, &r.Reason,
-		&r.dataKey, &r.sealedIn, &r.sealedOut, &r.CreatedAt, &r.UpdatedAt, &r.StartedAt, &r.FinishedAt, &r.ApprovalIDs, &r.Manages, &r.TriggerID, &r.TriggerName, &r.InputTokens, &r.OutputTokens, &r.Cost)
+		&r.dataKey, &r.sealedIn, &r.sealedOut, &r.CreatedAt, &r.UpdatedAt, &r.StartedAt, &r.FinishedAt, &r.ApprovalIDs, &r.Manages, &r.TriggerID, &r.TriggerName, &r.InputTokens, &r.OutputTokens, &r.Cost, &r.TraceID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return r, ErrNotFound
 	}
