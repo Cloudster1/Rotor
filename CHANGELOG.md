@@ -9,6 +9,18 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A run's page shows its trace (#245): each step, model call and tool call as
+  a tree of spans, each with its kind, its duration and a bar placed on the
+  run's time, and the chosen span's details: kind, timing, status and message,
+  who sent it, model and tokens, attributes, events with each exception's
+  message and stack, and the whole input and output where Rotor kept text.
+  Failed spans are marked in words and with an icon, and when the run failed,
+  the span it failed in is opened. The page says when a trace expired, reached
+  its limit and how many spans it lost, or kept no text, and how long traces
+  are kept. Span text shows as text: nothing in it is markup, markdown or a
+  link. The tree works by keyboard (the arrows move, open and close, Enter
+  shows a span) and to a screen reader; a large trace opens to its nodes and
+  shows wide levels 100 spans at a time.
 - A run's trace reads through the API and MCP (#244).
   `GET /api/v1/runs/{runID}/trace` answers its spans as a tree, each with its
   kind, timing, status, model, tokens, attributes, events and the first 200

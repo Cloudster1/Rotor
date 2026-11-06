@@ -8,6 +8,7 @@ import { RunAgents } from "./RunAgents";
 import { RunGraph } from "./RunGraph";
 import { RunStatusBadge } from "./RunStatusBadge";
 import { RunTimeline } from "./RunTimeline";
+import { TraceSection } from "./trace/TraceSection";
 import { entries, nodeStates } from "./timeline";
 import { useRunEvents } from "./useRunEvents";
 
@@ -139,6 +140,7 @@ export function RunPage({ runID }: { runID: string }) {
           </pre>
         </section>
       )}
+      <TraceSection run={r} />
     </div>
   );
 }
