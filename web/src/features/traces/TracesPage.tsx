@@ -4,6 +4,7 @@ import { meQuery } from "@/api/auth";
 import { ownTracesQuery, type TraceSummary } from "@/api/traces";
 import { OWN_TRACES_PAGE_SIZE } from "@/config";
 import { Pager, shownOf, Tag, tableFrame, td, th } from "@/features/access/ui";
+import { link } from "@/features/settings/styles";
 import { PageIntro } from "@/features/settings/ui";
 import { EmptyState, PageHeader } from "@/features/shell/EmptyState";
 import { Icon } from "@/features/shell/icons";
@@ -93,6 +94,10 @@ export function TracesPage({ search }: { search: TracesSearch }) {
     <div className="flex flex-col gap-6">
       <PageHeader title={s.places.traces} />
       <PageIntro>{admin ? t.introAdmin : t.intro}</PageIntro>
+      {/* Spans of runs are searched here too, since a run's trace has no list of its own. */}
+      <Link to="/traces/search" className={`${link} self-start`} data-span-search-open>
+        {t.search.open}
+      </Link>
       {admin && (
         <label className="flex h-9 items-center gap-2 text-sm text-ink">
           <input

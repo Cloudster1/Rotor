@@ -9,14 +9,20 @@ function Target({ link }: { link: SpanLink }) {
   const className = "text-sm font-medium text-accent underline-offset-2 hover:underline";
   if (link.runId) {
     return (
-      <Link to="/runs/$runID" params={{ runID: link.runId }} className={className} data-span-link-target="run">
+      <Link to="/runs/$runID" params={{ runID: link.runId }} search={{ span: link.spanId }} className={className} data-span-link-target="run">
         {t.inRun}
       </Link>
     );
   }
   if (link.sender) {
     return (
-      <Link to="/traces/$traceID" params={{ traceID: link.traceId }} search={{ sender: link.sender }} className={className} data-span-link-target="trace">
+      <Link
+        to="/traces/$traceID"
+        params={{ traceID: link.traceId }}
+        search={{ sender: link.sender, span: link.spanId }}
+        className={className}
+        data-span-link-target="trace"
+      >
         {t.inTrace}
       </Link>
     );
