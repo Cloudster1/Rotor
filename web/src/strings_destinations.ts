@@ -1,5 +1,8 @@
-/** The words of the Traces admin page (#242, #246), spread into s as s.traceDestinations; strings.ts holds the rest. */
+import { ingestKeyStrings } from "./strings_ingest_keys";
+
+/** The words of the Traces admin page (#242, #246, #258), spread into s as s.traceDestinations; strings.ts holds the rest. */
 export const traceDestinationStrings = {
+  ingestKeys: ingestKeyStrings,
   page: {
     intro: "Where runs' traces are kept and where else they are sent.",
   },

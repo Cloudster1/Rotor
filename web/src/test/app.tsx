@@ -94,6 +94,7 @@ export async function renderAt(path: string, { me = ME as Me | null, answers = {
     "/api/v1/triggers": { triggers: [] },
     // The Traces page lists the destinations (#246) and the trace setting (#242): none, and the defaults.
     "/api/v1/settings/trace-destinations": { destinations: [] },
+    "/api/v1/settings/ingest-keys": { keys: [] },
     "/api/v1/settings/traces": TRACE_SETTING_DEFAULT,
     "/api/v1/settings/retention": RETENTION_DEFAULT,
     "/api/v1/oauth/grants": { grants: [] },

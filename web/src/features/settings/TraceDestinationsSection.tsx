@@ -12,18 +12,21 @@ import { DATE_AND_TIME, formatDateTime } from "@/lib/dates";
 import { s } from "@/strings";
 import { DESTINATION_PRESETS } from "./destinationPresets";
 import { DestinationForm, type DestinationStart } from "./DestinationForm";
+import { IngestKeysSection } from "./IngestKeysSection";
 import { danger, item, primary, secondary } from "./styles";
 import { TraceKeepingCard } from "./TraceKeepingCard";
 import { SettingsCard } from "./ui";
 
 const t = s.traceDestinations;
 
-/** The Traces admin page: how long traces and their text are kept (#242), and the OTLP tools they are also sent to (#246). */
+/** The Traces admin page: how long traces and their text are kept (#242), the OTLP tools they are also sent to (#246),
+ * and the keys services send spans with (#258). */
 export function TraceDestinationsSection() {
   return (
     <>
       <TraceKeepingCard />
       <Destinations />
+      <IngestKeysSection />
     </>
   );
 }

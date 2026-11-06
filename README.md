@@ -333,7 +333,11 @@ answer text goes to one only once an administrator acknowledges it leaves.
 A LangChain app or a tool sends its own spans to `/api/v1/otlp/v1/traces`
 with a bearer token, setting `OTEL_EXPORTER_OTLP_ENDPOINT` to
 `<rotor>/api/v1/otlp`; they join the run whose trace they name when the
-sender may read it, and a trace of the sender's own otherwise.
+sender may read it, and a trace of the sender's own otherwise. A service that
+should not refresh a token sends with an ingest key an administrator makes
+under Admin, Traces, as
+`OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer%20rotor_ik_...`; each key
+sends as one account and works at the OTLP endpoint alone.
 `make observe` starts a collector, Jaeger and Prometheus beside the stack.
 
 **Security at the edges.** A session is an opaque token whose SHA-256 alone is

@@ -9,6 +9,27 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Ingest keys let a service send its spans to Rotor's OTLP endpoint without
+  refreshing a token (#258). Under Admin, Traces, an administrator makes a
+  key with a name, the account it sends as (an account Rotor has let in, such
+  as a service account, named by email, or themselves) and an optional
+  expiry, and copies it once: Rotor keeps only its SHA-256 and its last four
+  characters. The service sets
+  `OTEL_EXPORTER_OTLP_ENDPOINT=https://rotor.example/api/v1/otlp` and
+  `OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer%20rotor_ik_...`; its spans
+  land as that account's, joining a run the account may read and its own
+  trace otherwise, and say which key sent them in `rotor.ingest_key`. A key
+  is taken at `POST /api/v1/otlp/v1/traces` alone and refused with 401
+  everywhere else, MCP included. Rotating gives a key a new secret and
+  refuses the old one at once; for no gap, make a second key and revoke the
+  first. Revoked, rotated-away and expired keys are refused with 401. Making,
+  rotating and revoking are audited as `ingest_key.created`, `.rotated` and
+  `.revoked`, never with the key. An installation holds at most 50 keys, and
+  each key's last use is noted at most once a minute. The routes are
+  `GET`/`POST /settings/ingest-keys`, `POST
+  /settings/ingest-keys/{keyID}/rotate` and `DELETE
+  /settings/ingest-keys/{keyID}`.
+
 - A workflow's administrators choose how its runs are traced, under its
   settings, Tracing (#259): keep text as the installation does, or none at
   all, in Rotor or at any destination, whatever the installation keeps;

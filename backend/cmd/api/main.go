@@ -25,6 +25,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/envelope"
 	"github.com/cloudster1/rotor/backend/internal/hooks"
 	"github.com/cloudster1/rotor/backend/internal/httpapi"
+	"github.com/cloudster1/rotor/backend/internal/ingestkeys"
 	"github.com/cloudster1/rotor/backend/internal/metrics"
 	"github.com/cloudster1/rotor/backend/internal/netguard"
 	"github.com/cloudster1/rotor/backend/internal/oauth"
@@ -224,6 +225,8 @@ func run() error {
 	server.Retention = retention.NewService(cluster, log)
 	server.Workspaces = workspaceService
 	server.Preferences = preferences.New(cluster)
+	// Services send spans with long-lived keys administrators make (#258).
+	server.IngestKeys = ingestkeys.NewService(cluster)
 	origins := cfg.CORSOrigins
 	if len(origins) == 0 && !cfg.IsProduction() {
 		origins = devOrigins

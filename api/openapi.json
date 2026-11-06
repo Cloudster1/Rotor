@@ -2625,6 +2625,9 @@
         },
         "security": [
           {
+            "ingestKey": []
+          },
+          {
             "rotorToken": []
           },
           {
@@ -4241,6 +4244,245 @@
           },
           "403": {
             "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/ingest-keys": {
+      "get": {
+        "operationId": "listIngestKeys",
+        "summary": "The keys services send spans to the OTLP endpoint with, by name; never a key itself.",
+        "tags": [
+          "traces"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestKeyList"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createIngestKey",
+        "summary": "Make a key that sends spans as one account; the answer holds the key, which is never shown again.",
+        "description": "accountEmail names an account Rotor has let in and not switched off, your own when left out. The key is taken at POST /api/v1/otlp/v1/traces alone. A name another key has answers 409 ingest_key_taken; a key past the most there can be 422 ingest_keys_full. The audit log records ingest_key.created.",
+        "tags": [
+          "traces"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestKeyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestKeySecret"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/ingest-keys/{keyID}": {
+      "delete": {
+        "operationId": "revokeIngestKey",
+        "summary": "Revoke a key: it is refused from the next request. The audit log records ingest_key.revoked.",
+        "tags": [
+          "traces"
+        ],
+        "parameters": [
+          {
+            "name": "keyID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/ingest-keys/{keyID}/rotate": {
+      "post": {
+        "operationId": "rotateIngestKey",
+        "summary": "Give a key a new secret, shown once; the old one is refused from the next request.",
+        "description": "The name, account and expiry stay. An expired key answers 409 ingest_key_expired. The audit log records ingest_key.rotated.",
+        "tags": [
+          "traces"
+        ],
+        "parameters": [
+          {
+            "name": "keyID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestKeySecret"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -10630,6 +10872,135 @@
           "version"
         ]
       },
+      "IngestKey": {
+        "type": "object",
+        "properties": {
+          "account": {
+            "$ref": "#/components/schemas/IngestKeyAccount"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expired": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "hint": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "lastUsedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "name": {
+            "type": "string"
+          },
+          "rotatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "account",
+          "hint",
+          "expiresAt",
+          "expired",
+          "lastUsedAt",
+          "createdBy",
+          "createdAt",
+          "rotatedAt"
+        ]
+      },
+      "IngestKeyAccount": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email"
+        ]
+      },
+      "IngestKeyList": {
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngestKey"
+            }
+          }
+        },
+        "required": [
+          "keys"
+        ]
+      },
+      "IngestKeyRequest": {
+        "type": "object",
+        "properties": {
+          "accountEmail": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "IngestKeySecret": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/IngestKey"
+          },
+          "secret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "secret"
+        ]
+      },
       "InstallationTracing": {
         "type": "object",
         "properties": {
@@ -14474,6 +14845,11 @@
       }
     },
     "securitySchemes": {
+      "ingestKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "A long-lived key an administrator made under Admin, Traces, starting rotor_ik_, sending as one account; taken at the OTLP endpoint alone."
+      },
       "realmToken": {
         "type": "http",
         "scheme": "bearer",
