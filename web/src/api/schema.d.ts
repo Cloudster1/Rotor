@@ -1104,11 +1104,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Whether runs' spans also go to LangSmith, and under which project; never the key. */
+        /**
+         * Whether runs' spans also go to LangSmith, and under which project; never the key.
+         * @deprecated
+         * @description Answers as before #246, from the carried-over destination. Deprecated: acts on the trace destination LangSmith became; use /settings/trace-destinations.
+         */
         get: operations["getLangSmith"];
         /**
          * Turn LangSmith on or off, name its project, or give a new key, kept in OpenBao.
-         * @description Turning it on is refused with 422 data_leaves_unacknowledged unless acknowledgeDataLeaves is true, since run data then leaves the installation, and with 422 langsmith_key_missing while no key is held. Leaving key out keeps the one held.
+         * @deprecated
+         * @description Turning it on is refused with 422 data_leaves_unacknowledged unless acknowledgeDataLeaves is true, since run data then leaves the installation, and with 422 langsmith_key_missing while no key is held. Leaving key out keeps the one held. Makes the destination where none was carried over. Deprecated: acts on the trace destination LangSmith became; use /settings/trace-destinations.
          */
         put: operations["setLangSmith"];
         post?: never;
@@ -1128,7 +1133,11 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Forget the LangSmith key, which turns LangSmith off. */
+        /**
+         * Forget the LangSmith key, which turns LangSmith off.
+         * @deprecated
+         * @description Keeps the project. Deprecated: acts on the trace destination LangSmith became; use /settings/trace-destinations.
+         */
         delete: operations["removeLangSmithKey"];
         options?: never;
         head?: never;
@@ -1186,7 +1195,7 @@ export interface paths {
         put?: never;
         /**
          * Add an OTLP destination; its headers are kept in OpenBao.
-         * @description content true is refused with 422 content_leaves_unacknowledged unless acknowledgeContentLeaves is true. A name another destination has answers 409.
+         * @description content true is refused with 422 content_leaves_unacknowledged unless acknowledgeContentLeaves is true. A name another destination has answers 409 trace_destination_taken; a ninth destination 422 trace_destinations_full. traceLink holds {traceId} and may hold {runId}, which a run's trace fills.
          */
         post: operations["addTraceDestination"];
         delete?: never;
@@ -1206,7 +1215,7 @@ export interface paths {
         get: operations["getTraceDestination"];
         /**
          * Change an OTLP destination.
-         * @description Leaving headers out keeps the ones held; {} removes them. Turning content on needs acknowledgeContentLeaves.
+         * @description Leaving headers out keeps the ones held; {} removes them. Turning content on, or moving the endpoint of a destination that gets text, needs acknowledgeContentLeaves.
          */
         put: operations["changeTraceDestination"];
         post?: never;
@@ -6918,15 +6927,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
                 headers: {
@@ -6987,15 +6987,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
                 headers: {
@@ -7038,15 +7029,6 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7125,15 +7107,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
                 headers: {
@@ -7174,15 +7147,6 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7232,15 +7196,6 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

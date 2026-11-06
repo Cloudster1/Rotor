@@ -32,7 +32,7 @@ func toTraceTree(t traces.Trace, roots []*traces.Node, chars int) traceTree {
 func traceHead(t traces.Trace) traceTree {
 	out := traceTree{TraceID: t.TraceID, State: traceState(t.State), Content: t.Content, Cut: t.Cut, Dropped: t.Dropped,
 		Spans: t.Spans, Bytes: t.Bytes, StartedAt: t.StartedAt, EndedAt: t.EndedAt, ExpiresAt: t.ExpiresAt,
-		// Destinations' trace links come with #246; until then there are none to give.
+		// A run's trace route adds the destinations' links; a sender's own trace went to none.
 		Links: []traceLink{}, Roots: []traceSpan{}}
 	if t.RunID != nil {
 		id := t.RunID.String()

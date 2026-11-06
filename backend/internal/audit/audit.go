@@ -96,6 +96,13 @@ const (
 	ActionSkillInstalled = "skill.installed"
 	// ActionTracesChanged is an administrator changing how long traces are kept and whether their text is (#242).
 	ActionTracesChanged = "traces.changed"
+	// ActionTraceDestinationAdded, ActionTraceDestinationChanged and ActionTraceDestinationRemoved are an administrator
+	// keeping the OTLP destinations runs' traces go to (#246), never a header's value.
+	ActionTraceDestinationAdded   = "trace_destination.added"
+	ActionTraceDestinationChanged = "trace_destination.changed"
+	ActionTraceDestinationRemoved = "trace_destination.removed"
+	// ActionTraceDestinationCarriedOver is the api's start making the LangSmith setting a destination (#246).
+	ActionTraceDestinationCarriedOver = "trace_destination.carried_over"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
@@ -110,7 +117,8 @@ var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, Actio
 	ActionRoleRemoved, ActionRoleDefined, ActionRoleRedefined, ActionGroupCreated, ActionGroupDeleted, ActionGroupMemberAdded,
 	ActionGroupMemberRemoved, ActionSwitchedOn, ActionMemberAdmitted, ActionMemberDeclined, ActionOIDCSaved,
 	ActionSkillCreated, ActionSkillChanged, ActionSkillArchived, ActionSkillRestored, ActionSkillImported,
-	ActionSkillInstalled, ActionTracesChanged}
+	ActionSkillInstalled, ActionTracesChanged, ActionTraceDestinationAdded, ActionTraceDestinationChanged,
+	ActionTraceDestinationRemoved, ActionTraceDestinationCarriedOver}
 
 // Redacted stands in the record for a value that looked like a credential.
 var Redacted = redact.Redacted

@@ -598,6 +598,62 @@ and write it, `rotor_admin` for the api's sending; a trigger refuses a row past
   shapes and refusals, and are removed one minor release later, with `langsmith_setting`. The admin
   page shows destinations and the trace setting in place of the LangSmith section.
 
+### As built (#246)
+
+- **Where:** `internal/tracedest` (`tracedest.go` the rows, `check.go` the input, `forward.go` sending and links,
+  `probe.go` the test, `carry.go` the carry-over, `langsmith.go` the deprecated routes), replacing `internal/langsmith`;
+  header values through `vault/tracedest.go`. The control plane's OpenBao policy, in the compose stack and the chart,
+  gains `rotor/{data,metadata}/settings/trace-destinations/*`.
+- **Migration:** one file, `01520_trace_destinations.sql`. A name is unique whatever its case (`lower(name)`), and one
+  row at most is `carried_over`. The cap's trigger takes an advisory lock, so two administrators adding at once cannot
+  pass it between them, and refuses as `trace_destination_cap`; text unacknowledged is refused as
+  `trace_destination_content_acknowledged`; a Go test holds the SQL numbers to the constants. A member is refused by the
+  policy, straight through SQL as `rotor_app`.
+- **Carried over, the migration:** "ever held a key" is `key_set_at IS NOT NULL`, since forgetting a key cleared it and
+  nothing else remembers one; the row is acknowledged by `changed_by` at `updated_at` when it was on. `header_names` are
+  kept in order, case aside, as every row keeps them. `langsmith_setting` gains `carried_at`, not in the table above:
+  the api's start sets it once it has carried LangSmith over, since a carried row without headers cannot otherwise be
+  told from one whose headers an administrator removed.
+- **Carried over, the start:** as `rotor_admin` under the advisory lock `rotor.tracedest.langsmith`, so replicas starting
+  together do it once. `ROTOR_LANGSMITH_ENDPOINT` always becomes the endpoint, as its default is LangSmith's own;
+  `headers_set_at` is the time the key was given. Without a key the row is turned off and its text with its
+  acknowledgement cleared. The old key is deleted after the commit, at every start, so one that stopped between the two
+  deletes it next time. A start that cannot reach OpenBao logs a warning and serves; the row sends nothing meanwhile.
+  `trace_destination.carried_over` has no actor.
+- **Sending:** a destination is sent to while `enabled` and its headers are set or it names none. One batch is made once
+  with text and once without, and each destination exports side by side on the pool the batch came on (the runner's
+  `MaxRunnerSpanExports`, or #243's own). An exporter is kept per destination and made again when its `updated_at`
+  moves; the old one is shut down beside the export. A failure is logged at warn, naming the destination, as LangSmith's
+  was. `StartRun.trace_content` is set while `keep_content` is on or any destination sent to takes text.
+- **Endpoints:** the acknowledgement is asked on a change that turns text on or moves the endpoint of a destination that
+  gets text, and taken again when given, so it then names the caller; turning text off clears it. A name is trimmed and
+  at most 64 characters without control characters. A header name is an RFC 9110 token, values are trimmed, one line and
+  not empty, each name and value at most `MaxDestinationHeaderChars`, and a name twice in another case is refused. An
+  empty `traceLink` is none; a link must be `http` or `https` once filled. Without OpenBao the routes answer 503
+  `trace_destinations_unavailable`, and a trace links nowhere.
+- **The test** posts one OTLP protobuf span, `rotor.test` of the service `rotor`, in a fresh trace, whether or not the
+  destination is on, within `DestinationTestTimeout` (10 s), following no redirect, which would carry its headers to
+  another host. `status` is 0 when it could not be reached, and `message` a sentence naming what to check.
+- **Audit:** `headers` of `trace_destination.added` lists the names, and `acknowledged` of `.changed` says whether that
+  change acknowledged text. The audit test's shape of an action now takes a domain in snake case.
+- **The deprecated LangSmith routes** audit as `trace_destination.added` or `.changed` rather than `langsmith.changed`,
+  since they change a destination. On means sending text, acknowledged by the caller, and off clears it; the key and the
+  project are the headers `x-api-key` and `Langsmith-Project`, so `GET` reads OpenBao for the project, and `keySetAt` is
+  `headersSetAt` while the key is held. `DELETE /settings/langsmith/key` keeps the project. With no carried-over row
+  `GET` answers LangSmith off with the default project, and `PUT` makes a row named `LangSmith` at
+  `ROTOR_LANGSMITH_ENDPOINT`, answering 409 `trace_destination_taken` should another destination have the name.
+- **Links:** for a run's trace whose `state` is not `none`, in the browser's answer and MCP's alike: each destination sent
+  to that has a link, by name, read as `rotor_admin` within `TraceSettingTTL`, so whoever reads the run sees them.
+- **The tool stub** takes OTLP at `POST /otlp/{sink}/v1/traces` for any sink name and answers each sink's exports at
+  `GET /control/otlp/{sink}` with every header, so each test has a destination of its own.
+- **Web:** Admin, Traces (`/admin/traces`, which `/admin/langsmith` leads to) in place of the LangSmith section:
+  `TraceKeepingCard` sets the retention and whether text is kept, and `TraceDestinationsSection` with `DestinationForm`
+  lists, adds, changes, tests and removes destinations, from presets for Langfuse, Arize Phoenix, Jaeger and LangSmith
+  that only fill the form. Editing one that holds headers chooses to keep, replace or remove them; values are password
+  fields and never shown. Keeping text on for a destination that sends it leaves the acknowledgement ticked, so saving
+  acknowledges it again in the editor's name. The words are `s.traceDestinations` in `web/src/strings_destinations.ts`.
+  The run page's notice that text is not kept now links an administrator to Admin, Traces.
+
 ## Audit
 
 | Action | Detail | Issue |

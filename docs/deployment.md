@@ -35,7 +35,7 @@ Four things come from outside the chart.
   older versions, so older runs still open; an installation upgraded from before #41 may delete the unused key
   `rotor-checkpoints`.
   Finished runs are deleted after the retention an administrator sets under Admin, Retention (90 days by default); traces
-  sent to a collector or to LangSmith follow their own retention there. The api and the worker sign in with their own ServiceAccount tokens
+  sent to a collector or a trace destination follow their own retention there. The api and the worker sign in with their own ServiceAccount tokens
   (`openbao.auth: kubernetes`); sandboxes hold no OpenBao credential at all, only the single-use wrapping tokens they
   are handed.
   - With `openbao.configure.enabled` a hook Job runs Rotor's init script (`deploy/openbao/init.sh`) against it with
@@ -205,9 +205,19 @@ route to the collector. `telemetry.sampleRatio` keeps a share of new traces.
 Prometheus scrapes the worker on `worker.metricsPort` (9464: sandboxes, runs by state, run durations) and the api on
 `api.metricsPort` (9465: token mint failures); both also serve the process's own Go and process metrics.
 
-LangSmith is off until an administrator turns it on in Rotor's settings with a key, which Rotor keeps in OpenBao. The
-api then sends runs' spans, with prompts and answers, to `telemetry.langsmithEndpoint`, so the api's pods must reach
-that host; the sandboxes never do. `docs/api-contract-m7-telemetry.md` says what is sent.
+Administrators send runs' traces to OTLP/HTTP destinations under Admin, Traces (#246): Langfuse, Arize Phoenix, Jaeger,
+LangSmith or any tool taking OTLP, at most eight, with headers Rotor keeps in OpenBao under
+`rotor/settings/trace-destinations/`. The api sends them, so the api's pods must reach each endpoint, which an
+administrator chooses and Rotor does not hold to its network guard, as `telemetry.otlpEndpoint` is not; the sandboxes
+never do. A destination gets prompt, tool and answer text only once an administrator acknowledges that it leaves.
+`docs/api-contract-m18.md` says what is sent.
+
+Upgrading from a release with LangSmith: migration 01520 makes the LangSmith setting a destination named LangSmith, and
+the api's first start moves its key and project from `rotor/settings/langsmith/key` into that destination's headers,
+takes `telemetry.langsmithEndpoint` as its endpoint, deletes the old key and audits it, under a lock so replicas
+starting together do it once. A start that cannot reach OpenBao logs a warning and leaves the move to the next one; the
+destination sends nothing until it is done. `/settings/langsmith` and `telemetry.langsmithEndpoint` are deprecated and
+go one minor release later; the control plane's OpenBao policy keeps the old path until then.
 
 Apps and tool services send their own spans to `/api/v1/otlp/v1/traces` (#243). The nginx of the compose file and the
 chart passes `/api/` through and leaves body sizes to the api, which takes 4 MiB a request; a proxy or ingress of your

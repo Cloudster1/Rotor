@@ -34,7 +34,7 @@ type Sender struct {
 	Name string
 }
 
-// Forwarder sends a run's spans on as the runner's go, to the collector and the destinations; *langsmith.Forwarder
+// Forwarder sends a run's spans on as the runner's go, to the collector and the destinations; *tracedest.Forwarder
 // is the real one.
 type Forwarder interface {
 	Spans(ctx context.Context, runID uuid.UUID, spans []observability.RunnerSpan)

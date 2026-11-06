@@ -5,7 +5,8 @@ import (
 	"time"
 )
 
-// LangSmithKey is the key runs' spans are sent to LangSmith with, which an administrator gave (#37).
+// LangSmithKey is the key an administrator gave LangSmith (#37), read once more to carry it over into the
+// destination LangSmith became (#246).
 type LangSmithKey struct {
 	Key   string    `json:"key"`
 	SetAt time.Time `json:"set_at"`
@@ -20,7 +21,8 @@ func (c *Client) LangSmithKey(ctx context.Context) (LangSmithKey, int, error) {
 	return k, version, err
 }
 
-// PutLangSmithKey writes the LangSmith key over the version read; 0 writes the first one.
+// PutLangSmithKey writes the LangSmith key over the version read; 0 writes the first one. Only a test of the
+// carry-over writes it now.
 func (c *Client) PutLangSmithKey(ctx context.Context, k LangSmithKey, version int) (int, error) {
 	return c.put(ctx, langSmithPath, k, version)
 }

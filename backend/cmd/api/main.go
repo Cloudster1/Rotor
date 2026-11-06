@@ -25,7 +25,6 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/envelope"
 	"github.com/cloudster1/rotor/backend/internal/hooks"
 	"github.com/cloudster1/rotor/backend/internal/httpapi"
-	"github.com/cloudster1/rotor/backend/internal/langsmith"
 	"github.com/cloudster1/rotor/backend/internal/metrics"
 	"github.com/cloudster1/rotor/backend/internal/netguard"
 	"github.com/cloudster1/rotor/backend/internal/oauth"
@@ -39,6 +38,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/runs"
 	"github.com/cloudster1/rotor/backend/internal/skills"
 	"github.com/cloudster1/rotor/backend/internal/tools"
+	"github.com/cloudster1/rotor/backend/internal/tracedest"
 	"github.com/cloudster1/rotor/backend/internal/traces"
 	"github.com/cloudster1/rotor/backend/internal/triggers"
 	"github.com/cloudster1/rotor/backend/internal/usage"
@@ -197,9 +197,11 @@ func run() error {
 		runners.Checkpoints = runs.NewCheckpoints(cluster, keys)
 		runners.Signals, runners.Wrap, runners.Events, runners.Host = store, secrets, store, cfg.Runner.Host
 		runners.ApprovalTTL = cfg.Approvals.TTL
-		smith := langsmith.NewService(cluster, secrets, cfg.Telemetry.LangSmithEndpoint)
-		server.LangSmith, server.LangSmithEndpoint = smith, cfg.Telemetry.LangSmithEndpoint
-		forwarder := &langsmith.Forwarder{Tracing: tracing, LangSmith: smith, Log: log}
+		// Runs' traces go to the OTLP destinations administrators choose (#246), LangSmith carried over as one.
+		destinations := tracedest.NewService(cluster, secrets, cfg.Telemetry.LangSmithEndpoint, log)
+		carryOverLangSmith(ctx, destinations, secrets, log)
+		server.TraceDestinations, server.LangSmith = destinations, destinations
+		forwarder := &tracedest.Forwarder{Tracing: tracing, Destinations: destinations, Log: log}
 		runners.Telemetry = forwarder
 		// A sender's spans that join a run go where the run's runner's go.
 		traceService.Keys, traceService.Forward, runners.Traces = keys, forwarder, traceService
@@ -296,4 +298,16 @@ func flushTraces(ctx context.Context, tracing *observability.Tracing) {
 	flush, cancel := context.WithTimeout(context.WithoutCancel(ctx), config.ShutdownGrace)
 	defer cancel()
 	_ = tracing.Shutdown(flush)
+}
+
+// carryOverLangSmith moves the LangSmith key into the destination migration 01520 made of it (#246); a start that
+// cannot reach OpenBao serves anyway, the destination sending nothing until a later start finishes the move.
+func carryOverLangSmith(ctx context.Context, destinations *tracedest.Service, keys tracedest.LangSmithKeys, log *slog.Logger) {
+	done, err := destinations.CarryOver(ctx, keys)
+	switch {
+	case err != nil:
+		log.Warn("could not carry the LangSmith setting over into its trace destination; the next start tries again", "error", err)
+	case done:
+		log.Info("carried the LangSmith setting over into a trace destination")
+	}
 }

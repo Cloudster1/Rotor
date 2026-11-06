@@ -19,7 +19,7 @@ finding updates this document in the same pull request.
 | Refresh tokens of people's tool connections | OpenBao, `rotor/connections/{user}/{tool}` | Each acts as the person in a tool until revoked |
 | Access tokens minted for a run | OpenBao `rotor/runs/{run}`, the runner's memory | Act as the person for minutes |
 | Model provider keys | OpenBao `rotor/providers/{id}/key`, the runner's memory | Spend money; read prompts |
-| LangSmith key, webhook secrets | OpenBao | Send data out; start workflows |
+| Webhook secrets, and the LangSmith key until the api's start moves it into its destination (#246) | OpenBao | Send data out; start workflows |
 | Trace destinations' headers | OpenBao, `rotor/settings/trace-destinations/{id}/headers` | Write into a team's tracing tool; read it, for some |
 | Traces: spans, and the prompt, tool and answer text in them | Postgres, the text sealed with the run's key | Show what a run read and wrote, step by step |
 | Run data: inputs, events, checkpoints, outputs, approvals | Postgres | Hold what a run read from the tools, which may be confidential |
@@ -213,8 +213,8 @@ listed.
 | | Threat | Mitigation | Status |
 |---|---|---|---|
 | I | Spans carrying secrets | Attributes are redacted by the runner and again by the api, the endpoint's spans too | Built (#37, #243) |
-| I | Run data leaving the installation | LangSmith is off until an administrator turns it on and acknowledges it; the key stays in the control plane | Built (#37) |
-| I | Prompt, tool and answer text leaving for a destination | A destination receives none until an administrator acknowledges that text leaves for it; headers live in OpenBao and are never answered; the operator's collector never receives text | Open #246 |
+| I | Run data leaving the installation | LangSmith is off until an administrator turns it on and acknowledges it; the key stays in the control plane. Since #246 LangSmith is a trace destination, held as the row below | Built (#37, #246) |
+| I | Prompt, tool and answer text leaving for a destination | A destination receives none until an administrator acknowledges that text leaves for it; headers live in OpenBao and are never answered; the operator's collector never receives text; the database refuses text unacknowledged and a ninth destination | Built (#246) |
 | I | Data in Jaeger, LangSmith or a destination outliving Rotor's retention | The operator's collector and each destination keep their own retention | Accepted, documented with #41 |
 | I | Reading another person's trace | Row level security: a run's trace exactly when its events, a sender's own trace by its sender and administrators; any other answers 404, as the run does | Open #242 |
 | I | Text kept at rest in Rotor | Kept only while an administrator turns `keep_content` on; sealed with the run's key; gone after the retention, 14 days by default, or with the run | Open #242 |

@@ -84,9 +84,11 @@ func TestTheOTLPEndpointTakesATokenAlone(t *testing.T) {
 		if rec.Code != c.want || (c.code != "" && errorOf(t, body)["code"] != c.code) {
 			t.Errorf("%s = %d %s, want %d %s", name, rec.Code, rec.Body, c.want, c.code)
 		}
-	}
-	if accounts.asked == 0 || spans.sender.ID != accounts.account.UserID || spans.sender.Name != "dynamo-connect" {
-		t.Errorf("the realm's account sent as %v", spans.sender)
+		// The map's order is random, so the realm's sender is read before another request replaces it.
+		if name == "the realm's account" && (accounts.asked == 0 || spans.sender.ID != accounts.account.UserID ||
+			spans.sender.Name != "dynamo-connect") {
+			t.Errorf("the realm's account sent as %v", spans.sender)
+		}
 	}
 }
 

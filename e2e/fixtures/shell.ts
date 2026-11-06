@@ -35,7 +35,7 @@ export const ADMIN_PAGES = [
   { slug: "workspaces", path: "/admin/workspaces", label: "Workspaces" },
   { slug: "unattended-writes", path: "/admin/unattended-writes", label: "Unattended writes" },
   { slug: "providers", path: "/admin/providers", label: "Model providers" },
-  { slug: "langsmith", path: "/admin/langsmith", label: "LangSmith" },
+  { slug: "traces", path: "/admin/traces", label: "Traces" },
   { slug: "tools", path: "/admin/tools", label: "Tools" },
   { slug: "assistants", path: "/admin/assistants", label: "Connected apps" },
   { slug: "audit", path: "/admin/audit", label: "Audit log" },

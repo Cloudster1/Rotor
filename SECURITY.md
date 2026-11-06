@@ -35,7 +35,7 @@ trying to break:
 
 - **The development stack** and its published credentials, listed below.
 - **Anything requiring an administrator.** Administrators configure tools,
-  providers, limits and LangSmith; they are the trust boundary, not a target
+  providers, limits and trace destinations; they are the trust boundary, not a target
   inside it.
 - **`/metrics`.** The api and the worker serve it without authentication on
   a port of their own, meant for the cluster network; the chart never

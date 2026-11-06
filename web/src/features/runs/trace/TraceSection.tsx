@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { meQuery } from "@/api/auth";
 import type { Run } from "@/api/runs";
 import { runTraceQuery, type Trace, traceSettingQuery } from "@/api/traces";
 import { RUN_POLL_MS, TRACE_SETTLE_MS } from "@/config";
@@ -21,6 +23,8 @@ function stillArriving(run: Run): boolean {
 
 function Notices({ trace, run, days }: { trace: Trace; run: Run; days: number | null }) {
   const t = s.trace;
+  // Only an administrator can change it, so only an administrator is pointed to the page.
+  const admin = useQuery(meQuery).data?.role === "admin";
   const expires = trace.expiresAt ? formatDateTime(trace.expiresAt, DATE_AND_TIME) : null;
   return (
     <>
@@ -47,6 +51,14 @@ function Notices({ trace, run, days }: { trace: Trace; run: Run; days: number | 
       {trace.state === "kept" && !trace.content && (
         <p className="text-sm text-ink-muted" data-trace-no-text>
           {t.noText}
+          {admin && (
+            <>
+              {" "}
+              <Link to="/admin/traces" className="font-medium text-accent underline-offset-2 hover:underline" data-trace-choose-text>
+                {t.chooseText}
+              </Link>
+            </>
+          )}
         </p>
       )}
       {trace.links.length > 0 && (

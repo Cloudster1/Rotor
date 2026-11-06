@@ -96,6 +96,8 @@ type Stub struct {
 	now       func() time.Time
 	// langsmith is what reached the LangSmith stand-in (#37), newest last.
 	langsmith []LangSmithCall
+	// otlp is what reached each OTLP sink (#246), newest last, at most config.ToolStubMaxOTLPSinks of them.
+	otlp map[string][]OTLPCall
 }
 
 // New makes a stub serving recorded tools/list results ({"tools": [...]}) by the tool they were recorded from;
@@ -216,6 +218,7 @@ func (s *Stub) Public() http.Handler {
 		r.Post(llmPath+"/chat/completions", s.thinking(s.withTenant(s.handleLLMChat)))
 	})
 	r.Post(LangSmithPath, s.handleLangSmith)
+	r.Post(OTLPPath, s.handleOTLP)
 	r.Get("/.well-known/oauth-authorization-server"+TenantPrefix+"/{tenant}", s.withOAuth(s.handleServerMetadata))
 	r.Get("/.well-known/oauth-protected-resource"+TenantPrefix+"/{tenant}"+mcpPath, s.withOAuth(s.handleProtectedResource))
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {

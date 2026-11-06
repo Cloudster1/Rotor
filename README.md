@@ -318,8 +318,10 @@ get (`rotor_token_mint_failures_total`), beside the Go runtime's own.
 **Traces.** With `ROTOR_OTLP_ENDPOINT` set to a collector's traces URL, the api
 and the worker send OpenTelemetry spans, each run one trace. The runner's
 spans travel over the runner protocol and the api sends them on, redacted
-again, so a sandbox reaches no collector. An administrator may also send runs'
-spans, prompts and answers included, to LangSmith with a key kept in OpenBao.
+again, so a sandbox reaches no collector. Administrators send runs' traces to
+up to eight OTLP destinations under Admin, Traces, such as Langfuse, Arize
+Phoenix, Jaeger or LangSmith, with headers kept in OpenBao; prompt, tool and
+answer text goes to one only once an administrator acknowledges it leaves.
 A LangChain app or a tool sends its own spans to `/api/v1/otlp/v1/traces`
 with a bearer token, setting `OTEL_EXPORTER_OTLP_ENDPOINT` to
 `<rotor>/api/v1/otlp`; they join the run whose trace they name when the
@@ -395,7 +397,7 @@ with every problem it found listed, so an operator fixes them in one go.
 | `ROTOR_APPROVAL_TTL` | `72h` | how long an approval waits when its node says nothing |
 | `ROTOR_OTLP_ENDPOINT` | none | the collector's traces URL, `/v1/traces` included |
 | `ROTOR_TRACE_SAMPLE_RATIO` | `1` | share of new traces kept |
-| `ROTOR_LANGSMITH_ENDPOINT` | LangSmith's own | where runs' spans go once an administrator allows it |
+| `ROTOR_LANGSMITH_ENDPOINT` | LangSmith's own | deprecated: read once, to carry the LangSmith setting over into a trace destination |
 | `ROTOR_API_METRICS_ADDR` | `:9465` | the api's metrics listener; blank serves none |
 | `ROTOR_WORKER_METRICS_ADDR` | `:9464` | the worker's metrics listener |
 
@@ -416,7 +418,7 @@ with every problem it found listed, so an operator fixes them in one go.
 | `backend/internal/providers/`, `usage/` | model providers, prices, usage and limits |
 | `backend/internal/oauth/`, `netguard/` | Rotor's own authorization server for assistants, and the guarded client for an address somebody else chose |
 | `backend/internal/envelope/`, `redact/`, `retention/` | sealing a run's data, cutting credentials, and deleting what was kept long enough |
-| `backend/internal/audit/`, `observability/`, `metrics/`, `langsmith/` | the audit log, logs, traces and metrics |
+| `backend/internal/audit/`, `observability/`, `metrics/`, `traces/`, `tracedest/` | the audit log, logs, traces, metrics and the destinations traces go to |
 | `backend/internal/db/`, `openapi/`, `config/` | the Postgres roles, the OpenAPI builder, and every setting |
 | `backend/migrations/` | goose migrations, embedded into `migrate` |
 | `backend/test/` | the integration suite (`-tags integration`) |

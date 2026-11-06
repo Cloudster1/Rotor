@@ -68,11 +68,14 @@ func (s *Server) handleGetRunTrace(w http.ResponseWriter, r *http.Request) {
 	}
 	roots := traces.Tree(spans)
 	// An assistant reads a tree shortened to what a model can take; the browser reads it all.
+	var tree traceTree
 	if inProcessCall(r.Context()) {
-		respondJSON(w, r, http.StatusOK, traceResponse{Trace: forModel(t, roots)})
-		return
+		tree = forModel(t, roots)
+	} else {
+		tree = toTraceTree(t, roots, config.TracePreviewChars)
 	}
-	respondJSON(w, r, http.StatusOK, traceResponse{Trace: toTraceTree(t, roots, config.TracePreviewChars)})
+	s.traceLinks(r.Context(), &tree)
+	respondJSON(w, r, http.StatusOK, traceResponse{Trace: tree})
 }
 
 func (s *Server) handleGetRunTraceSpan(w http.ResponseWriter, r *http.Request) {
