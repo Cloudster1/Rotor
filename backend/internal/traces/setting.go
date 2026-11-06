@@ -38,8 +38,13 @@ type Service struct {
 	db *db.Cluster
 	// Keys seals a span's text with its run's data key; nil stores no text.
 	Keys *envelope.Keys
-	log  *slog.Logger
-	now  func() time.Time
+	// Forward sends a sender's spans that joined a run on as the runner's go; nil sends them nowhere.
+	Forward Forwarder
+	log     *slog.Logger
+
+	forwardOnce sync.Once
+	forwarding  chan struct{}
+	now         func() time.Time
 
 	mu       sync.Mutex
 	keep     bool

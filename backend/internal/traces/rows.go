@@ -19,6 +19,7 @@ const (
 	// sourceRunner marks the spans a run's runner sent.
 	sourceRunner = "runner"
 	statusUnset  = "unset"
+	statusOK     = "ok"
 	statusError  = "error"
 )
 
@@ -28,9 +29,9 @@ var kinds = map[string]bool{"CHAIN": true, "LLM": true, "TOOL": true, "AGENT": t
 
 // spanRows are a batch of spans as the columns of trace_span, one array per column, for a single insert.
 type spanRows struct {
-	ids, parents, names, kinds, statuses, messages, attributes, events []string
-	starts, ends                                                       []time.Time
-	sealed                                                             [][]byte
+	ids, parents, names, kinds, statuses, messages, attributes, events, services []string
+	starts, ends                                                                 []time.Time
+	sealed                                                                       [][]byte
 }
 
 // event is a span event as trace_span.events keeps it.
@@ -81,10 +82,12 @@ func rowsOf(trace uuid.UUID, spans []observability.RunnerSpan, box *envelope.Box
 		status := statusUnset
 		if s.Failed {
 			status = statusError
+		} else if s.OK {
+			status = statusOK
 		}
 		out.ids, out.parents, out.names = append(out.ids, id), append(out.parents, parent), append(out.names, name(s.Name))
 		out.kinds, out.statuses = append(out.kinds, kind(plain[kindKey])), append(out.statuses, status)
-		out.messages = append(out.messages, clean(s.Message))
+		out.messages, out.services = append(out.messages, clean(s.Message)), append(out.services, clean(s.Service))
 		out.attributes, out.events = append(out.attributes, string(attrs)), append(out.events, string(eventsJSON))
 		out.starts, out.ends, out.sealed = append(out.starts, s.Start.UTC()), append(out.ends, s.End.UTC()), append(out.sealed, sealed)
 	}

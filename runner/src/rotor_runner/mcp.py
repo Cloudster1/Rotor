@@ -122,7 +122,8 @@ class McpGateway:
 
     async def _connection(self, binding: Binding) -> dict[str, Any]:
         token = await self.tokens.token(binding.name)
-        return {"transport": "streamable_http", "url": binding.mcp_url, "headers": {"Authorization": f"Bearer {token}"}}
+        headers = {"Authorization": f"Bearer {token}", **self.tracing.headers()}
+        return {"transport": "streamable_http", "url": binding.mcp_url, "headers": headers}
 
     async def _client(self, binding: Binding) -> MultiServerMCPClient:
         return MultiServerMCPClient({binding.name: await self._connection(binding)})  # type: ignore[dict-item]
@@ -187,7 +188,8 @@ class McpGateway:
             token = await self.tokens.token(binding.name)
             span = {"rotor.binding": binding.name, "mcp.tool": request.name, "rotor.node": node}
             with self.tracing.maybe(f"mcp {request.name}", span, kind=TOOL):
-                result = await handler(request.override(headers={"Authorization": f"Bearer {token}"}))
+                headers = {"Authorization": f"Bearer {token}", **self.tracing.headers()}
+                result = await handler(request.override(headers=headers))
             try:
                 hints = await self.annotations(binding)
             except Exception:

@@ -38,7 +38,7 @@ func registerM18Schemas(b *openapi.Builder) {
 var senderQuery = param{name: "sender", description: "For an administrator: whose trace of that id to read, by user id; yours when left out."}
 
 var m18Operations = []operation{
-	{method: "POST", path: "/otlp/v1/traces", handler: "handleReceiveTraces", tag: "traces", pending: true,
+	{method: "POST", path: "/otlp/v1/traces", handler: "handleReceiveTraces", tag: "traces", tokensOnly: true,
 		binaryRequest: otlpProtobuf, binaryResponse: otlpProtobuf,
 		summary: "Take spans over OTLP/HTTP: they join the run whose trace they name, or a trace of the sender's own.",
 		description: "OpenTelemetry's ExportTraceServiceRequest as application/x-protobuf or application/json, gzip or not; " +

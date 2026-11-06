@@ -189,6 +189,14 @@ class RunTracing:
                 span.set_status(Status(StatusCode.ERROR, str(err)))
                 raise
 
+    def headers(self) -> dict[str, str]:
+        """The traceparent of the span current now, sent with each MCP request so a tool that traces with OpenTelemetry
+        continues the run's trace (#243); nothing when the run is not traced."""
+        carrier: dict[str, str] = {}
+        if self.on:
+            TraceContextTextMapPropagator().inject(carrier)
+        return carrier
+
     def maybe(self, name: str, attributes: Mapping[str, Any] | None = None, *, kind: str = CHAIN) -> Any:
         """span when tracing is on, else nothing to enter at all."""
         return self.span(name, attributes, kind=kind) if self.on else nullcontext()

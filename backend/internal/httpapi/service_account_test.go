@@ -30,6 +30,11 @@ type fakeServiceAccounts struct {
 	asked   int
 }
 
+// AuthenticateSender is Authenticate for the tokensOnly rows; the fake lets in the same account.
+func (f *fakeServiceAccounts) AuthenticateSender(ctx context.Context, token string) (*auth.Principal, error) {
+	return f.Authenticate(ctx, token)
+}
+
 func (f *fakeServiceAccounts) Authenticate(_ context.Context, token string) (*auth.Principal, error) {
 	f.asked++
 	if f.err != nil {
@@ -84,14 +89,14 @@ func concrete(path string) string {
 	return strings.Join(parts, "/")
 }
 
-// The token is checked at the rows marked serviceAccount and nowhere else; everywhere a person signs in for, it is
-// refused in a sentence that names the routes that take it.
+// The token is checked at the rows marked serviceAccount or tokensOnly and nowhere else; everywhere a person signs in
+// for, it is refused in a sentence that names the routes that take it.
 func TestARealmTokenIsCheckedAtTheServiceAccountRoutesAlone(t *testing.T) {
 	s, accounts, _ := serviceAccountServer(t)
 	// Rotor's authorization server is set up, so its routes ask who is signed in rather than answering 503.
 	s.OAuth = &fakeOAuth{}
 	h := s.Routes(nil)
-	marked := 0
+	marked, tokensOnly := 0, 0
 	for _, op := range operations {
 		if op.root {
 			continue
@@ -103,8 +108,12 @@ func TestARealmTokenIsCheckedAtTheServiceAccountRoutesAlone(t *testing.T) {
 		h.ServeHTTP(rec, bearer(op.method, concrete(path), realmToken, `{}`))
 		key := op.method + " " + op.path
 		switch {
-		case op.serviceAccount:
-			marked++
+		case op.serviceAccount, op.tokensOnly:
+			if op.serviceAccount {
+				marked++
+			} else {
+				tokensOnly++
+			}
 			if accounts.asked != 1 || rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden {
 				t.Errorf("%s with the realm's token = %d, checked %d times", key, rec.Code, accounts.asked)
 			}
@@ -120,8 +129,9 @@ func TestARealmTokenIsCheckedAtTheServiceAccountRoutesAlone(t *testing.T) {
 			}
 		}
 	}
-	if marked != 4 {
-		t.Errorf("%d rows take the realm's token, want the four of #168", marked)
+	if marked != 4 || tokensOnly != 1 {
+		t.Errorf("%d rows take the realm's token for an administrator and %d for any account, want the four of #168 "+
+			"and the OTLP endpoint of #243", marked, tokensOnly)
 	}
 }
 

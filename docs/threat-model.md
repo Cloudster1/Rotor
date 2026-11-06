@@ -212,20 +212,20 @@ listed.
 
 | | Threat | Mitigation | Status |
 |---|---|---|---|
-| I | Spans carrying secrets | Attributes are redacted by the runner and again by the api, the endpoint's spans too | Built (#37); the endpoint Open #243 |
+| I | Spans carrying secrets | Attributes are redacted by the runner and again by the api, the endpoint's spans too | Built (#37, #243) |
 | I | Run data leaving the installation | LangSmith is off until an administrator turns it on and acknowledges it; the key stays in the control plane | Built (#37) |
 | I | Prompt, tool and answer text leaving for a destination | A destination receives none until an administrator acknowledges that text leaves for it; headers live in OpenBao and are never answered; the operator's collector never receives text | Open #246 |
 | I | Data in Jaeger, LangSmith or a destination outliving Rotor's retention | The operator's collector and each destination keep their own retention | Accepted, documented with #41 |
 | I | Reading another person's trace | Row level security: a run's trace exactly when its events, a sender's own trace by its sender and administrators; any other answers 404, as the run does | Open #242 |
 | I | Text kept at rest in Rotor | Kept only while an administrator turns `keep_content` on; sealed with the run's key; gone after the retention, 14 days by default, or with the run | Open #242 |
 | I | An exception's message quoting an input while text is off | Redacted and cut to 512 characters | Accepted: a failure must show to be debugged |
-| S | A sender naming a run's trace id to write into a run it may not read | A span joins a run only when its sender reads the run, judged by row level security as the sender; otherwise it joins the sender's own trace, answered as a trace id of no run, so nothing tells whether the run exists | Open #243 |
-| S | A sender posing as the runner or as another run | `source`, `service`, `rotor.run`, `rotor.workflow` and `rotor.sender` are set by Rotor and `rotor.*` keys a sender sends are dropped; the page shows who sent each span | Open #243 |
-| S | A token taken from an app used to send spans | Bearer tokens alone, never the cookie; Rotor's tokens last an hour and work at MCP and the endpoint alone; a grant to read is refused; a realm token is checked as #168's, for an account Rotor lets in | Open #243 |
+| S | A sender naming a run's trace id to write into a run it may not read | A span joins a run only when its sender reads the run, judged by row level security as the sender; otherwise it joins the sender's own trace, answered as a trace id of no run, so nothing tells whether the run exists | Built (#243) |
+| S | A sender posing as the runner or as another run | `source`, `service`, `rotor.run`, `rotor.workflow` and `rotor.sender` are set by Rotor and `rotor.*` keys a sender sends are dropped; the page shows who sent each span | Built (#243); the page Open #245 |
+| S | A token taken from an app used to send spans | Bearer tokens alone, never the cookie; Rotor's tokens last an hour and work at MCP and the endpoint alone; a grant to read is refused; a realm token is checked as #168's, for an account Rotor lets in | Built (#243) |
 | T | A span reusing a span id to replace the runner's | A span id already in the trace is skipped; spans are immutable to `rotor_app` | Open #242 |
 | T | Text in a span steering whoever reads the trace, or the assistant reading it | Span text is shown as text, never markdown or HTML, and no address in it is a link; a sender's spans say who sent them; `get_run_trace` answers spans as data, as `get_run` answers outputs | Open #244, #245 |
-| D | Large or packed bodies at the endpoint | 4 MiB as sent and 16 MiB unpacked, read through a limit, 413 past it | Open #243 |
-| D | A sender flooding the endpoint or the database | Per sender and replica, 300 requests and 20000 spans a minute, then 429; 2048 spans a request; 10000 spans and 32 MiB a trace and 100000 spans a sender's own traces, held by a trigger whoever inserts | Open #243 |
+| D | Large or packed bodies at the endpoint | 4 MiB as sent and 16 MiB unpacked, read through a limit, 413 past it | Built (#243) |
+| D | A sender flooding the endpoint or the database | Per sender and replica, 300 requests and 20000 spans a minute, then 429; 2048 spans a request; 10000 spans and 32 MiB a trace and 100000 spans a sender's own traces, held by a trigger whoever inserts | Built (#243) |
 | D | A sender filling a run's trace to its cap, so the runner's later spans are lost | Only someone who reads the run can; the trace says it was cut and how many spans it refused | Accepted |
 | D | Storing or exporting spans holding up a run | Both run beside the run on bounded pools of their own, dropping a batch rather than waiting | Built (#234) for export; Open #242 for storing |
 | E | An administrator pointing a destination at an address inside the network | Administrators choose the api's egress for traces as operators do for the collector; the api reads no answer beyond its status | Accepted |

@@ -209,6 +209,10 @@ LangSmith is off until an administrator turns it on in Rotor's settings with a k
 api then sends runs' spans, with prompts and answers, to `telemetry.langsmithEndpoint`, so the api's pods must reach
 that host; the sandboxes never do. `docs/api-contract-m7-telemetry.md` says what is sent.
 
+Apps and tool services send their own spans to `/api/v1/otlp/v1/traces` (#243). The nginx of the compose file and the
+chart passes `/api/` through and leaves body sizes to the api, which takes 4 MiB a request; a proxy or ingress of your
+own in front of Rotor must pass that path and such a body too, or exporters see its 404 or 413.
+
 In development, `make observe` starts the stack with a collector, Jaeger and Prometheus and says where they are.
 
 ## Tests

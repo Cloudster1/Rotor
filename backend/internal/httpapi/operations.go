@@ -60,6 +60,8 @@ type operation struct {
 	reads bool
 	// serviceAccount routes also take an access token of the realm, of an account in rotor-administrators (#168).
 	serviceAccount bool
+	// tokensOnly routes take a Rotor access token or a realm's of any account let in, never the session cookie (#243).
+	tokensOnly bool
 }
 
 // operations is the table, by area, then by path.

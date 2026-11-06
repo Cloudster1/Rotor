@@ -425,7 +425,10 @@ those of the run's own trace, holds them to the span limits, redacts them
 again and exports them with its own over OTLP to the collector, without their
 text, so a sandbox reaches no collector. While an administrator allows it, the
 api also sends the runner's spans, with their inputs, outputs and messages, to
-LangSmith with a key from OpenBao. The worker and the
+LangSmith with a key from OpenBao. Apps and tools post their own spans to the
+api's OTLP endpoint with a bearer token (#243); each joins the run its trace id
+names when the sender may read that run, judged by row level security as the
+sender, and a trace of the sender's own otherwise. The worker and the
 api serve Prometheus metrics; `make observe` adds a collector, Jaeger and
 Prometheus to the development stack.
 

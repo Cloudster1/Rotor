@@ -9,6 +9,27 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Any LangChain app or tool service sends its spans to Rotor over OTLP/HTTP
+  (#243), at `POST /api/v1/otlp/v1/traces`, as protobuf or JSON, gzip or not.
+  The app sets two variables and its stock exporter does the rest:
+
+  ```sh
+  OTEL_EXPORTER_OTLP_ENDPOINT=https://rotor.example/api/v1/otlp
+  OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer%20<token>
+  ```
+
+  The token is an access token from Rotor's authorization server whose grant
+  may act, or an access token of the realm of any account Rotor lets in, such
+  as a service account's from client credentials; a session cookie, a grant
+  to read and an account nobody let in are refused. A span whose trace id is
+  a run's the sender may read joins that run's trace; any other, a run the
+  sender may not read among them, forms a trace of the sender's own, so the
+  answer never tells whether a run exists. Tools a run calls get the run's
+  `traceparent` with each MCP request, so their spans join the run. A sender
+  may send 300 requests and 20000 spans a minute to each api replica, 4 MiB a
+  request (16 MiB unpacked) and 2048 spans in it; spans past a limit or a
+  check are named in OTLP's partial success, and text is kept only while an
+  administrator keeps traces' text.
 - Rotor keeps each run's trace (#242). Every run is traced now, and the
   spans its runner sends are stored in Postgres beside being sent on, for
   whoever may read the run's events and nobody else; storing them never holds

@@ -15,10 +15,12 @@ import (
 // ProductName is what the document calls this API.
 const ProductName = "Rotor"
 
-// The schemes a caller is let in by: the browser's session, and at the serviceAccount rows a realm's access token.
+// The schemes a caller is let in by: the browser's session, at the serviceAccount and tokensOnly rows a realm's
+// access token, and at the tokensOnly rows Rotor's own.
 const (
 	sessionScheme     = "session"
 	realmBearerScheme = "realmToken"
+	rotorBearerScheme = "rotorToken"
 )
 
 // securitySchemes describes both schemes for the document's components.
@@ -27,8 +29,12 @@ func securitySchemes() map[string]openapi.SecurityScheme {
 		sessionScheme: {Type: "apiKey", In: "cookie", Name: config.DefaultSessionCookie,
 			Description: "The session a sign-in through the suite's identity provider opens."},
 		realmBearerScheme: {Type: "http", Scheme: "bearer", BearerFormat: "JWT",
-			Description: "An access token of the realm Rotor signs in with, whose audience holds Rotor's client and whose " +
-				"groups hold rotor-administrators, such as a service account's from client credentials."},
+			Description: "An access token of the realm Rotor signs in with, whose audience holds Rotor's client, such as a " +
+				"service account's from client credentials: of an account in rotor-administrators, or at the OTLP endpoint " +
+				"of any account Rotor lets in."},
+		rotorBearerScheme: {Type: "http", Scheme: "bearer",
+			Description: "An access token from Rotor's own authorization server, made for an assistant or an app; " +
+				"taken at MCP and the OTLP endpoint alone."},
 	}
 }
 
@@ -163,6 +169,9 @@ func (op operation) describe(b *openapi.Builder, errorSchema *openapi.Schema) *o
 	o.Deprecated = op.deprecated
 	if op.serviceAccount {
 		o.Security = []map[string][]string{{sessionScheme: {}}, {realmBearerScheme: {}}}
+	}
+	if op.tokensOnly {
+		o.Security = []map[string][]string{{rotorBearerScheme: {}}, {realmBearerScheme: {}}}
 	}
 	return o
 }
