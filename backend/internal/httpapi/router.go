@@ -61,6 +61,8 @@ type Server struct {
 	LangSmithEndpoint string
 	// Retention is how long a finished run's data is kept (#41); nil answers 503.
 	Retention Retention
+	// Traces is how long runs' traces are kept and whether their text is (#242); nil answers 503.
+	Traces TraceSettings
 	// Workspaces is what workspaces may use (#136); nil answers 503.
 	Workspaces Workspaces
 	// Preferences are what a person chooses for themselves (#206); nil answers 503.
@@ -223,6 +225,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Get("/skills/{skillID}/versions/{versionNumber}/export", s.handleExportSkillVersion)
 			r.Get("/skills/{skillID}/diff", s.handleDiffSkillVersions)
 			r.Get("/skills/{skillID}/grants", s.handleListSkillGrants)
+			r.Get("/settings/traces", s.handleGetTraceSetting)
 			mountPending(r, false, false)
 			r.Group(func(r chi.Router) {
 				r.Use(requireAdmin)
@@ -249,6 +252,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Delete("/settings/langsmith/key", s.handleRemoveLangSmithKey)
 				r.Get("/settings/retention", s.handleGetRetention)
 				r.Put("/settings/retention", s.handleSetRetention)
+				r.Put("/settings/traces", s.handleSetTraceSetting)
 				r.Get("/settings/unattended-writes", s.handleGetUnattendedWrites)
 				r.Put("/settings/unattended-writes", s.handleSetUnattendedWrites)
 				r.Get("/settings/workspaces", s.handleGetWorkspaces)

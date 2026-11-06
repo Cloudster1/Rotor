@@ -19,8 +19,8 @@ import (
 type Telemetry interface {
 	// Spans sends a run's spans on by ctx's deadline; no stream waits for it.
 	Spans(ctx context.Context, runID uuid.UUID, spans []observability.RunnerSpan)
-	// Content says whether a run may keep text somewhere, so its spans carry it (#241): until #242 and #246, only
-	// while LangSmith is on. Each place that may not keep text gets the spans without it.
+	// Content says whether a destination may get text, so a run's spans carry it (#241): until #246, while LangSmith
+	// is on. Each place that may not keep text gets the spans without it.
 	Content(ctx context.Context) bool
 }
 
@@ -32,7 +32,7 @@ var runnerRotorKeys = map[string]bool{"rotor.node": true, "rotor.node.type": tru
 // spans checks a runner's batch and sends it on: only spans of the run's own trace, at most so many, held to the span
 // limits and redacted again, since the sandbox runs code the workflow's author wrote.
 func (s *Server) spans(ctx context.Context, r *run, batch *runnerpb.SpanBatch) {
-	if s.Telemetry == nil || batch == nil {
+	if (s.Telemetry == nil && s.Traces == nil) || batch == nil {
 		return
 	}
 	want := observability.Extract(context.Background(), r.Traceparent)
@@ -49,8 +49,14 @@ func (s *Server) spans(ctx context.Context, r *run, batch *runnerpb.SpanBatch) {
 			out = append(out, span)
 		}
 	}
-	if len(out) > 0 {
+	if len(out) == 0 {
+		return
+	}
+	if s.Telemetry != nil {
 		s.export(ctx, r.ID, out)
+	}
+	if s.Traces != nil {
+		s.keep(ctx, r, out)
 	}
 }
 

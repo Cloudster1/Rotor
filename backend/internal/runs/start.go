@@ -94,7 +94,10 @@ func (s *Service) Start(ctx context.Context, req StartRequest) (Run, bool, error
 	// The run's trace begins here, so the worker's and the runner's spans join what started it (#37).
 	ctx, endSpan := observability.StartSpan(ctx, "run.start", attribute.String("rotor.workflow", w.ID.String()))
 	defer endSpan(nil)
-	traceparent := observability.Inject(ctx)
+	traceparent, err := s.runTraceparent(ctx)
+	if err != nil {
+		return Run{}, false, err
+	}
 	// The run's id is made here, as its inputs are sealed for it before it is stored (#41).
 	id, err := uuid.NewV7()
 	if err != nil {

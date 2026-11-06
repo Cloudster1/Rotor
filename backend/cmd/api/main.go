@@ -39,6 +39,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/runs"
 	"github.com/cloudster1/rotor/backend/internal/skills"
 	"github.com/cloudster1/rotor/backend/internal/tools"
+	"github.com/cloudster1/rotor/backend/internal/traces"
 	"github.com/cloudster1/rotor/backend/internal/triggers"
 	"github.com/cloudster1/rotor/backend/internal/usage"
 	"github.com/cloudster1/rotor/backend/internal/version"
@@ -160,6 +161,9 @@ func run() error {
 	// person when it starts.
 	skillService := skills.NewService(cluster)
 	workflowService.Skills = skillService
+	// Each run's trace is kept in Postgres for whoever reads the run (#242), for as long as an administrator says.
+	traceService := traces.NewService(cluster, log)
+	server.Traces = traceService
 	if secrets != nil {
 		server.Vault = secrets
 		realm.Secrets = secrets
@@ -195,6 +199,7 @@ func run() error {
 		smith := langsmith.NewService(cluster, secrets, cfg.Telemetry.LangSmithEndpoint)
 		server.LangSmith, server.LangSmithEndpoint = smith, cfg.Telemetry.LangSmithEndpoint
 		runners.Telemetry = &langsmith.Forwarder{Tracing: tracing, LangSmith: smith, Log: log}
+		traceService.Keys, runners.Traces = keys, traceService
 		runners.MintFailed = func(reason string) { mintFailures.Add(reason, 1) }
 		models := providers.NewService(cluster, secrets, boot.ToolClient(cfg))
 		server.Providers, runners.Models, workflowService.Models = models, models, models

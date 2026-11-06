@@ -14,7 +14,7 @@ import (
 // show beside the request that started it and the runner's spans (#37).
 func (w *Worker) traced(name string, act func(ctx context.Context, c claimed) error) func(ctx context.Context, c claimed) error {
 	return func(ctx context.Context, c claimed) error {
-		ctx = observability.Extract(ctx, w.traceparent(ctx, c.ID))
+		ctx = observability.Extract(ctx, w.Tracing.ForCollector(w.traceparent(ctx, c.ID)))
 		ctx, end := observability.StartSpan(ctx, name, attribute.String("rotor.run", c.ID.String()))
 		err := act(ctx, c)
 		end(err)
@@ -45,4 +45,22 @@ func (w *Worker) ran(ctx context.Context, runID uuid.UUID) {
 	if err == nil && seconds != nil {
 		w.Metrics.took.Observe(status, *seconds)
 	}
+}
+
+// runTraceparent is the trace a run being started carries (#242): the sampled one it is started in, unless another
+// run took that trace id already, as a caller starting two runs in one trace does; else a fresh one of its own.
+func (s *Service) runTraceparent(ctx context.Context) (string, error) {
+	traceparent := observability.RunTraceparent(ctx)
+	var taken bool
+	err := s.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
+		return tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM run WHERE trace_id = $1)`,
+			observability.TraceIDOf(traceparent).String()).Scan(&taken)
+	})
+	if err != nil {
+		return "", err
+	}
+	if taken {
+		return observability.FreshTraceparent(), nil
+	}
+	return traceparent, nil
 }

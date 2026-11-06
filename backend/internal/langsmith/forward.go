@@ -22,11 +22,11 @@ type destination struct {
 	read     time.Time
 }
 
-// current is LangSmith's exporter while it is on, read again after config.LangSmithSettingTTL or a change here.
+// current is LangSmith's exporter while it is on, read again after config.TraceSettingTTL or a change here.
 func (s *Service) current(ctx context.Context) (*destination, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.cached != nil && time.Since(s.cached.read) < config.LangSmithSettingTTL {
+	if s.cached != nil && time.Since(s.cached.read) < config.TraceSettingTTL {
 		return s.cached, nil
 	}
 	var enabled bool
@@ -78,18 +78,25 @@ type Forwarder struct {
 
 var _ runnerctl.Telemetry = (*Forwarder)(nil)
 
-// Content says whether runs' spans may carry text: until #242 and #246, only while LangSmith is on.
+// Content says whether a destination may get runs' spans' text: until #246, while LangSmith is on.
 func (f *Forwarder) Content(ctx context.Context) bool {
 	return f.LangSmith != nil && f.LangSmith.Enabled(ctx)
 }
 
 // Spans sends a run's spans on; a destination that fails loses this batch alone, and says so at debug level.
 func (f *Forwarder) Spans(ctx context.Context, runID uuid.UUID, spans []observability.RunnerSpan) {
+	if len(spans) == 0 {
+		return
+	}
 	env := f.Tracing.Env()
 	// Side by side, so a collector that does not answer leaves LangSmith the whole of ctx's deadline.
 	var collector sync.WaitGroup
 	defer collector.Wait()
 	collector.Go(func() {
+		// Every run is traced since #242; the operator's collector still takes a share as the sample ratio says.
+		if !f.Tracing.Keeps(spans[0].TraceID) {
+			return
+		}
 		if err := f.Tracing.Export(ctx, observability.RunnerSnapshots(env, observability.WithoutText(spans))); err != nil {
 			f.Log.Debug("the collector refused a runner's spans", "run", runID, "error", err)
 		}

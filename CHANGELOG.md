@@ -9,6 +9,16 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Rotor keeps each run's trace (#242). Every run is traced now, and the
+  spans its runner sends are stored in Postgres beside being sent on, for
+  whoever may read the run's events and nobody else; storing them never holds
+  up a run. A trace stops at 10000 spans or 32 MiB and records what it cut.
+  An administrator sets how long traces are kept, 14 days by default and at
+  most 90, and whether Rotor keeps their prompts, answers and tool calls,
+  off by default and sealed with the run's own key when on, through
+  `GET` and `PUT /settings/traces`; the worker deletes spans past it. The
+  operator's collector still gets the share of runs `ROTOR_TRACE_SAMPLE_RATIO`
+  says.
 - A run's trace shows every chain, graph node, tool and model call of its
   agents (#241), traced with OpenInference beside Rotor's run, node and MCP
   spans, so a trace in Jaeger or LangSmith shows why a run did what it did.
