@@ -794,6 +794,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- `make up` no longer breaks every tool and connection on the dev stack: the
+  tool stub keeps its OAuth clients, grants and tokens on a volume, so
+  recreating it with a rebuilt backend image leaves Rotor's connections
+  working. `make tool-stub-reset` forgets them on purpose (#268).
+
 - A tool's name changes only when an administrator changes it, and no two
   tools share one (#267). Adding a tool under a name another has is refused
   with a sentence asking for another, and Admin, Tools takes an optional name

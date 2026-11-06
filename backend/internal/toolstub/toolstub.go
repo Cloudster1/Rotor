@@ -94,6 +94,9 @@ type Stub struct {
 	tenants   map[string]*tenant
 	snapshots map[string][]map[string]any
 	now       func() time.Time
+	// statePath, when set, is the file the OAuth state is kept in; lastSaved is what it holds.
+	statePath string
+	lastSaved []byte
 	// langsmith is what reached the LangSmith stand-in (#37), newest last.
 	langsmith []LangSmithCall
 	// otlp is what reached each OTLP sink (#246), newest last, at most config.ToolStubMaxOTLPSinks of them.
