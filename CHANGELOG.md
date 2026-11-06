@@ -798,6 +798,20 @@ and the versioning [Semantic Versioning](https://semver.org/).
   list loads, is no longer logged as `level=ERROR ... 500 context canceled`;
   it is noted at debug level and shows as status 499 in the access log (#269).
 
+- Rotor says and acts on the true state of a tool and of your connection to
+  it (#266). The workflow editor's tool picker tells a tool that must be
+  registered again (an administrator does it under Admin, Tools) from a
+  connection the tool ended (you connect again, with a button there), where
+  it used to ask you to connect an account that read Connected. Check again
+  under Admin, Tools now proves Rotor's client with a token request, so a
+  tool that forgot Rotor reads Needs registering again instead of Ready.
+  Registering again marks everyone's connection to the tool to be connected
+  again. A run is refused before it starts, and the run dialog says so, when
+  a tool it uses must be registered again. A run whose token could not be
+  minted says why and what to do, and no longer says that its tool "cannot be
+  reached" at an address inside Rotor's network. The warning badge on
+  Admin, Tools now has enough contrast in the light theme.
+
 - A failed span's status message on the run page holds the error alone, such
   as `RunEnded: file raised ValueError: The story has no title (line 2)`, and
   no longer ends with a stray `Traceback (most recent call last):`; the whole

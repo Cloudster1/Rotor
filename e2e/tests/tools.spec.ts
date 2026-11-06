@@ -31,6 +31,33 @@ for (const scheme of SCHEMES) {
   });
 }
 
+for (const scheme of SCHEMES) {
+  test(`checking again marks a tool that does not know Rotor's client, and its warning reads in ${scheme} @desktop`, async ({ page }) => {
+    const address = freshTool();
+    await startInScheme(page, scheme);
+    await page.goto("/admin/tools");
+    // A client the tool never registered stands in for one it forgot, which only the double's control API can make.
+    const form = page.locator("[data-add-tool]");
+    await form.getByLabel("Address").fill(address);
+    await form.getByLabel("The tool does not let Rotor register itself").check();
+    await form.getByLabel("Client id").fill(`unknown-${randomUUID()}`);
+    await form.getByLabel("Client secret").fill(randomUUID());
+    await form.locator('[data-action="add-tool"]').click();
+    const row = page.locator('[data-tools] li[data-tool="exciter"]', { hasText: address });
+    await expect(row).toHaveAttribute("data-status", "ready");
+
+    await row.locator('[data-action="check-tool"]').click();
+    await expect(row).toHaveAttribute("data-status", "needs_registration");
+    await expect(row.locator("[data-needs-registration]")).toBeVisible();
+    await expect(row.locator('[data-action="register-again"]')).toBeVisible();
+    await expectAccessible(page);
+
+    await row.locator('[data-action="remove-tool"]').click();
+    await row.locator('[data-action="confirm-remove"]').click();
+    await expect(row).toHaveCount(0);
+  });
+}
+
 test("a tool without OAuth is refused with what it lacks @desktop", async ({ page }) => {
   await page.goto("/admin/tools");
   const form = page.locator("[data-add-tool]");

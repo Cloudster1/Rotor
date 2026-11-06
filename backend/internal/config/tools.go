@@ -17,6 +17,8 @@ const (
 	MintAttempts = 2
 	// StateBytes is how much randomness a connection's state carries; only its SHA-256 is stored.
 	StateBytes = 32
+	// ProbeTokenBytes is the randomness of the refresh token no tool issued, which Check again sends to prove the client (#266).
+	ProbeTokenBytes = 24
 	// ConnectionLoginTTL is how long a person may take at a tool's consent page before the attempt is forgotten.
 	ConnectionLoginTTL = 10 * time.Minute
 	// ExchangedTokenLifetime is how long a run's token lives where it is exchanged from the grant's (#45); the

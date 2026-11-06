@@ -122,7 +122,7 @@ sentences.
 | ~~`PUT /workflows/{workflowID}/sharing`~~ | | removed in #205: a workflow is shared by its grants, `docs/api-contract-access.md` |
 | `POST /workflows/validate` | signed in | `{valid, problems}` without saving |
 | `GET /schemas/workflow.v1.json` | signed in | the schema, for the editor |
-| `GET /tools/{toolID}/catalog` | signed in | `{tool, build, tools}`; 409 when the caller is not connected |
+| `GET /tools/{toolID}/catalog` | signed in | `{tool, build, tools}`; 409 when the caller is not connected, must connect again or the tool must be registered again (#266) |
 
 - **Who may see a workflow** is its grants' to say since #202: a role on it, or over the installation, given to
   the person, to a group of theirs or to Everyone. Its creator is its Workflow administrator. `sharing` and
@@ -142,6 +142,19 @@ sentences.
   - The catalog mints a token from the caller's whole consent and revokes it after the read.
   - The cache key is the tool, its build (`version+commit` from its `/meta`) and the person.
   - Archived workflows refuse saves with 409.
+- **As built (#266):** a 409 from the catalog says why in its code and sentence, and each asks someone else.
+  - `not_connected`: the caller has no connection; they connect their account in Settings, under Tool accounts.
+  - `reconnect`: the tool ended the caller's grant (`invalid_grant`), which also marks the connection `reconnect`;
+    they connect again. "This tool ended your connection. Connect your account again in Settings, under Tool
+    accounts, then pick the tool again."
+  - `needs_registration`: the tool forgot Rotor's client (`invalid_client`), or is marked so; an administrator
+    registers it again under Admin, Tools, before the cache is read. "This tool no longer knows Rotor. Ask an
+    administrator to register it again under Admin, Tools; then everyone connects their account again."
+  - Starting a run on a tool marked `needs_registration` answers 409 `needs_registration`, ahead of
+    `connections_needed`, with `fields` mapping each such tool's name to its id. The start checks the connections
+    again after its fresh read of the tools, so a client forgotten or a grant ended since refuses the start.
+  - A run's token that cannot be minted is said in a sentence of what to do, the same causes in the same words, and
+    never with an address of the tool's; the runner passes it through and keeps addresses for its log.
 
 ## #16 and #17 The runner
 

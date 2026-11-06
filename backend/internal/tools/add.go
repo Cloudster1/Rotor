@@ -77,6 +77,12 @@ func (s *Service) Add(ctx context.Context, req AddRequest) (tool Tool, created b
 		}
 		return Tool{}, false, err
 	}
+	if !created && known.ClientID != client.ClientID && s.Connections != nil {
+		// Every grant belongs to the client the tool forgot, so each person connects again (#266).
+		if _, err := s.Connections.ReconnectToolConnections(ctx, tool); err != nil {
+			return Tool{}, false, fmt.Errorf("mark the connections to %s to be made again: %w", tool.Name, err)
+		}
+	}
 	return tool, created, nil
 }
 
