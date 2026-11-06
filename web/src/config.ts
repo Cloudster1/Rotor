@@ -56,6 +56,9 @@ export const MAX_VERSION_COMMENT = 500;
 /** How often a run's page asks for the run again until it ends; #24 streams its events instead. */
 export const RUN_POLL_MS = 2_000;
 
+/** How long after a run ends its page still asks for the trace: the runner sends its last spans in batches seconds apart. */
+export const TRACE_SETTLE_MS = 10_000;
+
 /** How often the sidebar asks how many approvals wait for the person; an approval waits hours, not seconds. */
 export const APPROVALS_POLL_MS = 15_000;
 

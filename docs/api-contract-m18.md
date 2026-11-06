@@ -501,6 +501,45 @@ exists.
 - The timeline is a tree to the keyboard (arrows move and open, Enter shows the details) and to a
   screen reader; the accessibility check passes. Strings live in `web/src/strings_telemetry.ts`.
 
+### As built (#245)
+
+- **Where:** `web/src/features/runs/trace/` (`TraceSection`, `SpanTree`, `SpanDetails`, `SpanText` and the pure
+  `tree.ts`), the queries in `web/src/api/traces.ts`, the words as `traceStrings` (`s.trace`). The Trace section
+  closes the run's page, under its output.
+- **The first failed span:** of the failed spans none of whose descendants failed, the one that started first, since
+  a failure marks every span it passes through up to `run`. It is chosen, and it and its ancestors open, only when the
+  run's status is `failed`; in any other run failed spans are marked and nothing is chosen for the person.
+- **Status in a row:** a failed span says "Failed" beside a warning icon and its name and bar turn the danger colour;
+  `ok` and `unset` say nothing in the row. The details say Succeeded, Finished (`unset`, as the runner marks only
+  failures) or Failed, and the status message under it.
+- **The bars** are placed on the trace's time, `startedAt` to `endedAt` widened by any span past them, rather than the
+  run's `startedAt` and `finishedAt`, which include the sandbox's start; a narrow screen hides them and keeps the
+  duration.
+- **Who sent a span:** a row says "sent by" its sender for `source: otlp`, and the details name the runner or the
+  sender and the service, which closes the threat model's row on senders posing as the runner for the page.
+- **Keyboard and screen reader:** `role="tree"` labelled by the section's heading, the rows flat `treeitem`s with
+  `aria-level`, `aria-posinset`, `aria-setsize`, `aria-expanded` and `aria-selected`, one row taking Tab. Up and Down
+  move, Right opens or goes to the first child, Left closes or goes to the parent, Home and End, and Enter or Space
+  shows the span. Choosing does not follow focus, so walking the tree reads no span. The pointer opens a span by its
+  chevron and chooses it by its row. The details are a region named "Span <name>".
+- **Large traces:** no virtual list. A trace of at most 300 spans (`OPEN_ALL_SPANS`) opens whole; a larger one opens
+  to its nodes (`OPEN_DEPTH`, 2) and the way to the failure. A span shows 100 children (`CHILDREN_PAGE`) and then a
+  "Show more" row, itself a tree item, for the next 100; a page always reaches the child on the way to the failure.
+- **The whole value:** the span route is asked when a span is chosen and only when the trace's `content` is true,
+  since without text it answers nothing the tree lacks. Its text attributes (`content`) show as "Text attributes". If
+  it fails, the 200 characters of the tree stay with a note saying so.
+- **Text as text:** names, attributes, events, status messages, inputs and outputs are React text in `pre` and `dd`;
+  JSON (a `mimeType` with `json`) is indented when it parses, else shown as it came, a cut preview included. A value
+  scrolls past a screenful and takes focus to be scrolled.
+- **Notices:** `kept` says the span count and "Kept until <expiresAt>, N days after its last span", N from
+  `GET /settings/traces`, left out if that cannot be read; `none` says the run has no trace, or, while it runs, that no
+  span has arrived yet; `expired` and `cut` (with `dropped`) are warnings; text not kept says an administrator
+  chooses it, with no control until #246. `links` render as "Open this trace in <destination>" in a new tab.
+- **Fresh spans:** the trace is asked again every `RUN_POLL_MS` while the run goes on and for `TRACE_SETTLE_MS`
+  (10 s) after it ended, since the runner's last batch is stored after `run.finished`. It sits under the run's query
+  key, so whatever asks for the run again asks for its trace.
+- **`omitted`** shows on a row when above 0, though only MCP's shortening sets it today.
+
 ## Destinations (#246)
 
 ### Table
