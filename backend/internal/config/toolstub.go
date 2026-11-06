@@ -49,4 +49,7 @@ const (
 	ToolStubMaxLabelPage     = 200
 	ToolStubMaxBulkSelection = 200
 	ToolStubMaxLabelName     = 40
+	// ToolStubIssuePage and ToolStubMaxIssuePage are Armature's pages of a project's issues (#271).
+	ToolStubIssuePage    = 50
+	ToolStubMaxIssuePage = 200
 )

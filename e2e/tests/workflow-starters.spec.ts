@@ -12,6 +12,9 @@ test("a person starts a new workflow from one Rotor ships, which saving checks a
   await expectAccessible(page);
 
   await picker.locator(`[data-starter="${STARTER}"]`).check();
+  // The open list outgrows the editor, so checking a starter low in it scrolls the editor's first lines out of view,
+  // and CodeMirror draws only the lines in view.
+  await page.locator("[data-yaml-editor]").evaluate((editor) => editor.scrollIntoView());
   await expect(page.locator("[data-yaml-editor] .cm-content")).toContainText(`name: ${STARTER}`);
   // The stack connects no Armature, so saving checks the starter as usual and names the tool an administrator must add.
   const checks = page.locator("[data-problems]");

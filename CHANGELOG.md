@@ -9,6 +9,20 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Two workflows to start from that show what no other example does (#271),
+  and `docs/workflows.md` opens its examples with a table of every example
+  and the capabilities it shows. `examples/weekly-digest.yaml` is meant for a
+  schedule: with no model, it reads the Armature issues a project filed and
+  finished in the last 7 days and comments a summary on an issue kept for it,
+  with `retention` and the `maxCost`, `maxConcurrent` and
+  `toolCallsPerMinute` limits; `docs/triggers.md` shows its schedule.
+  `examples/approved-requirement.yaml` drafts a requirement from a need, lets
+  a member of the quality group correct the title, statement and rationale in
+  the approval's form, and files what they approved in Exciter through a
+  binding with `approval: beforeWrite`. A workflow with no agent no longer
+  needs a priced model to carry a `maxCost`. The tool stub answers Armature's
+  `list_project_issues`, with the NQL a digest sends, for tests.
+
 - An issue triage workflow to start from, `examples/issue-triage.yaml`
   (#270): on a new Armature issue, or run by hand with an issue key, it picks
   up to three labels from those already in use, adds them and comments
