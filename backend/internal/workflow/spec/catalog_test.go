@@ -61,6 +61,10 @@ func TestTheToolsTellWhatTheSpecCannot(t *testing.T) {
 	if got := codes(s.CheckAgainst(catalog{})); got["/tools/exciter-read/tool"] != CodeUnknownTool {
 		t.Errorf("an unknown tool = %v", got)
 	}
+	got = codes(s.CheckAgainst(catalog{"exciter": {Shared: 2}}))
+	if got["/tools/exciter-read/tool"] != CodeToolAmbiguous || got["/tools/exciter-read/scopes/1"] != "" {
+		t.Errorf("a name two tools share = %v, want tool_ambiguous alone (#267)", got)
+	}
 }
 
 func TestAWriteNeedsTheApprovalItsBindingAsksFor(t *testing.T) {

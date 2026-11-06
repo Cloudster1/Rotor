@@ -1556,7 +1556,7 @@ export interface paths {
         put?: never;
         /**
          * Add a tool by its address; Rotor registers itself there as an OAuth client.
-         * @description Reads the tool's /api/v1/meta, which must offer mcp@1, then its protected resource and authorization server metadata (RFC 9728, RFC 8414), and registers by RFC 7591 unless a client is given. Adding an address Rotor already knows registers again, for a tool that forgot its client.
+         * @description Reads the tool's /api/v1/meta, which must offer mcp@1, then its protected resource and authorization server metadata (RFC 9728, RFC 8414), and registers by RFC 7591 unless a client is given. Adding an address Rotor already knows registers again, for a tool that forgot its client, and keeps its name. A name another tool has, case aside, is refused with 409 tool_name_taken (#267).
          */
         post: operations["addTool"];
         delete?: never;
@@ -1661,6 +1661,46 @@ export interface paths {
         post?: never;
         /** Forget the secret; the tool's events are refused from then on. */
         delete: operations["removeHookSecret"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tools/{toolID}/name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rename a tool: the name workflows bind it by.
+         * @description Its product, client and connections stay. Workflows that bound the old name no longer find the tool, and the answer lists them for their owners to change. A name another tool has, case aside, is refused with 409 tool_name_taken. The audit log records tool.renamed.
+         */
+        put: operations["renameTool"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tools/{toolID}/workflows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The workflows whose current version binds the tool by its name, which stop finding it once it is renamed.
+         * @description Every workflow not archived, whoever owns it, so an administrator renaming the tool knows whom to tell.
+         */
+        get: operations["toolWorkflows"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2180,6 +2220,7 @@ export interface components {
             baseURL: string;
             clientID?: string;
             clientSecret?: string;
+            name?: string;
         };
         AdmitRequest: {
             /** @enum {string} */
@@ -2790,6 +2831,13 @@ export interface components {
             models: string[];
             ok: boolean;
         };
+        RenameToolRequest: {
+            name: string;
+        };
+        RenameToolResponse: {
+            tool: components["schemas"]["ToolResponse"];
+            workflows: components["schemas"]["ToolBinder"][];
+        };
         RequestBody: {
             content: {
                 [key: string]: components["schemas"]["MediaType"];
@@ -3034,6 +3082,11 @@ export interface components {
             description?: string;
             name: string;
         };
+        ToolBinder: {
+            id: string;
+            name: string;
+            ownerName: string;
+        };
         ToolResponse: {
             /** Format: date-time */
             addedAt: string;
@@ -3045,12 +3098,16 @@ export interface components {
             mcpURL: string;
             missing: components["schemas"]["MissingCapability"][];
             name: string;
+            product: string;
             /** @enum {string} */
             registration: "dynamic" | "manual";
             resource: string;
             scopesSupported: string[];
             /** @enum {string} */
             status: "ready" | "needs_registration" | "awaiting_approval";
+        };
+        ToolWorkflowsResponse: {
+            workflows: components["schemas"]["ToolBinder"][];
         };
         TraceDestination: {
             carriedOver: boolean;
@@ -8336,6 +8393,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
             /** @description Unprocessable Entity */
             422: {
                 headers: {
@@ -8818,6 +8884,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HookResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    renameTool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                toolID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameToolRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenameToolResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    toolWorkflows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                toolID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolWorkflowsResponse"];
                 };
             };
             /** @description Forbidden: for administrators of Rotor alone. */

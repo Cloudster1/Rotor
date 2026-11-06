@@ -45,6 +45,8 @@ const (
 	CodeUnattendedCall = "unattended_call_not_allowed"
 	// CodeRetention is a retention longer than any installation keeps a run's data (#41).
 	CodeRetention = "retention_too_long"
+	// CodeToolAmbiguous is a binding of a name several tools share from before names were unique (#267).
+	CodeToolAmbiguous = "tool_ambiguous"
 )
 
 // Node types.

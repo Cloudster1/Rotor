@@ -42,6 +42,7 @@ export const audit = {
     "session.ended_by_provider": "Session ended by the identity provider",
     "tool.added": "Tool added",
     "tool.checked": "Tool checked again",
+    "tool.renamed": "Tool renamed",
     "tool.removed": "Tool removed",
     "connection.granted": "Connection made",
     "connection.ended": "Connection ended",
