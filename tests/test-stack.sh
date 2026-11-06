@@ -182,5 +182,34 @@ check "$(as_url <<< "$changed")" && fail "a changed Rotor client passes the chec
 without_connect="$(jq '.clients |= map(select(.clientId != "dynamo-connect")) | .users |= map(select(.serviceAccountClientId != "dynamo-connect"))' "$REALM")"
 check "$(as_url <<< "$without_connect")" && pass "a Dynamo realm without dynamo-connect matches" || fail "dynamo-connect's absence from Dynamo's realm makes a difference"
 
+# A throwaway project with one service that exits 3 and one that is fine: the failing start must leave only the
+# failing service's log, with its timestamps.
+echo "== logs of a stack that fails to start"
+tmp="$(mktemp -d)"
+project="rotor-logs-test-$$"
+trap 'COMPOSE_FILE="$tmp/compose.yml" COMPOSE_PROJECT_NAME="$project" docker compose down -v --remove-orphans >/dev/null 2>&1; rm -rf "$tmp"' EXIT
+cat >"$tmp/compose.yml" <<'YAML'
+services:
+  fine:
+    image: busybox:stable
+    command: ["sh", "-c", "echo fine-service-line; sleep 300"]
+  broken:
+    image: busybox:stable
+    command: ["sh", "-c", "echo broken-service-line; exit 3"]
+YAML
+export COMPOSE_FILE="$tmp/compose.yml" COMPOSE_PROJECT_NAME="$project"
+if docker compose up -d --wait >/dev/null 2>&1; then
+  fail "a stack with a service that exits 3 started"
+else
+  "$SRC/scripts/stack-logs.sh" "$tmp/out" >/dev/null 2>&1
+  grep -q broken-service-line "$tmp/out/broken.log" 2>/dev/null && pass "the failing service's log is saved" \
+    || fail "no log of the failing service in the saved logs"
+  grep -Eq '^broken.*[0-9]{4}-[0-9]{2}-[0-9]{2}T' "$tmp/out/broken.log" 2>/dev/null && pass "the saved log has timestamps" \
+    || fail "the saved log has no timestamps"
+  [[ ! -e "$tmp/out/fine.log" ]] && pass "a healthy service's log is left out" || fail "a healthy service's log was saved"
+fi
+docker compose down -v --remove-orphans >/dev/null 2>&1
+unset COMPOSE_FILE COMPOSE_PROJECT_NAME
+
 if (( FAILED )); then echo "FAIL: stack tests"; exit 1; fi
 echo "PASS: stack tests"

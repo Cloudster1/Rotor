@@ -145,7 +145,9 @@ ports: ## Print this checkout's compose project and ports
 
 .PHONY: stack-up
 stack-up: stack-env $(if $(wildcard $(ROOT)/runner/pyproject.toml),runner-image) ## The gate's stack: build and start it, and wait until every service is healthy
-	docker compose --profile observe up -d --build --wait --quiet-pull
+	@# A failed start keeps its logs in reports/ for the run's artifacts: stack-down removes the containers next (#278).
+	docker compose --profile observe up -d --build --wait --quiet-pull \
+		|| { status=$$?; $(ROOT)/scripts/stack-logs.sh $(ROOT)/reports/stack-logs; exit $$status; }
 
 .PHONY: stack-down
 stack-down: ## Remove the gate's stack and its volumes
