@@ -8,7 +8,7 @@ const MAIN_ID = "main";
 /** The chrome every page sits in: skip link, sidebar, top bar and the content. */
 export function AppShell({ children, topBarTrailing }: { children: ReactNode; topBarTrailing?: ReactNode }) {
   return (
-    <div className="flex h-full flex-col shell:flex-row">
+    <div className="flex h-full flex-col shell:flex-row" data-app-shell>
       <a
         href={`#${MAIN_ID}`}
         onClick={skipToMain}
@@ -20,11 +20,12 @@ export function AppShell({ children, topBarTrailing }: { children: ReactNode; to
       <Sidebar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <TopBar trailing={topBarTrailing} />
-        {/* A tab stop of its own, so a keyboard scrolls a page with nothing else to focus; ringed only for the keyboard. */}
+        {/* A tab stop of its own, so a keyboard scrolls a page with nothing else to focus; ringed only for the keyboard.
+            Relative, so a visually hidden control is placed inside the content and never stretches the window (#264). */}
         <main
           id={MAIN_ID}
           tabIndex={0}
-          className="min-h-0 flex-1 overflow-auto bg-backdrop px-4 py-6 focus:outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus shell:px-8"
+          className="relative min-h-0 flex-1 overflow-auto overscroll-contain bg-backdrop px-4 py-6 focus:outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus shell:px-8"
         >
           {children}
         </main>
