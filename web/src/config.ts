@@ -79,8 +79,23 @@ export const GRAPH_LOOP_DASH = "6 4";
 /** How tall the run graph is drawn, in pixels; it fits the graph inside. */
 export const GRAPH_HEIGHT_PX = 360;
 
-/** How tall the workflow editor draws its canvas, in pixels; taller than a run's, since it is worked in. */
-export const EDITOR_GRAPH_HEIGHT_PX = 600;
+/** How tall the workflow editor draws its canvas: taller than a run's, since it is worked in, yet short enough on a
+ * phone to leave the page room to scroll past it (#265). */
+export const EDITOR_GRAPH_HEIGHT = "clamp(320px, 60svh, 600px)";
+
+/** The largest zoom a fitted graph is drawn at, so a workflow of one node is not blown up to twice its size (#265). */
+export const GRAPH_FIT_MAX_ZOOM = 1;
+
+/** How far past its outermost nodes a graph can be moved, in pixels, so it is never flung out of reach (#265). */
+export const GRAPH_EXTENT_MARGIN_PX = 200;
+
+/** A finger as the main pointer, which scrolls the page over a canvas instead of moving its graph (#265). */
+export const COARSE_POINTER_QUERY = "(pointer: coarse)";
+
+/** Below Tailwind's lg breakpoint the editor's inspector stacks under its canvas, so choosing a node scrolls to it,
+ * smoothly unless the person asked for less motion. */
+export const STACKED_LAYOUT_QUERY = "(width < 64rem)";
+export const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
 /** How many of the canvas's edits it can undo (#198). */
 export const CANVAS_HISTORY_LIMIT = 100;

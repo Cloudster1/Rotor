@@ -105,3 +105,11 @@
   stroke: var(--color-accent);
   stroke-width: 2;
 }
+
+/* On a touch screen a finger dragged over a graph scrolls the page, since the graph no longer pans with it
+   (COARSE_POINTER_QUERY in config.ts, #265); React Flow's own style refuses the browser every touch gesture. */
+@media (pointer: coarse) {
+  .react-flow .react-flow__pane {
+    touch-action: pan-y pinch-zoom;
+  }
+}

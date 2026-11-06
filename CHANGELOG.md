@@ -805,6 +805,16 @@ and the versioning [Semantic Versioning](https://semver.org/).
   phone. A visually hidden control at the end of a page used to stretch the
   window below the app (#264).
 
+- The workflow canvas no longer traps the page. A wheel over the canvas, or
+  over a run's graph, scrolls the page, and a pinch or Ctrl and the wheel
+  zooms the graph; on a touch screen a swipe over it scrolls the page, the
+  canvas leaves room on a phone's screen to scroll past it, and the graph
+  can no longer be flung out of reach. The toolbar sits above the graph
+  instead of over its first nodes, and fitting draws a small workflow no
+  larger than life. A node added from the Add a node form is brought into
+  view as one added from the toolbar is, and on a narrow screen choosing a
+  node scrolls to its inspector below the canvas (#265).
+
 - A run stops at its approval, and the approval opens, as soon as the runner
   reaches it, whatever the trace collector does. The control plane used to
   send a runner's last spans on before it handled the run's end, so with the

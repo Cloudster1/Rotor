@@ -1,4 +1,4 @@
-import { type FormEvent, useId, useState } from "react";
+import { type FormEvent, type Ref, useId, useState } from "react";
 import type { Problem } from "@/api/workflows";
 import { s } from "@/strings";
 import { NodeFields } from "./NodeFields";
@@ -27,6 +27,7 @@ export function Inspector({
   problems,
   readOnly,
   edits,
+  ref,
 }: {
   spec: SpecShape;
   selected: string | undefined;
@@ -34,12 +35,18 @@ export function Inspector({
   problems: Problem[];
   readOnly: boolean;
   edits: NodeEdits;
+  ref?: Ref<HTMLElement>;
 }) {
   const id = useId();
   const node = spec.nodes.find((n) => n.id === selected && n.id !== "");
   const ids = spec.nodes.map((n) => n.id).filter((n) => n !== "");
   return (
-    <section className="flex flex-col gap-4 rounded-overlay border border-border bg-surface p-4" aria-labelledby={`${id}-title`} data-inspector>
+    <section
+      ref={ref}
+      className="flex scroll-m-4 flex-col gap-4 rounded-overlay border border-border bg-surface p-4"
+      aria-labelledby={`${id}-title`}
+      data-inspector
+    >
       <h3 id={`${id}-title`} className="text-sm font-semibold text-ink">
         {s.canvas.node.title}
       </h3>

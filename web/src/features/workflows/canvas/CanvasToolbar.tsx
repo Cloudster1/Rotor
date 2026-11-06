@@ -1,5 +1,5 @@
 import { useReactFlow } from "@xyflow/react";
-import { GRAPH_REVEAL_MS } from "@/config";
+import { GRAPH_FIT_MAX_ZOOM, GRAPH_REVEAL_MS } from "@/config";
 import type { TextHistory } from "@/features/workflows/history";
 import { s } from "@/strings";
 
@@ -48,7 +48,7 @@ export function CanvasToolbar({
       <button type="button" className={button} aria-label={s.canvas.toolbar.zoomOut} title={s.canvas.toolbar.zoomOut} onClick={() => void flow.zoomOut(glide)}>
         -
       </button>
-      <button type="button" className={button} onClick={() => void flow.fitView(glide)} data-tool="fit">
+      <button type="button" className={button} onClick={() => void flow.fitView({ ...glide, maxZoom: GRAPH_FIT_MAX_ZOOM })} data-tool="fit">
         {s.canvas.toolbar.fit}
       </button>
     </div>

@@ -1,7 +1,19 @@
 import "@xyflow/react/dist/base.css";
-import { type EdgeChange, type FinalConnectionState, MarkerType, type NodeChange, Panel, ReactFlow, useNodesInitialized, useReactFlow } from "@xyflow/react";
+import {
+  type CoordinateExtent,
+  type EdgeChange,
+  type FinalConnectionState,
+  type FitViewOptions,
+  MarkerType,
+  type NodeChange,
+  ReactFlow,
+  ReactFlowProvider,
+  useNodesInitialized,
+  useReactFlow,
+} from "@xyflow/react";
 import { type ReactNode, useEffect, useMemo, useRef } from "react";
-import { GRAPH_LOOP_DASH, GRAPH_REVEAL_MS, GRAPH_REVEAL_PADDING } from "@/config";
+import { GRAPH_COLUMN_PX, GRAPH_EXTENT_MARGIN_PX, GRAPH_FIT_MAX_ZOOM, GRAPH_LOOP_DASH, GRAPH_REVEAL_MS, GRAPH_REVEAL_PADDING, GRAPH_ROW_PX } from "@/config";
+import { useCoarsePointer } from "@/lib/useMediaQuery";
 import { s } from "@/strings";
 import { type Graph, layered, loopEdges } from "./layout";
 import { NODE_TYPES, type StepNodeType } from "./StepNode";
@@ -29,6 +41,7 @@ export interface GraphEditing {
 export type Reveal = { id: string };
 
 const DELETE_KEYS = ["Delete", "Backspace"];
+const FIT: FitViewOptions = { maxZoom: GRAPH_FIT_MAX_ZOOM };
 
 /** A workflow's graph laid out in layers; the run page colours it by state, the editor selects, marks and edits it. */
 export function GraphCanvas({
@@ -48,7 +61,8 @@ export function GraphCanvas({
 }: {
   graph: Graph;
   label: string;
-  height: number;
+  /** A length in pixels, or any CSS length, such as one that follows the screen. */
+  height: number | string;
   draw: (id: string, type: string) => Drawn;
   edgeTone?: (from: string, to: string) => string | undefined;
   selected?: string;
@@ -64,9 +78,12 @@ export function GraphCanvas({
   // What React Flow measured of each node goes back with every redrawn node: a node redrawn before its measure
   // reached React would otherwise be left hidden, with its edges, as a run's events arrive in a burst.
   const measured = useRef(new Map<string, { width: number; height: number }>());
+  const coarse = useCoarsePointer();
+  const placed = useMemo(() => layered(graph), [graph]);
+  const extent = useMemo(() => reach(placed), [placed]);
   const nodes = useMemo<StepNodeType[]>(
     () =>
-      layered(graph).map((p) => {
+      placed.map((p) => {
         const drawn = draw(p.id, p.type);
         return {
           id: p.id,
@@ -88,7 +105,7 @@ export function GraphCanvas({
           // React Flow passes data- attributes through to the node, though its type leaves them out.
         } as StepNodeType;
       }),
-    [graph, draw, selected, selectable, editing],
+    [placed, draw, selected, selectable, editing],
   );
   const edges = useMemo<WayEdgeType[]>(() => {
     const loops = loopEdges(graph);
@@ -143,38 +160,62 @@ export function GraphCanvas({
     if (state.fromNode && !state.toNode && state.fromHandle?.type === "source") editing?.addAfter(state.fromNode.id);
   }
 
+  // The toolbar sits above the graph, not over it, so it never covers a node, however it wraps on a narrow screen.
   return (
-    <section aria-label={label} className="rounded-overlay border border-border bg-surface-sunken" style={{ height }} {...region}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={NODE_TYPES}
-        edgeTypes={EDGE_TYPES}
-        onNodesChange={changed}
-        onEdgesChange={edgesChanged}
-        fitView
-        nodesDraggable={false}
-        nodesConnectable={editing !== undefined}
-        edgesFocusable={editing !== undefined}
-        elementsSelectable={selectable}
-        connectOnClick={false}
-        isValidConnection={(c) => editing?.canConnect(c.source, c.target) ?? false}
-        onConnect={(c) => editing?.connect(c.source, c.target)}
-        onConnectEnd={editing ? connectEnd : undefined}
-        // React Flow never removes anything itself: the page changes the text, and the graph is drawn again from it.
-        deleteKeyCode={editing ? DELETE_KEYS : null}
-        onBeforeDelete={async (d) => {
-          editing?.remove({ nodes: d.nodes.map((n) => n.id), edges: d.edges.map((e) => Number(e.id)) });
-          return false;
-        }}
-        panOnDrag
-        zoomOnScroll={false}
-      >
-        {toolbar && <Panel position="top-left">{toolbar}</Panel>}
-        {reveal && <Revealer reveal={reveal} />}
-      </ReactFlow>
+    <section aria-label={label} className="flex flex-col overflow-hidden rounded-overlay border border-border bg-surface-sunken" style={{ height }} {...region}>
+      <ReactFlowProvider>
+        {toolbar && <div className="border-b border-border p-2">{toolbar}</div>}
+        <div className="min-h-0 flex-1">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={NODE_TYPES}
+            edgeTypes={EDGE_TYPES}
+            onNodesChange={changed}
+            // A click on the node already selected changes nothing in React Flow, yet still chooses it for the page.
+            onNodeClick={selectable ? (_, node) => onSelect?.(node.id) : undefined}
+            onEdgesChange={edgesChanged}
+            fitView
+            fitViewOptions={FIT}
+            translateExtent={extent}
+            nodesDraggable={false}
+            nodesConnectable={editing !== undefined}
+            edgesFocusable={editing !== undefined}
+            elementsSelectable={selectable}
+            connectOnClick={false}
+            isValidConnection={(c) => editing?.canConnect(c.source, c.target) ?? false}
+            onConnect={(c) => editing?.connect(c.source, c.target)}
+            onConnectEnd={editing ? connectEnd : undefined}
+            // React Flow never removes anything itself: the page changes the text, and the graph is drawn again from it.
+            deleteKeyCode={editing ? DELETE_KEYS : null}
+            onBeforeDelete={async (d) => {
+              editing?.remove({ nodes: d.nodes.map((n) => n.id), edges: d.edges.map((e) => Number(e.id)) });
+              return false;
+            }}
+            // A wheel scrolls the page past the graph; a pinch, or Ctrl and the wheel, zooms it. A finger scrolls the page
+            // too, so on a touch screen the graph moves by the toolbar's zoom and fit, and to a node focused or added.
+            panOnDrag={!coarse}
+            zoomOnScroll={false}
+            zoomOnPinch
+            preventScrolling={false}
+          >
+            {reveal && <Revealer reveal={reveal} />}
+          </ReactFlow>
+        </div>
+      </ReactFlowProvider>
     </section>
   );
+}
+
+/** How far the graph can be moved: round its nodes with room to spare, so a fling never loses it; anywhere when empty. */
+function reach(placed: { x: number; y: number }[]): CoordinateExtent | undefined {
+  if (placed.length === 0) return undefined;
+  const xs = placed.map((p) => p.x);
+  const ys = placed.map((p) => p.y);
+  return [
+    [Math.min(...xs) - GRAPH_EXTENT_MARGIN_PX, Math.min(...ys) - GRAPH_EXTENT_MARGIN_PX],
+    [Math.max(...xs) + GRAPH_COLUMN_PX + GRAPH_EXTENT_MARGIN_PX, Math.max(...ys) + GRAPH_ROW_PX + GRAPH_EXTENT_MARGIN_PX],
+  ];
 }
 
 /** Brings a new node into view once React Flow has measured it, at the zoom the person chose. */

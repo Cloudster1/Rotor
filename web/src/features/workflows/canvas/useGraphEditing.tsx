@@ -62,6 +62,7 @@ export function useGraphEditing({
     remove,
   };
 
+  // A node added here or from the page's own form is selected, brought into view and announced.
   function added(id: string, held: boolean) {
     if (!held) return;
     select(id);
@@ -165,6 +166,7 @@ export function useGraphEditing({
 
   return {
     editing,
+    added,
     reveal,
     selectedEdge,
     selectEdge: (i: number | undefined) => setEdgeAt(i === undefined ? undefined : { text, edge: i }),
