@@ -60,6 +60,8 @@ type Options struct {
 	Snapshot string `json:"snapshot,omitempty"`
 	// Issues are the Armature issues the tenant holds, by key, each shown to its readers alone (#129).
 	Issues map[string]Issue `json:"issues,omitempty"`
+	// Labels are an Armature tenant's labels that its issues need not carry; every project shares them (#270).
+	Labels []string `json:"labels,omitempty"`
 	// TestPlans are an Exciter tenant's test plans, which only Exciter's web client makes; see TestPlanID (#139).
 	TestPlans []TestPlan `json:"testPlans,omitempty"`
 	// Repositories are what an Armature tenant's projects connect, cloned and pushed through its stand-in proxy (#137).

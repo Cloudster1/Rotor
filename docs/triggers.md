@@ -225,6 +225,25 @@ above, so answers to its questions still reach it. A condition holds for
 every topic of its trigger, which is why they are two. Each workflow answers
 only its own questions, so the two conversations on one ticket stay apart.
 
+### Labelling new issues
+
+[`issue-triage.yaml`](../examples/issue-triage.yaml) (#270) labels each new
+Armature issue from the labels already in use. Its setup is the story
+workflow's without Exciter:
+1. **Connect Armature** and add **Armature's webhook** as above, with the
+   topic `issue.created`.
+2. **The trigger's owner** connects to Armature, adds the workflow, and adds
+   a trigger **On a tool's event**: Armature, the topic `issue.created`, the
+   projects to triage, and `issueKey` left empty. Agree to the two calls the
+   form lists, Armature's `bulk_edit_issues` and `add_comment`.
+
+The owner needs to edit and comment on issues in those projects; the labels
+and the comment are theirs, written through Rotor. The workflow only picks
+labels that exist, so create the ones your team uses in Armature first, or
+label a few issues by hand. To try it on one issue without the webhook, run
+it from its page with `issueKey` set to the issue's key and `event` left
+empty; that run is yours, not the trigger's owner's.
+
 ### Later
 
 Armature lets a connected app register its own webhook (Armature #281); Rotor

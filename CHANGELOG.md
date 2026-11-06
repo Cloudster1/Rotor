@@ -9,6 +9,14 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- An issue triage workflow to start from, `examples/issue-triage.yaml`
+  (#270): on a new Armature issue, or run by hand with an issue key, it picks
+  up to three labels from those already in use, adds them and comments
+  **Labels from Rotor** with the reason. An issue that has labels, or that no
+  label fits, is left alone, and a name not in use is never added, since
+  Armature would make a new label of it. The tool stub answers Armature's
+  `list_labels` and `bulk_edit_issues` (adding labels) for tests.
+
 - Administrators send runs' traces to the OTLP tools their teams use (#246),
   such as Langfuse, Arize Phoenix or Jaeger, under Admin, Traces: at most eight
   destinations, each a name, the whole OTLP/HTTP traces URL, headers Rotor

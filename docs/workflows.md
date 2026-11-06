@@ -580,6 +580,31 @@ Its only write is that comment, `unattended`. To use it before
 story-to-requirements, see
 [`triggers.md`](triggers.md#refining-a-story-first).
 
+### Label a new issue from the labels in use
+
+[`issue-triage.yaml`](../examples/issue-triage.yaml) (#270) labels a new
+Armature issue. A trigger on Armature's `issue.created` starts it as the
+trigger's owner, or a person runs it by hand with `issueKey` and leaves
+`event` empty:
+1. **Gather**, a code node, reads the issue with `get_issue` and every label
+   in use with `list_labels`; labels belong to the whole installation, not to
+   one project. It ends the run when the issue has labels already, so a
+   person's triage or an earlier run's stands, or when there are no labels.
+2. **Classify**, an agent with no tools, reads what gather found and answers
+   `label` with at most three of the listed names and a short reason, or
+   `skip` when none clearly fits.
+3. With labels, a code node keeps only names that are in use, in Armature's
+   spelling, and adds them with `bulk_edit_issues` on the one key, since
+   Armature has no tool that labels one issue. That call makes a label of any
+   name it does not know, which is why the agent's answer is checked rather
+   than trusted. It then comments **Labels from Rotor** with the labels and
+   the reason. A refusal from Armature fails the run with its reason.
+
+Both writes are `unattended`, through a binding of `issue.write` and
+`comment.write`. Its labels arrive at Armature as `issue.updated` and its
+comment as `comment.added`, neither of which it listens to. To use it, see
+[`triggers.md`](triggers.md#labelling-new-issues).
+
 ### Implement a feature through reviewed, tested code
 
 [`implement-feature.yaml`](../examples/implement-feature.yaml) (#140) takes a
