@@ -3,6 +3,7 @@ chain, node, tool and model call, sent over the channel, redacted, and with text
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -201,3 +202,34 @@ async def test_an_mcp_request_carries_the_traceparent_of_its_span() -> None:
     )
     assert int(flags, 16) & 1, "the tool continues a sampled trace"
     assert RunTracing().headers() == {}, "a run that is not traced sends no trace context"
+
+
+async def test_two_runs_in_one_process_keep_their_spans_apart() -> None:
+    other = "1" * 32
+    sent: list[list[pb.ConnectRequest]] = [[], []]
+    traces = [TRACEPARENT, f"00-{other}-{PARENT}-01"]
+
+    async def one(i: int) -> None:
+        tracing = RunTracing(traces[i], sent[i].append, scrub, False, run=f"run-{i}")
+        tools = TracedTools({"whoami": {"username": "bob"}})
+        tools.tracing = tracing
+
+        async def emit(_kind: str, _node: str, _payload: dict[str, Any]) -> None:
+            return None
+
+        ctx = RunContext(
+            spec=parse(workflow(AGENT)),
+            tools=tools,
+            emit=emit,
+            model=lambda: ToolCallingModel(responses=[CALL, AIMessage("It has 3.")]),
+            tracing=tracing,
+        )
+        await run_workflow(ctx, {"note": "x"}, thread_id=f"run-{i}")
+        await tracing.flush()
+
+    await asyncio.gather(one(0), one(1))
+    for i, trace_id in enumerate([TRACE, other]):
+        spans = [s for m in sent[i] for s in m.spans.spans]
+        assert len(spans) > 4
+        assert {s.trace_id.hex() for s in spans} == {trace_id}
+        assert {s.attributes["rotor.run"] for s in spans} == {f"run-{i}"}
