@@ -14,7 +14,7 @@ function stillArriving(run: Run): boolean {
 }
 
 /** A run's trace on its page (#245): its spans as a nested timeline, what Rotor kept of it, and where else it went. */
-export function TraceSection({ run }: { run: Run }) {
+export function TraceSection({ run, focus }: { run: Run; focus?: string }) {
   const trace = useQuery(runTraceQuery(run.id, () => (stillArriving(run) ? RUN_POLL_MS : false)));
   const setting = useQuery(traceSettingQuery);
   return (
@@ -30,6 +30,7 @@ export function TraceSection({ run }: { run: Run }) {
           trace={trace.data}
           spanQuery={(spanID) => runTraceSpanQuery(run.id, spanID)}
           openFailure={run.status === "failed"}
+          focus={focus}
           none={run.ended ? s.trace.none : s.trace.noneYet}
           labelledBy={TITLE_ID}
           days={setting.data?.retentionDays ?? null}

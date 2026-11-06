@@ -1497,6 +1497,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/spans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Spans of the traces you may read that match a search, newest first: runs' and senders' own.
+         * @description since defaults to 7 days before until, which defaults to now, and starts at most 30 days back. Text a person, a tool or a model wrote is sealed and never searched. A search that runs past 5 seconds answers 422 search_too_broad. next is the cursor of the next page.
+         */
+        get: operations["searchSpans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tools": {
         parameters: {
             query?: never;
@@ -3023,6 +3043,35 @@ export interface components {
             };
             name: string;
         };
+        SpanHit: {
+            durationMs: number;
+            /** @enum {string} */
+            kind: "CHAIN" | "LLM" | "TOOL" | "AGENT" | "RETRIEVER" | "EMBEDDING" | "RERANKER" | "GUARDRAIL" | "EVALUATOR" | "PROMPT" | "UNKNOWN";
+            model: string;
+            name: string;
+            owner: components["schemas"]["PersonRef"] | null;
+            runId: string | null;
+            service: string;
+            /** @enum {string} */
+            source: "runner" | "otlp";
+            spanId: string;
+            /** Format: date-time */
+            startedAt: string;
+            /** @enum {string} */
+            status: "unset" | "ok" | "error";
+            statusMessage: string;
+            traceId: string;
+            workflow: components["schemas"]["WorkflowRef"] | null;
+        };
+        SpanSearchResponse: {
+            limit: number;
+            next: string | null;
+            /** Format: date-time */
+            since: string;
+            spans: components["schemas"]["SpanHit"][];
+            /** Format: date-time */
+            until: string;
+        };
         SpanTokens: {
             completion: number;
             prompt: number;
@@ -3394,6 +3443,10 @@ export interface components {
             groupId?: string;
             role: string;
             userId?: string;
+        };
+        WorkflowRef: {
+            id: string;
+            name: string;
         };
         WorkflowResponse: {
             version: components["schemas"]["VersionResponse"];
@@ -8154,6 +8207,78 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    searchSpans: {
+        parameters: {
+            query?: {
+                /** @description Spans whose name holds this, whatever the case. */
+                name?: string;
+                /** @description Spans of this OpenInference kind, such as TOOL or LLM. */
+                kind?: string;
+                /** @description Spans with this status: error finds the failed ones. */
+                status?: string;
+                /** @description Model calls whose model holds this, whatever the case. */
+                model?: string;
+                /** @description Spans of this service, such as rotor-runner. */
+                service?: string;
+                /** @description Spans of this workflow's runs, by its id. */
+                workflow?: string;
+                /** @description An attribute without text, such as tool.name, to match exactly with attrValue. */
+                attrKey?: string;
+                /** @description The value attrKey must have. */
+                attrValue?: string;
+                /** @description The earliest start, RFC 3339; 7 days before until when left out, and at most 30 days back. */
+                since?: string;
+                /** @description The latest start, RFC 3339, not included; now when left out. */
+                until?: string;
+                /** @description At most this many spans, 50 when left out and never more than 200. */
+                limit?: number;
+                /** @description The next of the page before, for the page after it. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpanSearchResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

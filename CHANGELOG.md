@@ -9,6 +9,17 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Search spans across the runs you may see and your own traces (#261), at
+  Traces, Search spans, linked from Runs too: by name, kind, failed only,
+  model, service, workflow and one attribute without text, within the last
+  24 hours, 7 or 30 days, newest first, with Show more. A hit opens its
+  run's trace, or the own trace, with that span chosen. The same row level
+  security as a run's trace decides, so nobody finds a span of a run they
+  may not read; text a person, tool or model wrote is never searched.
+  `GET /spans` answers the same, a week back unless `since` says otherwise
+  and never more than 30 days, paged by cursor, and a search running past
+  5 seconds is refused as too broad; assistants get it as `search_spans`.
+
 - A workflow's administrators choose how its runs are traced, under its
   settings, Tracing (#259): keep text as the installation does, or none at
   all, in Rotor or at any destination, whatever the installation keeps;

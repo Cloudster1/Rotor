@@ -1,6 +1,7 @@
 import { createRoute, lazyRouteComponent } from "@tanstack/react-router";
 import { RunsPage, runsSearch } from "@/features/runs/RunsPage";
 import { shellRoute } from "./shell";
+import { spanParam } from "./traces";
 
 export const runsRoute = createRoute({
   getParentRoute: () => shellRoute,
@@ -15,5 +16,6 @@ export const runsRoute = createRoute({
 export const runRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/runs/$runID",
+  validateSearch: (search: Record<string, unknown>): { span?: string } => ({ span: spanParam(search) }),
   component: lazyRouteComponent(() => import("@/features/runs/RunRoute"), "RunRoute"),
 });

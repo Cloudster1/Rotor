@@ -23,6 +23,7 @@ type TraceReader interface {
 	OwnedTrace(ctx context.Context, owner uuid.UUID, traceID string) (traces.Trace, []traces.Span, error)
 	OwnedSpan(ctx context.Context, owner uuid.UUID, traceID, spanID string) (traces.Span, error)
 	ListOwned(ctx context.Context, f traces.OwnedFilter) (traces.OwnedPage, error)
+	SearchSpans(ctx context.Context, f traces.SpanFilter) (traces.SpanPage, error)
 }
 
 var (

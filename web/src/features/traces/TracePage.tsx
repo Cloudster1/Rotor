@@ -40,7 +40,7 @@ function About({ trace }: { trace: Trace }) {
 }
 
 /** One trace a sender posted of no run (#257), in the tree and details a run's trace has; sender is whose it is. */
-export function TracePage({ traceID, sender }: { traceID: string; sender: string }) {
+export function TracePage({ traceID, sender, focus }: { traceID: string; sender: string; focus?: string }) {
   const t = s.traces.page;
   const trace = useQuery(ownTraceQuery(traceID, sender));
   const setting = useQuery(traceSettingQuery);
@@ -70,6 +70,7 @@ export function TracePage({ traceID, sender }: { traceID: string; sender: string
               trace={data}
               spanQuery={(spanID) => ownTraceSpanQuery(traceID, sender, spanID)}
               openFailure
+              focus={focus}
               none={t.none}
               labelledBy={SPANS_TITLE_ID}
               days={setting.data?.retentionDays ?? null}

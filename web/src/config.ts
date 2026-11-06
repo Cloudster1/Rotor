@@ -124,6 +124,14 @@ export const OTLP_PATH = "/api/v1/otlp";
 /** How many owned traces a page of the Traces list shows. */
 export const OWN_TRACES_PAGE_SIZE = 50;
 
+/** How many spans a page of Search spans asks for, as the API's own default (#261). */
+export const SPAN_SEARCH_PAGE_SIZE = 50;
+/** The windows Search spans offers, in days back from now; the API reads at most 30 and 7 when none is named. */
+export const SPAN_SEARCH_WINDOWS = [1, 7, 30] as const;
+export const SPAN_SEARCH_DEFAULT_DAYS = 7;
+/** How much later than its days a window starts, so a clock a little ahead of the server's is not past the API's bound. */
+export const SPAN_SEARCH_SLACK_MS = 60_000;
+
 /** The products whose webhook deliveries start event triggers (#35), as the server names them. */
 export const HOOK_PRODUCTS = ["armature", "exciter", "stator"] as const;
 /** What Rotor needs of a tool to act in it and to take its events, as backend/internal/tools/needs.go names them (#43). */

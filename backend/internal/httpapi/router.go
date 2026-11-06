@@ -212,6 +212,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Get("/runs/{runID}/trace", s.handleGetRunTrace)
 			r.Get("/runs/{runID}/trace/spans/{spanID}", s.handleGetRunTraceSpan)
 			r.Get("/traces", s.handleListTraces)
+			r.Get("/spans", s.handleSearchSpans)
 			r.Get("/traces/{traceID}", s.handleGetTrace)
 			r.Get("/traces/{traceID}/spans/{spanID}", s.handleGetTraceSpan)
 			r.Get("/approvals", s.handleListApprovals)
