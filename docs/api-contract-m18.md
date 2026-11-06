@@ -250,6 +250,40 @@ says. Destinations get every run.
 | `GET /settings/traces` | signed in | `{retentionDays, keepContent, changedBy, updatedAt}`, so the run page can say how long traces are kept |
 | `PUT /settings/traces` | admin, session | `{retentionDays, keepContent}`; a day count out of range is 422 with `fields` |
 
+### As built (#242)
+
+- **Migration:** one file, `01500_keep_traces.sql`. `trace_due(last_span_at)` says a trace took no span for
+  `retention_days`; the sweep asks it, and so do the policies that let `rotor_admin` delete a span or an owned trace,
+  so it deletes nothing the retention keeps. A run's trace goes with its run by cascade.
+- **Trace rows:** `started_at` and `last_span_at` are the row's making, which comes with its first span, and the trigger
+  moves `last_span_at`. A span taken into an expired run's trace clears `expired_at`: the trace holds spans again, and
+  its counts still include the swept ones. `data_key` may be null on an owned trace; only a run's trace is refused one,
+  so #243 makes a key when it first seals text.
+- **What a span holds:** the runner's spans are `error` or `unset`, since the runner protocol carries only whether a
+  span failed. `sealed_content` is the span's text attributes as one JSON object of key to value, sealed with the
+  run's box for the column `trace_span.content` and the row `<trace.id>/<span_id>` (`envelope.ColumnTraceContent`,
+  `envelope.TraceSpanRow`). An event keeps its attributes without text; `exception.*` are such, and an event's text
+  attributes, which no runner span carries, are dropped. The store leaves out a span id twice in one batch and a span
+  ending before it starts, drops NUL, which Postgres refuses, and names an unnamed span `span`, so one odd span does
+  not cost its batch.
+- **Text:** `StartRun.trace_content` is set while `keep_content` is on or LangSmith is; the store keeps text while
+  `keep_content` is on when it writes, as read within `TraceSettingTTL`, which replaces `LangSmithSettingTTL` now.
+- **Every run is traced:** a run carries the sampled context it was started in, the api's `run.start` span when the
+  collector sampled it, else a fresh sampled one. A caller's sampled `traceparent` is continued when the api has no
+  collector too, rather than replaced, so a tool calling back with it joins the run. A trace id another run holds
+  already, as when a caller starts two runs in one trace, gives the later run a fresh trace, since `trace_id` is unique
+  among runs' traces; runs from before #242 that share one keep the earlier's spans only, the later's refused and
+  logged.
+- **The collector:** the runner's spans go to it only when `TraceIDRatioBased(ROTOR_TRACE_SAMPLE_RATIO)` keeps the
+  trace id, and the worker's spans of a run follow, made unsampled when it does not.
+- **The pool and the sweep:** a batch the store fails is logged at warn, one dropped for a full pool at debug.
+  `TraceSweepBatch` counts spans deleted in one transaction; `TraceSweepEvery` (an hour) and `TraceSweepLockKey` join
+  the limits, as for the run sweep.
+- **Not stored:** the api's and the worker's own spans of a run. `source` is `runner` or `otlp`, so the issue's "from
+  the api" is the OTLP endpoint (#243).
+- **Web:** no control; the admin page shows the trace setting beside destinations (#246). `traces.changed` has its
+  label in the audit log.
+
 ## Spans from any LangChain app (#243)
 
 `POST /api/v1/otlp/v1/traces`, so an app sets

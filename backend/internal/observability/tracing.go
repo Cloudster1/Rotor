@@ -24,6 +24,8 @@ type Tracing struct {
 	provider *sdktrace.TracerProvider
 	exporter sdktrace.SpanExporter
 	env      string
+	// ratio keeps a share of trace ids, for the runs whose traces Rotor makes sampled whatever the ratio says.
+	ratio sdktrace.Sampler
 }
 
 // SetupTracing installs the W3C propagator always, so a traceparent is read and passed on whatever else is on, and a
@@ -43,13 +45,14 @@ func SetupTracing(ctx context.Context, service, env string, cfg config.Telemetry
 	if exporter == nil {
 		return nil, nil
 	}
+	ratio := sdktrace.TraceIDRatioBased(cfg.SampleRatio)
 	provider := sdktrace.NewTracerProvider(
 		sdktrace.WithResource(serviceResource(service, env)),
-		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(cfg.SampleRatio))),
+		sdktrace.WithSampler(sdktrace.ParentBased(ratio)),
 		sdktrace.WithBatcher(exporter),
 	)
 	otel.SetTracerProvider(provider)
-	return &Tracing{provider: provider, exporter: exporter, env: env}, nil
+	return &Tracing{provider: provider, exporter: exporter, env: env, ratio: ratio}, nil
 }
 
 func serviceResource(service, env string) *resource.Resource {

@@ -48,6 +48,8 @@ type Server struct {
 	ApprovalTTL time.Duration
 	// Telemetry sends the runner's spans on (#37); nil drops them.
 	Telemetry Telemetry
+	// Traces keeps the runner's spans in Postgres beside sending them on (#242); nil keeps none.
+	Traces TraceStore
 	// MintFailed counts a token not minted for a run, by why (#37); nil counts nothing.
 	MintFailed func(reason string)
 	// Skills answers what the run's agents' skills hold (#222); nil gives agents no skills.
@@ -59,6 +61,9 @@ type Server struct {
 	// exporting holds a slot per runner batch being sent on, so a collector that does not answer holds no stream.
 	exporting     chan struct{}
 	exportingOnce sync.Once
+	// storing holds a slot per runner batch being stored, apart from the exports, so neither costs the other.
+	storing     chan struct{}
+	storingOnce sync.Once
 }
 
 // liveStream is the stream a run is served on, so a newer one can end it.
@@ -151,7 +156,7 @@ func (s *Server) Connect(stream runnerpb.RunnerControlService_ConnectServer) err
 	var pending []*runnerpb.ConnectResponse
 	if r.Status == StatusStarting {
 		deadline := time.Now().Add(r.spec.Limits.TimeoutDuration() + config.RunDeadlineGrace)
-		r.TraceContent = s.Telemetry != nil && s.Telemetry.Content(ctx)
+		r.TraceContent = (s.Traces != nil && s.Traces.KeepContent(ctx)) || (s.Telemetry != nil && s.Telemetry.Content(ctx))
 		skills, err := s.agentSkills(ctx, r)
 		if err != nil {
 			return s.fail(runID, "read the agents' skills", err)

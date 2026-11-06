@@ -70,10 +70,10 @@ var m18Operations = []operation{
 		query:     []param{senderQuery},
 		responses: map[int]any{http.StatusOK: traceSpanResponse{}, http.StatusNotFound: notFound}},
 
-	{method: "GET", path: "/settings/traces", handler: "handleGetTraceSetting", tag: "telemetry", pending: true,
+	{method: "GET", path: "/settings/traces", handler: "handleGetTraceSetting", tag: "telemetry",
 		summary:   "How many days Rotor keeps traces, and whether it keeps the prompt, tool and answer text in them.",
 		responses: ok(traceSettingResponse{})},
-	{method: "PUT", path: "/settings/traces", handler: "handleSetTraceSetting", tag: "telemetry", admin: true, pending: true,
+	{method: "PUT", path: "/settings/traces", handler: "handleSetTraceSetting", tag: "telemetry", admin: true,
 		summary:     "Change how many days traces are kept, from 1 to 90, and whether Rotor keeps their text.",
 		description: "Keeping text affects runs started afterwards; a shorter retention applies to traces already kept.",
 		request:     traceSettingRequest{},

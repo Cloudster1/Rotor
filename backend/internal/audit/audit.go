@@ -94,6 +94,8 @@ const (
 	ActionSkillImported = "skill.imported"
 	// ActionSkillInstalled is a version of a skill Rotor ships, which the api added at its start (#225).
 	ActionSkillInstalled = "skill.installed"
+	// ActionTracesChanged is an administrator changing how long traces are kept and whether their text is (#242).
+	ActionTracesChanged = "traces.changed"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
@@ -108,7 +110,7 @@ var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, Actio
 	ActionRoleRemoved, ActionRoleDefined, ActionRoleRedefined, ActionGroupCreated, ActionGroupDeleted, ActionGroupMemberAdded,
 	ActionGroupMemberRemoved, ActionSwitchedOn, ActionMemberAdmitted, ActionMemberDeclined, ActionOIDCSaved,
 	ActionSkillCreated, ActionSkillChanged, ActionSkillArchived, ActionSkillRestored, ActionSkillImported,
-	ActionSkillInstalled}
+	ActionSkillInstalled, ActionTracesChanged}
 
 // Redacted stands in the record for a value that looked like a credential.
 var Redacted = redact.Redacted

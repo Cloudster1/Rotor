@@ -39,9 +39,6 @@ const (
 	DefaultLangSmithProject = "rotor"
 	// MetricsCollectTimeout bounds a gauge read from the database while Prometheus scrapes.
 	MetricsCollectTimeout = 5 * time.Second
-	// LangSmithSettingTTL is how long an api replica trusts what it read of the LangSmith setting; one changed on
-	// another replica takes at most this long to reach this one.
-	LangSmithSettingTTL = 30 * time.Second
 )
 
 // RunDurationBuckets are the seconds rotor_run_duration_seconds counts runs into: a run takes seconds to hours.
