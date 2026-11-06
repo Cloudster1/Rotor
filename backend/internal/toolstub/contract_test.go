@@ -154,7 +154,7 @@ var answeredTools = map[string][]string{
 		ListArmatureLinksTool, LinkArmatureIssueTool, RequestReviewsTool, ListTypesTool, GetTreeTool, LinkRequirementsTool,
 		ListTestPlansTool, StartTestExecutionTool, RecordTestResultTool, CloseTestExecutionTool, ListLinksTool, ClearSuspectLinkTool, CommentOnRequirementTool},
 	SnapshotArmature: {WhoamiTool, GetIssueTool, ListCommentsTool, AddCommentTool, ListRemoteLinksTool, AddRemoteLinkTool,
-		ListRepositoriesTool, GetIssueDevelopmentTool, CreateIssueBranchTool, OpenPullRequestTool},
+		ListRepositoriesTool, GetIssueDevelopmentTool, CreateIssueBranchTool, OpenPullRequestTool, ListLabelsTool, BulkEditIssuesTool},
 }
 
 // Each snapshot is served as recorded, so a client sees the tool's own tools by name, schema and hints, and a

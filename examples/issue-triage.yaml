@@ -1,0 +1,166 @@
+# Labels a new Armature issue from the labels the installation already has (#270). A trigger on issue.created starts
+# it as the trigger's owner, or a person runs it by hand with an issue key. Armature has no tool that labels one issue,
+# so the labels go on through bulk_edit_issues with the one key, which coins a label it does not know; the agent picks
+# only from list_labels, and the code drops any other name before anything is written. Both writes are unattended.
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata:
+  name: issue-triage
+  description: Labels a new Armature issue from the labels already in use, and comments why.
+inputs:
+  type: object
+  properties:
+    event: { type: object, description: The Armature event that started the run; leave it empty to run by hand. }
+    issueKey: { type: string, title: Issue key, description: "The issue to label when run by hand, such as CP-12; leave it empty on a trigger." }
+tools:
+  armature-read:
+    tool: armature
+    scopes: [read]
+    allowTools: [get_issue, list_labels]
+  armature-write:
+    tool: armature
+    scopes: [issue.write, comment.write]
+    access: write
+    allowTools: [bulk_edit_issues, add_comment]
+    unattended: [bulk_edit_issues, add_comment]
+limits:
+  maxSteps: 12
+  timeout: 10m
+  maxTokens: 100000
+entry: gather
+nodes:
+  # Reads the issue and every label in use, and says whether to go on: an issue that has labels was triaged by a
+  # person or an earlier run, and with no labels at all there is nothing to choose from.
+  - id: gather
+    type: code
+    tools: [armature-read]
+    output:
+      schema:
+        type: object
+        required: [verdict, why]
+        properties:
+          verdict: { enum: [go, stop] }
+          why: { type: string }
+          issue: { type: object }
+          labels: { type: array }
+    source: |
+      PAGE = 200
+      MAX_LABELS = 1000
+      DESCRIPTION_CHARS = 4000
+      BLOCKS = ("paragraph", "heading", "listItem", "codeBlock", "blockquote")
+
+
+      def text(node):
+          if isinstance(node, str):
+              return node
+          if isinstance(node, list):
+              return "".join(text(n) for n in node)
+          if isinstance(node, dict):
+              inner = node.get("text", "") + text(node.get("content", []))
+              return inner + ("\n" if node.get("type") in BLOCKS else "")
+          return ""
+
+
+      def stop(why):
+          return {"verdict": "stop", "why": why}
+
+
+      def run(state, ctx):
+          inputs = state["inputs"]
+          payload = (inputs.get("event") or {}).get("payload") or {}
+          key = payload.get("key") or (payload.get("issue") or {}).get("key") or (inputs.get("issueKey") or "").strip()
+          if not key:
+              return stop("Neither an event nor issueKey names an issue.")
+          issue = ctx.call_tool("armature-read", "get_issue", {"issueKey": key})["issue"]
+          if issue.get("labels"):
+              return stop(f"{key} has labels already.")
+          labels, offset = [], 0
+          while len(labels) < MAX_LABELS:
+              page = ctx.call_tool("armature-read", "list_labels", {"limit": PAGE, "offset": offset})
+              labels += [{"name": l["name"], "issues": l.get("issueCount", 0)} for l in page["labels"]]
+              offset += PAGE
+              if not page["labels"] or offset >= page.get("total", 0):
+                  break
+          if not labels:
+              return stop("Armature has no labels to choose from.")
+          about = {"key": key, "type": (issue.get("type") or {}).get("name", ""), "summary": issue.get("summary", ""),
+                   "description": text(issue.get("description")).strip()[:DESCRIPTION_CHARS]}
+          return {"verdict": "go", "why": "", "issue": about, "labels": labels}
+  - id: proceed
+    type: router
+    on: nodes.gather.verdict
+    cases: { go: classify, stop: done }
+  # Decides from what gather read alone and calls no tool, so nothing the issue says can make it write.
+  - id: classify
+    type: agent
+    prompt: |
+      You triage a new issue by choosing the labels that fit it from the labels the team already uses.
+
+      The issue: {{ nodes.gather.issue }}
+      The labels in use, each with the number of issues that carry it: {{ nodes.gather.labels }}
+
+      Choose at most three labels whose names describe what the issue is about, such as its kind, area or component.
+      Use each name exactly as listed; never invent one, since a name that is not listed is dropped. A label that
+      many issues carry is not a better fit for it. If no label clearly fits, answer verdict "skip" with no labels:
+      a person triages it better than a guess does.
+      Otherwise answer verdict "label" with the labels, and in reason say in one or two sentences why they fit,
+      in terms of what the issue says.
+    output:
+      schema:
+        type: object
+        required: [verdict, labels, reason]
+        properties:
+          verdict: { enum: [label, skip] }
+          labels: { type: array, maxItems: 3, uniqueItems: true, items: { type: string } }
+          reason: { type: string, maxLength: 500 }
+  - id: decide
+    type: router
+    on: nodes.classify.verdict
+    cases: { label: apply, skip: done }
+  # Adds only listed labels, in Armature's spelling since it matches names in any case, then comments them with the reason under a heading people and other workflows can tell
+  # for Rotor's. A refusal fails the run with Armature's reason rather than commenting labels that are not there.
+  - id: apply
+    type: code
+    tools: [armature-write]
+    output:
+      schema:
+        type: object
+        required: [labels, why]
+        properties:
+          labels: { type: array, items: { type: string } }
+          why: { type: string }
+          comment: { type: string }
+    source: |
+      HEADING = "**Labels from Rotor**"
+
+
+      def run(state, ctx):
+          gathered = state["nodes"]["gather"]
+          key = gathered["issue"]["key"]
+          known = {l["name"].lower(): l["name"] for l in gathered["labels"]}
+          answer = state["nodes"]["classify"]
+          chosen = list(dict.fromkeys(known[n.strip().lower()] for n in answer["labels"] if n.strip().lower() in known))
+          if not chosen:
+              return {"labels": [], "why": "None of the labels the agent chose is in use."}
+          result = ctx.call_tool("armature-write", "bulk_edit_issues", {"keys": [key], "change": {"addLabels": chosen}})
+          refused = [r["reason"] for r in result.get("refused") or [] if r.get("key") == key]
+          if refused or key not in (result.get("applied") or []):
+              raise ValueError(f"Armature did not label {key}: {' '.join(refused) or 'it applied nothing'}")
+          names = ", ".join(f"`{name}`" for name in chosen)
+          body = "\n".join([HEADING, "", f"Added {names}.", "", answer["reason"].strip(),
+                            "", "Remove a label that does not fit; Rotor labels an issue only while it has none."])
+          comment = ctx.call_tool("armature-write", "add_comment", {"issueKey": key, "bodyMarkdown": body})
+          return {"labels": chosen, "why": "", "comment": comment["comment"]["id"]}
+  - id: done
+    type: code
+    output:
+      schema: { type: object, required: [why], properties: { why: { type: string } } }
+    source: |
+      def run(state, ctx):
+          nodes = state["nodes"]
+          if nodes["gather"]["verdict"] == "stop":
+              return {"why": nodes["gather"]["why"]}
+          return {"why": "No label in use fits the issue."}
+edges:
+  - { from: gather, to: proceed }
+  - { from: classify, to: decide }

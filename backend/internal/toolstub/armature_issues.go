@@ -13,13 +13,14 @@ import (
 // answer body is the structured result, so the shapes are those of api/tools/armature/openapi.json.
 
 // Issue is an Armature issue of a tenant's options; readers are the usernames that may see it, as in Armature's
-// projects, and reporter the username that filed it.
+// projects, reporter the username that filed it, and labels the names of the labels it carries (#270).
 type Issue struct {
 	Type                string   `json:"type,omitempty"`
 	Summary             string   `json:"summary"`
 	DescriptionMarkdown string   `json:"descriptionMarkdown,omitempty"`
 	Reporter            string   `json:"reporter,omitempty"`
 	Readers             []string `json:"readers"`
+	Labels              []string `json:"labels,omitempty"`
 }
 
 // The Armature tools the stub answers.
@@ -47,7 +48,8 @@ const (
 // appWrites; allows is how Armature words each in a refusal.
 var (
 	armatureWrites = map[string]string{AddCommentTool: ArmatureCommentWrite, AddRemoteLinkTool: ArmatureIssueWrite,
-		CreateIssueBranchTool: ArmatureIssueWrite, OpenPullRequestTool: ArmatureIssueWrite}
+		CreateIssueBranchTool: ArmatureIssueWrite, OpenPullRequestTool: ArmatureIssueWrite,
+		BulkEditIssuesTool: ArmatureIssueWrite}
 	allows = map[string]string{ArmatureIssueWrite: "file and edit issues", ArmatureCommentWrite: "comment on issues"}
 )
 
@@ -83,6 +85,10 @@ func (s *Stub) callArmature(c *call, who *caller, tool map[string]any, arguments
 	switch name {
 	case WhoamiTool:
 		return answered(armatureWhoami(c.t, who)), nil
+	case ListLabelsTool:
+		return answered(listLabels(c.t, args)), nil
+	case BulkEditIssuesTool:
+		return s.bulkEdit(c, who, args), nil
 	case GetIssueTool, ListCommentsTool, AddCommentTool, ListRemoteLinksTool, AddRemoteLinkTool:
 		if !readable {
 			return refusal(issueNotFound), nil
@@ -93,7 +99,7 @@ func (s *Stub) callArmature(c *call, who *caller, tool map[string]any, arguments
 	written := c.t.written
 	switch name {
 	case GetIssueTool:
-		return answered(map[string]any{"issue": armatureIssue(key, issue, len(written.comments[key]))}), nil
+		return answered(map[string]any{"issue": armatureIssue(key, issue, len(written.comments[key]), labelRefs(c.t, key))}), nil
 	case ListCommentsTool:
 		return answered(map[string]any{"comments": orEmpty(written.comments[key])}), nil
 	case ListRemoteLinksTool:
@@ -154,7 +160,7 @@ func armatureWhoami(t *tenant, who *caller) map[string]any {
 }
 
 // armatureIssue is an issue of the options in Armature's Issue shape, in its project's first status.
-func armatureIssue(key string, is Issue, comments int) map[string]any {
+func armatureIssue(key string, is Issue, comments int, labels []any) map[string]any {
 	project, _, _ := strings.Cut(key, "-")
 	kind := is.Type
 	if kind == "" {
@@ -167,7 +173,7 @@ func armatureIssue(key string, is Issue, comments int) map[string]any {
 			"isSubtask": false},
 		"summary": is.Summary, "priority": "medium", "timeSpentMinutes": 0, "commentCount": comments,
 		"status": map[string]any{"id": stubID("status", project, "todo"), "name": "To Do", "category": "todo", "position": 0},
-		"labels": []any{}, "fixVersions": []any{}, "affectsVersions": []any{}, "components": []any{},
+		"labels": labels, "fixVersions": []any{}, "affectsVersions": []any{}, "components": []any{},
 		"createdAt": at, "updatedAt": at,
 	}
 	if doc := markdownDocument(is.DescriptionMarkdown); doc != nil {

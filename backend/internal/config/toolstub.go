@@ -43,4 +43,10 @@ const (
 	// object the stand-in inflates, so a hostile pack cannot fill the stub's memory (#137).
 	ToolStubMaxPushBytes   = 32 << 20
 	ToolStubMaxObjectBytes = 16 << 20
+	// ToolStubLabelPage and ToolStubMaxLabelPage are Armature's pages of labels, ToolStubMaxBulkSelection the most
+	// issues one bulk change takes and ToolStubMaxLabelName the longest label name, in runes (#270).
+	ToolStubLabelPage        = 50
+	ToolStubMaxLabelPage     = 200
+	ToolStubMaxBulkSelection = 200
+	ToolStubMaxLabelName     = 40
 )

@@ -19,6 +19,7 @@ const files = import.meta.glob("../../../../examples/*.yaml", { query: "?raw", i
 const DOC_HEADINGS: Record<string, string> = {
   "draft-requirements": "Draft requirements, file them after approval",
   "implement-feature": "Implement a feature through reviewed, tested code",
+  "issue-triage": "Label a new issue from the labels in use",
   "requirement-to-test-spec": "Design a feature's test cases and file them for review",
   "story-refinement": "Refine a story before its requirements",
   "story-to-requirements": "Clarify a story, then write its requirements",
