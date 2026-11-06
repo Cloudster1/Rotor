@@ -42,6 +42,8 @@ const (
 	EndedByTool        = "tool"
 	EndedByToolRemoved = "tool_removed"
 	EndedBySwitchOff   = "switched_off"
+	// EndedByRegisteredAgain is a grant of the client the tool forgot, once an administrator registered it again.
+	EndedByRegisteredAgain = "registered_again"
 )
 
 // Connection is one of a person's connections, as they see it.

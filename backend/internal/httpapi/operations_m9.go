@@ -11,7 +11,8 @@ var m9Operations = []operation{
 	{method: "POST", path: "/tools/{toolID}/check", handler: "handleCheckTool", tag: "tools", admin: true,
 		summary: "Read the tool's meta and metadata again, for a tool that was updated, without registering again.",
 		description: "Keeps the tool's name, endpoints, scopes and capabilities as they answer now. A tool that stopped offering " +
-			"mcp@1 is kept and lists it under missing, so its pages say what to update.",
+			"mcp@1 is kept and lists it under missing, so its pages say what to update. A token request with Rotor's client " +
+			"proves the tool still knows it; one refused with invalid_client makes the tool needs_registration.",
 		responses: map[int]any{http.StatusOK: env{"tool": toolResponse{}}, http.StatusNotFound: errorEnvelope{},
 			http.StatusUnprocessableEntity: errorEnvelope{}, http.StatusBadGateway: errorEnvelope{}}},
 }

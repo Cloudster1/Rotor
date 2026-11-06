@@ -16,8 +16,15 @@ type Catalogs interface {
 	Get(ctx context.Context, toolID uuid.UUID) (catalog.Catalog, error)
 }
 
-var errCatalogNotConnected = &APIError{Status: http.StatusConflict, Code: "not_connected",
-	Message: "Connect your account in this tool in Settings, under Tool accounts, first; Rotor lists its tools as your account sees them."}
+// Why a catalog cannot be read, each with what fixes it and who does (#266).
+var (
+	errCatalogNotConnected = &APIError{Status: http.StatusConflict, Code: "not_connected",
+		Message: "Connect your account in this tool in Settings, under Tool accounts, first; Rotor lists its tools as your account sees them."}
+	errCatalogReconnect = &APIError{Status: http.StatusConflict, Code: "reconnect",
+		Message: "This tool ended your connection. Connect your account again in Settings, under Tool accounts, then pick the tool again."}
+	errCatalogNeedsRegistration = &APIError{Status: http.StatusConflict, Code: "needs_registration",
+		Message: "This tool no longer knows Rotor. Ask an administrator to register it again under Admin, Tools; then everyone connects their account again."}
+)
 
 func (s *Server) handleToolCatalog(w http.ResponseWriter, r *http.Request) {
 	id, perr := pathUUID(r, "toolID", "tool")
@@ -33,6 +40,12 @@ func (s *Server) handleToolCatalog(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, tools.ErrNotFound):
 		respondError(w, r, ErrNotFound("There is no such tool. Ask an administrator to add it in the settings."))
+		return
+	case errors.Is(err, catalog.ErrNeedsRegistration):
+		respondError(w, r, errCatalogNeedsRegistration)
+		return
+	case errors.Is(err, catalog.ErrReconnect):
+		respondError(w, r, errCatalogReconnect)
 		return
 	case errors.Is(err, catalog.ErrNotConnected):
 		respondError(w, r, errCatalogNotConnected)

@@ -26,6 +26,10 @@ import (
 var (
 	// ErrNotConnected is a person without a usable connection to the tool.
 	ErrNotConnected = errors.New("not connected to the tool")
+	// ErrReconnect is a connection the tool ended, which the person makes again (#266).
+	ErrReconnect = errors.New("the connection must be made again")
+	// ErrNeedsRegistration is a tool that forgot Rotor's client, which an administrator registers again (#266).
+	ErrNeedsRegistration = errors.New("the tool must be registered again")
 	// ErrUnreachable is a tool that did not answer.
 	ErrUnreachable = errors.New("the tool did not answer")
 	// ErrRefusedCall is a JSON-RPC error the tool answered a call with; it is ErrUnreachable too, for a list.
@@ -58,6 +62,8 @@ type Registry interface {
 
 // Minter mints and revokes a person's token; *connections.Service is the real one.
 type Minter interface {
+	// State says whether the person's connection could mint, without minting, so a cached list never outlives it.
+	State(ctx context.Context, userID, toolID uuid.UUID) error
 	Mint(ctx context.Context, req connections.MintRequest) (connections.Token, error)
 	Revoke(ctx context.Context, toolID uuid.UUID, token string) error
 }
@@ -89,6 +95,13 @@ func (s *Service) Get(ctx context.Context, toolID uuid.UUID) (Catalog, error) {
 	if err != nil {
 		return Catalog{}, err
 	}
+	if tool.Status == tools.StatusNeedsRegistration {
+		// Ahead of the cache, as the connection below, so the picker never offers what no run can call.
+		return Catalog{}, ErrNeedsRegistration
+	}
+	if err := s.minter.State(ctx, p.UserID, tool.ID); err != nil {
+		return Catalog{}, minted(err)
+	}
 	build, err := s.build(ctx, tool)
 	if err != nil {
 		return Catalog{}, err
@@ -101,13 +114,8 @@ func (s *Service) Get(ctx context.Context, toolID uuid.UUID) (Catalog, error) {
 		}
 	}
 	token, err := s.minter.Mint(ctx, connections.MintRequest{UserID: p.UserID, ToolID: tool.ID, RunID: "catalog"})
-	switch {
-	case errors.Is(err, connections.ErrNotConnected), errors.Is(err, connections.ErrReconnect), errors.Is(err, connections.ErrNeedsRegistration):
-		return Catalog{}, fmt.Errorf("%w: %w", ErrNotConnected, err)
-	case errors.Is(err, connections.ErrUnreachable):
-		return Catalog{}, fmt.Errorf("%w: %w", ErrUnreachable, err)
-	case err != nil:
-		return Catalog{}, err
+	if err != nil {
+		return Catalog{}, minted(err)
 	}
 	// The token was only for reading the list; it should not outlive this request.
 	defer func() {
@@ -124,6 +132,21 @@ func (s *Service) Get(ctx context.Context, toolID uuid.UUID) (Catalog, error) {
 		s.cache.Set(ctx, key, encoded, config.CatalogTTL)
 	}
 	return c, nil
+}
+
+// minted is a connection's error as the catalog's callers tell it apart.
+func minted(err error) error {
+	switch {
+	case errors.Is(err, connections.ErrNeedsRegistration):
+		return fmt.Errorf("%w: %w", ErrNeedsRegistration, err)
+	case errors.Is(err, connections.ErrReconnect):
+		return fmt.Errorf("%w: %w", ErrReconnect, err)
+	case errors.Is(err, connections.ErrNotConnected):
+		return fmt.Errorf("%w: %w", ErrNotConnected, err)
+	case errors.Is(err, connections.ErrUnreachable):
+		return fmt.Errorf("%w: %w", ErrUnreachable, err)
+	}
+	return err
 }
 
 // build is the tool's build as its meta names it, so a new release is read afresh.
