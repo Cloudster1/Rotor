@@ -48,12 +48,22 @@ type Server struct {
 	ApprovalTTL time.Duration
 	// Telemetry sends the runner's spans on (#37); nil drops them.
 	Telemetry Telemetry
+	// Traces keeps the runner's spans in Postgres beside sending them on (#242); nil keeps none.
+	Traces TraceStore
 	// MintFailed counts a token not minted for a run, by why (#37); nil counts nothing.
 	MintFailed func(reason string)
+	// Skills answers what the run's agents' skills hold (#222); nil gives agents no skills.
+	Skills SkillLibrary
 
 	store store
 	mu    sync.Mutex
 	live  map[uuid.UUID]*liveStream
+	// exporting holds a slot per runner batch being sent on, so a collector that does not answer holds no stream.
+	exporting     chan struct{}
+	exportingOnce sync.Once
+	// storing holds a slot per runner batch being stored, apart from the exports, so neither costs the other.
+	storing     chan struct{}
+	storingOnce sync.Once
 }
 
 // liveStream is the stream a run is served on, so a newer one can end it.
@@ -72,7 +82,7 @@ type Checkpoints interface {
 // NewServer returns the protocol's server; Serve puts it on the network.
 func NewServer(cluster *db.Cluster, keys *envelope.Keys, finder ToolFinder, minter Minter, log *slog.Logger) *Server {
 	return &Server{DB: cluster, Keys: keys, Tools: finder, Mint: minter, Log: log, store: store{db: cluster, keys: keys},
-		live: map[uuid.UUID]*liveStream{}}
+		Skills: dbSkills{db: cluster}, live: map[uuid.UUID]*liveStream{}}
 }
 
 // claim makes this stream the run's one, ending any earlier stream of the run, which a reconnect leaves behind.
@@ -146,8 +156,12 @@ func (s *Server) Connect(stream runnerpb.RunnerControlService_ConnectServer) err
 	var pending []*runnerpb.ConnectResponse
 	if r.Status == StatusStarting {
 		deadline := time.Now().Add(r.spec.Limits.TimeoutDuration() + config.RunDeadlineGrace)
-		r.TraceContent = s.Telemetry != nil && s.Telemetry.Content(ctx)
-		start, err := s.store.supersede(ctx, runID, startRun(r, bindings, s.modelConfig(r.model), s.agentConfigs(r)), deadline)
+		r.TraceContent = (s.Traces != nil && s.Traces.KeepContent(ctx)) || (s.Telemetry != nil && s.Telemetry.Content(ctx))
+		skills, err := s.agentSkills(ctx, r)
+		if err != nil {
+			return s.fail(runID, "read the agents' skills", err)
+		}
+		start, err := s.store.supersede(ctx, runID, startRun(r, bindings, s.modelConfig(r.model), s.agentConfigs(r), skills), deadline)
 		if err != nil {
 			return s.fail(runID, "start the run", err)
 		}
@@ -301,6 +315,8 @@ func (s *Server) handle(ctx context.Context, stream runnerpb.RunnerControlServic
 	case *runnerpb.ConnectRequest_Spans:
 		s.spans(ctx, r, m.Spans)
 		return nil
+	case *runnerpb.ConnectRequest_SkillFile:
+		return stream.Send(s.skillFile(ctx, r, m.SkillFile))
 	case *runnerpb.ConnectRequest_CheckpointGet, *runnerpb.ConnectRequest_CheckpointList,
 		*runnerpb.ConnectRequest_CheckpointPut, *runnerpb.ConnectRequest_CheckpointWrites:
 		if s.Checkpoints == nil {

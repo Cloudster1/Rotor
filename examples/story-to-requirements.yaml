@@ -44,7 +44,8 @@ entry: gather
 nodes:
   # Reads the story, its conversation and the requirements Rotor filed for it before, and says whether to go on: only
   # for a Story, and on a comment only when it answers questions Rotor asked last. A heading's Markdown marks are
-  # dropped before it is matched, since a plain text copy of Rotor's comment keeps its asterisks.
+  # dropped before it is matched, since a plain text copy of Rotor's comment keeps its asterisks. Any comment headed
+  # "... from Rotor" is Rotor's, so story-refinement's comments neither answer these questions nor start a run.
   - id: gather
     type: code
     tools: [armature-read, exciter-read]
@@ -63,6 +64,7 @@ nodes:
 
       QUESTIONS = "Questions from Rotor"
       FILED = "Requirements from Rotor"
+      ROTOR = "from Rotor"
       BLOCKS = ("paragraph", "heading", "listItem", "codeBlock", "blockquote")
 
 
@@ -95,9 +97,11 @@ nodes:
               if c.get("internal"):
                   continue
               body = text(c.get("body")).strip().lstrip("*_# ").replace("**", "", 2)
-              rotor = body.startswith(QUESTIONS) or body.startswith(FILED)
-              conversation.append({"id": c["id"], "author": (c.get("author") or {}).get("name", ""), "text": body, "rotor": rotor})
-          ours = [c for c in conversation if c["rotor"]]
+              mine = body.startswith(QUESTIONS) or body.startswith(FILED)
+              rotor = mine or body.split("\n", 1)[0].strip().endswith(ROTOR)
+              conversation.append({"id": c["id"], "author": (c.get("author") or {}).get("name", ""), "text": body,
+                                   "rotor": rotor, "mine": mine})
+          ours = [c for c in conversation if c["mine"]]
           if event.get("topic") == "comment.added":
               ids = [c["id"] for c in conversation]
               answer = payload.get("commentId")
@@ -118,11 +122,13 @@ nodes:
     type: router
     on: nodes.gather.verdict
     cases: { go: analyse, stop: done }
-  # Decides from what gather read alone; it has no tool, so nothing the story says can make it write.
+  # Decides from what gather read alone; its one tool reads its skill, so nothing the story says can make it write.
   - id: analyse
     type: agent
+    skills: [{ name: requirements-engineering, version: 1 }]
     prompt: |
       You turn a user story into requirements for a requirements engineer to review.
+      Load the requirements-engineering skill when its writing rules and checks help.
 
       The story: {{ nodes.gather.story }}
       Its conversation so far, oldest first; fromRotor marks questions and summaries Rotor posted: {{ nodes.gather.conversation }}

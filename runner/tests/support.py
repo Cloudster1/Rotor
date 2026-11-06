@@ -30,9 +30,15 @@ class StreamingModel(GenericFakeChatModel):
 
 
 class RecordingModel(ToolCallingModel):
-    """A scripted model that keeps every list of messages it was sent, to show what a prompt really held."""
+    """A scripted model that keeps every list of messages it was sent and the names of the tools bound to it, to
+    show what a prompt really held and what the agent was offered."""
 
     seen: list[list[BaseMessage]] = Field(default_factory=list)
+    bound: list[list[str]] = Field(default_factory=list)
+
+    def bind_tools(self, tools: Sequence[Any], **_kwargs: Any) -> RecordingModel:
+        self.bound.append([t.name if isinstance(t, BaseTool) else str(t.get("name", "")) for t in tools])
+        return self
 
     def _generate(self, messages: list[BaseMessage], *args: Any, **kwargs: Any) -> ChatResult:
         self.seen.append(list(messages))

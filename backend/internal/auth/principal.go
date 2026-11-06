@@ -7,9 +7,11 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+
+	"github.com/cloudster1/rotor/backend/internal/perm"
 )
 
-// Roles a person holds in Rotor, copied from the realm's groups at each sign-in.
+// Roles a person holds in Rotor, the word their grants give them: admin is holding rotor.administer installation-wide.
 const (
 	RoleAdmin  = "admin"
 	RoleMember = "member"
@@ -30,8 +32,9 @@ type Principal struct {
 	SessionID uuid.UUID
 	Email     string
 	Name      string
-	Role      string
 	Groups    []string
+	// Perms is what the person's grants and their groups' let them do, resolved for each request (#202).
+	Perms perm.Set
 	// Assistant is the grant an assistant acts through (#47), nil when the person acts in the browser.
 	Assistant *Assistant
 }
@@ -45,8 +48,16 @@ type Assistant struct {
 	ReadOnly bool
 }
 
-// IsAdmin says whether the person administers Rotor.
-func (p *Principal) IsAdmin() bool { return p != nil && p.Role == RoleAdmin }
+// IsAdmin says whether the person administers Rotor: holds rotor.administer over the whole installation.
+func (p *Principal) IsAdmin() bool { return p != nil && p.Perms.CanInstallation(perm.RotorAdminister) }
+
+// RoleFor is the role word a set of permissions gives, which /auth/me answers for the web client.
+func RoleFor(set perm.Set) string {
+	if set.CanInstallation(perm.RotorAdminister) {
+		return RoleAdmin
+	}
+	return RoleMember
+}
 
 // ThroughAssistant says whether an assistant acts for the person rather than the person in their browser.
 func (p *Principal) ThroughAssistant() bool { return p != nil && p.Assistant != nil }

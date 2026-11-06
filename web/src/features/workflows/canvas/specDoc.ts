@@ -47,6 +47,8 @@ export interface SpecNode {
   join?: boolean;
   fields: Record<string, string>;
   model?: ModelRef;
+  /** The skills an agent names, each pinned to a version (#221); the inspector lists them (#223). */
+  skills?: { name: string; version: number }[];
 }
 
 /** What the canvas reads of a spec; the YAML holds the rest. */
@@ -88,6 +90,7 @@ export function parseSpec(source: string): Parsed | undefined {
       ...(n.join === "all" ? { join: true } : {}),
       fields,
       model: n.model === undefined ? undefined : { name: text(model.name), provider: text(model.provider) },
+      ...(Array.isArray(n.skills) ? { skills: n.skills.map(record).map((k) => ({ name: text(k.name), version: Number(k.version) })) } : {}),
     };
   });
   const edges = (Array.isArray(js.edges) ? js.edges : []).map((raw) => {
@@ -105,14 +108,15 @@ export function graphOf(spec: SpecShape): Graph {
     .filter((n) => n.id !== "" && !seen.has(n.id) && seen.add(n.id))
     .map((n) => ({ id: n.id, type: n.type, ...(n.join ? { join: true } : {}) }));
   const known = (id: string) => seen.has(id);
-  const edges: Graph["edges"] = spec.edges.filter((e) => known(e.from) && known(e.to)).map((e) => ({ from: e.from, to: e.to }));
+  const edges: Graph["edges"] = spec.edges.filter((e) => known(e.from) && known(e.to)).map((e) => ({ from: e.from, to: e.to, kind: "edge" as const }));
   for (const n of spec.nodes) {
     if (n.type !== "router" || !known(n.id)) continue;
     const cases = [...n.cases].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-    for (const [value, to] of cases) if (known(to)) edges.push({ from: n.id, to, label: value });
-    if (n.default && known(n.default)) edges.push({ from: n.id, to: n.default, label: "default" });
+    for (const [value, to] of cases) if (known(to)) edges.push({ from: n.id, to, label: value, kind: "case" });
+    if (n.default && known(n.default)) edges.push({ from: n.id, to: n.default, label: "default", kind: "default" });
   }
-  for (const n of spec.nodes) if (n.onExhausted && known(n.id) && known(n.onExhausted)) edges.push({ from: n.id, to: n.onExhausted, label: "onExhausted" });
+  for (const n of spec.nodes)
+    if (n.onExhausted && known(n.id) && known(n.onExhausted)) edges.push({ from: n.id, to: n.onExhausted, label: "onExhausted", kind: "exhausted" });
   return { entry: spec.entry, nodes, edges };
 }
 

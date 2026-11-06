@@ -18,6 +18,8 @@ type APIError struct {
 	Message string `json:"message"`
 	// Fields carries per-field validation messages keyed by field name.
 	Fields map[string]string `json:"fields,omitempty"`
+	// Problems are what a check found, each with its stable code, where a skill's files are refused (#219).
+	Problems []problem `json:"problems,omitempty"`
 	// RequestID lets a user quote something we can find in the logs.
 	RequestID string `json:"requestId,omitempty"`
 

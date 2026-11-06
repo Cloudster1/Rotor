@@ -5,7 +5,7 @@ import { expectAccessible, startInScheme } from "../fixtures/shell";
 // The setting is one for the whole installation, so one test walks it, in both schemes, and leaves it off.
 test("an administrator turns LangSmith on only after confirming that run data leaves, and off again @desktop", async ({ page }) => {
   await startInScheme(page, "light");
-  await page.goto("/settings");
+  await page.goto("/admin/langsmith");
   const section = page.locator("[data-langsmith]");
   await expect(section.locator("[data-langsmith-state]")).toHaveAttribute("data-langsmith-state", "off");
   await expectAccessible(page);
@@ -22,7 +22,7 @@ test("an administrator turns LangSmith on only after confirming that run data le
   await expect(section.getByLabel("Key", { exact: true })).toHaveValue("");
 
   await startInScheme(page, "dark");
-  await page.goto("/settings");
+  await page.goto("/admin/langsmith");
   await expect(section.locator("[data-langsmith-state]")).toHaveAttribute("data-langsmith-state", "on");
   await expectAccessible(page);
 

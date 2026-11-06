@@ -72,6 +72,8 @@ export function stubApi(answers: Record<string, Answer> = { "/api/v1/meta": META
     if (answer !== undefined) return Response.json(answer);
     // A workflow's page lists its triggers; it has none unless a test says so.
     if (request.method === "GET" && /^\/api\/v1\/workflows\/[^/]+\/triggers$/.test(path)) return Response.json({ triggers: [] });
+    // And who holds a role on it (#203): nobody unless a test says so.
+    if (request.method === "GET" && /^\/api\/v1\/workflows\/[^/]+\/grants$/.test(path)) return Response.json({ grants: [] });
     return Response.json({ error: { code: "not_found", message: "Not found." } }, { status: 404 });
   });
   vi.stubGlobal("fetch", fetch);
@@ -83,10 +85,14 @@ export async function renderAt(path: string, { me = ME as Me | null, answers = {
   const fetch = stubApi({
     "/api/v1/meta": META,
     "/api/v1/auth/me": me,
+    // A person follows their browser's time zone until they choose one (#206).
+    "/api/v1/auth/me/preferences": { timeZone: null },
     "/api/v1/tools": { tools: [] },
     "/api/v1/connections": { connections: [] },
     "/api/v1/providers": { providers: [] },
     "/api/v1/workflows": { workflows: [] },
+    // The Skills page and the editor's skill picker list the skills the person reads (#223): none unless a test says so.
+    "/api/v1/skills": { skills: [], total: 0, limit: 50, offset: 0 },
     "/api/v1/runs": { runs: [] },
     // The sidebar asks for the badge's number on every page.
     "/api/v1/approvals/count": { waitingOnMe: 0 },

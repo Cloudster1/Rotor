@@ -24,6 +24,13 @@ describe("signing in", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(s.signIn.errors.switched_off);
   });
 
+  it("tells somebody nobody has let in yet that their request waits, as news rather than a failure", async () => {
+    await renderAt("/login?error=waiting", { me: null });
+    expect(await screen.findByRole("status")).toHaveTextContent(s.signIn.waitingBody);
+    expect(screen.getByRole("heading", { level: 2, name: s.signIn.waitingTitle })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("names an unknown failure in general words, and never leads to another site", async () => {
     await renderAt("/login?error=gremlins&next=https://evil.test", { me: null });
     expect(await screen.findByRole("alert")).toHaveTextContent(s.signIn.errors.failed);
@@ -45,7 +52,7 @@ describe("signing in", () => {
   });
 
   it("shows the person's role and groups in the settings", async () => {
-    await renderAt("/settings");
+    await renderAt("/settings/profile");
     expect(await screen.findByText(s.account.roles.admin)).toBeInTheDocument();
     expect(screen.getByText(ME.groups.join(", "))).toBeInTheDocument();
   });

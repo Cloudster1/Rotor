@@ -74,7 +74,7 @@ func (s *Server) sameSite(allowed []string) func(http.Handler) http.Handler {
 			}
 			if kind := r.Header.Get("Content-Type"); kind != "" && !bodyKindAllowed(kind) {
 				respondError(w, r, &APIError{Status: http.StatusUnsupportedMediaType, Code: "unsupported_media_type",
-					Message: "Send JSON, or a file as multipart form data."})
+					Message: "Send JSON, a zip, or a file as multipart form data."})
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -102,5 +102,6 @@ func carriesCookie(r *http.Request, name string) bool {
 
 func bodyKindAllowed(contentType string) bool {
 	kind := strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
-	return kind == "application/json" || kind == "multipart/form-data"
+	// A zip is a type a cross-site form cannot send, like JSON (#220).
+	return kind == "application/json" || kind == "multipart/form-data" || kind == zipType
 }

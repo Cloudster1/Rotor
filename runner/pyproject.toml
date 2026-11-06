@@ -20,6 +20,9 @@ dependencies = [
     "pydantic==2.14.1",
     "opentelemetry-api==1.45.1",
     "opentelemetry-sdk==1.45.1",
+    "openinference-instrumentation-langchain==0.1.79",
+    "openinference-instrumentation==0.1.71",
+    "openinference-semantic-conventions==0.1.41",
     "dulwich==1.2.17",
 ]
 
@@ -32,6 +35,8 @@ dev = [
     "grpcio-tools==1.84.0",
     "mypy-protobuf==5.1.0",
     "types-jsonschema==4.26.0.20260518",
+    # The stock exporter a LangChain app sends its spans to Rotor's OTLP endpoint with (#243), held to the SDK's version.
+    "opentelemetry-exporter-otlp-proto-http==1.45.1",
 ]
 
 [build-system]

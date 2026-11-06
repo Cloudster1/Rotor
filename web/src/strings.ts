@@ -1,12 +1,16 @@
 import { audit } from "./strings_audit";
 import { usageStrings } from "./strings_usage";
-import { langSmithStrings } from "./strings_telemetry";
+import { langSmithStrings, traceStrings } from "./strings_telemetry";
 import { retentionStrings } from "./strings_retention";
 import { capabilityStrings } from "./strings_tools";
 import { untrustedStrings } from "./strings_untrusted";
 import { canvasStrings } from "./strings_canvas";
 import { assistantStrings } from "./strings_assistants";
 import { workspacesStrings } from "./strings_workspaces";
+import { accountStrings, adminStrings, settingsStrings, themePageStrings, timeZoneStrings } from "./strings_settings";
+import { accessStrings, joinRequestsStrings, ssoStrings, usersStrings, workflowGrantsStrings } from "./strings_access";
+import { workflowListStrings, workflowSettingsStrings } from "./strings_workflow_settings";
+import { skillsStrings } from "./strings_skills";
 
 /** Every word the interface shows, in one place, so a second language is a second copy of this object. */
 export const s = {
@@ -16,6 +20,7 @@ export const s = {
     skipToContent: "Skip to content",
     navigation: "Places",
     home: "Rotor home",
+    cancel: "Cancel",
   },
   theme: {
     label: "Colour scheme",
@@ -25,10 +30,11 @@ export const s = {
   },
   places: {
     workflows: "Workflows",
+    skills: "Skills",
     runs: "Runs",
     approvals: "Approvals",
-    connections: "Connections",
     settings: "Settings",
+    admin: "Admin",
   },
   workflows: {
     emptyTitle: "No workflows yet",
@@ -42,11 +48,7 @@ export const s = {
     archivedBody: "Archived workflows keep their versions for the runs that used them.",
     owner: "Owner",
     version: (n: number) => `Version ${n}`,
-    sharing: { private: "Private", groups: "Shared with groups", everyone: "Shared with everyone" },
     archive: "Archive",
-    confirmArchive: (name: string) => `Archive ${name}? It leaves the list; its versions stay for the runs that used them.`,
-    confirm: "Archive it",
-    keep: "Keep it",
     editor: {
       newTitle: "New workflow",
       label: "Workflow YAML",
@@ -60,7 +62,7 @@ export const s = {
       saving: "Saving...",
       create: "Create workflow",
       saved: (n: number) => `Saved as version ${n}.`,
-      readOnly: "You may read this workflow; only its owner changes it.",
+      readOnly: "You may read this workflow, but your grants do not let you change it.",
       archived: "This workflow is archived and cannot be changed.",
       import: "Import YAML",
       export: "Export YAML",
@@ -77,22 +79,20 @@ export const s = {
       diffLabel: (from: number, to: number) => `Changes from version ${from} to version ${to}`,
       lines: (from: number, to: number) => `From line ${from}, to line ${to}`,
     },
-    share: {
-      title: "Sharing",
-      body: "Sharing lets others read and run this workflow as themselves; it never shares your access to the tools.",
-      private: "Only me",
-      groups: "Groups I am in",
-      everyone: "Everyone in Rotor",
-      noGroups: "You are in no realm groups to share with.",
-      save: "Save sharing",
-      saved: "Sharing saved.",
+    starters: {
+      title: "Start from",
+      body: "Begin with a blank workflow or a workflow Rotor ships. Nothing is saved until you save it.",
+      blank: "Blank workflow",
+      blankBody: "One approval step, to build on.",
+      docs: "Setup in the guide",
+      docsNamed: (name: string) => `Setup of ${name} in the guide`,
     },
     tools: {
       title: "Tools",
       body: "Pick a tool and the MCP tools a run may call; the binding goes where the cursor is, under tools:.",
       tool: "Tool",
       choose: "Choose a tool",
-      none: "No tools yet. An administrator adds them in the settings.",
+      none: "No tools yet. An administrator adds them under Admin, Tools.",
       loading: "Asking the tool which tools your account may call.",
       binding: "Binding name",
       scope: "Scope",
@@ -139,17 +139,18 @@ export const s = {
       allowed: "Allow triggers to write without an approval",
     },
     remove: "Remove",
-    confirmRemove: (name: string) => `Remove ${name}? The runs it started stay.`,
+    removeNamed: (name: string) => `Remove ${name}`,
+    removeTitle: (name: string) => `Remove ${name}?`,
+    removeBody: "It starts no more runs. The runs it started stay.",
     confirm: "Remove trigger",
-    keep: "Keep",
     flag: "A trigger of yours is turned off",
-    flagNamed: (workflow: string) => `A trigger of yours on ${workflow} is turned off; open the workflow to see why.`,
+    flagNamed: (workflow: string) => `A trigger of yours on ${workflow} is turned off; open its triggers to see why.`,
     kind: "Starts",
     kinds: { schedule: "On a schedule", event: "On a tool's event" },
     events: (topics: string, tool: string) => `On ${topics} in ${tool}`,
     event: {
       tool: "Tool",
-      toolHint: "Its events reach Rotor once an administrator sets up its webhook under Settings. You need your own connection to it.",
+      toolHint: "Its events reach Rotor once an administrator sets up its webhook under Admin, Tools. You need your own connection to it.",
       noTools: "No Armature, Exciter or Stator is set up in Rotor yet.",
       topics: "Topics",
       other: "Other topics",
@@ -243,6 +244,8 @@ export const s = {
       finished: (node: string) => `Finished ${node}`,
       failedNode: (node: string) => `${node} failed`,
       called: (tool: string, binding: string) => `Called ${tool} through ${binding}`,
+      skillRead: (node: string, skill: string, version: number, path: string, offset: number) =>
+        `${node} read ${path} of the skill ${skill}, version ${version}${offset > 0 ? `, from byte ${offset}` : ""}`,
       callFailed: (tool: string, binding: string) => `Calling ${tool} through ${binding} failed`,
       arguments: "Arguments",
       answer: "Answer",
@@ -318,7 +321,7 @@ export const s = {
   },
   connections: {
     emptyTitle: "No tools to connect yet",
-    emptyBody: "Once an administrator adds Exciter, Armature or Stator in the settings, you connect your account here, so workflows can act as you.",
+    emptyBody: "Once an administrator adds Exciter, Armature or Stator under Admin, Tools, you connect your account here, so workflows can act as you.",
     body: "Connect your account in each tool once, so workflows can act as you. You consent on the tool's own page; Rotor never sees your password.",
     loading: "Asking the server about your connections.",
     unreachable: "The server did not list your connections. Reload the page to ask again.",
@@ -339,7 +342,7 @@ export const s = {
     connectedAt: "Connected",
     lastUsed: "Last used",
     never: "Not yet",
-    needsRegistration: "This tool no longer knows Rotor. An administrator registers it again in the settings.",
+    needsRegistration: "This tool no longer knows Rotor. An administrator registers it again under Admin, Tools.",
     done: (name: string) => `${name} is connected. Workflows can act as you there now.`,
     errors: {
       denied: "You did not allow Rotor at the tool. Connect again when you are ready.",
@@ -349,22 +352,15 @@ export const s = {
       unavailable: "The tool or Rotor's secret store did not answer. Try again in a moment.",
     },
   },
-  settings: {
-    buildTitle: "This installation",
-    version: "Version",
-    commit: "Commit",
-    apiVersion: "API version",
-    client: "Web client",
-    loading: "Asking the server which build it runs.",
-    unreachable: "The server did not say which build it runs. Reload the page to ask again.",
-  },
+  settings: settingsStrings,
+  timeZone: timeZoneStrings,
+  themePage: themePageStrings,
   tools: {
     title: "Tools",
-    body: "The tools workflows act in. People connect their own accounts on the Connections page.",
+    body: "The tools workflows act in. People connect their own accounts in Settings, under Tool accounts.",
     loading: "Asking the server which tools it knows.",
     unreachable: "The server did not list its tools. Reload the page to ask again.",
-    none: "No tools yet.",
-    noneAdmin: "No tools yet. Add Exciter, Armature or Stator by the address you open it at.",
+    none: "No tools yet. Add Exciter, Armature or Stator by the address you open it at.",
     capabilities: "Offers",
     scopes: "Scopes",
     client: "Client",
@@ -451,6 +447,10 @@ export const s = {
     body: "Rotor uses the same account as Exciter, Armature and Stator. Your workflows act with your permissions there.",
     action: "Sign in with your suite account",
     signOut: "Sign out",
+    // A person the identity provider knows whom nobody has let in yet (#204): news, not a failure.
+    waitingTitle: "Your request is waiting",
+    waitingBody:
+      "The identity provider knows you, but nobody has let you into Rotor yet. Your request waits for an administrator on the Users page; sign in again once they have let you in.",
     errors: {
       denied: "The sign-in was cancelled at the identity provider. Try again when you are ready.",
       expired: "That sign-in took too long or was already used. Start again.",
@@ -459,15 +459,8 @@ export const s = {
       failed: "Signing in did not work. Try again, and tell an administrator if it keeps happening.",
     },
   },
-  account: {
-    title: "You",
-    name: "Name",
-    email: "Email",
-    role: "Role in Rotor",
-    groups: "Groups",
-    noGroups: "None",
-    roles: { admin: "Administrator", member: "Member" },
-  },
+  account: accountStrings,
+  admin: adminStrings,
   notFound: {
     title: "Not found",
     body: "Nothing lives at this address. Pick a place from the sidebar.",
@@ -481,10 +474,19 @@ export const s = {
     unexpected: (status: number) => `The server answered ${status} without saying why. Try again in a moment.`,
   },
   langsmith: langSmithStrings,
+  trace: traceStrings,
   retention: retentionStrings,
   capabilities: capabilityStrings,
   untrusted: untrustedStrings,
   canvas: canvasStrings,
   assistants: assistantStrings,
   workspaces: workspacesStrings,
+  access: accessStrings,
+  users: usersStrings,
+  sso: ssoStrings,
+  joinRequests: joinRequestsStrings,
+  workflowGrants: workflowGrantsStrings,
+  workflowSettings: workflowSettingsStrings,
+  workflowList: workflowListStrings,
+  skills: skillsStrings,
 } as const;

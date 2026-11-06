@@ -37,7 +37,7 @@ var m1Operations = []operation{
 	{method: "POST", path: "/tools/{toolID}/connection", handler: "handleConnect", tag: "connections",
 		summary:     "Start connecting your account in a tool; the browser goes to the address answered.",
 		description: "Authorization code with PKCE S256, a state bound to this session and the tool's MCP endpoint as resource (RFC 8707).",
-		query:       []param{{name: "next", description: "A path of Rotor's the browser returns to once connected, such as the workflow a run was started from; the Connections page otherwise."}},
+		query:       []param{{name: "next", description: "A path of Rotor's the browser returns to once connected, such as the workflow a run was started from; Tool accounts in Settings otherwise."}},
 		responses: map[int]any{http.StatusOK: connectResponse{}, http.StatusNotFound: errorEnvelope{},
 			http.StatusConflict: errorEnvelope{}, http.StatusBadGateway: errorEnvelope{}}},
 	{method: "GET", path: "/connections/callback", handler: "handleConnectionCallback", tag: "connections", public: true,

@@ -2,11 +2,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useId, useState } from "react";
 import { ApiError } from "@/api/client";
 import { type Limits, setLimits, usageQueryKey } from "@/api/usage";
+import { input, primary } from "@/features/settings/styles";
+import { SettingsCard } from "@/features/settings/ui";
 import { s } from "@/strings";
-
-const card = "max-w-4xl rounded-overlay border border-border bg-surface p-5 shadow-1";
-const input = "h-9 w-full rounded-control border border-border-strong bg-surface px-3 text-sm text-ink";
-const primary = "h-9 rounded-control bg-accent px-4 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-60";
 
 type Field = "dailyTokens" | "dailyCost" | "concurrentRuns";
 const FIELDS: Field[] = ["dailyTokens", "dailyCost", "concurrentRuns"];
@@ -35,11 +33,7 @@ export function LimitsSection({ limits }: { limits: Limits }) {
     save.mutate();
   };
   return (
-    <section className={card} aria-labelledby={`${id}-title`} data-limits>
-      <h2 id={`${id}-title`} className="mb-1 font-semibold text-ink">
-        {s.usage.limitsTitle}
-      </h2>
-      <p className="mb-3 text-sm text-ink-muted">{s.usage.limitsBody}</p>
+    <SettingsCard titleId={`${id}-title`} title={s.usage.limitsTitle} description={s.usage.limitsBody} data-limits>
       <form className="grid gap-3 sm:grid-cols-3" noValidate onSubmit={submit}>
         {FIELDS.map((f) => (
           <div key={f} className="flex flex-col gap-1">
@@ -81,6 +75,6 @@ export function LimitsSection({ limits }: { limits: Limits }) {
           )}
         </div>
       </form>
-    </section>
+    </SettingsCard>
   );
 }

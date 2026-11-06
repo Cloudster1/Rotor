@@ -55,6 +55,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/access/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What you may do in Rotor: your grants and the permissions they give, over the installation and per workflow.
+         * @description A grant to a group of yours counts as yours. A workflow named here is one granted to you over it alone.
+         */
+        get: operations["myAccess"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/approvals": {
         parameters: {
             query?: never;
@@ -214,6 +234,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What you chose for yourself, such as the time zone dates are written in. */
+        get: operations["getPreferences"];
+        /**
+         * Choose for yourself, such as the time zone dates are written in.
+         * @description A time zone the IANA database names, or null to follow the browser's. Only you change yours, in person.
+         */
+        put: operations["setPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/oidc/backchannel-logout": {
         parameters: {
             query?: never;
@@ -300,6 +341,85 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The groups a role may be granted to: Everyone first, then the realm's, then those made by hand.
+         * @description For anybody who administers Rotor or a workflow; anybody else is refused with 403.
+         */
+        get: operations["listGroups"];
+        put?: never;
+        /**
+         * Make a group by hand, or one that matches a value of the realm's groups claim.
+         * @description A group with an externalRef takes its members from the claim at every sign-in; one without is kept here.
+         */
+        post: operations["createGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups/{groupID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One group with the people in it. */
+        get: operations["getGroup"];
+        put?: never;
+        post?: never;
+        /** Delete a group and everything granted to it; Everyone stays. */
+        delete: operations["deleteGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups/{groupID}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put somebody in a group kept by hand.
+         * @description Everyone and the realm's groups follow sign-in alone, so they are refused with 409.
+         */
+        post: operations["addGroupMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups/{groupID}/members/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Take somebody out of a group kept by hand. */
+        delete: operations["removeGroupMember"];
         options?: never;
         head?: never;
         patch?: never;
@@ -559,6 +679,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/oidc-provider": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Single sign-on: the identity provider people sign in through, with whether a client secret is held.
+         * @description The secret itself is never answered. provider is null while none is set up.
+         */
+        get: operations["getOIDCProvider"];
+        /**
+         * Set single sign-on up or change it; it applies from the next sign-in.
+         * @description A blank clientSecret keeps the one held. A provider that could not work is refused with 422: no issuer, no client ID, no secret, or an issuer whose discovery document cannot be read. Turning it off while it is the only way in is refused with 409.
+         */
+        put: operations["saveOIDCProvider"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/openapi.json": {
         parameters: {
             query?: never;
@@ -568,6 +712,63 @@ export interface paths {
         };
         /** This document. */
         get: operations["openAPI"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/otlp/v1/traces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take spans over OTLP/HTTP: they join the run whose trace they name, or a trace of the sender's own.
+         * @description OpenTelemetry's ExportTraceServiceRequest as application/x-protobuf or application/json, gzip or not; the answer is an ExportTraceServiceResponse in the same encoding, with partial_success when some spans were not taken. Takes a bearer token alone: a Rotor access token whose grant may act, or an access token of the realm. At most 4 MiB as sent and 16 MiB unpacked (413); too many requests or spans in a minute answer 429 with Retry-After.
+         */
+        post: operations["receiveTraces"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The people let in whose name or address matches, for a picker that grants them a role.
+         * @description For anybody who administers Rotor or a workflow; anybody else is refused with 403.
+         */
+        get: operations["findPeople"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every permission Rotor checks for, in the words the matrix shows, in its order. */
+        get: operations["listPermissions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -667,6 +868,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/role-assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who holds which role where, a page at a time: the installation-wide grants first, then by workflow. */
+        get: operations["listAssignments"];
+        put?: never;
+        /**
+         * Grant a role to a person or a group, over the whole installation or one workflow.
+         * @description Granting what is already granted answers with the grant there is.
+         */
+        post: operations["grantRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/role-assignments/{assignmentID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Take a grant away; the last Administrator grant stays. */
+        delete: operations["revokeRole"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The installation's roles, built in and made by its administrators, with what each grants and how many hold it. */
+        get: operations["listRoles"];
+        put?: never;
+        /**
+         * Add a role of the installation's own.
+         * @description The key is made from the name when it is left out. A new role grants what permissions lists, and nothing else.
+         */
+        post: operations["createRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/roles/{roleKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a role an administrator added, and every grant of it; the built-in roles stay. */
+        delete: operations["deleteRole"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename a role, describe it, or set everything it grants.
+         * @description permissions is the whole list the role grants from now on, not a change to it. The Administrator keeps administering Rotor.
+         */
+        patch: operations["updateRole"];
+        trace?: never;
+    };
     "/runs": {
         parameters: {
             query?: never;
@@ -733,6 +1014,43 @@ export interface paths {
          * @description Content type text/event-stream. Each event's id is its sequence number, its event name its type and its data the JSON {seq, type, node, payload, at}, with the payloads of docs/api-contract-m2.md. ?after= stands in for Last-Event-ID.
          */
         get: operations["runEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runs/{runID}/trace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A run's trace as a tree of spans, with timing, status, attributes and, where kept, the start of each input and output.
+         * @description For whoever may read the run's events. state says whether the spans are kept, expired or were never made; cut says the trace reached its cap. A span's whole input and output are read one span at a time.
+         */
+        get: operations["getRunTrace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runs/{runID}/trace/spans/{spanID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One span of a run's trace, with every attribute and its whole input and output where kept. */
+        get: operations["getRunTraceSpan"];
         put?: never;
         post?: never;
         delete?: never;
@@ -856,6 +1174,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings/trace-destinations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The OTLP destinations runs' traces are sent to; never a header's value. */
+        get: operations["listTraceDestinations"];
+        put?: never;
+        /**
+         * Add an OTLP destination; its headers are kept in OpenBao.
+         * @description content true is refused with 422 content_leaves_unacknowledged unless acknowledgeContentLeaves is true. A name another destination has answers 409.
+         */
+        post: operations["addTraceDestination"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/trace-destinations/{destinationID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One OTLP destination; never a header's value. */
+        get: operations["getTraceDestination"];
+        /**
+         * Change an OTLP destination.
+         * @description Leaving headers out keeps the ones held; {} removes them. Turning content on needs acknowledgeContentLeaves.
+         */
+        put: operations["changeTraceDestination"];
+        post?: never;
+        /** Remove an OTLP destination and its headers. */
+        delete: operations["removeTraceDestination"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/trace-destinations/{destinationID}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send the destination one span without text and answer what it said. */
+        post: operations["testTraceDestination"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/traces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How many days Rotor keeps traces, and whether it keeps the prompt, tool and answer text in them. */
+        get: operations["getTraceSetting"];
+        /**
+         * Change how many days traces are kept, from 1 to 90, and whether Rotor keeps their text.
+         * @description Keeping text affects runs started afterwards; a shorter retention applies to traces already kept.
+         */
+        put: operations["setTraceSetting"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings/unattended-writes": {
         parameters: {
             query?: never;
@@ -891,6 +1290,244 @@ export interface paths {
          * @description A workflow naming an image no longer allowed is refused when it is saved or a run starts.
          */
         put: operations["setWorkspaces"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The skills you may read, built-in ones included.
+         * @description archived lists archived skills instead; q matches a name or a description.
+         */
+        get: operations["listSkills"];
+        put?: never;
+        /**
+         * Make a skill from its files; its SKILL.md names it, and the first save is version 1.
+         * @description For whoever holds skill.create. Files the checks refuse answer 422 with the problems, each with its code.
+         */
+        post: operations["createSkill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a skill from a zip of one skill, or save the next version of the skill with that name.
+         * @description The body is the zip itself (application/zip, at most 2 MiB); the comment goes in the query. For whoever holds skill.create, or skill.edit on the skill named. The answer says which happened: 201 with created true for a new skill, 200 with created false for a new version.
+         */
+        post: operations["importSkill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a skill's files as a save would, without saving, and answer the problems.
+         * @description What the files alone tell: whether another skill has the name is answered by the save.
+         */
+        post: operations["validateSkill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills/{skillID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A skill with its current version's front matter and files, and what you may do with it. */
+        get: operations["getSkill"];
+        /**
+         * Save the next version of a skill.
+         * @description baseVersion must be the current version, or the save is refused with 409 so nobody overwrites a colleague unseen.
+         */
+        put: operations["saveSkill"];
+        post?: never;
+        /**
+         * Archive a skill; its versions stay for the workflows that pin them.
+         * @description For whoever holds skill.administer on it. Skills are archived, never deleted; a built-in one is refused with 403.
+         */
+        delete: operations["archiveSkill"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills/{skillID}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The files that changed between two versions, line by line. */
+        get: operations["diffSkillVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills/{skillID}/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The roles granted on this skill, for anybody who may read it. */
+        get: operations["listSkillGrants"];
+        put?: never;
+        /**
+         * Grant a person or a group a role on this skill, such as Skill reader or Skill editor.
+         * @description For whoever holds skill.administer on it, from a browser session and never an assistant.
+         */
+        post: operations["grantOnSkill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills/{skillID}/grants/{grantID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Take a grant on this skill away.
+         * @description For whoever holds skill.administer on it, from a browser session and never an assistant.
+         */
+        delete: operations["revokeOnSkill"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills/{skillID}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a skill out of the archive, which undoes archiving it.
+         * @description For whoever holds skill.administer on it.
+         */
+        post: operations["restoreSkill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills/{skillID}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every version of a skill, newest first. */
+        get: operations["listSkillVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills/{skillID}/versions/{versionNumber}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One version of a skill: its front matter, comment, author and the path, size and hash of each file. */
+        get: operations["getSkillVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills/{skillID}/versions/{versionNumber}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One version as a zip that imports unchanged.
+         * @description The body is application/zip: the files under one folder named after the skill.
+         */
+        get: operations["exportSkillVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills/{skillID}/versions/{versionNumber}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One file of a version, as text. */
+        get: operations["getSkillFile"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -1017,6 +1654,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/traces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The traces senders posted that belong to no run: your own, and everyone's for an administrator.
+         * @description Newest first. A run's trace is read through its run.
+         */
+        get: operations["listTraces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/traces/{traceID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A trace of a sender's own by its 32-hex trace id, as a tree like a run's. */
+        get: operations["getTrace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/traces/{traceID}/spans/{spanID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One span of a sender's own trace, whole. */
+        get: operations["getTraceSpan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/triggers": {
         parameters: {
             query?: never;
@@ -1138,6 +1829,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every person Rotor knows, a page at a time, with their groups and their roles. */
+        get: operations["listUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who signed in through the identity provider and is waiting to be let in, oldest first. */
+        get: operations["listJoinRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/requests/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Turn a waiting person away; they may ask again by signing in again. */
+        delete: operations["declineJoinRequest"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/requests/{userID}/admit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Let a waiting person in, as a member or as an administrator.
+         * @description They join Everyone and sign in from their next attempt. Somebody not waiting answers 404.
+         */
+        post: operations["admitJoinRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Switch a person off, which ends their sessions and connections, or on again.
+         * @description Your own account and the last active administrator are refused with 409.
+         */
+        patch: operations["updateUser"];
+        trace?: never;
+    };
     "/workflows": {
         parameters: {
             query?: never;
@@ -1145,7 +1927,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The workflows you may see: yours, those shared with a group of yours, and those shared with everyone. */
+        /** The workflows you may see: those whose grants give you, a group of yours or Everyone a role on them. */
         get: operations["listWorkflows"];
         put?: never;
         /** Create a workflow from its YAML; the first save is version 1. */
@@ -1165,7 +1947,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Check a workflow's YAML against the schema, its own sense, and the tools you can use, without saving it. */
+        /** Check a workflow's YAML against the schema, its own sense, the tools you can use and the skills you may read, without saving it. */
         post: operations["validateWorkflow"];
         delete?: never;
         options?: never;
@@ -1188,7 +1970,10 @@ export interface paths {
          */
         put: operations["saveWorkflow"];
         post?: never;
-        /** Archive a workflow; its versions stay for the runs that used them. */
+        /**
+         * Archive a workflow; its versions stay for the runs that used them.
+         * @description For whoever administers the workflow or Rotor. Workflows are archived, never deleted: runs pin their versions.
+         */
         delete: operations["archiveWorkflow"];
         options?: never;
         head?: never;
@@ -1212,6 +1997,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/{workflowID}/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The roles granted on this workflow alone, for anybody who may see it. */
+        get: operations["listWorkflowGrants"];
+        put?: never;
+        /**
+         * Grant a person or a group a role on this workflow, such as Runner, Editor or Workflow administrator.
+         * @description For whoever administers the workflow or Rotor. A role that answers for the whole installation is refused with 422.
+         */
+        post: operations["grantOnWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{workflowID}/grants/{grantID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Take a grant on this workflow away, for whoever administers the workflow or Rotor. */
+        delete: operations["revokeOnWorkflow"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{workflowID}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a workflow out of the archive, which undoes archiving it.
+         * @description For whoever administers the workflow or Rotor; restoring a workflow that is not archived changes nothing.
+         */
+        post: operations["restoreWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/{workflowID}/runs": {
         parameters: {
             query?: never;
@@ -1223,26 +2066,9 @@ export interface paths {
         put?: never;
         /**
          * Start a run of a workflow as yourself.
-         * @description An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false.
+         * @description An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false. A skill the version names that you may not read refuses the start with 422 code skill_unreadable.
          */
         post: operations["startRun"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workflows/{workflowID}/sharing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Share a workflow privately, with groups of the realm, or with everyone; runs still act as whoever starts them. */
-        put: operations["shareWorkflow"];
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1314,12 +2140,38 @@ export interface components {
                 [key: string]: string;
             };
             message: string;
+            problems?: components["schemas"]["Problem"][];
             requestId?: string;
+        };
+        AccessGrant: {
+            role: string;
+            skillId?: string;
+            workflowId?: string;
+        };
+        AccessPermissions: {
+            installation: string[];
+            skills: {
+                [key: string]: string[];
+            };
+            workflows: {
+                [key: string]: string[];
+            };
+        };
+        AccessResponse: {
+            grants: components["schemas"]["AccessGrant"][];
+            permissions: components["schemas"]["AccessPermissions"];
+        };
+        AddMemberRequest: {
+            userId: string;
         };
         AddToolRequest: {
             baseURL: string;
             clientID?: string;
             clientSecret?: string;
+        };
+        AdmitRequest: {
+            /** @enum {string} */
+            role?: "member" | "admin";
         };
         AgentUsage: {
             cost: number;
@@ -1390,6 +2242,29 @@ export interface components {
         };
         Approvers: {
             group: string | null;
+        };
+        AssignmentPage: {
+            assignments: components["schemas"]["AssignmentView"][];
+            limit: number;
+            offset: number;
+            total: number;
+        };
+        AssignmentView: {
+            /** Format: date-time */
+            createdAt: string;
+            groupBuiltin?: string;
+            groupId?: string;
+            groupName?: string;
+            id: string;
+            role: string;
+            roleName: string;
+            skillId?: string;
+            skillName?: string;
+            userEmail?: string;
+            userId?: string;
+            userName?: string;
+            workflowId?: string;
+            workflowName?: string;
         };
         AssistantSetting: {
             connectionsOn: boolean;
@@ -1472,6 +2347,22 @@ export interface components {
             id: string;
             name: string;
         };
+        CreateGroupRequest: {
+            description?: string;
+            externalRef?: string;
+            name: string;
+        };
+        CreateRoleRequest: {
+            description?: string;
+            installationWideOnly?: boolean;
+            key?: string;
+            name: string;
+            permissions: string[];
+        };
+        CreateSkillRequest: {
+            comment?: string;
+            files: components["schemas"]["SkillFileBody"][];
+        };
         DecisionRequest: {
             comment?: string;
             /** @enum {string} */
@@ -1518,6 +2409,12 @@ export interface components {
             toolId: string;
             topics: string[];
         };
+        GrantRequest: {
+            groupId?: string;
+            role: string;
+            userId?: string;
+            workflowId?: string;
+        };
         Graph: {
             edges: components["schemas"]["GraphEdge"][];
             entry: string;
@@ -1533,6 +2430,18 @@ export interface components {
             join?: boolean;
             type: string;
         };
+        GroupView: {
+            builtin: string;
+            description: string;
+            externalRef: string;
+            id: string;
+            memberCount: number;
+            members?: components["schemas"]["MemberView"][];
+            name: string;
+            roleCount: number;
+            /** @enum {string} */
+            source: "local" | "oidc";
+        };
         HookResponse: {
             /** Format: date-time */
             lastReceivedAt: string | null;
@@ -1545,10 +2454,22 @@ export interface components {
         HookSecretRequest: {
             secret: string;
         };
+        ImportedSkill: {
+            created: boolean;
+            skill: components["schemas"]["SkillSummary"];
+            version: components["schemas"]["SkillVersionResponse"];
+        };
         Info: {
             description?: string;
             title: string;
             version: string;
+        };
+        JoinRequestView: {
+            email: string;
+            name: string;
+            /** Format: date-time */
+            requestedAt: string;
+            userId: string;
         };
         LangSmithRequest: {
             acknowledgeDataLeaves: boolean;
@@ -1592,6 +2513,11 @@ export interface components {
         };
         MediaType: {
             schema?: components["schemas"]["Schema"];
+        };
+        MemberView: {
+            email: string;
+            name: string;
+            userId: string;
         };
         MetaResponse: {
             apiVersion: string;
@@ -1742,7 +2668,24 @@ export interface components {
             scope: string;
             token_type: string;
         };
+        OidcProviderResponse: {
+            canTurnOff: boolean;
+            provider: components["schemas"]["OidcProviderView"] | null;
+            redirectUrl: string;
+        };
+        OidcProviderView: {
+            admitByGroup: boolean;
+            changedBy?: string;
+            clientId: string;
+            enabled: boolean;
+            groupsClaim: string;
+            hasSecret: boolean;
+            issuer: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         Operation: {
+            deprecated?: boolean;
             description?: string;
             operationId: string;
             parameters?: components["schemas"]["Parameter"][];
@@ -1756,12 +2699,20 @@ export interface components {
             summary?: string;
             tags?: string[];
         };
+        OtlpStatus: {
+            code: number;
+            message: string;
+        };
         Parameter: {
             description?: string;
             in: string;
             name: string;
             required?: boolean;
             schema: components["schemas"]["Schema"] | null;
+        };
+        PermissionView: {
+            permission: string;
+            words: string;
         };
         PersonRef: {
             id: string;
@@ -1771,6 +2722,14 @@ export interface components {
             month: components["schemas"]["UsageDay"];
             person: components["schemas"]["PersonRef"];
             today: components["schemas"]["UsageDay"];
+        };
+        PersonView: {
+            email: string;
+            id: string;
+            name: string;
+        };
+        PreferencesBody: {
+            timeZone: string | null;
         };
         PreviewWrite: {
             /** @description A JSON value. */
@@ -1842,6 +2801,15 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        RoleView: {
+            builtin: boolean;
+            description: string;
+            inUse: number;
+            installationWideOnly: boolean;
+            key: string;
+            name: string;
+            permissions: string[];
+        };
         RpcError: {
             code: number;
             /** @description A JSON value. */
@@ -1877,6 +2845,7 @@ export interface components {
             startedBy: components["schemas"]["PersonRef"];
             /** @enum {string} */
             status: "queued" | "starting" | "running" | "waiting" | "succeeded" | "failed" | "cancelled" | "expired";
+            traceId: string | null;
             trigger: components["schemas"]["RunTrigger"] | null;
             /** Format: date-time */
             updatedAt: string;
@@ -1893,6 +2862,19 @@ export interface components {
             cost: number;
             inputTokens: number;
             outputTokens: number;
+        };
+        SaveOIDCProviderRequest: {
+            admitByGroup?: boolean;
+            clientId: string;
+            clientSecret?: string;
+            enabled?: boolean;
+            groupsClaim?: string;
+            issuer: string;
+        };
+        SaveSkillRequest: {
+            baseVersion: number;
+            comment?: string;
+            files: components["schemas"]["SkillFileBody"][];
         };
         SaveWorkflowRequest: {
             baseVersion?: number;
@@ -1937,10 +2919,96 @@ export interface components {
             description?: string;
             url: string;
         };
-        SharingRequest: {
-            groups?: string[];
+        SkillDiffResponse: {
+            files: components["schemas"]["SkillFileDiff"][];
+            from: number;
+            to: number;
+        };
+        SkillFile: {
+            bytes: number;
+            path: string;
+            sha256: string;
+        };
+        SkillFileBody: {
+            content: string;
+            path: string;
+        };
+        SkillFileDiff: {
+            hunks: components["schemas"]["DiffHunk"][];
+            path: string;
             /** @enum {string} */
-            sharing: "private" | "groups" | "everyone";
+            status: "added" | "removed" | "changed";
+        };
+        SkillFileResponse: {
+            bytes: number;
+            content: string;
+            path: string;
+            sha256: string;
+        };
+        SkillList: {
+            limit: number;
+            offset: number;
+            skills: components["schemas"]["SkillSummary"][];
+            total: number;
+        };
+        SkillResponse: {
+            skill: components["schemas"]["SkillSummary"];
+            version: components["schemas"]["SkillVersionResponse"];
+        };
+        SkillSummary: {
+            archived: boolean;
+            builtin: boolean;
+            canAdminister: boolean;
+            canEdit: boolean;
+            currentVersion: number;
+            description: string;
+            id: string;
+            name: string;
+            owner: components["schemas"]["PersonRef"] | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        SkillVersionResponse: {
+            bytes: number;
+            comment: string;
+            /** Format: date-time */
+            createdAt: string;
+            createdBy: components["schemas"]["PersonRef"] | null;
+            description: string;
+            files: components["schemas"]["SkillFile"][];
+            frontMatter: {
+                [key: string]: unknown;
+            };
+            hash: string;
+            number: number;
+        };
+        SkillVersionSummary: {
+            bytes: number;
+            comment: string;
+            /** Format: date-time */
+            createdAt: string;
+            createdBy: components["schemas"]["PersonRef"] | null;
+            description: string;
+            hash: string;
+            number: number;
+        };
+        SpanEvent: {
+            /** Format: date-time */
+            at: string;
+            attributes: {
+                [key: string]: string;
+            };
+            name: string;
+        };
+        SpanTokens: {
+            completion: number;
+            prompt: number;
+            total: number;
+        };
+        SpanValue: {
+            cut: boolean;
+            mimeType: string;
+            value: string;
         };
         StartRunRequest: {
             /** @description A JSON value. */
@@ -1972,6 +3040,165 @@ export interface components {
             /** @enum {string} */
             status: "ready" | "needs_registration" | "awaiting_approval";
         };
+        TraceDestination: {
+            carriedOver: boolean;
+            changedBy: string | null;
+            content: boolean;
+            /** Format: date-time */
+            contentAcknowledgedAt: string | null;
+            contentAcknowledgedBy: string | null;
+            enabled: boolean;
+            endpoint: string;
+            headerNames: string[];
+            /** Format: date-time */
+            headersSetAt: string | null;
+            id: string;
+            name: string;
+            traceLink: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        TraceDestinationList: {
+            destinations: components["schemas"]["TraceDestination"][];
+        };
+        TraceDestinationRequest: {
+            acknowledgeContentLeaves: boolean;
+            content: boolean;
+            enabled: boolean;
+            endpoint: string;
+            headers?: {
+                [key: string]: string;
+            };
+            name: string;
+            traceLink: string | null;
+        };
+        TraceDestinationResponse: {
+            destination: components["schemas"]["TraceDestination"];
+        };
+        TraceDestinationTest: {
+            delivered: boolean;
+            message: string;
+            status: number;
+        };
+        TraceLink: {
+            destination: string;
+            url: string;
+        };
+        TraceList: {
+            limit: number;
+            offset: number;
+            total: number;
+            traces: components["schemas"]["TraceSummary"][];
+        };
+        TraceResponse: {
+            trace: components["schemas"]["TraceTree"];
+        };
+        TraceSettingRequest: {
+            keepContent: boolean;
+            retentionDays: number;
+        };
+        TraceSettingResponse: {
+            changedBy: string | null;
+            keepContent: boolean;
+            retentionDays: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        TraceSpan: {
+            attributes: {
+                [key: string]: string;
+            };
+            children: components["schemas"]["TraceSpan"][];
+            durationMs: number;
+            /** Format: date-time */
+            endedAt: string;
+            events: components["schemas"]["SpanEvent"][];
+            input: components["schemas"]["SpanValue"] | null;
+            /** @enum {string} */
+            kind: "CHAIN" | "LLM" | "TOOL" | "AGENT" | "RETRIEVER" | "EMBEDDING" | "RERANKER" | "GUARDRAIL" | "EVALUATOR" | "PROMPT" | "UNKNOWN";
+            model: string;
+            name: string;
+            omitted: number;
+            output: components["schemas"]["SpanValue"] | null;
+            parentSpanId: string;
+            sender: components["schemas"]["PersonRef"] | null;
+            service: string;
+            /** @enum {string} */
+            source: "runner" | "otlp";
+            spanId: string;
+            /** Format: date-time */
+            startedAt: string;
+            /** @enum {string} */
+            status: "unset" | "ok" | "error";
+            statusMessage: string;
+            tokens: components["schemas"]["SpanTokens"] | null;
+        };
+        TraceSpanDetail: {
+            attributes: {
+                [key: string]: string;
+            };
+            content: {
+                [key: string]: string;
+            };
+            durationMs: number;
+            /** Format: date-time */
+            endedAt: string;
+            events: components["schemas"]["SpanEvent"][];
+            input: components["schemas"]["SpanValue"] | null;
+            /** @enum {string} */
+            kind: "CHAIN" | "LLM" | "TOOL" | "AGENT" | "RETRIEVER" | "EMBEDDING" | "RERANKER" | "GUARDRAIL" | "EVALUATOR" | "PROMPT" | "UNKNOWN";
+            model: string;
+            name: string;
+            output: components["schemas"]["SpanValue"] | null;
+            parentSpanId: string;
+            sender: components["schemas"]["PersonRef"] | null;
+            service: string;
+            /** @enum {string} */
+            source: "runner" | "otlp";
+            spanId: string;
+            /** Format: date-time */
+            startedAt: string;
+            /** @enum {string} */
+            status: "unset" | "ok" | "error";
+            statusMessage: string;
+            tokens: components["schemas"]["SpanTokens"] | null;
+        };
+        TraceSpanResponse: {
+            span: components["schemas"]["TraceSpanDetail"];
+        };
+        TraceSummary: {
+            cut: boolean;
+            /** Format: date-time */
+            endedAt: string | null;
+            failed: boolean;
+            rootName: string;
+            sender: components["schemas"]["PersonRef"];
+            service: string;
+            spans: number;
+            /** Format: date-time */
+            startedAt: string;
+            traceId: string;
+        };
+        TraceTree: {
+            bytes: number;
+            content: boolean;
+            cut: boolean;
+            dropped: number;
+            /** Format: date-time */
+            endedAt: string | null;
+            /** Format: date-time */
+            expiresAt: string | null;
+            links: components["schemas"]["TraceLink"][];
+            roots: components["schemas"]["TraceSpan"][];
+            runId: string | null;
+            sender: components["schemas"]["PersonRef"] | null;
+            spans: number;
+            /** Format: date-time */
+            startedAt: string | null;
+            /** @enum {string} */
+            state: "kept" | "expired" | "none";
+            traceId: string;
+        };
         TriggerCondition: {
             /** @enum {string} */
             op: "equals" | "notEquals" | "in" | "notIn" | "exists" | "absent";
@@ -1984,7 +3211,7 @@ export interface components {
             at: string;
             message: string;
             /** @enum {string} */
-            reason: "owner_switched_off" | "connection_lost" | "tool_removed" | "workflow_archived" | "workflow_hidden" | "unattended_write" | "inputs_refused" | "unattended_widened" | "unattended_forbidden" | "runs_off";
+            reason: "owner_switched_off" | "connection_lost" | "tool_removed" | "workflow_archived" | "workflow_hidden" | "unattended_write" | "inputs_refused" | "unattended_widened" | "unattended_forbidden" | "runs_off" | "skill_unreadable";
         };
         TriggerFire: {
             /** Format: date-time */
@@ -2036,6 +3263,15 @@ export interface components {
         UnattendedSettingInput: {
             allowed: boolean;
         };
+        UpdateRoleRequest: {
+            description?: string;
+            installationWideOnly?: boolean;
+            name?: string;
+            permissions?: string[];
+        };
+        UpdateUserRequest: {
+            isActive?: boolean;
+        };
         UsageDay: {
             cost: number;
             day: string;
@@ -2048,6 +3284,38 @@ export interface components {
             month: components["schemas"]["UsageDay"];
             today: components["schemas"]["UsageDay"];
         };
+        UserGrantView: {
+            group?: string;
+            role: string;
+            roleName: string;
+            skillId?: string;
+            skillName?: string;
+            workflowId?: string;
+            workflowName?: string;
+        };
+        UserGroupView: {
+            builtin: string;
+            id: string;
+            name: string;
+            /** @enum {string} */
+            source: "local" | "oidc";
+        };
+        UserPage: {
+            limit: number;
+            offset: number;
+            total: number;
+            users: components["schemas"]["UserView"][];
+        };
+        UserView: {
+            /** Format: date-time */
+            createdAt: string;
+            email: string;
+            grants: components["schemas"]["UserGrantView"][];
+            groups: components["schemas"]["UserGroupView"][];
+            id: string;
+            isActive: boolean;
+            name: string;
+        };
         ValidateRequest: {
             specYAML: string;
         };
@@ -2055,6 +3323,13 @@ export interface components {
             problems: components["schemas"]["Problem"][];
             valid: boolean;
             warnings: components["schemas"]["Problem"][];
+        };
+        ValidateSkillRequest: {
+            files: components["schemas"]["SkillFileBody"][];
+        };
+        ValidateSkillResponse: {
+            problems: components["schemas"]["Problem"][];
+            valid: boolean;
         };
         VersionResponse: {
             bindings: components["schemas"]["BindingRef"][];
@@ -2077,21 +3352,26 @@ export interface components {
             hash: string;
             number: number;
         };
+        WorkflowGrantRequest: {
+            groupId?: string;
+            role: string;
+            userId?: string;
+        };
         WorkflowResponse: {
             version: components["schemas"]["VersionResponse"];
             workflow: components["schemas"]["WorkflowSummary"];
         };
         WorkflowSummary: {
             archived: boolean;
+            canAdminister: boolean;
             canEdit: boolean;
+            canRun: boolean;
             currentVersion: number;
             description: string;
             id: string;
             name: string;
             owner: components["schemas"]["PersonRef"];
-            sharedGroups: string[];
-            /** @enum {string} */
-            sharing: "private" | "groups" | "everyone";
+            sharedWith: number;
             /** Format: date-time */
             updatedAt: string;
         };
@@ -2215,6 +3495,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    myAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessResponse"];
                 };
             };
             /** @description An error, in the one shape every endpoint uses. */
@@ -2622,6 +3931,68 @@ export interface operations {
             };
         };
     };
+    getPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesBody"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    setPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferencesBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesBody"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     backchannelLogout: {
         parameters: {
             query?: never;
@@ -2776,6 +4147,331 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listGroups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        groups: components["schemas"]["GroupView"][];
+                    };
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    createGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        group: components["schemas"]["GroupView"];
+                    };
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        group: components["schemas"]["GroupView"];
+                    };
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    deleteGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    addGroupMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddMemberRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        group: components["schemas"]["GroupView"];
+                    };
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    removeGroupMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupID: string;
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        group: components["schemas"]["GroupView"];
+                    };
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
             };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
@@ -3456,6 +5152,104 @@ export interface operations {
             };
         };
     };
+    getOIDCProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OidcProviderResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    saveOIDCProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveOIDCProviderRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OidcProviderResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     openAPI: {
         parameters: {
             query?: never;
@@ -3472,6 +5266,169 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Document"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    receiveTraces: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-protobuf": string;
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-protobuf": string;
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OtlpStatus"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OtlpStatus"];
+                };
+            };
+            /** @description Unsupported Media Type */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OtlpStatus"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OtlpStatus"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    findPeople: {
+        parameters: {
+            query?: {
+                /** @description Part of a name or an address. */
+                q?: string;
+                /** @description At most this many, 10 when left out and never more than 50. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: components["schemas"]["PersonView"][];
+                    };
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listPermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        permissions: components["schemas"]["PermissionView"][];
+                    };
                 };
             };
             /** @description An error, in the one shape every endpoint uses. */
@@ -3893,6 +5850,368 @@ export interface operations {
             };
         };
     };
+    listAssignments: {
+        parameters: {
+            query?: {
+                /** @description Keep the grants that answer on this workflow, the installation-wide ones included. */
+                workflow?: string;
+                /** @description Match the person, the group or the workflow's name. */
+                q?: string;
+                /** @description Keep the grants of this role. */
+                role?: string;
+                /** @description At most this many, 50 when left out and never more than 200. */
+                limit?: number;
+                /** @description How many to skip, for the next page. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignmentPage"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    grantRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        assignment: components["schemas"]["AssignmentView"];
+                    };
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    revokeRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assignmentID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        roles: components["schemas"]["RoleView"][];
+                    };
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    createRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        role: components["schemas"]["RoleView"];
+                    };
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    deleteRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roleKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    updateRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roleKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        role: components["schemas"]["RoleView"];
+                    };
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     listRuns: {
         parameters: {
             query?: {
@@ -4054,6 +6373,87 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getRunTrace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getRunTraceSpan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runID: string;
+                spanID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceSpanResponse"];
+                };
             };
             /** @description Not Found */
             404: {
@@ -4491,6 +6891,454 @@ export interface operations {
             };
         };
     };
+    listTraceDestinations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceDestinationList"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    addTraceDestination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TraceDestinationRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceDestinationResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getTraceDestination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                destinationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceDestinationResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    changeTraceDestination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                destinationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TraceDestinationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceDestinationResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    removeTraceDestination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                destinationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    testTraceDestination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                destinationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceDestinationTest"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Implemented: agreed, not built yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getTraceSetting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceSettingResponse"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    setTraceSetting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TraceSettingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceSettingResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     getUnattendedWrites: {
         parameters: {
             query?: never;
@@ -4633,6 +7481,810 @@ export interface operations {
             };
             /** @description Forbidden: for administrators of Rotor alone. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listSkills: {
+        parameters: {
+            query?: {
+                /** @description true lists archived skills instead. */
+                archived?: string;
+                /** @description Part of a name or a description. */
+                q?: string;
+                /** @description At most this many, 50 when left out and never more than 200. */
+                limit?: number;
+                /** @description How many to skip, for the next page. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillList"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    createSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSkillRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    importSkill: {
+        parameters: {
+            query?: {
+                /** @description The note the version carries, at most 500 characters. */
+                comment?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/zip": string;
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportedSkill"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportedSkill"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    validateSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValidateSkillRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidateSkillResponse"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                skillID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    saveSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                skillID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveSkillRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    archiveSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                skillID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    diffSkillVersions: {
+        parameters: {
+            query?: {
+                /** @description The older version's number. */
+                from?: string;
+                /** @description The newer version's number. */
+                to?: string;
+            };
+            header?: never;
+            path: {
+                skillID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillDiffResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listSkillGrants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                skillID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        grants: components["schemas"]["AssignmentView"][];
+                    };
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    grantOnSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                skillID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowGrantRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        grant: components["schemas"]["AssignmentView"];
+                    };
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    revokeOnSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                skillID: string;
+                grantID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    restoreSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                skillID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listSkillVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                skillID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        versions: components["schemas"]["SkillVersionSummary"][];
+                    };
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getSkillVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                skillID: string;
+                versionNumber: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillVersionResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    exportSkillVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                skillID: string;
+                versionNumber: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getSkillFile: {
+        parameters: {
+            query?: {
+                /** @description The file's path below the skill's root, such as references/templates.md. */
+                path?: string;
+            };
+            header?: never;
+            path: {
+                skillID: string;
+                versionNumber: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillFileResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4983,7 +8635,7 @@ export interface operations {
     connect: {
         parameters: {
             query?: {
-                /** @description A path of Rotor's the browser returns to once connected, such as the workflow a run was started from; the Connections page otherwise. */
+                /** @description A path of Rotor's the browser returns to once connected, such as the workflow a run was started from; Tool accounts in Settings otherwise. */
                 next?: string;
             };
             header?: never;
@@ -5217,6 +8869,129 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listTraces: {
+        parameters: {
+            query?: {
+                /** @description Only this sender's traces, by user id. */
+                sender?: string;
+                /** @description At most this many, 50 when left out and never more than 200. */
+                limit?: number;
+                /** @description How many to skip, for the next page. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceList"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getTrace: {
+        parameters: {
+            query?: {
+                /** @description For an administrator: whose trace of that id to read, by user id; yours when left out. */
+                sender?: string;
+            };
+            header?: never;
+            path: {
+                traceID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getTraceSpan: {
+        parameters: {
+            query?: {
+                /** @description For an administrator: whose trace of that id to read, by user id; yours when left out. */
+                sender?: string;
+            };
+            header?: never;
+            path: {
+                traceID: string;
+                spanID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceSpanResponse"];
                 };
             };
             /** @description Not Found */
@@ -5610,6 +9385,266 @@ export interface operations {
             };
         };
     };
+    listUsers: {
+        parameters: {
+            query?: {
+                /** @description Part of a name or an address. */
+                q?: string;
+                /** @description At most this many, 50 when left out and never more than 200. */
+                limit?: number;
+                /** @description How many to skip, for the next page. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPage"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listJoinRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        requests: components["schemas"]["JoinRequestView"][];
+                    };
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    declineJoinRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    admitJoinRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdmitRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        user: components["schemas"]["UserView"];
+                    };
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    updateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        user: components["schemas"]["UserView"];
+                    };
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     listWorkflows: {
         parameters: {
             query?: {
@@ -5839,6 +9874,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
             /** @description Not Found */
             404: {
                 headers: {
@@ -5882,6 +9926,209 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DiffResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listWorkflowGrants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflowID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        grants: components["schemas"]["AssignmentView"][];
+                    };
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    grantOnWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflowID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowGrantRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        grant: components["schemas"]["AssignmentView"];
+                    };
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    revokeOnWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflowID: string;
+                grantID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    restoreWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflowID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Not Found */
@@ -5960,59 +10207,6 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description An error, in the one shape every endpoint uses. */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-        };
-    };
-    shareWorkflow: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                workflowID: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SharingRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WorkflowResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Found */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };

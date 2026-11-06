@@ -31,11 +31,15 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/oauth"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
+	"github.com/cloudster1/rotor/backend/internal/perm"
+	"github.com/cloudster1/rotor/backend/internal/preferences"
 	"github.com/cloudster1/rotor/backend/internal/providers"
 	"github.com/cloudster1/rotor/backend/internal/retention"
 	"github.com/cloudster1/rotor/backend/internal/runnerctl"
 	"github.com/cloudster1/rotor/backend/internal/runs"
+	"github.com/cloudster1/rotor/backend/internal/skills"
 	"github.com/cloudster1/rotor/backend/internal/tools"
+	"github.com/cloudster1/rotor/backend/internal/traces"
 	"github.com/cloudster1/rotor/backend/internal/triggers"
 	"github.com/cloudster1/rotor/backend/internal/usage"
 	"github.com/cloudster1/rotor/backend/internal/version"
@@ -91,16 +95,39 @@ func run() error {
 		}
 	}
 
-	if !cfg.SignInConfigured() {
-		log.Warn("ROTOR_OIDC_ISSUER is not set, so nobody can sign in; set it to the identity provider's issuer")
-	}
 	sessions := auth.NewService(cluster, cfg.Auth.SessionTTL)
 	realm := oidc.NewService(cluster, sessions, cfg.OIDC)
+	// The environment seeds single sign-on when the database keeps none; after that the database's is used (#204).
+	if err := realm.Seed(ctx, log); err != nil {
+		return err
+	}
+	if !realm.Configured(ctx) {
+		log.Warn("single sign-on is not set up or is turned off, so nobody can sign in; set ROTOR_OIDC_ISSUER to seed it")
+	}
+	// The people the bootstrap list names are let in at every start; a later start adds names and removes nobody (#171).
+	if added, err := perm.LetInMembers(ctx, cluster, cfg.BootstrapMembers); err != nil {
+		return err
+	} else if added > 0 {
+		log.Info("let in the bootstrap members", "added", added, "named", len(cfg.BootstrapMembers))
+	}
+	// The skills Rotor ships are installed before anybody saves a workflow that pins them (#225).
+	if err := skills.NewService(cluster).InstallBuiltins(ctx, log); err != nil {
+		return err
+	}
+	access := perm.NewStore(cluster)
 	server := &httpapi.Server{
 		DB:       cluster,
 		Log:      log,
 		Sessions: sessions,
 		SignIn:   realm,
+		// Each request's permissions are resolved from the grants (#202).
+		Access: access,
+		// Admin's Access and Users pages keep the grants and let people in and out (#203).
+		AccessAdmin: access,
+		Switches:    sessions,
+		// Who waits to be let in, and single sign-on itself, are kept on Admin's Users and Access pages (#204).
+		JoinRequests: access,
+		SingleSignOn: realm,
 		// The realm's service accounts add tools and their hook secrets with a token of their own (#168).
 		ServiceAccounts: realm,
 		SessionTTL:      cfg.Auth.SessionTTL,
@@ -130,8 +157,17 @@ func run() error {
 	// What workspaces may use (#136): a workflow's images are checked when it is saved and when a run starts.
 	workspaceService := workspaces.New(cluster)
 	workflowService.Images = workspaceService
+	// The skills an agent names (#221) are checked as the person saving when a workflow is saved, and as the run's
+	// person when it starts.
+	skillService := skills.NewService(cluster)
+	workflowService.Skills = skillService
+	// Each run's trace is kept in Postgres for whoever reads the run (#242), for as long as an administrator says.
+	traceService := traces.NewService(cluster, log)
+	// Apps and tools send their spans to the OTLP endpoint (#243), kept beside the runners'.
+	server.Traces, server.Spans, server.TraceReads = traceService, traceService, traceService
 	if secrets != nil {
 		server.Vault = secrets
+		realm.Secrets = secrets
 		registry := tools.NewService(cluster, secrets, boot.ToolClient(cfg), cfg.ConnectionCallbackURL(), cfg.Env == config.EnvDevelopment)
 		people := connections.NewService(cluster, secrets, registry, boot.ToolClient(cfg), cfg.ConnectionCallbackURL(), log)
 		people.Runs = secrets
@@ -143,7 +179,7 @@ func run() error {
 		reader := catalog.NewService(registry, people, boot.ToolClient(cfg), store, log)
 		server.Catalogs = reader
 		workflowService = workflows.NewService(cluster, reader)
-		workflowService.Images = workspaceService
+		workflowService.Images, workflowService.Skills = workspaceService, skillService
 		// Every run's data is sealed with a key of its own, which OpenBao wraps (#41).
 		keys := envelope.NewKeys(secrets)
 		runService := runs.NewService(cluster, keys, workflowService, registry, people, store)
@@ -163,14 +199,17 @@ func run() error {
 		runners.ApprovalTTL = cfg.Approvals.TTL
 		smith := langsmith.NewService(cluster, secrets, cfg.Telemetry.LangSmithEndpoint)
 		server.LangSmith, server.LangSmithEndpoint = smith, cfg.Telemetry.LangSmithEndpoint
-		runners.Telemetry = &langsmith.Forwarder{Tracing: tracing, LangSmith: smith, Log: log}
+		forwarder := &langsmith.Forwarder{Tracing: tracing, LangSmith: smith, Log: log}
+		runners.Telemetry = forwarder
+		// A sender's spans that join a run go where the run's runner's go.
+		traceService.Keys, traceService.Forward, runners.Traces = keys, forwarder, traceService
 		runners.MintFailed = func(reason string) { mintFailures.Add(reason, 1) }
 		models := providers.NewService(cluster, secrets, boot.ToolClient(cfg))
 		server.Providers, runners.Models, workflowService.Models = models, models, models
 		// Usage (#38): a run's person's quota and its model's prices are checked as it starts.
 		usageService := usage.NewService(cluster, models)
 		server.Usage, runService.Usage = usageService, usageService
-		runService.Catalogs, runService.Images = reader, workspaceService
+		runService.Catalogs, runService.Images, runService.Skills = reader, workspaceService, skillService
 		go func() {
 			if err := runners.Serve(ctx, cfg.Runner.Addr, secrets); err != nil {
 				log.Error("the runner protocol stopped", "error", err)
@@ -178,9 +217,11 @@ func run() error {
 		}()
 	}
 	server.Workflows = workflowService
+	server.Skills = skillService
 	server.Audit = audit.NewService(cluster)
 	server.Retention = retention.NewService(cluster, log)
 	server.Workspaces = workspaceService
+	server.Preferences = preferences.New(cluster)
 	origins := cfg.CORSOrigins
 	if len(origins) == 0 && !cfg.IsProduction() {
 		origins = devOrigins

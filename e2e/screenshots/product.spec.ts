@@ -81,7 +81,7 @@ async function shot(page: Page, name: string): Promise<void> {
 /** Adds the tool unless an earlier run of this spec did. */
 async function addTool(page: Page): Promise<void> {
   const address = `${toolStubURL()}/t/${TOOL}`;
-  await page.goto("/settings");
+  await page.goto("/admin/tools");
   const row = page.locator("[data-tools] li", { hasText: address });
   await expect(page.locator("[data-add-tool]")).toBeVisible();
   if ((await row.count()) === 0) {
@@ -112,7 +112,7 @@ async function addProvider(page: Page): Promise<void> {
 
 /** Connects the signed-in person to the tool on its consent page unless they are connected. */
 async function connect(page: Page): Promise<void> {
-  await page.goto("/connections");
+  await page.goto("/settings/accounts");
   const row = page.locator(`li[data-connection="${TOOL}"]`);
   const button = row.locator('[data-action="connect"]');
   await expect(row).toBeVisible();
@@ -121,7 +121,7 @@ async function connect(page: Page): Promise<void> {
     await page.waitForURL(`${toolStubURL()}/**`);
     await page.locator("#username").fill("alice");
     await page.locator('button[data-action="allow"]').click();
-    await expect(page).toHaveURL(/\/connections\?connected=/);
+    await expect(page).toHaveURL(/\/settings\/accounts\?connected=/);
   }
   await expect(row).toHaveAttribute("data-status", "connected");
 }
@@ -185,8 +185,8 @@ test("the product, in pictures", async ({ page, browser }) => {
   await connect(page);
   await shot(page, "connections");
 
-  await page.goto("/settings");
-  await expect(page.locator("[data-tools] li").first()).toBeVisible();
+  // Admin with its side nav, on the page of the providers, which a card grid lists.
+  await page.goto("/admin/providers");
   await expect(page.locator(`li[data-provider="${PROVIDER}"]`)).toBeVisible();
   await shot(page, "settings");
 
@@ -241,7 +241,7 @@ test("the product, in pictures", async ({ page, browser }) => {
   await expect(page.locator(`[data-run="${approved}"] [data-run-status]`)).toHaveAttribute("data-run-status", "succeeded");
   await shot(page, "runs");
 
-  await page.goto("/settings/audit");
+  await page.goto("/admin/audit");
   await expect(page.locator("[data-audit-row]").first()).toBeVisible();
   await shot(page, "audit");
 

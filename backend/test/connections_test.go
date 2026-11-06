@@ -99,7 +99,7 @@ func (b *browser) consentFrom(t *testing.T, toolID, username, decision, next str
 	return resp.Header.Get("Location")
 }
 
-// landing follows the callback and returns the Connections page address it lands on.
+// landing follows the callback and returns the address of Tool accounts it lands on.
 func (b *browser) landing(t *testing.T, callback string) string {
 	t.Helper()
 	resp, body := b.get(callback)
@@ -118,7 +118,7 @@ func TestAPersonConnectsTheirAccountAndOnlyOpenBaoHoldsTheToken(t *testing.T) {
 	_, me := bob.me()
 	bobID, _ := me["user"].(map[string]any)["id"].(string)
 
-	if landed := bob.landing(t, bob.consent(t, toolID, "bob", "allow")); landed != "/connections?connected="+toolID {
+	if landed := bob.landing(t, bob.consent(t, toolID, "bob", "allow")); landed != "/settings/accounts?connected="+toolID {
 		t.Fatalf("landed on %q", landed)
 	}
 	status, answer := bob.api(http.MethodGet, "/connections", nil)

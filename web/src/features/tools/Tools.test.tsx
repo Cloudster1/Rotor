@@ -30,19 +30,17 @@ const EXCITER: Tool = {
 const MEMBER = { ...ME, role: "member", groups: [] };
 
 describe("the tools", () => {
-  it("are listed for everyone, but only an administrator may add or remove one", async () => {
-    await renderAt("/settings", { me: MEMBER, answers: { "/api/v1/tools": { tools: [EXCITER] } } });
-    const row = await screen.findByText("Exciter");
-    expect(row).toBeInTheDocument();
-    expect(screen.getByText(s.tools.status.ready)).toBeInTheDocument();
+  it("are for administrators alone", async () => {
+    await renderAt("/admin/tools", { me: MEMBER, answers: { "/api/v1/tools": { tools: [EXCITER] } } });
+    expect(await screen.findByRole("alert")).toHaveTextContent(s.admin.notAllowed);
+    expect(screen.queryByText("Exciter")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: s.tools.add.submit })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: s.tools.remove })).not.toBeInTheDocument();
   });
 
   it("are added by their address, and a refusal is shown as the server words it", async () => {
     let tools: Tool[] = [];
     const refusal = "Armature names no authorization server, so people cannot connect to it with OAuth. Switch on its OAuth connections.";
-    const { fetch } = await renderAt("/settings", {
+    const { fetch } = await renderAt("/admin/tools", {
       answers: {
         "/api/v1/tools": () => Response.json({ tools }),
         "POST /api/v1/tools": async (request: Request) => {
@@ -71,7 +69,7 @@ describe("the tools", () => {
 
   it("take a client registered by hand, with its secret", async () => {
     let sent: unknown;
-    await renderAt("/settings", {
+    await renderAt("/admin/tools", {
       answers: {
         "POST /api/v1/tools": async (request: Request) => {
           sent = await request.json();
@@ -90,7 +88,7 @@ describe("the tools", () => {
 
   it("are removed after a confirmation, and one that forgot Rotor is registered again", async () => {
     let tools: Tool[] = [{ ...EXCITER, status: "needs_registration" }];
-    const { fetch } = await renderAt("/settings", {
+    const { fetch } = await renderAt("/admin/tools", {
       answers: {
         "/api/v1/tools": () => Response.json({ tools }),
         "POST /api/v1/tools": () => {
@@ -109,13 +107,15 @@ describe("the tools", () => {
     await userEvent.click(screen.getByRole("button", { name: s.tools.remove }));
     const confirm = screen.getByRole("group", { name: s.tools.confirmRemove("Exciter") });
     await userEvent.click(within(confirm).getByRole("button", { name: s.tools.confirm }));
-    expect(await screen.findByText(s.tools.noneAdmin)).toBeInTheDocument();
+    expect(await screen.findByText(s.tools.none)).toBeInTheDocument();
     const calls = fetch.mock.calls.map(([request]) => `${request.method} ${new URL(request.url).pathname}`);
     expect(calls).toContain(`DELETE /api/v1/tools/${EXCITER.id}`);
   });
 
   it("pass axe, with the form open", async () => {
-    await renderAt("/settings", { answers: { "/api/v1/tools": { tools: [EXCITER, { ...EXCITER, id: "x", name: "stator", status: "needs_registration" }] } } });
+    await renderAt("/admin/tools", {
+      answers: { "/api/v1/tools": { tools: [EXCITER, { ...EXCITER, id: "x", name: "stator", status: "needs_registration" }] } },
+    });
     await screen.findByText("Exciter");
     await userEvent.click(screen.getByLabelText(s.tools.add.manual));
     await userEvent.click(screen.getAllByRole("button", { name: s.tools.remove })[0]!);
@@ -131,7 +131,7 @@ describe("a tool's events", () => {
     let sent: unknown;
     const writeText = vi.fn(async () => {});
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
-    await renderAt("/settings", {
+    await renderAt("/admin/tools", {
       answers: {
         "/api/v1/tools": { tools: [EXCITER] },
         [HOOK_PATH]: unset,
@@ -161,7 +161,7 @@ describe("a tool's events", () => {
 
   it("say why a secret was refused, as the server words it", async () => {
     const refusal = "That is not this tool's webhook secret.";
-    await renderAt("/settings", {
+    await renderAt("/admin/tools", {
       answers: {
         "/api/v1/tools": { tools: [EXCITER] },
         [HOOK_PATH]: unset,
@@ -176,7 +176,7 @@ describe("a tool's events", () => {
   it("are checked again on asking, and a tool that stopped sending webhooks says so instead of offering a hook", async () => {
     let tool: Tool = EXCITER;
     const sentence = "Exciter does not offer webhooks@1, which Rotor needs to start workflows from its events.";
-    const { fetch } = await renderAt("/settings", {
+    const { fetch } = await renderAt("/admin/tools", {
       answers: {
         "/api/v1/tools": () => Response.json({ tools: [tool] }),
         [HOOK_PATH]: unset,
@@ -195,12 +195,8 @@ describe("a tool's events", () => {
     expect(calls).toContain(`POST /api/v1/tools/${EXCITER.id}/check`);
   });
 
-  it("are not offered to members, nor for a tool that sends none", async () => {
-    await renderAt("/settings", { me: MEMBER, answers: { "/api/v1/tools": { tools: [EXCITER] } } });
-    await screen.findByText("Exciter");
-    expect(screen.queryByLabelText(s.tools.hook.address)).not.toBeInTheDocument();
-    cleanup();
-    await renderAt("/settings", { answers: { "/api/v1/tools": { tools: [{ ...EXCITER, name: "jira" }] } } });
+  it("are not offered for a tool that sends none", async () => {
+    await renderAt("/admin/tools", { answers: { "/api/v1/tools": { tools: [{ ...EXCITER, name: "jira" }] } } });
     await screen.findByText("Jira");
     expect(screen.queryByLabelText(s.tools.hook.address)).not.toBeInTheDocument();
   });

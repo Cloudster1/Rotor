@@ -4,6 +4,7 @@ import { useState } from "react";
 import { myTriggersQuery } from "@/api/triggers";
 import { archiveWorkflow, type WorkflowSummary, workflowsQuery, workflowsQueryKey } from "@/api/workflows";
 import { RunDialog } from "@/features/runs/RunDialog";
+import { ConfirmDialog } from "@/features/shell/Dialog";
 import { EmptyState, PageHeader } from "@/features/shell/EmptyState";
 import { Icon } from "@/features/shell/icons";
 import { s } from "@/strings";
@@ -11,7 +12,7 @@ import { s } from "@/strings";
 const primary = "inline-flex h-9 items-center rounded-control bg-accent px-4 text-sm font-medium text-on-accent hover:bg-accent-hover";
 const secondary = "h-8 rounded-control border border-border-strong px-3 text-sm font-medium text-ink hover:bg-surface-raised disabled:opacity-60";
 
-/** The workflows the person may see: their own and those shared with them; archived ones on request. */
+/** The workflows the person may see: those their grants, their groups' or Everyone's give them; archived ones on request. */
 export function WorkflowsPage() {
   const [archived, setArchived] = useState(false);
   const list = useQuery(workflowsQuery(archived));
@@ -60,7 +61,10 @@ function WorkflowRow({ workflow, triggerOff }: { workflow: WorkflowSummary; trig
   const [running, setRunning] = useState(false);
   const archive = useMutation({
     mutationFn: () => archiveWorkflow(workflow.id),
-    onSuccess: () => client.invalidateQueries({ queryKey: workflowsQueryKey }),
+    onSuccess: async () => {
+      setConfirming(false);
+      await client.invalidateQueries({ queryKey: workflowsQueryKey });
+    },
   });
   return (
     <li className="rounded-overlay border border-border bg-surface p-4 shadow-1" data-workflow={workflow.name}>
@@ -68,8 +72,8 @@ function WorkflowRow({ workflow, triggerOff }: { workflow: WorkflowSummary; trig
         <Link to="/workflows/$workflowID" params={{ workflowID: workflow.id }} className="font-medium text-accent hover:underline">
           {workflow.name}
         </Link>
-        <span className="rounded-control border border-border px-2 py-0.5 text-xs text-ink" data-sharing={workflow.sharing}>
-          {s.workflows.sharing[workflow.sharing]}
+        <span className="rounded-control border border-border px-2 py-0.5 text-xs text-ink" data-shared-with={workflow.sharedWith}>
+          {s.workflowList.sharedWith(workflow.sharedWith)}
         </span>
       </div>
       {workflow.description && <p className="mt-1 text-sm text-ink-muted">{workflow.description}</p>}
@@ -79,42 +83,53 @@ function WorkflowRow({ workflow, triggerOff }: { workflow: WorkflowSummary; trig
         </p>
       )}
       <p className="mt-1 text-xs text-ink-muted">
-        {s.workflows.owner}: {workflow.owner.name} . {s.workflows.version(workflow.currentVersion)}
+        {s.workflows.owner}: {workflow.owner.name} . {s.workflows.version(workflow.currentVersion)} .{" "}
+        <span data-yours={yours(workflow)}>{s.workflowList.yours[yours(workflow)]}</span>
       </p>
-      {!workflow.archived && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {workflow.canRun && !workflow.archived && (
           <button type="button" className={secondary} onClick={() => setRunning(true)} aria-label={s.runs.runNamed(workflow.name)} data-action="run-workflow">
             {s.runs.run}
           </button>
-          {!workflow.canEdit ? null : !confirming ? (
-            <button type="button" className={secondary} onClick={() => setConfirming(true)} data-action="archive-workflow">
-              {s.workflows.archive}
-            </button>
-          ) : (
-            <span className="flex flex-wrap items-center gap-2" role="group" aria-label={s.workflows.confirmArchive(workflow.name)}>
-              <span className="text-sm text-ink">{s.workflows.confirmArchive(workflow.name)}</span>
-              <button
-                type="button"
-                className="h-8 rounded-control bg-danger px-3 text-sm font-medium text-on-danger hover:bg-danger-hover disabled:opacity-60"
-                disabled={archive.isPending}
-                onClick={() => archive.mutate()}
-                data-action="confirm-archive"
-              >
-                {s.workflows.confirm}
-              </button>
-              <button type="button" className={secondary} onClick={() => setConfirming(false)}>
-                {s.workflows.keep}
-              </button>
-            </span>
-          )}
-        </div>
-      )}
-      {archive.isError && (
-        <p role="alert" className="mt-2 text-sm text-danger">
-          {archive.error.message}
-        </p>
+        )}
+        <Link
+          to="/workflows/$workflowID/settings/general"
+          params={{ workflowID: workflow.id }}
+          className={`${secondary} inline-flex items-center`}
+          aria-label={s.workflowSettings.linkNamed(workflow.name)}
+          data-action="workflow-settings"
+        >
+          {s.workflowSettings.link}
+        </Link>
+        {workflow.canAdminister && !workflow.archived && (
+          <button type="button" className={secondary} onClick={() => setConfirming(true)} data-action="archive-workflow">
+            {s.workflows.archive}
+          </button>
+        )}
+      </div>
+      {confirming && (
+        <ConfirmDialog
+          title={s.workflowList.archiveTitle(workflow.name)}
+          body={s.workflowList.archiveBody}
+          action={s.workflowList.archiveAction}
+          pending={archive.isPending}
+          error={archive.error}
+          onConfirm={() => archive.mutate()}
+          onClose={() => {
+            setConfirming(false);
+            archive.reset();
+          }}
+        />
       )}
       {running && <RunDialog workflowID={workflow.id} name={workflow.name} onClose={() => setRunning(false)} />}
     </li>
   );
+}
+
+/** What the caller's grants let them do with a workflow, in one word, the most first. */
+function yours(workflow: WorkflowSummary): keyof typeof s.workflowList.yours {
+  if (workflow.canAdminister) return "administer";
+  if (workflow.canEdit) return "edit";
+  if (workflow.canRun) return "run";
+  return "read";
 }

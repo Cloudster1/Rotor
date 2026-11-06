@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { PEOPLE, signIn } from "../fixtures/auth";
-import { createWorkflow, RUN_TIMEOUT_MS, startRun } from "../fixtures/runs";
+import { createWorkflow, RUN_TIMEOUT_MS, startRun, waitsForRuns } from "../fixtures/runs";
 import { expectAccessible, startInScheme, type ColourScheme } from "../fixtures/shell";
 
 const SCHEMES: ColourScheme[] = ["light", "dark"];
@@ -62,6 +62,8 @@ async function waitForApproval(page: Page, runID: string): Promise<string> {
 
 for (const scheme of SCHEMES) {
   test(`a member of the named group changes what a run writes and approves it, in ${scheme} @desktop`, async ({ browser }) => {
+    // Two sandboxes in turn: the run up to its approval, then the run resumed after it.
+    waitsForRuns(2);
     const name = `e2e-${randomUUID().slice(0, 12)}`;
     const people = await Promise.all([1, 2].map(() => browser.newContext({ storageState: { cookies: [], origins: [] } })));
     const [bob, carol] = await Promise.all(people.map((context) => context.newPage()));
@@ -106,6 +108,7 @@ for (const scheme of SCHEMES) {
 }
 
 test("the person who started a run rejects its approval, and the run ends cancelled", async ({ page }) => {
+  waitsForRuns(1);
   const name = `e2e-${randomUUID().slice(0, 12)}`;
   const workflowID = await createWorkflow(page, reviewed(name));
   const runID = await startRun(page, workflowID);

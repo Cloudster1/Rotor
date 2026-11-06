@@ -32,6 +32,7 @@ message ConnectRequest {
     CheckpointPutRequest checkpoint_put = 17;
     CheckpointWritesRequest checkpoint_writes = 18;
     SpanBatch spans = 19;
+    SkillFileRequest skill_file = 20;
   }
 }
 
@@ -52,6 +53,7 @@ message ConnectResponse {
     CheckpointListResponse checkpoint_list = 17;
     CheckpointPutResponse checkpoint_put = 18;
     CheckpointWritesResponse checkpoint_writes = 19;
+    SkillFileResponse skill_file = 20;
   }
 }
 
@@ -123,7 +125,8 @@ message StartRun {
   string resume_interrupt_id = 8;
   // traceparent is the run's W3C trace context; the runner's spans belong to it and none are made without it (#37).
   string traceparent = 9;
-  // trace_content lets LLM spans carry the prompt and the answer, redacted and cut short, for LangSmith (#37).
+  // trace_content says the run may keep text somewhere, so its spans carry inputs, outputs and messages, redacted and
+  // cut short; the control plane strips the text from each place that may not have it (#241).
   bool trace_content = 10;
   // agent_models are the models of the agent nodes that name their own, by node id; the others use model (#133).
   // An agent whose model resolved to none is missing here and fails with model_missing.
@@ -131,6 +134,27 @@ message StartRun {
   // resume_answers answers every interrupt a run waited at together, as JSON by interrupt id (#135); when it is set,
   // resume_json and resume_interrupt_id carry one of them for a runner that knows no more.
   map<string, string> resume_answers = 12;
+  // agent_skills are the skills of the agent nodes that name any, by node id, without their content (#222).
+  map<string, AgentSkills> agent_skills = 13;
+}
+
+// AgentSkills are the skills one agent node was given, in the order its spec names them.
+message AgentSkills {
+  repeated SkillCard skills = 1;
+}
+
+// SkillCard is what an agent sees of a skill before it reads one: its pin, its description and its files.
+message SkillCard {
+  string name = 1;
+  int32 version = 2;
+  string description = 3;
+  repeated SkillFileInfo files = 4;
+}
+
+// SkillFileInfo is one file of a pinned skill version, by its path below the skill's root.
+message SkillFileInfo {
+  string path = 1;
+  int64 bytes = 2;
 }
 
 // SpanBatch carries the runner's finished spans, sent with seq 0: the control plane exports them for it, so the
@@ -151,6 +175,15 @@ message RunnerSpan {
   map<string, string> attributes = 7;
   bool error = 8;
   string status_message = 9;
+  // events are the span's exceptions and retries, at most MaxSpanEvents of them (#241).
+  repeated RunnerSpanEvent events = 10;
+}
+
+// RunnerSpanEvent is one event of a span, such as an exception; its attributes are strings, as a span's are.
+message RunnerSpanEvent {
+  string name = 1;
+  google.protobuf.Timestamp time = 2;
+  map<string, string> attributes = 3;
 }
 
 // ToolBinding is one of the spec's tool bindings, resolved to a tool Rotor knows.
@@ -302,4 +335,23 @@ message CheckpointWritesRequest {
 message CheckpointWritesResponse {
   string request_id = 1;
   string error = 2;
+}
+
+// SkillFileRequest asks for one file of a skill version the run pins, from a byte offset on (#222).
+message SkillFileRequest {
+  string request_id = 1;
+  string name = 2;
+  int32 version = 3;
+  string path = 4;
+  int64 offset = 5;
+}
+
+// SkillFileResponse answers a SkillFileRequest with part of the file, or a sentence saying why it may not be read.
+// offset is where content starts in the file and total the file's size, both in bytes.
+message SkillFileResponse {
+  string request_id = 1;
+  string content = 2;
+  int64 offset = 3;
+  int64 total = 4;
+  string refusal = 5;
 }

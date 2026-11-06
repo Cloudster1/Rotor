@@ -1,0 +1,125 @@
+import { s } from "@/strings";
+
+/** A page of Settings, Admin or a workflow's settings, as its side nav lists it; slug names it for tests. */
+export interface SettingsNavPage {
+  slug: string;
+  /** The workflow a workflow's settings page is of (#205), or the skill a skill's page is of (#223); the others take none. */
+  params?: { workflowID: string } | { skillID: string };
+  path:
+    | "/settings/profile"
+    | "/settings/theme"
+    | "/settings/assistants"
+    | "/settings/usage"
+    | "/settings/accounts"
+    | "/admin/access"
+    | "/admin/users"
+    | "/admin/workspaces"
+    | "/admin/unattended-writes"
+    | "/admin/providers"
+    | "/admin/langsmith"
+    | "/admin/tools"
+    | "/admin/assistants"
+    | "/admin/audit"
+    | "/admin/usage"
+    | "/admin/retention"
+    | "/workflows/$workflowID/settings/general"
+    | "/workflows/$workflowID/settings/versions"
+    | "/workflows/$workflowID/settings/sharing"
+    | "/workflows/$workflowID/settings/triggers"
+    | "/skills/$skillID/files"
+    | "/skills/$skillID/versions"
+    | "/skills/$skillID/sharing"
+    | "/skills/$skillID/general";
+  label: string;
+}
+
+/** Pages under one heading of the side nav; a group without a title stands alone. */
+export interface SettingsNavGroup {
+  id: string;
+  title?: string;
+  pages: readonly SettingsNavPage[];
+}
+
+// A person's own pages in the order of the suite's standard (#206): profile, theme, assistants, usage, tool accounts.
+export const SETTINGS_GROUPS: readonly SettingsNavGroup[] = [
+  {
+    id: "yours",
+    pages: [
+      { slug: "profile", path: "/settings/profile", label: s.settings.pages.profile },
+      { slug: "theme", path: "/settings/theme", label: s.settings.pages.theme },
+      { slug: "assistants", path: "/settings/assistants", label: s.settings.pages.assistants },
+      { slug: "usage", path: "/settings/usage", label: s.settings.pages.usage },
+      { slug: "accounts", path: "/settings/accounts", label: s.settings.pages.accounts },
+    ],
+  },
+];
+
+// The sections of the suite's administration standard (#161), People and access first as in Armature.
+export const ADMIN_GROUPS: readonly SettingsNavGroup[] = [
+  {
+    id: "people",
+    title: s.admin.groups.people,
+    pages: [
+      { slug: "access", path: "/admin/access", label: s.admin.pages.access },
+      { slug: "users", path: "/admin/users", label: s.admin.pages.users },
+    ],
+  },
+  {
+    id: "work",
+    title: s.admin.groups.work,
+    pages: [
+      { slug: "workspaces", path: "/admin/workspaces", label: s.admin.pages.workspaces },
+      { slug: "unattended-writes", path: "/admin/unattended-writes", label: s.admin.pages.unattendedWrites },
+    ],
+  },
+  {
+    id: "integrations",
+    title: s.admin.groups.integrations,
+    pages: [
+      { slug: "providers", path: "/admin/providers", label: s.admin.pages.providers },
+      { slug: "langsmith", path: "/admin/langsmith", label: s.admin.pages.langsmith },
+      { slug: "tools", path: "/admin/tools", label: s.admin.pages.tools },
+      { slug: "assistants", path: "/admin/assistants", label: s.admin.pages.assistants },
+    ],
+  },
+  {
+    id: "records",
+    title: s.admin.groups.records,
+    pages: [
+      { slug: "audit", path: "/admin/audit", label: s.admin.pages.audit },
+      { slug: "usage", path: "/admin/usage", label: s.admin.pages.usage },
+      { slug: "retention", path: "/admin/retention", label: s.admin.pages.retention },
+    ],
+  },
+];
+
+/** Where /admin opens: the first page of its first group. */
+export const FIRST_ADMIN_PATH = ADMIN_GROUPS[0]!.pages[0]!.path;
+
+/** The sections of one workflow's settings (#205), General first, which /workflows/<id>/settings opens. */
+export function workflowSettingsGroups(workflowID: string): readonly SettingsNavGroup[] {
+  const params = { workflowID };
+  return [
+    {
+      id: "workflow",
+      pages: [
+        { slug: "general", path: "/workflows/$workflowID/settings/general", params, label: s.workflowSettings.pages.general },
+        { slug: "versions", path: "/workflows/$workflowID/settings/versions", params, label: s.workflowSettings.pages.versions },
+        { slug: "sharing", path: "/workflows/$workflowID/settings/sharing", params, label: s.workflowSettings.pages.sharing },
+        { slug: "triggers", path: "/workflows/$workflowID/settings/triggers", params, label: s.workflowSettings.pages.triggers },
+      ],
+    },
+  ];
+}
+
+/** The sections of one skill's page (#223), Files first, which /skills/<id> opens; a built-in skill is shared with nobody. */
+export function skillGroups(skillID: string, builtin: boolean): readonly SettingsNavGroup[] {
+  const params = { skillID };
+  const pages: SettingsNavPage[] = [
+    { slug: "files", path: "/skills/$skillID/files", params, label: s.skills.layout.pages.files },
+    { slug: "versions", path: "/skills/$skillID/versions", params, label: s.skills.layout.pages.versions },
+    { slug: "sharing", path: "/skills/$skillID/sharing", params, label: s.skills.layout.pages.sharing },
+    { slug: "general", path: "/skills/$skillID/general", params, label: s.skills.layout.pages.general },
+  ];
+  return [{ id: "skill", pages: builtin ? pages.filter((page) => page.slug !== "sharing") : pages }];
+}

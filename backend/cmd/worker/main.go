@@ -29,7 +29,9 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/sandbox"
 	"github.com/cloudster1/rotor/backend/internal/sandbox/docker"
 	"github.com/cloudster1/rotor/backend/internal/sandbox/kube"
+	"github.com/cloudster1/rotor/backend/internal/skills"
 	"github.com/cloudster1/rotor/backend/internal/tools"
+	"github.com/cloudster1/rotor/backend/internal/traces"
 	"github.com/cloudster1/rotor/backend/internal/triggers"
 	"github.com/cloudster1/rotor/backend/internal/usage"
 	"github.com/cloudster1/rotor/backend/internal/version"
@@ -115,6 +117,7 @@ func run() error {
 	worker.Events = store
 	counted := &metrics.Registry{}
 	worker.Metrics = runs.NewWorkerMetrics(counted, cluster)
+	worker.Tracing = tracing
 	go metrics.Serve(ctx, cfg.Worker.MetricsAddr, counted, log)
 	worker.Passed = func() {
 		now := time.Now()
@@ -128,6 +131,8 @@ func run() error {
 	models := providers.NewService(cluster, secrets, boot.ToolClient(cfg))
 	workflowService.Models = models
 	starter := runs.NewService(cluster, keys, workflowService, registry, people, store)
+	// A trigger starts a run only when its owner may read every skill the version names (#221).
+	starter.Skills = skills.NewService(cluster)
 	// A trigger's run is held to its person's quota and its model's prices as one started by hand (#38).
 	starter.Usage = usage.NewService(cluster, models)
 	// A trigger's firing starts its run through the same checks, the tools read afresh as its owner (#90).
@@ -146,9 +151,12 @@ func run() error {
 	kept := retention.NewService(cluster, log)
 	// Assistants (#47): requests, codes and tokens that ran out go, and clients nobody holds.
 	swept := oauth.NewSweeper(cluster)
+	// Traces (#242): spans of a trace that took none for the trace retention go.
+	traced := traces.NewService(cluster, log)
 	worker.Also = func(ctx context.Context) error {
 		_, purged := hookService.Purge(ctx)
-		return errors.Join(scheduler.Sweep(ctx), scheduler.Schedule(ctx), firer.Fire(ctx), purged, kept.Sweep(ctx), swept.Sweep(ctx))
+		return errors.Join(scheduler.Sweep(ctx), scheduler.Schedule(ctx), firer.Fire(ctx), purged, kept.Sweep(ctx), swept.Sweep(ctx),
+			traced.Sweep(ctx))
 	}
 	build := version.Current()
 	log.Info("worker starting", "env", cfg.Env, "version", build.Version, "commit", build.Commit, "stack", cfg.Sandbox.Stack)

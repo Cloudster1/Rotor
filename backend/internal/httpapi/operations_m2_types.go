@@ -9,9 +9,6 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 )
 
-// workflowSharing says who besides the owner sees a workflow.
-type workflowSharing string
-
 // runStatus is where a run is in docs/api-contract-m2.md's state machine.
 type runStatus string
 
@@ -23,10 +20,9 @@ type diffOp string
 
 // m2Enums gives the builder the values each M2 string type takes.
 var m2Enums = map[reflect.Type][]string{
-	reflect.TypeOf(workflowSharing("")): {"private", "groups", "everyone"},
-	reflect.TypeOf(runStatus("")):       {"queued", "starting", "running", "waiting", "succeeded", "failed", "cancelled", "expired"},
-	reflect.TypeOf(providerKind("")):    {"anthropic", "openai", "azure_openai", "openai_compatible"},
-	reflect.TypeOf(diffOp("")):          {"equal", "insert", "delete"},
+	reflect.TypeOf(runStatus("")):    {"queued", "starting", "running", "waiting", "succeeded", "failed", "cancelled", "expired"},
+	reflect.TypeOf(providerKind("")): {"anthropic", "openai", "azure_openai", "openai_compatible"},
+	reflect.TypeOf(diffOp("")):       {"equal", "insert", "delete"},
 }
 
 // registerM2Schemas tells the builder about the M2 enums.
@@ -44,17 +40,20 @@ type personRef struct {
 
 // workflowSummary is a workflow in a list.
 type workflowSummary struct {
-	ID             string          `json:"id"`
-	Name           string          `json:"name"`
-	Description    string          `json:"description"`
-	Owner          personRef       `json:"owner"`
-	Sharing        workflowSharing `json:"sharing"`
-	SharedGroups   []string        `json:"sharedGroups"`
-	CurrentVersion int             `json:"currentVersion"`
-	UpdatedAt      time.Time       `json:"updatedAt"`
-	Archived       bool            `json:"archived"`
-	// CanEdit says whether the caller may save versions and share it: the owner alone.
-	CanEdit bool `json:"canEdit"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Owner       personRef `json:"owner"`
+	// SharedWith counts the people and groups besides its owner who hold a role on it; its grants say who (#205).
+	SharedWith     int       `json:"sharedWith"`
+	CurrentVersion int       `json:"currentVersion"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+	Archived       bool      `json:"archived"`
+	// CanRun, CanEdit and CanAdminister are what the caller's grants let them do with it: start runs, save versions,
+	// and share, archive and see everyone's runs (#202).
+	CanRun        bool `json:"canRun"`
+	CanEdit       bool `json:"canEdit"`
+	CanAdminister bool `json:"canAdminister"`
 }
 
 // workflowResponse is a workflow with its current version.
@@ -115,12 +114,6 @@ type diffHunk struct {
 type diffLine struct {
 	Op   diffOp `json:"op"`
 	Text string `json:"text"`
-}
-
-// sharingRequest says who sees a workflow; groups are realm groups, used when sharing is groups.
-type sharingRequest struct {
-	Sharing workflowSharing `json:"sharing"`
-	Groups  []string        `json:"groups,omitempty"`
 }
 
 // validateRequest is YAML to check without saving.
@@ -233,6 +226,8 @@ type runResponse struct {
 	Trigger *runTrigger `json:"trigger"`
 	// Usage is what the run's model calls used so far (#38).
 	Usage runUsage `json:"usage"`
+	// TraceID is the 32-hex trace id its spans carry, read with /runs/{runID}/trace (#244); null for a run before tracing.
+	TraceID *string `json:"traceId"`
 	// Graph is the pinned version's nodes and edges, for the run's page; one run alone carries it, not a list.
 	Graph *spec.Graph `json:"graph,omitempty"`
 	// LinkHosts are the hosts of the run's tools, the only ones its page makes links to (#40); one run alone has them.

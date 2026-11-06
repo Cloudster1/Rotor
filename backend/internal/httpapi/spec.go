@@ -15,10 +15,12 @@ import (
 // ProductName is what the document calls this API.
 const ProductName = "Rotor"
 
-// The schemes a caller is let in by: the browser's session, and at the serviceAccount rows a realm's access token.
+// The schemes a caller is let in by: the browser's session, at the serviceAccount and tokensOnly rows a realm's
+// access token, and at the tokensOnly rows Rotor's own.
 const (
 	sessionScheme     = "session"
 	realmBearerScheme = "realmToken"
+	rotorBearerScheme = "rotorToken"
 )
 
 // securitySchemes describes both schemes for the document's components.
@@ -27,8 +29,12 @@ func securitySchemes() map[string]openapi.SecurityScheme {
 		sessionScheme: {Type: "apiKey", In: "cookie", Name: config.DefaultSessionCookie,
 			Description: "The session a sign-in through the suite's identity provider opens."},
 		realmBearerScheme: {Type: "http", Scheme: "bearer", BearerFormat: "JWT",
-			Description: "An access token of the realm Rotor signs in with, whose audience holds Rotor's client and whose " +
-				"groups hold rotor-administrators, such as a service account's from client credentials."},
+			Description: "An access token of the realm Rotor signs in with, whose audience holds Rotor's client, such as a " +
+				"service account's from client credentials: of an account in rotor-administrators, or at the OTLP endpoint " +
+				"of any account Rotor lets in."},
+		rotorBearerScheme: {Type: "http", Scheme: "bearer",
+			Description: "An access token from Rotor's own authorization server, made for an assistant or an app; " +
+				"taken at MCP and the OTLP endpoint alone."},
 	}
 }
 
@@ -48,6 +54,10 @@ func specBuilder() *openapi.Builder {
 	registerM5Schemas(b)
 	registerM6Schemas(b)
 	registerM10Schemas(b)
+	registerAccessSchemas(b)
+	registerSignOnSchemas(b)
+	registerM17Schemas(b)
+	registerM18Schemas(b)
 	return b
 }
 
@@ -86,6 +96,9 @@ func Spec() *openapi.Document {
 	return doc
 }
 
+// binarySchema is a body of bytes, such as a zip.
+var binarySchema = &openapi.Schema{Type: "string", Format: "binary"}
+
 // describe is one row of the table as an OpenAPI operation.
 func (op operation) describe(b *openapi.Builder, errorSchema *openapi.Schema) *openapi.Operation {
 	o := &openapi.Operation{
@@ -123,9 +136,16 @@ func (op operation) describe(b *openapi.Builder, errorSchema *openapi.Schema) *o
 			"application/x-www-form-urlencoded": {Schema: b.SchemaOf(op.form)},
 		}}
 	}
+	if op.binaryRequest != "" {
+		o.RequestBody = &openapi.RequestBody{Required: true, Content: map[string]openapi.MediaType{
+			op.binaryRequest: {Schema: binarySchema},
+		}}
+	}
 	for status, body := range op.responses {
 		r := &openapi.Response{Description: http.StatusText(status)}
 		switch {
+		case status == http.StatusOK && body == nil && op.binaryResponse != "":
+			r.Content = map[string]openapi.MediaType{op.binaryResponse: {Schema: binarySchema}}
 		case isErrorEnvelope(body):
 			r.Content = map[string]openapi.MediaType{"application/json": {Schema: errorSchema}}
 		case body != nil:
@@ -146,8 +166,12 @@ func (op operation) describe(b *openapi.Builder, errorSchema *openapi.Schema) *o
 	if op.public {
 		o.Security = []map[string][]string{}
 	}
+	o.Deprecated = op.deprecated
 	if op.serviceAccount {
 		o.Security = []map[string][]string{{sessionScheme: {}}, {realmBearerScheme: {}}}
+	}
+	if op.tokensOnly {
+		o.Security = []map[string][]string{{rotorBearerScheme: {}}, {realmBearerScheme: {}}}
 	}
 	return o
 }

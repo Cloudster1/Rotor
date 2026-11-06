@@ -27,9 +27,27 @@ export function applyTheme(choice: ThemeChoice): void {
   else root.setAttribute("data-theme", choice);
 }
 
+// The choice in force, which a browser refusing storage could not read back, and who draws it: the top bar's button and
+// Settings, Theme (#206) show one choice between them.
+let chosen: ThemeChoice | undefined;
+const listeners = new Set<() => void>();
+
+/** The choice in force: the one made since the page opened, or the stored one. */
+export function currentTheme(): ThemeChoice {
+  return chosen ?? readTheme();
+}
+
+/** Calls listener whenever the choice changes, until the returned function is called. */
+export function subscribeTheme(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
 /** Applies a choice and remembers it for the next visit, when the browser allows. */
 export function saveTheme(choice: ThemeChoice): void {
   applyTheme(choice);
+  chosen = choice;
+  for (const listener of listeners) listener();
   try {
     if (choice === "system") localStorage.removeItem(THEME_STORAGE_KEY);
     else localStorage.setItem(THEME_STORAGE_KEY, choice);

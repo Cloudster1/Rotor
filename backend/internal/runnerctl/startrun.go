@@ -42,10 +42,10 @@ type Models interface {
 
 // run is what the protocol needs of a run: whom it acts for and what it runs.
 type run struct {
-	ID, UserID uuid.UUID
-	Status     string
-	SpecYAML   string
-	Inputs     []byte
+	ID, UserID, WorkflowID uuid.UUID
+	Status                 string
+	SpecYAML               string
+	Inputs                 []byte
 	// dataKey is the run's wrapped data key, which opens what is stored of it (#41).
 	dataKey string
 	// Resume answers the interrupt ResumeID names, and ResumeAnswers every interrupt of the run's last wait (#135).
@@ -75,9 +75,10 @@ func (s *Server) loadRun(ctx context.Context, runID uuid.UUID) (*run, error) {
 	var sealed []byte
 	var resume []approved
 	err := s.DB.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		err := tx.QueryRow(ctx, `SELECT r.user_id, r.status, v.spec_yaml, r.data_key, r.sealed_inputs, r.traceparent, r.trigger_id
-			FROM run r JOIN workflow_version v ON v.workflow_id = r.workflow_id AND v.number = r.version
-			WHERE r.id = $1`, runID).Scan(&r.UserID, &r.Status, &r.SpecYAML, &r.dataKey, &sealed, &r.Traceparent, &r.triggerID)
+		err := tx.QueryRow(ctx, `SELECT r.user_id, r.workflow_id, r.status, v.spec_yaml, r.data_key, r.sealed_inputs, r.traceparent,
+			r.trigger_id FROM run r JOIN workflow_version v ON v.workflow_id = r.workflow_id AND v.number = r.version
+			WHERE r.id = $1`, runID).Scan(&r.UserID, &r.WorkflowID, &r.Status, &r.SpecYAML, &r.dataKey, &sealed, &r.Traceparent,
+			&r.triggerID)
 		if err != nil {
 			return err
 		}
@@ -259,10 +260,11 @@ func (s *Server) secret(ctx context.Context, p providers.Provider) (*runnerpb.Co
 		ProviderId: p.ID.String(), Secret: &runnerpb.SecretGrant_WrappingToken{WrappingToken: wrapped}}}}, nil
 }
 
-// startRun is the run's StartRun: its pinned spec, inputs, bindings and models, and the answer it resumes with, if any.
-func startRun(r *run, bindings []*runnerpb.ToolBinding, model *runnerpb.ModelConfig, agents map[string]*runnerpb.ModelConfig) *runnerpb.ConnectResponse {
+// startRun is the run's StartRun: its pinned spec, inputs, bindings, models and skills, and the answer it resumes with, if any.
+func startRun(r *run, bindings []*runnerpb.ToolBinding, model *runnerpb.ModelConfig, agents map[string]*runnerpb.ModelConfig,
+	skills map[string]*runnerpb.AgentSkills) *runnerpb.ConnectResponse {
 	start := &runnerpb.StartRun{RunId: r.ID.String(), SpecYaml: r.SpecYAML, InputsJson: string(r.Inputs), Tools: bindings, Model: model,
-		AgentModels: agents, Traceparent: r.Traceparent, TraceContent: r.TraceContent}
+		AgentModels: agents, AgentSkills: skills, Traceparent: r.Traceparent, TraceContent: r.TraceContent}
 	if r.ResumeID != "" {
 		start.Resume, start.ResumeJson, start.ResumeInterruptId = true, string(r.Resume), r.ResumeID
 		start.ResumeAnswers = r.ResumeAnswers

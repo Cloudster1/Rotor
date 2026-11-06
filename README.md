@@ -34,7 +34,8 @@ below and argued in [`docs/decisions.md`](docs/decisions.md); how it is built
 is [`docs/architecture.md`](docs/architecture.md); what it protects and from
 whom is [`docs/threat-model.md`](docs/threat-model.md); the product in
 pictures is [`docs/screenshots.md`](docs/screenshots.md). Writing a workflow
-is [`docs/workflows.md`](docs/workflows.md), starting one without anyone
+is [`docs/workflows.md`](docs/workflows.md), keeping the skills their agents
+follow [`docs/skills.md`](docs/skills.md), starting one without anyone
 pressing Run [`docs/triggers.md`](docs/triggers.md), connecting an assistant
 [`docs/assistants.md`](docs/assistants.md), and what Rotor promises the rest
 of the suite [`docs/integration.md`](docs/integration.md).
@@ -56,6 +57,9 @@ Stator import too, from the same `deploy/keycloak/realm.json`. Its people sign
 in with their name and the word password, `alice` / `alice password` and so
 on. alice is in `rotor-administrators` and administers Rotor; bob is in
 `engineering`, carol in `quality`, dave in `marketing`, and each is a member.
+The four are let in ahead by the stack's `ROTOR_BOOTSTRAP_MEMBERS`; anybody
+else you add to the realm waits until an administrator lets them in on Admin >
+Users (#204).
 The admin console is `admin` / `admin`. `make realm-check` compares the realm
 with Dynamo's canonical copy, leaving Rotor's own clients aside until Dynamo
 carries them.
@@ -100,10 +104,13 @@ tools as the person saving it sees them. Its nodes are agents (a model that
 may call its bindings' tools), single tool calls, Python code nodes,
 approvals and routers; its inputs are a JSON Schema the Run dialog asks for;
 its limits bound steps, time, tokens, cost and concurrent runs. Every save is
-an immutable, numbered version a run pins, and any two versions compare. A workflow is its author's, shared with groups or with everyone, and
-sharing it never shares its author's access. The editor completes from the
+an immutable, numbered version a run pins, and any two versions compare. Its author administers a workflow and grants people or groups Runner, Editor
+or Workflow administrator on it, and a grant never shares the author's access. The editor completes from the
 schema, and its Canvas tab draws the same workflow, writing every change into
-the YAML so the YAML tab shows what you could have written yourself.
+the YAML so the YAML tab shows what you could have written yourself. Each
+workflow's settings are pages of their own, General, Versions, Sharing and
+Triggers, which everybody it is shared with opens, read only where their grants
+stop them; archiving offers Undo, and a workflow is archived, never deleted.
 
 ![A workflow on the canvas](docs/screenshots/workflow-canvas.png)
 
@@ -313,6 +320,10 @@ and the worker send OpenTelemetry spans, each run one trace. The runner's
 spans travel over the runner protocol and the api sends them on, redacted
 again, so a sandbox reaches no collector. An administrator may also send runs'
 spans, prompts and answers included, to LangSmith with a key kept in OpenBao.
+A LangChain app or a tool sends its own spans to `/api/v1/otlp/v1/traces`
+with a bearer token, setting `OTEL_EXPORTER_OTLP_ENDPOINT` to
+`<rotor>/api/v1/otlp`; they join the run whose trace they name when the
+sender may read it, and a trace of the sender's own otherwise.
 `make observe` starts a collector, Jaeger and Prometheus beside the stack.
 
 **Security at the edges.** A session is an opaque token whose SHA-256 alone is
@@ -357,8 +368,10 @@ with every problem it found listed, so an operator fixes them in one go.
 | `ROTOR_SESSION_COOKIE` | `rotor_session` | the cookie's name |
 | `ROTOR_SECURE_COOKIES` | `false` | required true outside development |
 | `ROTOR_SESSION_TTL` | `12h` | how long a session lives |
-| `ROTOR_OIDC_ISSUER` | required outside development | the realm people sign in through |
-| `ROTOR_OIDC_CLIENT_ID` / `_CLIENT_SECRET` | none | the client Rotor signs in as |
+| `ROTOR_OIDC_ISSUER` | required outside development | the realm people sign in through; it seeds single sign-on, which Admin > Access keeps from then on (#204) |
+| `ROTOR_OIDC_CLIENT_ID` / `_CLIENT_SECRET` | none | the client Rotor signs in as, seeding single sign-on too |
+| `ROTOR_OIDC_GROUPS_CLAIM` | `groups` | the claim listing somebody's groups, seeding single sign-on |
+| `ROTOR_BOOTSTRAP_MEMBERS` | none | people let in by their address at every start, as `email` or `email=admin` / `email=member`, separated by commas or spaces; a malformed entry stops the start (#171) |
 | `ROTOR_OIDC_REDIRECT_URL` | none | where the identity provider sends people back to, exactly as registered there |
 | `ROTOR_OIDC_BACKCHANNEL` | none | `public=reachable`, for an issuer this process reaches at another address |
 | `ROTOR_OPENBAO_ADDR` | required outside development | OpenBao, where every long-lived secret lives |
@@ -397,7 +410,7 @@ with every problem it found listed, so an operator fixes them in one go.
 | `backend/internal/httpapi/` | router, middleware, handlers, and the operations table the API and MCP share |
 | `backend/internal/auth/`, `oidc/` | sessions, and signing in through the suite's identity provider |
 | `backend/internal/tools/`, `connections/`, `vault/` | the tools, people's connections to them, and the secrets OpenBao keeps |
-| `backend/internal/workflow/`, `workflows/`, `catalog/` | the spec and its checks, versions and sharing, and what each tool offers a person |
+| `backend/internal/workflow/`, `workflows/`, `catalog/` | the spec and its checks, versions, archiving and restoring, and what each tool offers a person |
 | `backend/internal/runs/`, `runnerctl/`, `sandbox/` | a run from start to end, the runner protocol, and the sandboxes it runs in |
 | `backend/internal/approvals/`, `triggers/`, `hooks/` | approvals, schedule and event triggers, and the tools' signed events |
 | `backend/internal/providers/`, `usage/` | model providers, prices, usage and limits |
@@ -414,7 +427,8 @@ with every problem it found listed, so an operator fixes them in one go.
 | `api/` | the generated OpenAPI document, the workflow schema, secret patterns and the tools' vendored contracts |
 | `deploy/` | compose stack, Dockerfiles, realm, OpenBao setup, the suite's Exciter and Armature, and the Helm chart |
 | `mk/`, `run-tests.sh`, `tests/`, `scripts/` | the toolchains in containers, the gate and its own tests |
-| `examples/` | workflows to start from |
+| `examples/` | the workflows Rotor ships, the single source of the editor's "Start from" list (#214) |
+| `skills/` | the skills Rotor ships, which the api installs as built-ins at every start (#225) |
 
 </details>
 

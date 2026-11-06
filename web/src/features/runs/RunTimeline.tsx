@@ -1,11 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { s } from "@/strings";
 import { type Entry, linksIn } from "./timeline";
+import { formatTime } from "@/lib/dates";
 
 const pre = "overflow-x-auto whitespace-pre-wrap break-words rounded-control border border-border bg-surface-sunken p-2 font-mono text-xs text-ink";
 
 function time(at: string): string {
-  return new Date(at).toLocaleTimeString();
+  return formatTime(at);
 }
 
 /** What one entry says, in words, with a tool call's arguments and answer folded away until asked for. */
@@ -49,6 +50,12 @@ function Line({ entry, hosts }: { entry: Entry; hosts: readonly string[] }) {
         </details>
       );
     }
+    case "skill":
+      return (
+        <p data-skill-read={entry.skill} className="text-ink-muted">
+          {t.skillRead(entry.node, entry.skill, entry.version, entry.path, entry.offset)}
+        </p>
+      );
     case "log":
       return (
         <div>

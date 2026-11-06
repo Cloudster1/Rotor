@@ -37,6 +37,6 @@ make screenshots
 ## Tools, assistants and the record
 
 ![A person's connections to the tools](screenshots/connections.png)
-![Settings: the person, usage, and the tools](screenshots/settings.png)
+![Admin: its side nav and the model providers](screenshots/settings.png)
 ![An assistant asking to connect](screenshots/assistant-consent.png)
 ![The audit log](screenshots/audit.png)

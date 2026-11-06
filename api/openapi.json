@@ -13,6 +13,9 @@
   ],
   "tags": [
     {
+      "name": "access"
+    },
+    {
       "name": "approvals"
     },
     {
@@ -43,10 +46,16 @@
       "name": "runs"
     },
     {
+      "name": "skills"
+    },
+    {
       "name": "telemetry"
     },
     {
       "name": "tools"
+    },
+    {
+      "name": "traces"
     },
     {
       "name": "triggers"
@@ -165,6 +174,38 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/access/me": {
+      "get": {
+        "operationId": "myAccess",
+        "summary": "What you may do in Rotor: your grants and the permissions they give, over the installation and per workflow.",
+        "description": "A grant to a group of yours counts as yours. A workflow named here is one granted to you over it alone.",
+        "tags": [
+          "auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessResponse"
                 }
               }
             }
@@ -734,6 +775,77 @@
         }
       }
     },
+    "/auth/me/preferences": {
+      "get": {
+        "operationId": "getPreferences",
+        "summary": "What you chose for yourself, such as the time zone dates are written in.",
+        "tags": [
+          "auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setPreferences",
+        "summary": "Choose for yourself, such as the time zone dates are written in.",
+        "description": "A time zone the IANA database names, or null to follow the browser's. Only you change yours, in person.",
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreferencesBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesBody"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/oidc/backchannel-logout": {
       "post": {
         "operationId": "backchannelLogout",
@@ -951,6 +1063,440 @@
         "responses": {
           "302": {
             "description": "Found"
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups": {
+      "get": {
+        "operationId": "listGroups",
+        "summary": "The groups a role may be granted to: Everyone first, then the realm's, then those made by hand.",
+        "description": "For anybody who administers Rotor or a workflow; anybody else is refused with 403.",
+        "tags": [
+          "access"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "groups": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GroupView"
+                      }
+                    }
+                  },
+                  "required": [
+                    "groups"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createGroup",
+        "summary": "Make a group by hand, or one that matches a value of the realm's groups claim.",
+        "description": "A group with an externalRef takes its members from the claim at every sign-in; one without is kept here.",
+        "tags": [
+          "access"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGroupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "group": {
+                      "$ref": "#/components/schemas/GroupView"
+                    }
+                  },
+                  "required": [
+                    "group"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{groupID}": {
+      "delete": {
+        "operationId": "deleteGroup",
+        "summary": "Delete a group and everything granted to it; Everyone stays.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "groupID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getGroup",
+        "summary": "One group with the people in it.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "groupID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "group": {
+                      "$ref": "#/components/schemas/GroupView"
+                    }
+                  },
+                  "required": [
+                    "group"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{groupID}/members": {
+      "post": {
+        "operationId": "addGroupMember",
+        "summary": "Put somebody in a group kept by hand.",
+        "description": "Everyone and the realm's groups follow sign-in alone, so they are refused with 409.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "groupID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddMemberRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "group": {
+                      "$ref": "#/components/schemas/GroupView"
+                    }
+                  },
+                  "required": [
+                    "group"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{groupID}/members/{userID}": {
+      "delete": {
+        "operationId": "removeGroupMember",
+        "summary": "Take somebody out of a group kept by hand.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "groupID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "group": {
+                      "$ref": "#/components/schemas/GroupView"
+                    }
+                  },
+                  "required": [
+                    "group"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "default": {
             "description": "An error, in the one shape every endpoint uses.",
@@ -1832,6 +2378,118 @@
         }
       }
     },
+    "/oidc-provider": {
+      "get": {
+        "operationId": "getOIDCProvider",
+        "summary": "Single sign-on: the identity provider people sign in through, with whether a client secret is held.",
+        "description": "The secret itself is never answered. provider is null while none is set up.",
+        "tags": [
+          "access"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OidcProviderResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveOIDCProvider",
+        "summary": "Set single sign-on up or change it; it applies from the next sign-in.",
+        "description": "A blank clientSecret keeps the one held. A provider that could not work is refused with 422: no issuer, no client ID, no secret, or an issuer whose discovery document cannot be read. Turning it off while it is the only way in is refused with 409.",
+        "tags": [
+          "access"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveOIDCProviderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OidcProviderResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/openapi.json": {
       "get": {
         "operationId": "openAPI",
@@ -1846,6 +2504,231 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Document"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/otlp/v1/traces": {
+      "post": {
+        "operationId": "receiveTraces",
+        "summary": "Take spans over OTLP/HTTP: they join the run whose trace they name, or a trace of the sender's own.",
+        "description": "OpenTelemetry's ExportTraceServiceRequest as application/x-protobuf or application/json, gzip or not; the answer is an ExportTraceServiceResponse in the same encoding, with partial_success when some spans were not taken. Takes a bearer token alone: a Rotor access token whose grant may act, or an access token of the realm. At most 4 MiB as sent and 16 MiB unpacked (413); too many requests or spans in a minute answer 429 with Retry-After.",
+        "tags": [
+          "traces"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-protobuf": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/x-protobuf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtlpStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request Entity Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtlpStatus"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtlpStatus"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtlpStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "rotorToken": []
+          },
+          {
+            "realmToken": []
+          }
+        ]
+      }
+    },
+    "/people": {
+      "get": {
+        "operationId": "findPeople",
+        "summary": "The people let in whose name or address matches, for a picker that grants them a role.",
+        "description": "For anybody who administers Rotor or a workflow; anybody else is refused with 403.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Part of a name or an address.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "At most this many, 10 when left out and never more than 50.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "people": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PersonView"
+                      }
+                    }
+                  },
+                  "required": [
+                    "people"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/permissions": {
+      "get": {
+        "operationId": "listPermissions",
+        "summary": "Every permission Rotor checks for, in the words the matrix shows, in its order.",
+        "tags": [
+          "access"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "permissions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PermissionView"
+                      }
+                    }
+                  },
+                  "required": [
+                    "permissions"
+                  ]
                 }
               }
             }
@@ -2396,6 +3279,484 @@
         }
       }
     },
+    "/role-assignments": {
+      "get": {
+        "operationId": "listAssignments",
+        "summary": "Who holds which role where, a page at a time: the installation-wide grants first, then by workflow.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "workflow",
+            "in": "query",
+            "description": "Keep the grants that answer on this workflow, the installation-wide ones included.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Match the person, the group or the workflow's name.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "description": "Keep the grants of this role.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "At most this many, 50 when left out and never more than 200.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "How many to skip, for the next page.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentPage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "grantRole",
+        "summary": "Grant a role to a person or a group, over the whole installation or one workflow.",
+        "description": "Granting what is already granted answers with the grant there is.",
+        "tags": [
+          "access"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "assignment": {
+                      "$ref": "#/components/schemas/AssignmentView"
+                    }
+                  },
+                  "required": [
+                    "assignment"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/role-assignments/{assignmentID}": {
+      "delete": {
+        "operationId": "revokeRole",
+        "summary": "Take a grant away; the last Administrator grant stays.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "assignmentID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/roles": {
+      "get": {
+        "operationId": "listRoles",
+        "summary": "The installation's roles, built in and made by its administrators, with what each grants and how many hold it.",
+        "tags": [
+          "access"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "roles": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RoleView"
+                      }
+                    }
+                  },
+                  "required": [
+                    "roles"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createRole",
+        "summary": "Add a role of the installation's own.",
+        "description": "The key is made from the name when it is left out. A new role grants what permissions lists, and nothing else.",
+        "tags": [
+          "access"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "role": {
+                      "$ref": "#/components/schemas/RoleView"
+                    }
+                  },
+                  "required": [
+                    "role"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/roles/{roleKey}": {
+      "delete": {
+        "operationId": "deleteRole",
+        "summary": "Delete a role an administrator added, and every grant of it; the built-in roles stay.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "roleKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateRole",
+        "summary": "Rename a role, describe it, or set everything it grants.",
+        "description": "permissions is the whole list the role grants from now on, not a change to it. The Administrator keeps administering Rotor.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "roleKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "role": {
+                      "$ref": "#/components/schemas/RoleView"
+                    }
+                  },
+                  "required": [
+                    "role"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/runs": {
       "get": {
         "operationId": "listRuns",
@@ -2638,6 +3999,120 @@
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs/{runID}/trace": {
+      "get": {
+        "operationId": "getRunTrace",
+        "summary": "A run's trace as a tree of spans, with timing, status, attributes and, where kept, the start of each input and output.",
+        "description": "For whoever may read the run's events. state says whether the spans are kept, expired or were never made; cut says the trace reached its cap. A span's whole input and output are read one span at a time.",
+        "tags": [
+          "traces"
+        ],
+        "parameters": [
+          {
+            "name": "runID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs/{runID}/trace/spans/{spanID}": {
+      "get": {
+        "operationId": "getRunTraceSpan",
+        "summary": "One span of a run's trace, with every attribute and its whole input and output where kept.",
+        "tags": [
+          "traces"
+        ],
+        "parameters": [
+          {
+            "name": "runID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "spanID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceSpanResponse"
+                }
+              }
+            }
           },
           "404": {
             "description": "Not Found",
@@ -3130,6 +4605,536 @@
         }
       }
     },
+    "/settings/trace-destinations": {
+      "get": {
+        "operationId": "listTraceDestinations",
+        "summary": "The OTLP destinations runs' traces are sent to; never a header's value.",
+        "tags": [
+          "telemetry"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceDestinationList"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "addTraceDestination",
+        "summary": "Add an OTLP destination; its headers are kept in OpenBao.",
+        "description": "content true is refused with 422 content_leaves_unacknowledged unless acknowledgeContentLeaves is true. A name another destination has answers 409.",
+        "tags": [
+          "telemetry"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TraceDestinationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceDestinationResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/trace-destinations/{destinationID}": {
+      "delete": {
+        "operationId": "removeTraceDestination",
+        "summary": "Remove an OTLP destination and its headers.",
+        "tags": [
+          "telemetry"
+        ],
+        "parameters": [
+          {
+            "name": "destinationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getTraceDestination",
+        "summary": "One OTLP destination; never a header's value.",
+        "tags": [
+          "telemetry"
+        ],
+        "parameters": [
+          {
+            "name": "destinationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceDestinationResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "changeTraceDestination",
+        "summary": "Change an OTLP destination.",
+        "description": "Leaving headers out keeps the ones held; {} removes them. Turning content on needs acknowledgeContentLeaves.",
+        "tags": [
+          "telemetry"
+        ],
+        "parameters": [
+          {
+            "name": "destinationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TraceDestinationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceDestinationResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/trace-destinations/{destinationID}/test": {
+      "post": {
+        "operationId": "testTraceDestination",
+        "summary": "Send the destination one span without text and answer what it said.",
+        "tags": [
+          "telemetry"
+        ],
+        "parameters": [
+          {
+            "name": "destinationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceDestinationTest"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented: agreed, not built yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/traces": {
+      "get": {
+        "operationId": "getTraceSetting",
+        "summary": "How many days Rotor keeps traces, and whether it keeps the prompt, tool and answer text in them.",
+        "tags": [
+          "telemetry"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceSettingResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setTraceSetting",
+        "summary": "Change how many days traces are kept, from 1 to 90, and whether Rotor keeps their text.",
+        "description": "Keeping text affects runs started afterwards; a shorter retention applies to traces already kept.",
+        "tags": [
+          "telemetry"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TraceSettingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceSettingResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/settings/unattended-writes": {
       "get": {
         "operationId": "getUnattendedWrites",
@@ -3291,6 +5296,1105 @@
           },
           "403": {
             "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills": {
+      "get": {
+        "operationId": "listSkills",
+        "summary": "The skills you may read, built-in ones included.",
+        "description": "archived lists archived skills instead; q matches a name or a description.",
+        "tags": [
+          "skills"
+        ],
+        "parameters": [
+          {
+            "name": "archived",
+            "in": "query",
+            "description": "true lists archived skills instead.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Part of a name or a description.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "At most this many, 50 when left out and never more than 200.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "How many to skip, for the next page.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSkill",
+        "summary": "Make a skill from its files; its SKILL.md names it, and the first save is version 1.",
+        "description": "For whoever holds skill.create. Files the checks refuse answer 422 with the problems, each with its code.",
+        "tags": [
+          "skills"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSkillRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills/import": {
+      "post": {
+        "operationId": "importSkill",
+        "summary": "Make a skill from a zip of one skill, or save the next version of the skill with that name.",
+        "description": "The body is the zip itself (application/zip, at most 2 MiB); the comment goes in the query. For whoever holds skill.create, or skill.edit on the skill named. The answer says which happened: 201 with created true for a new skill, 200 with created false for a new version.",
+        "tags": [
+          "skills"
+        ],
+        "parameters": [
+          {
+            "name": "comment",
+            "in": "query",
+            "description": "The note the version carries, at most 500 characters.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/zip": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportedSkill"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportedSkill"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request Entity Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills/validate": {
+      "post": {
+        "operationId": "validateSkill",
+        "summary": "Check a skill's files as a save would, without saving, and answer the problems.",
+        "description": "What the files alone tell: whether another skill has the name is answered by the save.",
+        "tags": [
+          "skills"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateSkillRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateSkillResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills/{skillID}": {
+      "delete": {
+        "operationId": "archiveSkill",
+        "summary": "Archive a skill; its versions stay for the workflows that pin them.",
+        "description": "For whoever holds skill.administer on it. Skills are archived, never deleted; a built-in one is refused with 403.",
+        "tags": [
+          "skills"
+        ],
+        "parameters": [
+          {
+            "name": "skillID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getSkill",
+        "summary": "A skill with its current version's front matter and files, and what you may do with it.",
+        "tags": [
+          "skills"
+        ],
+        "parameters": [
+          {
+            "name": "skillID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveSkill",
+        "summary": "Save the next version of a skill.",
+        "description": "baseVersion must be the current version, or the save is refused with 409 so nobody overwrites a colleague unseen.",
+        "tags": [
+          "skills"
+        ],
+        "parameters": [
+          {
+            "name": "skillID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveSkillRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills/{skillID}/diff": {
+      "get": {
+        "operationId": "diffSkillVersions",
+        "summary": "The files that changed between two versions, line by line.",
+        "tags": [
+          "skills"
+        ],
+        "parameters": [
+          {
+            "name": "skillID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "The older version's number.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "The newer version's number.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillDiffResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills/{skillID}/grants": {
+      "get": {
+        "operationId": "listSkillGrants",
+        "summary": "The roles granted on this skill, for anybody who may read it.",
+        "tags": [
+          "skills"
+        ],
+        "parameters": [
+          {
+            "name": "skillID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "grants": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AssignmentView"
+                      }
+                    }
+                  },
+                  "required": [
+                    "grants"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "grantOnSkill",
+        "summary": "Grant a person or a group a role on this skill, such as Skill reader or Skill editor.",
+        "description": "For whoever holds skill.administer on it, from a browser session and never an assistant.",
+        "tags": [
+          "skills"
+        ],
+        "parameters": [
+          {
+            "name": "skillID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowGrantRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "grant": {
+                      "$ref": "#/components/schemas/AssignmentView"
+                    }
+                  },
+                  "required": [
+                    "grant"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills/{skillID}/grants/{grantID}": {
+      "delete": {
+        "operationId": "revokeOnSkill",
+        "summary": "Take a grant on this skill away.",
+        "description": "For whoever holds skill.administer on it, from a browser session and never an assistant.",
+        "tags": [
+          "skills"
+        ],
+        "parameters": [
+          {
+            "name": "skillID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "grantID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills/{skillID}/restore": {
+      "post": {
+        "operationId": "restoreSkill",
+        "summary": "Take a skill out of the archive, which undoes archiving it.",
+        "description": "For whoever holds skill.administer on it.",
+        "tags": [
+          "skills"
+        ],
+        "parameters": [
+          {
+            "name": "skillID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills/{skillID}/versions": {
+      "get": {
+        "operationId": "listSkillVersions",
+        "summary": "Every version of a skill, newest first.",
+        "tags": [
+          "skills"
+        ],
+        "parameters": [
+          {
+            "name": "skillID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "versions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SkillVersionSummary"
+                      }
+                    }
+                  },
+                  "required": [
+                    "versions"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills/{skillID}/versions/{versionNumber}": {
+      "get": {
+        "operationId": "getSkillVersion",
+        "summary": "One version of a skill: its front matter, comment, author and the path, size and hash of each file.",
+        "tags": [
+          "skills"
+        ],
+        "parameters": [
+          {
+            "name": "skillID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillVersionResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills/{skillID}/versions/{versionNumber}/export": {
+      "get": {
+        "operationId": "exportSkillVersion",
+        "summary": "One version as a zip that imports unchanged.",
+        "description": "The body is application/zip: the files under one folder named after the skill.",
+        "tags": [
+          "skills"
+        ],
+        "parameters": [
+          {
+            "name": "skillID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills/{skillID}/versions/{versionNumber}/file": {
+      "get": {
+        "operationId": "getSkillFile",
+        "summary": "One file of a version, as text.",
+        "tags": [
+          "skills"
+        ],
+        "parameters": [
+          {
+            "name": "skillID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "The file's path below the skill's root, such as references/templates.md.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillFileResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
             "content": {
               "application/json": {
                 "schema": {
@@ -3816,7 +6920,7 @@
           {
             "name": "next",
             "in": "query",
-            "description": "A path of Rotor's the browser returns to once connected, such as the workflow a run was started from; the Connections page otherwise.",
+            "description": "A path of Rotor's the browser returns to once connected, such as the workflow a run was started from; Tool accounts in Settings otherwise.",
             "schema": {
               "type": "string"
             }
@@ -4093,6 +7197,193 @@
             "realmToken": []
           }
         ]
+      }
+    },
+    "/traces": {
+      "get": {
+        "operationId": "listTraces",
+        "summary": "The traces senders posted that belong to no run: your own, and everyone's for an administrator.",
+        "description": "Newest first. A run's trace is read through its run.",
+        "tags": [
+          "traces"
+        ],
+        "parameters": [
+          {
+            "name": "sender",
+            "in": "query",
+            "description": "Only this sender's traces, by user id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "At most this many, 50 when left out and never more than 200.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "How many to skip, for the next page.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/traces/{traceID}": {
+      "get": {
+        "operationId": "getTrace",
+        "summary": "A trace of a sender's own by its 32-hex trace id, as a tree like a run's.",
+        "tags": [
+          "traces"
+        ],
+        "parameters": [
+          {
+            "name": "traceID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sender",
+            "in": "query",
+            "description": "For an administrator: whose trace of that id to read, by user id; yours when left out.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/traces/{traceID}/spans/{spanID}": {
+      "get": {
+        "operationId": "getTraceSpan",
+        "summary": "One span of a sender's own trace, whole.",
+        "tags": [
+          "traces"
+        ],
+        "parameters": [
+          {
+            "name": "traceID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "spanID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sender",
+            "in": "query",
+            "description": "For an administrator: whose trace of that id to read, by user id; yours when left out.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceSpanResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/triggers": {
@@ -4560,10 +7851,366 @@
         }
       }
     },
+    "/users": {
+      "get": {
+        "operationId": "listUsers",
+        "summary": "Every person Rotor knows, a page at a time, with their groups and their roles.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Part of a name or an address.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "At most this many, 50 when left out and never more than 200.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "How many to skip, for the next page.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/requests": {
+      "get": {
+        "operationId": "listJoinRequests",
+        "summary": "Who signed in through the identity provider and is waiting to be let in, oldest first.",
+        "tags": [
+          "access"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requests": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/JoinRequestView"
+                      }
+                    }
+                  },
+                  "required": [
+                    "requests"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/requests/{userID}": {
+      "delete": {
+        "operationId": "declineJoinRequest",
+        "summary": "Turn a waiting person away; they may ask again by signing in again.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "userID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/requests/{userID}/admit": {
+      "post": {
+        "operationId": "admitJoinRequest",
+        "summary": "Let a waiting person in, as a member or as an administrator.",
+        "description": "They join Everyone and sign in from their next attempt. Somebody not waiting answers 404.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "userID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdmitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/UserView"
+                    }
+                  },
+                  "required": [
+                    "user"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{userID}": {
+      "patch": {
+        "operationId": "updateUser",
+        "summary": "Switch a person off, which ends their sessions and connections, or on again.",
+        "description": "Your own account and the last active administrator are refused with 409.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "userID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/UserView"
+                    }
+                  },
+                  "required": [
+                    "user"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workflows": {
       "get": {
         "operationId": "listWorkflows",
-        "summary": "The workflows you may see: yours, those shared with a group of yours, and those shared with everyone.",
+        "summary": "The workflows you may see: those whose grants give you, a group of yours or Everyone a role on them.",
         "tags": [
           "workflows"
         ],
@@ -4664,7 +8311,7 @@
     "/workflows/validate": {
       "post": {
         "operationId": "validateWorkflow",
-        "summary": "Check a workflow's YAML against the schema, its own sense, and the tools you can use, without saving it.",
+        "summary": "Check a workflow's YAML against the schema, its own sense, the tools you can use and the skills you may read, without saving it.",
         "tags": [
           "workflows"
         ],
@@ -4706,6 +8353,7 @@
       "delete": {
         "operationId": "archiveWorkflow",
         "summary": "Archive a workflow; its versions stay for the runs that used them.",
+        "description": "For whoever administers the workflow or Rotor. Workflows are archived, never deleted: runs pin their versions.",
         "tags": [
           "workflows"
         ],
@@ -4723,6 +8371,16 @@
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "404": {
             "description": "Not Found",
@@ -4946,11 +8604,290 @@
         }
       }
     },
+    "/workflows/{workflowID}/grants": {
+      "get": {
+        "operationId": "listWorkflowGrants",
+        "summary": "The roles granted on this workflow alone, for anybody who may see it.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "workflowID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "grants": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AssignmentView"
+                      }
+                    }
+                  },
+                  "required": [
+                    "grants"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "grantOnWorkflow",
+        "summary": "Grant a person or a group a role on this workflow, such as Runner, Editor or Workflow administrator.",
+        "description": "For whoever administers the workflow or Rotor. A role that answers for the whole installation is refused with 422.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "workflowID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowGrantRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "grant": {
+                      "$ref": "#/components/schemas/AssignmentView"
+                    }
+                  },
+                  "required": [
+                    "grant"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workflows/{workflowID}/grants/{grantID}": {
+      "delete": {
+        "operationId": "revokeOnWorkflow",
+        "summary": "Take a grant on this workflow away, for whoever administers the workflow or Rotor.",
+        "tags": [
+          "access"
+        ],
+        "parameters": [
+          {
+            "name": "workflowID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "grantID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workflows/{workflowID}/restore": {
+      "post": {
+        "operationId": "restoreWorkflow",
+        "summary": "Take a workflow out of the archive, which undoes archiving it.",
+        "description": "For whoever administers the workflow or Rotor; restoring a workflow that is not archived changes nothing.",
+        "tags": [
+          "workflows"
+        ],
+        "parameters": [
+          {
+            "name": "workflowID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workflows/{workflowID}/runs": {
       "post": {
         "operationId": "startRun",
         "summary": "Start a run of a workflow as yourself.",
-        "description": "An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false.",
+        "description": "An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false. A skill the version names that you may not read refuses the start with 422 code skill_unreadable.",
         "tags": [
           "runs"
         ],
@@ -5026,78 +8963,6 @@
           },
           "422": {
             "description": "Unprocessable Entity",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "An error, in the one shape every endpoint uses.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/workflows/{workflowID}/sharing": {
-      "put": {
-        "operationId": "shareWorkflow",
-        "summary": "Share a workflow privately, with groups of the realm, or with everyone; runs still act as whoever starts them.",
-        "tags": [
-          "workflows"
-        ],
-        "parameters": [
-          {
-            "name": "workflowID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SharingRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WorkflowResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -5404,6 +9269,12 @@
           "message": {
             "type": "string"
           },
+          "problems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          },
           "requestId": {
             "type": "string"
           }
@@ -5411,6 +9282,86 @@
         "required": [
           "code",
           "message"
+        ]
+      },
+      "AccessGrant": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "skillId": {
+            "type": "string"
+          },
+          "workflowId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
+      "AccessPermissions": {
+        "type": "object",
+        "properties": {
+          "installation": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "skills": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "workflows": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "installation",
+          "workflows",
+          "skills"
+        ]
+      },
+      "AccessResponse": {
+        "type": "object",
+        "properties": {
+          "grants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccessGrant"
+            }
+          },
+          "permissions": {
+            "$ref": "#/components/schemas/AccessPermissions"
+          }
+        },
+        "required": [
+          "grants",
+          "permissions"
+        ]
+      },
+      "AddMemberRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId"
         ]
       },
       "AddToolRequest": {
@@ -5429,6 +9380,18 @@
         "required": [
           "baseURL"
         ]
+      },
+      "AdmitRequest": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "member",
+              "admin"
+            ]
+          }
+        }
       },
       "AgentUsage": {
         "type": "object",
@@ -5699,6 +9662,86 @@
         },
         "required": [
           "group"
+        ]
+      },
+      "AssignmentPage": {
+        "type": "object",
+        "properties": {
+          "assignments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssignmentView"
+            }
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "assignments",
+          "total",
+          "limit",
+          "offset"
+        ]
+      },
+      "AssignmentView": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "groupBuiltin": {
+            "type": "string"
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "groupName": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "skillId": {
+            "type": "string"
+          },
+          "skillName": {
+            "type": "string"
+          },
+          "userEmail": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "workflowId": {
+            "type": "string"
+          },
+          "workflowName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "roleName",
+          "createdAt"
         ]
       },
       "AssistantSetting": {
@@ -6023,6 +10066,67 @@
           "baseURL"
         ]
       },
+      "CreateGroupRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "externalRef": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "CreateRoleRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "installationWideOnly": {
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "permissions"
+        ]
+      },
+      "CreateSkillRequest": {
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillFileBody"
+            }
+          }
+        },
+        "required": [
+          "files"
+        ]
+      },
       "DecisionRequest": {
         "type": "object",
         "properties": {
@@ -6211,6 +10315,26 @@
           "conditions"
         ]
       },
+      "GrantRequest": {
+        "type": "object",
+        "properties": {
+          "groupId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "workflowId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
       "Graph": {
         "type": "object",
         "properties": {
@@ -6272,6 +10396,55 @@
           "type"
         ]
       },
+      "GroupView": {
+        "type": "object",
+        "properties": {
+          "builtin": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "externalRef": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "memberCount": {
+            "type": "integer"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemberView"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "roleCount": {
+            "type": "integer"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "local",
+              "oidc"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "source",
+          "externalRef",
+          "builtin",
+          "memberCount",
+          "roleCount"
+        ]
+      },
       "HookResponse": {
         "type": "object",
         "properties": {
@@ -6318,6 +10491,25 @@
           "secret"
         ]
       },
+      "ImportedSkill": {
+        "type": "object",
+        "properties": {
+          "created": {
+            "type": "boolean"
+          },
+          "skill": {
+            "$ref": "#/components/schemas/SkillSummary"
+          },
+          "version": {
+            "$ref": "#/components/schemas/SkillVersionResponse"
+          }
+        },
+        "required": [
+          "skill",
+          "version",
+          "created"
+        ]
+      },
       "Info": {
         "type": "object",
         "properties": {
@@ -6334,6 +10526,30 @@
         "required": [
           "title",
           "version"
+        ]
+      },
+      "JoinRequestView": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "userId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "email",
+          "name",
+          "requestedAt"
         ]
       },
       "LangSmithRequest": {
@@ -6514,6 +10730,25 @@
             "$ref": "#/components/schemas/Schema"
           }
         }
+      },
+      "MemberView": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "name",
+          "email"
+        ]
       },
       "MetaResponse": {
         "type": "object",
@@ -7091,9 +11326,77 @@
           "scope"
         ]
       },
+      "OidcProviderResponse": {
+        "type": "object",
+        "properties": {
+          "canTurnOff": {
+            "type": "boolean"
+          },
+          "provider": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/OidcProviderView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "redirectUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "redirectUrl",
+          "canTurnOff"
+        ]
+      },
+      "OidcProviderView": {
+        "type": "object",
+        "properties": {
+          "admitByGroup": {
+            "type": "boolean"
+          },
+          "changedBy": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "groupsClaim": {
+            "type": "string"
+          },
+          "hasSecret": {
+            "type": "boolean"
+          },
+          "issuer": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "issuer",
+          "clientId",
+          "hasSecret",
+          "groupsClaim",
+          "admitByGroup",
+          "enabled",
+          "updatedAt"
+        ]
+      },
       "Operation": {
         "type": "object",
         "properties": {
+          "deprecated": {
+            "type": "boolean"
+          },
           "description": {
             "type": "string"
           },
@@ -7149,6 +11452,21 @@
           "responses"
         ]
       },
+      "OtlpStatus": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
       "Parameter": {
         "type": "object",
         "properties": {
@@ -7179,6 +11497,21 @@
           "name",
           "in",
           "schema"
+        ]
+      },
+      "PermissionView": {
+        "type": "object",
+        "properties": {
+          "permission": {
+            "type": "string"
+          },
+          "words": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "permission",
+          "words"
         ]
       },
       "PersonRef": {
@@ -7213,6 +11546,39 @@
           "person",
           "today",
           "month"
+        ]
+      },
+      "PersonView": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email"
+        ]
+      },
+      "PreferencesBody": {
+        "type": "object",
+        "properties": {
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "timeZone"
         ]
       },
       "PreviewWrite": {
@@ -7477,6 +11843,44 @@
           "updatedAt"
         ]
       },
+      "RoleView": {
+        "type": "object",
+        "properties": {
+          "builtin": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "inUse": {
+            "type": "integer"
+          },
+          "installationWideOnly": {
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "description",
+          "installationWideOnly",
+          "builtin",
+          "permissions",
+          "inUse"
+        ]
+      },
       "RpcError": {
         "type": "object",
         "properties": {
@@ -7589,6 +11993,12 @@
               "expired"
             ]
           },
+          "traceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "trigger": {
             "oneOf": [
               {
@@ -7630,7 +12040,8 @@
           "approvalId",
           "approvalIds",
           "trigger",
-          "usage"
+          "usage",
+          "traceId"
         ]
       },
       "RunTrigger": {
@@ -7674,6 +12085,54 @@
           "inputTokens",
           "outputTokens",
           "cost"
+        ]
+      },
+      "SaveOIDCProviderRequest": {
+        "type": "object",
+        "properties": {
+          "admitByGroup": {
+            "type": "boolean"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "clientSecret": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "groupsClaim": {
+            "type": "string"
+          },
+          "issuer": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "issuer",
+          "clientId"
+        ]
+      },
+      "SaveSkillRequest": {
+        "type": "object",
+        "properties": {
+          "baseVersion": {
+            "type": "integer"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillFileBody"
+            }
+          }
+        },
+        "required": [
+          "baseVersion",
+          "files"
         ]
       },
       "SaveWorkflowRequest": {
@@ -7841,26 +12300,367 @@
           "url"
         ]
       },
-      "SharingRequest": {
+      "SkillDiffResponse": {
         "type": "object",
         "properties": {
-          "groups": {
+          "files": {
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/SkillFileDiff"
             }
           },
-          "sharing": {
+          "from": {
+            "type": "integer"
+          },
+          "to": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "files"
+        ]
+      },
+      "SkillFile": {
+        "type": "object",
+        "properties": {
+          "bytes": {
+            "type": "integer"
+          },
+          "path": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "bytes",
+          "sha256"
+        ]
+      },
+      "SkillFileBody": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ]
+      },
+      "SkillFileDiff": {
+        "type": "object",
+        "properties": {
+          "hunks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiffHunk"
+            }
+          },
+          "path": {
+            "type": "string"
+          },
+          "status": {
             "type": "string",
             "enum": [
-              "private",
-              "groups",
-              "everyone"
+              "added",
+              "removed",
+              "changed"
             ]
           }
         },
         "required": [
-          "sharing"
+          "path",
+          "status",
+          "hunks"
+        ]
+      },
+      "SkillFileResponse": {
+        "type": "object",
+        "properties": {
+          "bytes": {
+            "type": "integer"
+          },
+          "content": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "content",
+          "bytes",
+          "sha256"
+        ]
+      },
+      "SkillList": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillSummary"
+            }
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "skills",
+          "total",
+          "limit",
+          "offset"
+        ]
+      },
+      "SkillResponse": {
+        "type": "object",
+        "properties": {
+          "skill": {
+            "$ref": "#/components/schemas/SkillSummary"
+          },
+          "version": {
+            "$ref": "#/components/schemas/SkillVersionResponse"
+          }
+        },
+        "required": [
+          "skill",
+          "version"
+        ]
+      },
+      "SkillSummary": {
+        "type": "object",
+        "properties": {
+          "archived": {
+            "type": "boolean"
+          },
+          "builtin": {
+            "type": "boolean"
+          },
+          "canAdminister": {
+            "type": "boolean"
+          },
+          "canEdit": {
+            "type": "boolean"
+          },
+          "currentVersion": {
+            "type": "integer"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "owner",
+          "currentVersion",
+          "updatedAt",
+          "archived",
+          "builtin",
+          "canEdit",
+          "canAdminister"
+        ]
+      },
+      "SkillVersionResponse": {
+        "type": "object",
+        "properties": {
+          "bytes": {
+            "type": "integer"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillFile"
+            }
+          },
+          "frontMatter": {
+            "type": "object",
+            "additionalProperties": {
+              "description": "A JSON value."
+            }
+          },
+          "hash": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "number",
+          "description",
+          "comment",
+          "hash",
+          "bytes",
+          "createdBy",
+          "createdAt",
+          "frontMatter",
+          "files"
+        ]
+      },
+      "SkillVersionSummary": {
+        "type": "object",
+        "properties": {
+          "bytes": {
+            "type": "integer"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "hash": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "number",
+          "description",
+          "comment",
+          "hash",
+          "bytes",
+          "createdBy",
+          "createdAt"
+        ]
+      },
+      "SpanEvent": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "at",
+          "attributes"
+        ]
+      },
+      "SpanTokens": {
+        "type": "object",
+        "properties": {
+          "completion": {
+            "type": "integer"
+          },
+          "prompt": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "prompt",
+          "completion",
+          "total"
+        ]
+      },
+      "SpanValue": {
+        "type": "object",
+        "properties": {
+          "cut": {
+            "type": "boolean"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "mimeType",
+          "cut"
         ]
       },
       "StartRunRequest": {
@@ -7980,6 +12780,711 @@
           "addedAt"
         ]
       },
+      "TraceDestination": {
+        "type": "object",
+        "properties": {
+          "carriedOver": {
+            "type": "boolean"
+          },
+          "changedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "content": {
+            "type": "boolean"
+          },
+          "contentAcknowledgedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "contentAcknowledgedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "headerNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "headersSetAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "traceLink": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "endpoint",
+          "headerNames",
+          "headersSetAt",
+          "enabled",
+          "content",
+          "contentAcknowledgedBy",
+          "contentAcknowledgedAt",
+          "traceLink",
+          "carriedOver",
+          "changedBy",
+          "updatedAt"
+        ]
+      },
+      "TraceDestinationList": {
+        "type": "object",
+        "properties": {
+          "destinations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceDestination"
+            }
+          }
+        },
+        "required": [
+          "destinations"
+        ]
+      },
+      "TraceDestinationRequest": {
+        "type": "object",
+        "properties": {
+          "acknowledgeContentLeaves": {
+            "type": "boolean"
+          },
+          "content": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "traceLink": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "endpoint",
+          "enabled",
+          "content",
+          "acknowledgeContentLeaves",
+          "traceLink"
+        ]
+      },
+      "TraceDestinationResponse": {
+        "type": "object",
+        "properties": {
+          "destination": {
+            "$ref": "#/components/schemas/TraceDestination"
+          }
+        },
+        "required": [
+          "destination"
+        ]
+      },
+      "TraceDestinationTest": {
+        "type": "object",
+        "properties": {
+          "delivered": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "delivered",
+          "status",
+          "message"
+        ]
+      },
+      "TraceLink": {
+        "type": "object",
+        "properties": {
+          "destination": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "destination",
+          "url"
+        ]
+      },
+      "TraceList": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "traces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceSummary"
+            }
+          }
+        },
+        "required": [
+          "traces",
+          "total",
+          "limit",
+          "offset"
+        ]
+      },
+      "TraceResponse": {
+        "type": "object",
+        "properties": {
+          "trace": {
+            "$ref": "#/components/schemas/TraceTree"
+          }
+        },
+        "required": [
+          "trace"
+        ]
+      },
+      "TraceSettingRequest": {
+        "type": "object",
+        "properties": {
+          "keepContent": {
+            "type": "boolean"
+          },
+          "retentionDays": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "retentionDays",
+          "keepContent"
+        ]
+      },
+      "TraceSettingResponse": {
+        "type": "object",
+        "properties": {
+          "changedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "keepContent": {
+            "type": "boolean"
+          },
+          "retentionDays": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "retentionDays",
+          "keepContent",
+          "changedBy",
+          "updatedAt"
+        ]
+      },
+      "TraceSpan": {
+        "type": "object",
+        "properties": {
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceSpan"
+            }
+          },
+          "durationMs": {
+            "type": "integer"
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpanEvent"
+            }
+          },
+          "input": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SpanValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "CHAIN",
+              "LLM",
+              "TOOL",
+              "AGENT",
+              "RETRIEVER",
+              "EMBEDDING",
+              "RERANKER",
+              "GUARDRAIL",
+              "EVALUATOR",
+              "PROMPT",
+              "UNKNOWN"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "omitted": {
+            "type": "integer"
+          },
+          "output": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SpanValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parentSpanId": {
+            "type": "string"
+          },
+          "sender": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "service": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "runner",
+              "otlp"
+            ]
+          },
+          "spanId": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unset",
+              "ok",
+              "error"
+            ]
+          },
+          "statusMessage": {
+            "type": "string"
+          },
+          "tokens": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SpanTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "spanId",
+          "parentSpanId",
+          "name",
+          "kind",
+          "service",
+          "source",
+          "sender",
+          "startedAt",
+          "endedAt",
+          "durationMs",
+          "status",
+          "statusMessage",
+          "model",
+          "tokens",
+          "attributes",
+          "input",
+          "output",
+          "events",
+          "children",
+          "omitted"
+        ]
+      },
+      "TraceSpanDetail": {
+        "type": "object",
+        "properties": {
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "content": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "durationMs": {
+            "type": "integer"
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpanEvent"
+            }
+          },
+          "input": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SpanValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "CHAIN",
+              "LLM",
+              "TOOL",
+              "AGENT",
+              "RETRIEVER",
+              "EMBEDDING",
+              "RERANKER",
+              "GUARDRAIL",
+              "EVALUATOR",
+              "PROMPT",
+              "UNKNOWN"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "output": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SpanValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parentSpanId": {
+            "type": "string"
+          },
+          "sender": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "service": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "runner",
+              "otlp"
+            ]
+          },
+          "spanId": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unset",
+              "ok",
+              "error"
+            ]
+          },
+          "statusMessage": {
+            "type": "string"
+          },
+          "tokens": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SpanTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "spanId",
+          "parentSpanId",
+          "name",
+          "kind",
+          "service",
+          "source",
+          "sender",
+          "startedAt",
+          "endedAt",
+          "durationMs",
+          "status",
+          "statusMessage",
+          "model",
+          "tokens",
+          "attributes",
+          "input",
+          "output",
+          "events",
+          "content"
+        ]
+      },
+      "TraceSpanResponse": {
+        "type": "object",
+        "properties": {
+          "span": {
+            "$ref": "#/components/schemas/TraceSpanDetail"
+          }
+        },
+        "required": [
+          "span"
+        ]
+      },
+      "TraceSummary": {
+        "type": "object",
+        "properties": {
+          "cut": {
+            "type": "boolean"
+          },
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "rootName": {
+            "type": "string"
+          },
+          "sender": {
+            "$ref": "#/components/schemas/PersonRef"
+          },
+          "service": {
+            "type": "string"
+          },
+          "spans": {
+            "type": "integer"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "traceId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "traceId",
+          "sender",
+          "service",
+          "rootName",
+          "spans",
+          "failed",
+          "cut",
+          "startedAt",
+          "endedAt"
+        ]
+      },
+      "TraceTree": {
+        "type": "object",
+        "properties": {
+          "bytes": {
+            "type": "integer"
+          },
+          "content": {
+            "type": "boolean"
+          },
+          "cut": {
+            "type": "boolean"
+          },
+          "dropped": {
+            "type": "integer"
+          },
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceLink"
+            }
+          },
+          "roots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceSpan"
+            }
+          },
+          "runId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sender": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "spans": {
+            "type": "integer"
+          },
+          "startedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "kept",
+              "expired",
+              "none"
+            ]
+          },
+          "traceId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "traceId",
+          "runId",
+          "sender",
+          "state",
+          "content",
+          "cut",
+          "dropped",
+          "spans",
+          "bytes",
+          "startedAt",
+          "endedAt",
+          "expiresAt",
+          "links",
+          "roots"
+        ]
+      },
       "TriggerCondition": {
         "type": "object",
         "properties": {
@@ -8028,7 +13533,8 @@
               "inputs_refused",
               "unattended_widened",
               "unattended_forbidden",
-              "runs_off"
+              "runs_off",
+              "skill_unreadable"
             ]
           }
         },
@@ -8257,6 +13763,34 @@
           "allowed"
         ]
       },
+      "UpdateRoleRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "installationWideOnly": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "UpdateUserRequest": {
+        "type": "object",
+        "properties": {
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
       "UsageDay": {
         "type": "object",
         "properties": {
@@ -8306,6 +13840,131 @@
           "limits"
         ]
       },
+      "UserGrantView": {
+        "type": "object",
+        "properties": {
+          "group": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "skillId": {
+            "type": "string"
+          },
+          "skillName": {
+            "type": "string"
+          },
+          "workflowId": {
+            "type": "string"
+          },
+          "workflowName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "roleName"
+        ]
+      },
+      "UserGroupView": {
+        "type": "object",
+        "properties": {
+          "builtin": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "local",
+              "oidc"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "source",
+          "builtin"
+        ]
+      },
+      "UserPage": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserView"
+            }
+          }
+        },
+        "required": [
+          "users",
+          "total",
+          "limit",
+          "offset"
+        ]
+      },
+      "UserView": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "email": {
+            "type": "string"
+          },
+          "grants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserGrantView"
+            }
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserGroupView"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email",
+          "isActive",
+          "createdAt",
+          "groups",
+          "grants"
+        ]
+      },
       "ValidateRequest": {
         "type": "object",
         "properties": {
@@ -8340,6 +13999,38 @@
           "valid",
           "problems",
           "warnings"
+        ]
+      },
+      "ValidateSkillRequest": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillFileBody"
+            }
+          }
+        },
+        "required": [
+          "files"
+        ]
+      },
+      "ValidateSkillResponse": {
+        "type": "object",
+        "properties": {
+          "problems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          },
+          "valid": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid",
+          "problems"
         ]
       },
       "VersionResponse": {
@@ -8420,6 +14111,23 @@
           "createdAt"
         ]
       },
+      "WorkflowGrantRequest": {
+        "type": "object",
+        "properties": {
+          "groupId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
       "WorkflowResponse": {
         "type": "object",
         "properties": {
@@ -8441,7 +14149,13 @@
           "archived": {
             "type": "boolean"
           },
+          "canAdminister": {
+            "type": "boolean"
+          },
           "canEdit": {
+            "type": "boolean"
+          },
+          "canRun": {
             "type": "boolean"
           },
           "currentVersion": {
@@ -8459,19 +14173,8 @@
           "owner": {
             "$ref": "#/components/schemas/PersonRef"
           },
-          "sharedGroups": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "sharing": {
-            "type": "string",
-            "enum": [
-              "private",
-              "groups",
-              "everyone"
-            ]
+          "sharedWith": {
+            "type": "integer"
           },
           "updatedAt": {
             "type": "string",
@@ -8483,12 +14186,13 @@
           "name",
           "description",
           "owner",
-          "sharing",
-          "sharedGroups",
+          "sharedWith",
           "currentVersion",
           "updatedAt",
           "archived",
-          "canEdit"
+          "canRun",
+          "canEdit",
+          "canAdminister"
         ]
       },
       "WorkspaceImage": {
@@ -8538,7 +14242,12 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "An access token of the realm Rotor signs in with, whose audience holds Rotor's client and whose groups hold rotor-administrators, such as a service account's from client credentials."
+        "description": "An access token of the realm Rotor signs in with, whose audience holds Rotor's client, such as a service account's from client credentials: of an account in rotor-administrators, or at the OTLP endpoint of any account Rotor lets in."
+      },
+      "rotorToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "An access token from Rotor's own authorization server, made for an assistant or an app; taken at MCP and the OTLP endpoint alone."
       },
       "session": {
         "type": "apiKey",

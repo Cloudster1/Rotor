@@ -14,7 +14,7 @@ describe("unattended writes", () => {
   it("are allowed or forbidden by an administrator for everyone", async () => {
     let current = { allowed: true, updatedAt: "2026-10-22T08:00:00Z" };
     const sent: unknown[] = [];
-    await renderAt("/settings", {
+    await renderAt("/admin/unattended-writes", {
       answers: {
         "/api/v1/settings/unattended-writes": () => Response.json(current),
         "PUT /api/v1/settings/unattended-writes": async (request: Request) => {

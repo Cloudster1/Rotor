@@ -72,11 +72,12 @@ and suite:
   names since (#139)
 
 Adapted from Exciter at 6706bd8, its requirement history and web tests:
-- backend/internal/workflows/diff.go: align, the longest common subsequence of
+- backend/internal/textdiff/textdiff.go: align, the longest common subsequence of
   backend/internal/requirement/diff.go, now over lines of YAML with hunks of
   context instead of blocks of a document
 - backend/migrations/00200_workflows.sql: the gap-free, immutable numbering of
-  requirement_revision, for workflow versions
+  requirement_revision, for workflow versions, and
+  backend/migrations/01400_skills.sql for skill versions
 - web/src/test/layout.ts: the jsdom measurements CodeMirror and axe ask for
 
 Adapted from Exciter at 009762e, its outbox worker:
@@ -210,3 +211,64 @@ Adapted from Exciter at 3b340ca, its client ID metadata documents (#114):
 
 Adapted from Dynamo (https://github.com/praetorianer777/Dynamo) at 76d7ab1, its realm test:
 - tests/test-stack.sh: the check that every return address ends its host before a wildcard, of tests/test-realm.sh
+
+Adapted from Armature at 3f8fd4c (3f8fd4cb7784c53af1faa8585500680a079b989d), its roles, groups and grants (#202):
+- backend/internal/perm: perm.go, definitions.go, store.go and assign.go from internal/perm, a project replaced by
+  a workflow and its key by an id; the Set without API keys or an owner's standing, the store's resolve query,
+  Grant, Revoke under the administrators' lock, Roles and DeleteRole, auditing instead of emitting events
+- backend/internal/perm/perm_test.go from internal/perm/perm_test.go, for Rotor's roles
+- backend/internal/oidc/groups.go: syncGroups of internal/oidc/signin.go, creating every group the realm names
+- backend/migrations/01300_access_grants.sql: role, user_group, group_member and role_assignment with
+  role_guard, role_assignment_guard, the Everyone guards and role_assignment_keeps_an_administrator, of
+  00010_rbac.sql, 00903_org_roles.sql, 00938_installation_tables.sql, 00951_keep_one_global_administrator.sql and
+  00966_everyone_group.sql, asked by Rotor's row level security through actor_can() (01310_access_policies.sql)
+- backend/test/access_db_test.go: the rbac tests of test/rbac_test.go, test/roles_test.go and
+  test/last_administrator_test.go, each also straight through SQL as rotor_app
+
+Adapted from Armature at 3f8fd4c (3f8fd4cb7784c53af1faa8585500680a079b989d), its Access and Users pages (#203):
+- backend/internal/perm/roles.go: CreateRole, UpdateRole, KeyFromName and cleanPermissions of
+  internal/perm/definitions.go, the organization-wide flag become installation_wide_only
+- backend/internal/perm/groups.go and assignments.go: the groups, members and the paged grants listing of
+  internal/perm/store.go and assign.go, a project replaced by a workflow; read as rotor_admin after the same
+  transaction checks the acting person, since Rotor keeps row level security
+- backend/internal/httpapi/roles_handlers.go, groups_handlers.go and grants_handlers.go: the /roles, /permissions,
+  /groups and /role-assignments handlers of internal/httpapi/access_handlers.go, their guards of
+  routes_organization.go, and the Users page's listing and switching off of user_handlers.go
+- backend/test/access_admin_test.go, access_grants_test.go and access_users_test.go: the role, group and grant
+  tests of test/rbac_test.go and test/roles_test.go, each refusal also straight through SQL as rotor_app
+- web/src/features/access: RoleTable.tsx, GrantForm.tsx, RoleMatrix.tsx, RoleDialogs.tsx, GroupList.tsx,
+  PersonPicker.tsx and AccessPage.tsx from web/src/features/access/{RoleTable,RoleMatrix,GroupList}.tsx,
+  features/people/PersonPicker.tsx and routes/access.tsx, and ui.tsx's pager from components/ui/Pager.tsx; native
+  dialogs and a status line instead of Armature's kit and toasts
+- web/src/features/users/UserTable.tsx and UsersPage.tsx from web/src/features/users/UserTable.tsx and
+  routes/users.tsx, without passwords, invitations or join requests
+- web/src/strings_access.ts from web/src/i18n/access.en.ts with the pager and people picker words of kit.en.ts and
+  looks.en.ts, Rotor in place of Armature and a workflow in place of a project
+- web/src/features/access/*.test.tsx and features/users/UserTable.test.tsx from their Armature counterparts
+
+Adapted from Armature at 3f8fd4c (3f8fd4cb7784c53af1faa8585500680a079b989d), letting people in and its single sign-on (#204):
+- backend/migrations/01330_letting_people_in.sql: join_request of 00901_sso_join_requests.sql as 00933 and 00938 left
+  it, app_user.standing of 00938_installation_tables.sql, oidc_provider with its one_row of 00010_rbac.sql and
+  00933_keys_without_organization.sql and admit_by_group of 00947_oidc_admit_by_group.sql; without the client_secret
+  column, which OpenBao holds, and with Rotor's row level security
+- backend/internal/perm/joinrequests.go: JoinRequests, AdmitJoinRequest and DeclineJoinRequest of
+  internal/auth/joinrequests.go, and mappedGroups and admit of internal/oidc/signin.go, a group holding
+  Administrator letting its members in whatever the setting
+- backend/internal/oidc/signin.go: the admission and noteJoinRequest of internal/oidc/signin.go
+- backend/internal/oidc/provider.go and provider_save.go: ProviderFor and Save of internal/oidc/service.go, read on
+  every use and the secret kept in OpenBao, seeded from the environment
+- backend/internal/httpapi/signon_handlers.go and operations_signon.go: GET and PUT /oidc-provider and
+  /users/requests of internal/httpapi/oidc_handlers.go and user_handlers.go
+- backend/test/letting_in_test.go and single_sign_on_test.go: test/join_requests_test.go, test/admit_by_group_test.go
+  and TestTheClientSecretIsKeptOutOfSight of test/oidc_test.go, each refusal also straight through SQL as rotor_app
+- web/src/features/access/ProviderSettings.tsx and web/src/features/users/JoinRequests.tsx, with their tests, from
+  web/src/features/access/ProviderSettings.tsx and web/src/features/users/JoinRequests.tsx, and their words in
+  web/src/strings_access.ts and the waiting notice in web/src/strings.ts from i18n/access.en.ts and doors.en.ts,
+  Rotor in place of Armature; a status line instead of Armature's toasts
+
+Adapted from Stator at cd57599 (cd57599a2be91b4afab3a3fb73318a3c873f102d) and Exciter at c365ead
+(c365eadd561542b6c6b16f5c56067504008cbecb), their bootstrap members (#171):
+- backend/internal/config/members.go: the members loader of internal/config/config.go, taking email=role as they do
+  and plain addresses separated by white space too
+- backend/internal/perm/bootstrap.go: EnsureMember of internal/auth/joinrequests.go, run at the api's start
+- deploy/charts/rotor: bootstrap.members and its role check of templates/job-bootstrap.yaml

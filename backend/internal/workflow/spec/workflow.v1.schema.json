@@ -227,6 +227,20 @@
         "maxSteps": { "type": "integer", "minimum": 1, "maximum": 500, "description": "The agent's own step cap, at most the workflow's (#133)." },
         "workspace": { "$ref": "#/$defs/workspace" },
         "tools": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "skills": {
+          "type": "array",
+          "maxItems": 10,
+          "description": "The skills the agent may load, each pinned to a version: it sees their names and descriptions and reads the rest when it needs it (#221).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "version"],
+            "properties": {
+              "name": { "type": "string", "maxLength": 64, "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "description": "The skill's name: lowercase letters, digits and single dashes." },
+              "version": { "type": "integer", "minimum": 1, "description": "The version of the skill the agent gets; a pin never moves." }
+            }
+          }
+        },
         "output": { "$ref": "#/$defs/outputSchema" }
       }
     },

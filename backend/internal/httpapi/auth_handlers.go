@@ -16,7 +16,7 @@ const loginPath = "/login"
 
 var (
 	errSignInUnavailable = &APIError{Status: http.StatusServiceUnavailable, Code: "sign_in_unavailable",
-		Message: "Signing in is not set up on this installation. An operator sets ROTOR_OIDC_ISSUER to the identity provider."}
+		Message: "Signing in is not set up on this installation. An operator sets ROTOR_OIDC_ISSUER to the identity provider, which seeds single sign-on."}
 	errProviderUnreachable = &APIError{Status: http.StatusServiceUnavailable, Code: "provider_unreachable",
 		Message: "The identity provider cannot be reached. Try again in a moment."}
 )
@@ -64,6 +64,9 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, auth.ErrSwitchedOff):
 		s.failSignIn(w, r, "switched_off", err)
+	case errors.Is(err, oidc.ErrNotAMember):
+		// Not a failure: the request waits on Admin's Users page, and the sign-in page says so.
+		redirect(w, loginPath+"?error=waiting")
 	case errors.Is(err, oidc.ErrUnknownLogin):
 		s.failSignIn(w, r, "expired", err)
 	case errors.Is(err, oidc.ErrNoEmail), errors.Is(err, oidc.ErrEmailUnverified):
@@ -94,7 +97,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	p := auth.PrincipalFrom(r.Context())
-	out := meResponse{User: meUser{ID: p.UserID.String(), Email: p.Email, Name: p.Name}, Role: p.Role, Groups: p.Groups}
+	out := meResponse{User: meUser{ID: p.UserID.String(), Email: p.Email, Name: p.Name}, Role: auth.RoleFor(p.Perms), Groups: p.Groups}
 	if a := p.Assistant; a != nil {
 		out.Assistant = &meAssistant{Client: a.Client, ReadOnly: a.ReadOnly}
 	}

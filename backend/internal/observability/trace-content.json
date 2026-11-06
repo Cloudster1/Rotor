@@ -1,0 +1,36 @@
+{
+  "description": "Which span attributes carry text a person, a tool or a model wrote (#241). A name covers the key itself and every key below it, after a dot. A key under a text name is text; else a key under a plain name carries no text; any other key is text. A key holding a never name as whole segments anywhere, an image or an embedding vector, is not recorded at all. The control plane embeds a copy and the runner packages one; make trace-content copies this file and a test on each side refuses a copy that differs.",
+  "text": [
+    "input.value",
+    "output.value",
+    "llm.input_messages",
+    "llm.output_messages",
+    "llm.prompts",
+    "llm.prompt_template",
+    "llm.tools",
+    "tool.parameters",
+    "tool_call.function.arguments",
+    "message",
+    "retrieval.documents",
+    "reranker",
+    "embedding.embeddings",
+    "document",
+    "gen_ai.prompt",
+    "gen_ai.completion"
+  ],
+  "plain": [
+    "openinference",
+    "llm",
+    "gen_ai",
+    "tool",
+    "rotor",
+    "mcp",
+    "session",
+    "exception",
+    "tool_call.id",
+    "input.mime_type",
+    "output.mime_type",
+    "metadata"
+  ],
+  "never": ["image", "embedding.vector"]
+}

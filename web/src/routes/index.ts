@@ -4,14 +4,16 @@ import { LOGIN_PATH } from "@/config";
 import { loginRoute } from "./login";
 import type { QueryClient } from "@tanstack/react-query";
 import { approvalRoute, approvalsRoute } from "./approvals";
-import { auditRoute } from "./audit";
+import { adminTree } from "./admin";
 import { consentRoute } from "./consent";
-import { connectionsRoute, indexRoute, settingsRoute } from "./places";
+import { connectionsRoute, indexRoute } from "./places";
 import { newWorkflowRoute, workflowRoute, workflowsRoute } from "./workflows";
+import { workflowSettingsTree } from "./workflowSettings";
 import { RouteError, rootRoute } from "./root";
 import { runRoute, runsRoute } from "./runs";
+import { settingsTree } from "./settings";
+import { importSkillRoute, newSkillRoute, skillTree, skillsRoute } from "./skills";
 import { shellRoute } from "./shell";
-import { usageRoute } from "./usage";
 
 // Pages that stand without the shell, such as sign-in, are children of rootRoute beside shellRoute.
 const routeTree = rootRoute.addChildren([
@@ -21,14 +23,18 @@ const routeTree = rootRoute.addChildren([
     workflowsRoute,
     newWorkflowRoute,
     workflowRoute,
+    workflowSettingsTree,
+    skillsRoute,
+    newSkillRoute,
+    importSkillRoute,
+    skillTree,
     runsRoute,
     runRoute,
     approvalsRoute,
     approvalRoute,
     connectionsRoute,
-    settingsRoute,
-    auditRoute,
-    usageRoute,
+    settingsTree,
+    adminTree,
     consentRoute,
   ]),
 ]);

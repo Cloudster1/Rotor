@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { meQuery } from "@/api/auth";
 import { type Limits, myUsageQuery, peopleUsageQuery, type UsageDay } from "@/api/usage";
+import { card } from "@/features/settings/styles";
+import { PageIntro, SettingsCard, SettingsPage } from "@/features/settings/ui";
 import { PageHeader } from "@/features/shell/EmptyState";
 import { s } from "@/strings";
 import { LimitsSection } from "./LimitsSection";
 
-const card = "rounded-overlay border border-border bg-surface p-5 shadow-1";
 const cell = "border-b border-border px-2 py-1 text-left";
 
 /** Tokens and cost of one day or span, in words a table cell holds. */
@@ -40,15 +40,15 @@ function YourLimits({ limits }: { limits: Limits }) {
   );
 }
 
-/** What the person's runs used, the limits on them and, for administrators, everyone's usage and the limits to set. */
-export function UsagePage() {
-  const me = useQuery(meQuery);
+/** What the person's runs used and the limits on them. */
+export function MyUsagePage() {
   const mine = useQuery(myUsageQuery);
-  const admin = me.data?.role === "admin";
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={s.usage.title} />
-      <p className="max-w-2xl text-sm text-ink-muted">{s.usage.body}</p>
+      <div>
+        <PageHeader title={s.usage.title} />
+        <PageIntro>{s.usage.body}</PageIntro>
+      </div>
       {mine.isPending && <p className="text-sm text-ink-muted">{s.usage.loading}</p>}
       {mine.isError && (
         <p role="alert" className="text-sm text-danger">
@@ -56,7 +56,7 @@ export function UsagePage() {
         </p>
       )}
       {mine.data && (
-        <div className="grid max-w-4xl gap-4 md:grid-cols-3" data-usage>
+        <div className="grid gap-4 md:grid-cols-3" data-usage>
           <section className={card} aria-labelledby="usage-today">
             <h2 id="usage-today" className="mb-2 font-semibold text-ink">
               {s.usage.today}
@@ -78,7 +78,7 @@ export function UsagePage() {
         </div>
       )}
       {mine.data && (
-        <section className={`${card} max-w-4xl overflow-x-auto`} aria-labelledby="usage-days">
+        <section className={`${card} overflow-x-auto`} aria-labelledby="usage-days">
           <h2 id="usage-days" className="mb-2 font-semibold text-ink">
             {s.usage.days}
           </h2>
@@ -108,19 +108,35 @@ export function UsagePage() {
           )}
         </section>
       )}
-      {admin && mine.data && <LimitsSection limits={mine.data.limits} />}
-      {admin && <People />}
     </div>
+  );
+}
+
+/** Everyone's usage this month and the limits on everyone, for administrators. */
+export function EveryonesUsagePage() {
+  const mine = useQuery(myUsageQuery);
+  return (
+    <SettingsPage title={s.admin.pages.usage}>
+      {mine.isError && (
+        <p role="alert" className="text-sm text-danger lg:col-span-full">
+          {mine.error.message}
+        </p>
+      )}
+      {mine.data && <LimitsSection limits={mine.data.limits} />}
+      <People />
+    </SettingsPage>
   );
 }
 
 function People() {
   const people = useQuery(peopleUsageQuery);
   return (
-    <section className={`${card} max-w-4xl overflow-x-auto`} aria-labelledby="usage-people">
-      <h2 id="usage-people" className="mb-2 font-semibold text-ink">
-        {s.usage.peopleTitle}
-      </h2>
+    <SettingsCard titleId="usage-people" title={s.usage.peopleTitle} className="overflow-x-auto">
+      {people.isError && (
+        <p role="alert" className="text-sm text-danger">
+          {people.error.message}
+        </p>
+      )}
       {people.data?.length === 0 && <p className="text-sm text-ink-muted">{s.usage.none}</p>}
       {people.data && people.data.length > 0 && (
         <table className="w-full text-sm text-ink" data-usage-people>
@@ -146,6 +162,6 @@ function People() {
           </tbody>
         </table>
       )}
-    </section>
+    </SettingsCard>
   );
 }

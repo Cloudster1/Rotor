@@ -6,7 +6,7 @@ import (
 )
 
 // agentSense holds an agent's own step cap to the workflow's, and keeps templates out of its role: what a run read
-// never becomes an instruction (#133).
+// never becomes an instruction (#133). Its skills are named once each (#221).
 func agentSense(s *Spec, n Node, base string) []Problem {
 	var out []Problem
 	if n.MaxSteps > 0 && s.Limits.MaxSteps > 0 && n.MaxSteps > s.Limits.MaxSteps {
@@ -17,7 +17,7 @@ func agentSense(s *Spec, n Node, base string) []Problem {
 		out = append(out, Problem{Path: base + "/role", Code: CodeRoleTemplate,
 			Message: fmt.Sprintf("The role of %s holds a template, and a role never does; put what the run read into the prompt.", n.ID)})
 	}
-	return out
+	return append(out, skillSense(n, base)...)
 }
 
 // AgentModels is the model each agent node names of its own, by node id; the others use the workflow's.

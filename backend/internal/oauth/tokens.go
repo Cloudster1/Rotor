@@ -228,14 +228,14 @@ func (s *Service) Authenticate(ctx context.Context, token string) (*auth.Princip
 	err := s.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		return tx.QueryRow(ctx, `
 			SELECT g.id, c.name, g.read_only OR t.read_only, g.last_used_at,
-			       u.id, u.email, u.name, u.role, u.groups, u.is_active, s.connections_on
+			       u.id, u.email, u.name, u.groups, u.is_active, s.connections_on
 			FROM oauth_token t
 			JOIN oauth_grant g ON g.id = t.grant_id
 			JOIN oauth_client c ON c.id = g.client_id
 			JOIN app_user u ON u.id = g.user_id
 			CROSS JOIN assistant_setting s
 			WHERE t.token_hash = $1 AND t.kind = 'access' AND t.expires_at > now()`, auth.Hash(token)).Scan(
-			&a.GrantID, &a.Client, &a.ReadOnly, &lastUsed, &p.UserID, &p.Email, &p.Name, &p.Role, &p.Groups, &active, &on)
+			&a.GrantID, &a.Client, &a.ReadOnly, &lastUsed, &p.UserID, &p.Email, &p.Name, &p.Groups, &active, &on)
 	})
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):

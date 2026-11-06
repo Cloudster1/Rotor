@@ -35,6 +35,7 @@ from rotor_runner.mcp import ToolFailedError, ToolGateway, ToolRefusedError
 from rotor_runner.policy import Fence, policy_text
 from rotor_runner.preview import preview
 from rotor_runner.repository import Repositories, RepositoryAccess
+from rotor_runner.skills import READ_SKILL, Skills, read_skill_tool, with_skills
 from rotor_runner.spec import Spec
 from rotor_runner.telemetry import RunTracing
 from rotor_runner.templates import lookup, render, render_prompt
@@ -84,6 +85,8 @@ class RunContext:
     repositories: Repositories | None = None
     # The run's workspace steps in this sandbox (#136); None for a sandbox without toolchains.
     workspaces: Workspaces | None = None
+    # The agents' skills and the stream their files are read over (#222).
+    skills: Skills = field(default_factory=Skills)
     links: LinkLimiter = field(init=False)
 
     def __post_init__(self) -> None:
@@ -145,6 +148,16 @@ def _workspace_tools(node: dict[str, Any], tools: list[BaseTool], ws: Workspace 
     return own
 
 
+def _skill_tools(node: dict[str, Any], tools: list[BaseTool], ctx: RunContext) -> list[BaseTool]:
+    """read_skill for an agent with skills (#222), refused when another of its tools already takes the name."""
+    cards = ctx.skills.of(node["id"])
+    if not cards:
+        return []
+    if READ_SKILL in {t.name for t in tools}:
+        raise failed("tool_names", f"{node['id']} has a tool named like its skills' tool: {READ_SKILL}")
+    return [read_skill_tool(node["id"], cards, ctx.skills.channel, ctx.emit)]
+
+
 def _agent(node: dict[str, Any], ctx: RunContext) -> Callable[..., Any]:
     async def in_workspace(state: State, config: RunnableConfig) -> dict[str, Any]:
         _agent_model(node, ctx)
@@ -155,6 +168,7 @@ def _agent(node: dict[str, Any], ctx: RunContext) -> Callable[..., Any]:
         model = _agent_model(node, ctx)
         tools = await ctx.tools.langchain_tools(list(node.get("tools", [])), node["id"])
         tools += _workspace_tools(node, tools, ws)
+        tools += _skill_tools(node, tools, ctx)
         schema = (node.get("output") or {}).get("schema")
         response_format: ToolStrategy[dict[str, Any]] | None = (
             ToolStrategy({**copy.deepcopy(schema), "title": OUTPUT_TOOL}) if schema else None
@@ -162,8 +176,10 @@ def _agent(node: dict[str, Any], ctx: RunContext) -> Callable[..., Any]:
         agent = create_agent(
             model(),
             tools,
-            system_prompt=policy_text(ctx.link_hosts, str(node.get("role") or "")),
-            middleware=[UntrustedResults(ctx.fence, ctx.links, ctx.emit, node["id"])],
+            system_prompt=with_skills(
+                policy_text(ctx.link_hosts, str(node.get("role") or "")), ctx.skills.of(node["id"])
+            ),
+            middleware=[UntrustedResults(ctx.fence, ctx.links, ctx.emit, node["id"], frozenset({READ_SKILL}))],
             response_format=response_format,
         )
         prompt = render_prompt(str(node["prompt"]), cast(dict[str, Any], state), ctx.fence)
@@ -269,13 +285,13 @@ async def _pass(_state: State) -> dict[str, Any]:
 
 
 def _traced(run: Callable[..., Any], node: dict[str, Any], tracing: RunTracing) -> Callable[..., Any]:
-    """A node under a span of its own (#37); wraps keeps its signature, which LangGraph reads to pass its config."""
+    """A node under its span (#37, #241); wraps keeps its signature, which LangGraph reads to pass its config."""
     if not tracing.on:
         return run
 
     @functools.wraps(run)
     async def traced(*args: Any, **kwargs: Any) -> Any:
-        with tracing.span(f"node {node['id']}", {"rotor.node": node["id"], "rotor.node.type": node["type"]}):
+        with tracing.node(node["id"], node["type"]):
             return await run(*args, **kwargs)
 
     return traced

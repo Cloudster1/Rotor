@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { s } from "@/strings";
-import { axeViolations } from "@/test/axe";
+import { AXE_TIMEOUT_MS, axeViolations } from "@/test/axe";
 import { META, renderAt } from "@/test/app";
 import { PLACES } from "./places";
 
@@ -15,7 +15,6 @@ const EMPTY: Record<string, string> = {
   "/workflows": s.workflows.emptyTitle,
   "/runs": s.runs.emptyTitle,
   "/approvals": s.approvals.emptyTitle,
-  "/connections": s.connections.emptyTitle,
 };
 
 describe("the shell", () => {
@@ -50,7 +49,7 @@ describe("the shell", () => {
   });
 
   it("shows the server's build in the settings", async () => {
-    await renderAt("/settings");
+    await renderAt("/settings/profile");
     expect(await screen.findByText(META.build.version)).toBeInTheDocument();
     expect(screen.getByText(META.apiVersion)).toBeInTheDocument();
   });
@@ -61,9 +60,13 @@ describe("the shell", () => {
     expect(screen.getByRole("navigation", { name: s.shell.navigation })).toBeInTheDocument();
   });
 
-  it.each([...PLACES.map((place) => place.path), "/nowhere"])("passes axe at %s", async (path) => {
-    await renderAt(path);
-    await screen.findByRole("heading", { level: 1 });
-    expect(await axeViolations()).toEqual([]);
-  });
+  it.each([...PLACES.map((place) => place.path), "/nowhere"])(
+    "passes axe at %s",
+    async (path) => {
+      await renderAt(path);
+      await screen.findByRole("heading", { level: 1 });
+      expect(await axeViolations()).toEqual([]);
+    },
+    AXE_TIMEOUT_MS,
+  );
 });

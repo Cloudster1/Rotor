@@ -34,6 +34,9 @@ x-control-plane-env: &control-plane-env
   ROTOR_OIDC_CLIENT_ID: rotor
   ROTOR_OIDC_CLIENT_SECRET: rotor-dev-secret
   ROTOR_OIDC_BACKCHANNEL: http://localhost:${KEYCLOAK_PORT:-8302}=http://keycloak:8080
+  # The realm's people are let in ahead of their first sign-in (#171), as Stator and Exciter let theirs in; alice also
+  # comes in through rotor-administrators, whose grant lets its members in. Anybody else the realm knows waits.
+  ROTOR_BOOTSTRAP_MEMBERS: alice@suite.test bob@suite.test carol@suite.test dave@suite.test
   # The api signs in to OpenBao as the realm's service account rotor-control-plane.
   ROTOR_OPENBAO_ADDR: http://openbao:8200
   ROTOR_CONTROL_PLANE_CLIENT_ID: rotor-control-plane

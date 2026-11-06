@@ -2,11 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useId, useState } from "react";
 import type { Provider } from "@/api/providers";
 import { type ModelPrice, pricesQuery, setPrices, usageQueryKey } from "@/api/usage";
+import { input, secondary } from "@/features/settings/styles";
 import { s } from "@/strings";
 
-const input = "h-9 w-full rounded-control border border-border-strong bg-surface px-3 text-sm text-ink";
+// Smaller than the shared primary: it sits in a row of a provider, among that row's own buttons.
 const primary = "h-8 rounded-control bg-accent px-3 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-60";
-const secondary = "h-8 rounded-control border border-border-strong px-3 text-sm font-medium text-ink hover:bg-surface-raised";
 
 type Row = { input: string; output: string };
 

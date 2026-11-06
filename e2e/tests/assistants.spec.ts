@@ -97,7 +97,7 @@ test.describe("connecting an assistant", { tag: "@desktop" }, () => {
       const status = await tradeAndCall(back!.searchParams.get("code")!);
       expect(await status()).toBe(200);
 
-      await page.goto("/settings");
+      await page.goto("/settings/assistants");
       const mine = page.locator("[data-assistants]");
       const grant = mine.locator(`[data-grant="${NAME}"]`);
       await expect(grant).toContainText("Reads only");

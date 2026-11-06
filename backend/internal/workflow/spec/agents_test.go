@@ -83,3 +83,28 @@ nodes:
 		t.Fatalf("an agent at the workflow's steps is refused: %+v", problems)
 	}
 }
+
+func TestTheSchemaBoundsAnAgentsSkillsAsTheConfigDoes(t *testing.T) {
+	var schema struct {
+		Defs map[string]struct {
+			Properties map[string]struct {
+				MaxItems int `json:"maxItems"`
+				Items    struct {
+					Properties map[string]struct {
+						MaxLength int `json:"maxLength"`
+					} `json:"properties"`
+				} `json:"items"`
+			} `json:"properties"`
+		} `json:"$defs"`
+	}
+	if err := json.Unmarshal(schemaDocument, &schema); err != nil {
+		t.Fatal(err)
+	}
+	skills := schema.Defs["agentNode"].Properties["skills"]
+	if skills.MaxItems != config.MaxAgentSkills {
+		t.Errorf("the schema allows %d skills on a node, the config %d", skills.MaxItems, config.MaxAgentSkills)
+	}
+	if got := skills.Items.Properties["name"].MaxLength; got != config.MaxSkillNameChars {
+		t.Errorf("the schema bounds a skill name at %d characters, the config at %d", got, config.MaxSkillNameChars)
+	}
+}

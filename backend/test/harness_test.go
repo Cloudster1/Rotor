@@ -77,9 +77,15 @@ func (h *harness) addPerson(t *testing.T, role string) uuid.UUID {
 	ctx := context.Background()
 	var id uuid.UUID
 	email := "person-" + uuid.NewString() + "@suite.test"
-	if err := h.super.QueryRow(ctx, `INSERT INTO app_user (email, name, role) VALUES ($1, $2, $3) RETURNING id`,
-		email, "Test person", role).Scan(&id); err != nil {
+	if err := h.super.QueryRow(ctx, `INSERT INTO app_user (email, name, standing) VALUES ($1, $2, 'member') RETURNING id`,
+		email, "Test person").Scan(&id); err != nil {
 		t.Fatal(err)
+	}
+	// Administering Rotor is a grant since #202, and there is no role word on the person since #205.
+	if role == "admin" {
+		if _, err := h.super.Exec(ctx, `INSERT INTO role_assignment (role, user_id) VALUES ('administrator', $1)`, id); err != nil {
+			t.Fatal(err)
+		}
 	}
 	t.Cleanup(func() {
 		if _, err := h.super.Exec(ctx, `DELETE FROM app_user WHERE id = $1`, id); err != nil {

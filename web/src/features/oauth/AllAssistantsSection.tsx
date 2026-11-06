@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId } from "react";
 import { assistantSettingQuery, assistantSettingQueryKey, endGrant, everyonesGrantsQuery, grantsQueryKey, setAssistants } from "@/api/oauth";
+import { dangerQuiet } from "@/features/settings/styles";
+import { SettingsCard } from "@/features/settings/ui";
 import { s } from "@/strings";
-import { danger, grantLine } from "./AssistantsSection";
-
-const card = "max-w-xl rounded-overlay border border-border bg-surface p-5 shadow-1";
+import { grantLine } from "./AssistantsSection";
 
 /** Everybody's connected assistants and whether assistants may connect at all, for administrators (#47). */
 export function AllAssistantsSection() {
@@ -22,11 +22,7 @@ export function AllAssistantsSection() {
   });
   const failed = setting.error ?? grants.error ?? toggle.error ?? end.error;
   return (
-    <section className={card} aria-labelledby="all-assistants-title" data-all-assistants>
-      <h2 id="all-assistants-title" className="mb-1 text-lg font-semibold text-ink">
-        {s.assistants.everyoneTitle}
-      </h2>
-      <p className="mb-3 text-sm text-ink-muted">{s.assistants.everyoneBody}</p>
+    <SettingsCard titleId="all-assistants-title" title={s.assistants.everyoneTitle} description={s.assistants.everyoneBody} wide data-all-assistants>
       {setting.data && (
         <div className="mb-3 flex flex-col gap-1">
           <label className="flex items-center gap-2 text-sm font-medium text-ink">
@@ -65,7 +61,7 @@ export function AllAssistantsSection() {
                 </div>
                 <button
                   type="button"
-                  className={danger}
+                  className={dangerQuiet}
                   disabled={end.isPending}
                   aria-label={s.assistants.disconnectFor(grant.client.name, owner)}
                   onClick={() => end.mutate(grant.id)}
@@ -77,6 +73,6 @@ export function AllAssistantsSection() {
           })}
         </ul>
       )}
-    </section>
+    </SettingsCard>
   );
 }

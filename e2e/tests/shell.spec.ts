@@ -13,9 +13,10 @@ test("the sidebar leads to every place and marks the one open", async ({ page })
   const nav = page.getByRole("navigation", { name: "Places" });
   for (const place of PLACES) {
     await nav.getByRole("link", { name: place.label }).click();
-    await expect(page).toHaveURL(new RegExp(`${place.path}$`));
-    await expect(page.getByRole("heading", { level: 1, name: place.label })).toBeVisible();
-    await expect(nav.locator('[aria-current="page"]')).toHaveText(place.label);
+    await expect(page).toHaveURL(new RegExp(`${place.opens}$`));
+    await expect(page.getByRole("heading", { level: 1, name: place.heading })).toBeVisible();
+    // By its place, not its text: the Approvals link also carries a badge of what waits for the person.
+    await expect(nav.locator('[aria-current="page"]')).toHaveAttribute("data-place", place.path);
   }
 });
 
@@ -34,7 +35,7 @@ test("a chosen colour scheme survives a reload", async ({ page }) => {
 });
 
 test("the settings name the build the server runs, through nginx and the api", async ({ page }) => {
-  await openShell(page, "/settings");
+  await openShell(page, "/settings/account");
   const version = page.locator("[data-build-version]");
   await expect(version).toBeVisible();
   const expected = buildVersion();

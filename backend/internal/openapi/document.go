@@ -47,6 +47,7 @@ type Operation struct {
 	RequestBody *RequestBody          `json:"requestBody,omitempty"`
 	Responses   map[string]*Response  `json:"responses"`
 	Security    []map[string][]string `json:"security,omitempty"`
+	Deprecated  bool                  `json:"deprecated,omitempty"`
 }
 
 type Parameter struct {

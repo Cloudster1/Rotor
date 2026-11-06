@@ -12,7 +12,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/tools/profiles"
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 	"github.com/cloudster1/rotor/backend/internal/workflows"
@@ -28,15 +27,17 @@ type Workflows interface {
 	Check(ctx context.Context, source string) (problems, warnings []spec.Problem)
 	Create(ctx context.Context, source, comment string) (uuid.UUID, error)
 	Save(ctx context.Context, id uuid.UUID, source, comment string, base int) error
-	Share(ctx context.Context, id uuid.UUID, sharing string, groups []string) error
 	Archive(ctx context.Context, id uuid.UUID) error
+	Restore(ctx context.Context, id uuid.UUID) error
 }
 
 var (
 	errWorkflowsUnavailable = &APIError{Status: http.StatusServiceUnavailable, Code: "workflows_unavailable",
 		Message: "Workflows are not set up on this installation. An operator connects Rotor to its database."}
-	errNotOwner = ErrForbidden("Only the workflow's owner may change it. Ask them, or save a copy as a new workflow of your own.")
-	errStale    = &APIError{Status: http.StatusConflict, Code: "workflow_changed",
+	errNotOwner = ErrForbidden("Your grants on this workflow do not let you do this. Ask one of its administrators for the role, " +
+		"or save a copy as a new workflow of your own.")
+	errCannotCreate = ErrForbidden("Your grants do not let you create workflows. Ask an administrator of Rotor to grant you Author.")
+	errStale        = &APIError{Status: http.StatusConflict, Code: "workflow_changed",
 		Message: "Someone saved this workflow since you opened it. Reload it, then make your change again."}
 	errArchived = &APIError{Status: http.StatusConflict, Code: "workflow_archived",
 		Message: "This workflow is archived. Save a copy as a new workflow to change it."}
@@ -67,6 +68,8 @@ func workflowError(err error) error {
 		return ErrNotFound("There is no such workflow, or it is not shared with you.")
 	case errors.Is(err, workflows.ErrNotOwner):
 		return errNotOwner
+	case errors.Is(err, workflows.ErrCannotCreate):
+		return errCannotCreate
 	case errors.Is(err, workflows.ErrStale):
 		return errStale
 	case errors.Is(err, workflows.ErrArchived):
@@ -75,12 +78,11 @@ func workflowError(err error) error {
 	return err
 }
 
-func toWorkflowSummary(ctx context.Context, w workflows.Workflow) workflowSummary {
-	p := auth.PrincipalFrom(ctx)
+func toWorkflowSummary(w workflows.Workflow) workflowSummary {
 	return workflowSummary{ID: w.ID.String(), Name: w.Name, Description: w.Description,
-		Owner: personRef{ID: w.OwnerID.String(), Name: w.OwnerName}, Sharing: workflowSharing(w.Sharing),
-		SharedGroups: append([]string{}, w.SharedGroups...), CurrentVersion: w.CurrentVersion, UpdatedAt: w.UpdatedAt,
-		Archived: w.ArchivedAt != nil, CanEdit: p != nil && p.UserID == w.OwnerID}
+		Owner: personRef{ID: w.OwnerID.String(), Name: w.OwnerName}, SharedWith: w.SharedWith,
+		CurrentVersion: w.CurrentVersion, UpdatedAt: w.UpdatedAt,
+		Archived: w.ArchivedAt != nil, CanRun: w.CanRun, CanEdit: w.CanEdit, CanAdminister: w.CanAdminister}
 }
 
 func toVersionSummary(v workflows.Version) versionSummary {
@@ -134,7 +136,7 @@ func (s *Server) handleListWorkflows(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]workflowSummary, 0, len(list))
 	for _, wf := range list {
-		out = append(out, toWorkflowSummary(r.Context(), wf))
+		out = append(out, toWorkflowSummary(wf))
 	}
 	respondJSON(w, r, http.StatusOK, map[string]any{"workflows": out})
 }
@@ -146,7 +148,7 @@ func (s *Server) respondWorkflow(w http.ResponseWriter, r *http.Request, id uuid
 		respondError(w, r, workflowError(err))
 		return
 	}
-	respondJSON(w, r, status, workflowResponse{Workflow: toWorkflowSummary(r.Context(), wf),
+	respondJSON(w, r, status, workflowResponse{Workflow: toWorkflowSummary(wf),
 		Version: toVersionResponse(v)})
 }
 
@@ -215,6 +217,22 @@ func (s *Server) handleArchiveWorkflow(w http.ResponseWriter, r *http.Request) {
 	respondNoContent(w)
 }
 
+func (s *Server) handleRestoreWorkflow(w http.ResponseWriter, r *http.Request) {
+	id, perr := pathUUID(r, "workflowID", "workflow")
+	if perr != nil {
+		respondError(w, r, perr)
+		return
+	}
+	if !s.workflowsReady(w, r) {
+		return
+	}
+	if err := s.Workflows.Restore(r.Context(), id); err != nil {
+		respondError(w, r, workflowError(err))
+		return
+	}
+	s.respondWorkflow(w, r, id, http.StatusOK)
+}
+
 func (s *Server) handleListWorkflowVersions(w http.ResponseWriter, r *http.Request) {
 	id, perr := pathUUID(r, "workflowID", "workflow")
 	if perr != nil {
@@ -278,36 +296,7 @@ func (s *Server) handleDiffWorkflowVersions(w http.ResponseWriter, r *http.Reque
 		respondError(w, r, workflowError(err))
 		return
 	}
-	out := diffResponse{From: d.From, To: d.To, Hunks: make([]diffHunk, 0, len(d.Hunks))}
-	for _, h := range d.Hunks {
-		hunk := diffHunk{FromLine: h.FromLine, ToLine: h.ToLine, Lines: make([]diffLine, 0, len(h.Lines))}
-		for _, l := range h.Lines {
-			hunk.Lines = append(hunk.Lines, diffLine{Op: diffOp(l.Op), Text: l.Text})
-		}
-		out.Hunks = append(out.Hunks, hunk)
-	}
-	respondJSON(w, r, http.StatusOK, out)
-}
-
-func (s *Server) handleShareWorkflow(w http.ResponseWriter, r *http.Request) {
-	id, perr := pathUUID(r, "workflowID", "workflow")
-	if perr != nil {
-		respondError(w, r, perr)
-		return
-	}
-	var req sharingRequest
-	if err := decodeJSON(w, r, &req); err != nil {
-		respondError(w, r, err)
-		return
-	}
-	if !s.workflowsReady(w, r) {
-		return
-	}
-	if err := s.Workflows.Share(r.Context(), id, string(req.Sharing), req.Groups); err != nil {
-		respondError(w, r, workflowError(err))
-		return
-	}
-	s.respondWorkflow(w, r, id, http.StatusOK)
+	respondJSON(w, r, http.StatusOK, diffResponse{From: d.From, To: d.To, Hunks: toDiffHunks(d.Hunks)})
 }
 
 func (s *Server) handleValidateWorkflow(w http.ResponseWriter, r *http.Request) {

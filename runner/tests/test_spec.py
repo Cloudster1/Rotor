@@ -58,3 +58,29 @@ def test_a_node_past_its_last_visit_leads_to_its_on_exhausted() -> None:
     spec = parse((FIXTURES / "valid" / "review-loop.yaml").read_text())
     assert spec.next("write") == ["review", "escalate"]
     assert spec.ways("write") == ["review"], "the graph's own edges leave the way past the last visit out"
+
+
+def test_a_skill_named_twice_is_refused_at_its_second_mention() -> None:
+    source = """apiVersion: rotor.dev/v1
+kind: Workflow
+metadata: {name: twice}
+limits: {maxSteps: 5, timeout: 1m}
+entry: a
+nodes:
+  - id: a
+    type: agent
+    prompt: hi
+    skills:
+      - {name: one, version: 1}
+      - {name: two, version: 1}
+      - {name: one, version: 2}
+      - {name: two, version: 1}
+"""
+    found = [(p.path, p.code) for p in check(source)]
+    assert found == [("/nodes/0/skills/2", "skill_twice"), ("/nodes/0/skills/3", "skill_twice")]
+
+
+def test_an_agent_keeps_its_skills_and_only_an_agent_takes_them() -> None:
+    assert check((FIXTURES / "valid" / "agent-with-skills.yaml").read_text()) == []
+    found = [(p.path, p.code) for p in check((FIXTURES / "invalid" / "code-with-skills.yaml").read_text())]
+    assert found == [("/nodes/0", "schema")]

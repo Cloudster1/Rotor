@@ -22,12 +22,13 @@ const DRAFT: WorkflowSummary = {
   name: "draft-requirements",
   description: "",
   owner: { id: ME.user.id, name: ME.user.name },
-  sharing: "private",
-  sharedGroups: [],
+  sharedWith: 0,
   currentVersion: 1,
   updatedAt: "2026-10-18T10:00:00Z",
   archived: false,
+  canRun: true,
   canEdit: true,
+  canAdminister: true,
 };
 
 const RESPONSE: WorkflowResponse = {
@@ -71,6 +72,7 @@ const RUN: Run = {
   ended: false,
   approvalId: null,
   approvalIds: [],
+  traceId: null,
   trigger: null,
   usage: { inputTokens: 0, outputTokens: 0, cost: 0 },
 };

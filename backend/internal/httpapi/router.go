@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/cloudster1/rotor/backend/internal/config"
+	"github.com/cloudster1/rotor/backend/internal/traces/otlp"
 )
 
 // APIPrefix is where every endpoint but the probes lives.
@@ -39,6 +40,8 @@ type Server struct {
 	Catalogs  Catalogs
 	// Workflows is nil only in tests that exercise none.
 	Workflows Workflows
+	// Skills is the skill library (#219); nil answers 503.
+	Skills Skills
 	// Runs is nil where OpenBao is not configured; its routes then answer 503.
 	Runs Runs
 	// NoSandboxes is set where the installation runs no sandboxes; /meta then says runs are off (#178).
@@ -59,15 +62,32 @@ type Server struct {
 	LangSmithEndpoint string
 	// Retention is how long a finished run's data is kept (#41); nil answers 503.
 	Retention Retention
+	// Traces is how long runs' traces are kept and whether their text is (#242); nil answers 503.
+	Traces TraceSettings
+	// Spans keeps what senders post to the OTLP endpoint (#243); nil answers 503.
+	Spans SpanStore
+	// TraceReads reads runs' traces and senders' own as the caller (#244); nil answers 503.
+	TraceReads TraceReader
 	// Workspaces is what workspaces may use (#136); nil answers 503.
 	Workspaces Workspaces
+	// Preferences are what a person chooses for themselves (#206); nil answers 503.
+	Preferences Preferences
 	// OAuth is Rotor as the authorization server of its MCP endpoint (#47); nil answers 503 and refuses every token.
 	OAuth OAuthServer
 	// TrustedProxies are the peers whose X-Real-IP header names the caller.
 	TrustedProxies []netip.Prefix
+	// Access resolves each request's permissions from the grants (#202); nil only in tests that resolve none.
+	Access Access
+	// AccessAdmin keeps roles, groups and grants, and Switches lets people in and out (#203); nil answers 503.
+	AccessAdmin AccessAdmin
+	Switches    Switches
 	// Sessions and SignIn are nil only in tests that exercise neither.
 	Sessions Sessions
 	SignIn   SignIn
+	// JoinRequests lets in or turns away who waits after signing in (#204); *perm.Store is the real one.
+	JoinRequests JoinRequests
+	// SingleSignOn keeps the identity provider an administrator sets up on Access (#204); *oidc.Service is the real one.
+	SingleSignOn SingleSignOn
 	// ServiceAccounts checks a realm's access token at the routes that take one (#168); nil refuses every such token.
 	ServiceAccounts ServiceAccounts
 	// SessionTTL is how long the cookie a sign-in sets lives, matching the session behind it.
@@ -88,6 +108,8 @@ type Server struct {
 
 	// handler is the whole router, which MCP sends the calls of its tools through; Routes sets it.
 	handler http.Handler
+	// otlpRates counts each sender's requests and spans at the OTLP endpoint in this replica; Routes makes it.
+	otlpRates *otlp.Limiter
 }
 
 // Routes builds the HTTP surface. The order matters: an id first so every later
@@ -98,6 +120,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 		timeout = config.DefaultRequestTimeout
 	}
 
+	s.otlpRates = otlp.NewLimiter(time.Now)
 	r := chi.NewRouter()
 	r.Use(traced)
 	r.Use(requestID)
@@ -125,6 +148,8 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 		r.Post("/hooks/{toolID}", s.handleReceiveHook)
 		s.mountOAuth(r)
 		r.With(s.requireMCPAuth).Post("/mcp", s.handleMCP)
+		// Apps send spans with a token alone (#243); the session cookie is refused there.
+		r.With(s.tokensOnly).Post("/otlp/v1/traces", s.handleReceiveTraces)
 		mountPending(r, true, false)
 		// A service account of the realm adds tools and hands Rotor their hook secrets (#168); nothing else takes its
 		// token. The table marks these rows serviceAccount, and a test holds the two to each other.
@@ -143,6 +168,22 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(requireAuth)
 			r.Get("/auth/me", s.handleMe)
+			r.Get("/auth/me/preferences", s.handleGetPreferences)
+			r.With(requireSession).Put("/auth/me/preferences", s.handleSetPreferences)
+			r.Get("/access/me", s.handleMyAccess)
+			r.Get("/roles", s.handleListRoles)
+			r.Get("/permissions", s.handleListPermissions)
+			r.Get("/workflows/{workflowID}/grants", s.handleListWorkflowGrants)
+			// Granting is a person's act, never an assistant's, and so is looking up whom to grant to.
+			r.Group(func(r chi.Router) {
+				r.Use(requireSession)
+				r.Get("/groups", s.handleListGroups)
+				r.Get("/people", s.handleFindPeople)
+				r.Post("/workflows/{workflowID}/grants", s.handleGrantOnWorkflow)
+				r.Delete("/workflows/{workflowID}/grants/{grantID}", s.handleRevokeOnWorkflow)
+				r.Post("/skills/{skillID}/grants", s.handleGrantOnSkill)
+				r.Delete("/skills/{skillID}/grants/{grantID}", s.handleRevokeOnSkill)
+			})
 			r.With(requireSession).Post("/auth/logout", s.handleLogout)
 			r.Get("/tools/{toolID}", s.handleGetTool)
 			r.Get("/connections", s.handleListConnections)
@@ -159,13 +200,18 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Get("/workflows/{workflowID}/versions", s.handleListWorkflowVersions)
 			r.Get("/workflows/{workflowID}/versions/{versionNumber}", s.handleGetWorkflowVersion)
 			r.Get("/workflows/{workflowID}/diff", s.handleDiffWorkflowVersions)
-			r.Put("/workflows/{workflowID}/sharing", s.handleShareWorkflow)
+			r.Post("/workflows/{workflowID}/restore", s.handleRestoreWorkflow)
 			r.Get("/schemas/workflow.v1.json", s.handleWorkflowSchema)
 			r.Post("/workflows/{workflowID}/runs", s.handleStartRun)
 			r.Get("/runs", s.handleListRuns)
 			r.Get("/runs/{runID}", s.handleGetRun)
 			r.Post("/runs/{runID}/cancel", s.handleCancelRun)
 			r.Get("/runs/{runID}/events", s.handleRunEvents)
+			r.Get("/runs/{runID}/trace", s.handleGetRunTrace)
+			r.Get("/runs/{runID}/trace/spans/{spanID}", s.handleGetRunTraceSpan)
+			r.Get("/traces", s.handleListTraces)
+			r.Get("/traces/{traceID}", s.handleGetTrace)
+			r.Get("/traces/{traceID}/spans/{spanID}", s.handleGetTraceSpan)
 			r.Get("/approvals", s.handleListApprovals)
 			r.Get("/approvals/count", s.handleCountApprovals)
 			r.Get("/approvals/{approvalID}", s.handleGetApproval)
@@ -180,6 +226,21 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Get("/workflows/{workflowID}/triggers", s.handleListWorkflowTriggers)
 			r.Post("/workflows/{workflowID}/triggers", s.handleCreateTrigger)
 			r.Get("/usage", s.handleMyUsage)
+			r.Get("/skills", s.handleListSkills)
+			r.Post("/skills", s.handleCreateSkill)
+			r.Post("/skills/validate", s.handleValidateSkill)
+			r.Post("/skills/import", s.handleImportSkill)
+			r.Get("/skills/{skillID}", s.handleGetSkill)
+			r.Put("/skills/{skillID}", s.handleSaveSkill)
+			r.Delete("/skills/{skillID}", s.handleArchiveSkill)
+			r.Post("/skills/{skillID}/restore", s.handleRestoreSkill)
+			r.Get("/skills/{skillID}/versions", s.handleListSkillVersions)
+			r.Get("/skills/{skillID}/versions/{versionNumber}", s.handleGetSkillVersion)
+			r.Get("/skills/{skillID}/versions/{versionNumber}/file", s.handleGetSkillFile)
+			r.Get("/skills/{skillID}/versions/{versionNumber}/export", s.handleExportSkillVersion)
+			r.Get("/skills/{skillID}/diff", s.handleDiffSkillVersions)
+			r.Get("/skills/{skillID}/grants", s.handleListSkillGrants)
+			r.Get("/settings/traces", s.handleGetTraceSetting)
 			mountPending(r, false, false)
 			r.Group(func(r chi.Router) {
 				r.Use(requireAdmin)
@@ -206,10 +267,29 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Delete("/settings/langsmith/key", s.handleRemoveLangSmithKey)
 				r.Get("/settings/retention", s.handleGetRetention)
 				r.Put("/settings/retention", s.handleSetRetention)
+				r.Put("/settings/traces", s.handleSetTraceSetting)
 				r.Get("/settings/unattended-writes", s.handleGetUnattendedWrites)
 				r.Put("/settings/unattended-writes", s.handleSetUnattendedWrites)
 				r.Get("/settings/workspaces", s.handleGetWorkspaces)
 				r.Put("/settings/workspaces", s.handleSetWorkspaces)
+				r.Post("/roles", s.handleCreateRole)
+				r.Patch("/roles/{roleKey}", s.handleUpdateRole)
+				r.Delete("/roles/{roleKey}", s.handleDeleteRole)
+				r.Post("/groups", s.handleCreateGroup)
+				r.Get("/groups/{groupID}", s.handleGetGroup)
+				r.Delete("/groups/{groupID}", s.handleDeleteGroup)
+				r.Post("/groups/{groupID}/members", s.handleAddGroupMember)
+				r.Delete("/groups/{groupID}/members/{userID}", s.handleRemoveGroupMember)
+				r.Get("/role-assignments", s.handleListAssignments)
+				r.Post("/role-assignments", s.handleGrantRole)
+				r.Delete("/role-assignments/{assignmentID}", s.handleRevokeRole)
+				r.Get("/users", s.handleListUsers)
+				r.Patch("/users/{userID}", s.handleUpdateUser)
+				r.Get("/users/requests", s.handleListJoinRequests)
+				r.Post("/users/requests/{userID}/admit", s.handleAdmitJoinRequest)
+				r.Delete("/users/requests/{userID}", s.handleDeclineJoinRequest)
+				r.Get("/oidc-provider", s.handleGetOIDCProvider)
+				r.Put("/oidc-provider", s.handleSaveOIDCProvider)
 				mountPending(r, false, true)
 			})
 		})

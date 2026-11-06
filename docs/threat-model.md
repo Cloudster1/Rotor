@@ -20,6 +20,8 @@ finding updates this document in the same pull request.
 | Access tokens minted for a run | OpenBao `rotor/runs/{run}`, the runner's memory | Act as the person for minutes |
 | Model provider keys | OpenBao `rotor/providers/{id}/key`, the runner's memory | Spend money; read prompts |
 | LangSmith key, webhook secrets | OpenBao | Send data out; start workflows |
+| Trace destinations' headers | OpenBao, `rotor/settings/trace-destinations/{id}/headers` | Write into a team's tracing tool; read it, for some |
+| Traces: spans, and the prompt, tool and answer text in them | Postgres, the text sealed with the run's key | Show what a run read and wrote, step by step |
 | Run data: inputs, events, checkpoints, outputs, approvals | Postgres | Hold what a run read from the tools, which may be confidential |
 | Sessions | Postgres (SHA-256 of the cookie) | Act as a person in Rotor |
 | Assistants' tokens and codes | Postgres (SHA-256 of each), the assistant | Act as a person over MCP for an hour, or refresh for 30 days |
@@ -38,11 +40,12 @@ finding updates this document in the same pull request.
 | Compromised tool or provider | Answers to Rotor's calls | Tokens of other tools; data from the run |
 | Network attacker | A position between components | Tokens in transit |
 | Supply chain | A dependency or base image | Code in every sandbox or in the control plane |
+| Span sender | A Rotor access token or a realm token, at the OTLP endpoint | To write into another person's run trace, to show readers text of its choosing, or to fill the database |
 
 Administrators are the trust boundary, not a target inside it: they already
-configure tools, providers, prices, limits and LangSmith, and read the audit
-log. Operators who hold the database, OpenBao or the cluster hold everything
-Rotor holds.
+configure tools, providers, prices, limits, LangSmith and trace destinations,
+and read the audit log. Operators who hold the database, OpenBao or the
+cluster hold everything Rotor holds.
 
 ## Trust boundaries
 
@@ -64,6 +67,8 @@ Rotor holds.
   Exciter, Armature, Stator (each judges every call)
        |
        +--(7) webhooks, signed, into the api's public endpoint
+
+  LangChain apps and tools --(8) OTLP spans, with a bearer token--> api
 ```
 
 1. **Browser to web and api:** a person's session.
@@ -77,6 +82,8 @@ Rotor holds.
    enforces the person's rights.
 6. **Sandbox to provider:** prompts carrying tool content.
 7. **Tools to api:** event deliveries that start runs.
+8. **Apps and tools to api:** spans over OTLP/HTTP, each judged as its
+   sender (#243). Everything a sender sends is treated as untrusted.
 
 ## STRIDE by component
 
@@ -192,6 +199,7 @@ listed.
 | I | A token for one tool reaching another | Each token is minted for one tool's resource and the binding's scopes | Built (#12) |
 | E | A run doing more than its person may | The tool enforces the person's rights on every call; read bindings never write | Built (#12, #16) |
 | E | Content in a tool steering a run | Fenced as data under a fixed policy, links limited, a warning on unapproved writes; see [the analysis](#untrusted-content-private-data-and-a-way-out) | Built (#40); write confirmation open #32 |
+| E | A skill steering a run | Skill text is followed as instruction, so only versions a workflow pins reach an agent, checked on every read against the pin and the run's person; a skill's own fence markers are defanged; see [the analysis](#untrusted-content-private-data-and-a-way-out) | Built (#222) |
 
 ### LLM provider
 
@@ -200,13 +208,27 @@ listed.
 | I | Prompts carry tool content to the provider | An administrator chooses the provider; that is the purpose | Accepted |
 | T | A model answer steering a write | Read bindings, approvals; tool content fenced as data; links in what an agent writes limited to the tools' hosts | Built (#40) |
 
-### Traces and LangSmith
+### Traces, the OTLP endpoint and destinations
 
 | | Threat | Mitigation | Status |
 |---|---|---|---|
-| I | Spans carrying secrets | Attributes are redacted by the runner and again by the api | Built (#37) |
+| I | Spans carrying secrets | Attributes are redacted by the runner and again by the api, the endpoint's spans too | Built (#37, #243) |
 | I | Run data leaving the installation | LangSmith is off until an administrator turns it on and acknowledges it; the key stays in the control plane | Built (#37) |
-| I | Data in Jaeger or LangSmith outliving Rotor's retention | The operator's collector and LangSmith keep their own retention | Accepted, documented with #41 |
+| I | Prompt, tool and answer text leaving for a destination | A destination receives none until an administrator acknowledges that text leaves for it; headers live in OpenBao and are never answered; the operator's collector never receives text | Open #246 |
+| I | Data in Jaeger, LangSmith or a destination outliving Rotor's retention | The operator's collector and each destination keep their own retention | Accepted, documented with #41 |
+| I | Reading another person's trace | Row level security: a run's trace exactly when its events, a sender's own trace by its sender and administrators; any other answers 404, as the run does | Open #242 |
+| I | Text kept at rest in Rotor | Kept only while an administrator turns `keep_content` on; sealed with the run's key; gone after the retention, 14 days by default, or with the run | Open #242 |
+| I | An exception's message quoting an input while text is off | Redacted and cut to 512 characters | Accepted: a failure must show to be debugged |
+| S | A sender naming a run's trace id to write into a run it may not read | A span joins a run only when its sender reads the run, judged by row level security as the sender; otherwise it joins the sender's own trace, answered as a trace id of no run, so nothing tells whether the run exists | Built (#243) |
+| S | A sender posing as the runner or as another run | `source`, `service`, `rotor.run`, `rotor.workflow` and `rotor.sender` are set by Rotor and `rotor.*` keys a sender sends are dropped; the page shows who sent each span | Built (#243, #245) |
+| S | A token taken from an app used to send spans | Bearer tokens alone, never the cookie; Rotor's tokens last an hour and work at MCP and the endpoint alone; a grant to read is refused; a realm token is checked as #168's, for an account Rotor lets in | Built (#243) |
+| T | A span reusing a span id to replace the runner's | A span id already in the trace is skipped; spans are immutable to `rotor_app` | Open #242 |
+| T | Text in a span steering whoever reads the trace, or the assistant reading it | Span text is shown as text, never markdown or HTML, and no address in it is a link; a sender's spans say who sent them; `get_run_trace` answers spans as data, as `get_run` answers outputs | Built (#244, #245) |
+| D | Large or packed bodies at the endpoint | 4 MiB as sent and 16 MiB unpacked, read through a limit, 413 past it | Built (#243) |
+| D | A sender flooding the endpoint or the database | Per sender and replica, 300 requests and 20000 spans a minute, then 429; 2048 spans a request; 10000 spans and 32 MiB a trace and 100000 spans a sender's own traces, held by a trigger whoever inserts | Built (#243) |
+| D | A sender filling a run's trace to its cap, so the runner's later spans are lost | Only someone who reads the run can; the trace says it was cut and how many spans it refused | Accepted |
+| D | Storing or exporting spans holding up a run | Both run beside the run on bounded pools of their own, dropping a batch rather than waiting | Built (#234) for export; Open #242 for storing |
+| E | An administrator pointing a destination at an address inside the network | Administrators choose the api's egress for traces as operators do for the collector; the api reads no answer beyond its status | Accepted |
 
 ### Images and dependencies
 
@@ -240,6 +262,14 @@ What stands in the way, from the outside in:
   and everything a prompt quotes, from tool answers, earlier steps and the
   run's inputs, sits inside a fence with an id random to the sandbox; a
   marker planted in content is defanged, so it cannot close one.
+- **Skills are instructions, so they are pinned (#222).** What `read_skill`
+  answers is the one thing a tool returns that is not fenced: an agent is
+  meant to follow it, as it follows its role. That holds only because a
+  workflow names the exact skill version its author chose, a version never
+  changes, the control plane answers a read only for a version the run pins
+  and its person may read, and a skill's own fence markers are defanged. The
+  risk that remains is a skill whose author is not trusted: pinning a skill
+  is trusting its version as much as the workflow's own role.
 - **Links lead only to the tools (#40).** A link in an agent's answer, its
   streamed text or the arguments it sends a tool is removed unless its host
   is one of the run's tools', and a `link.removed` event says so; the run's

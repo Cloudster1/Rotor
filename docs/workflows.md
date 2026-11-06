@@ -109,7 +109,7 @@ each of them, and an administrator can forbid them for everyone;
 
 | Type | What it does | Fields |
 |---|---|---|
-| `agent` | a model that may call the tools of its bindings | `prompt`, `tools`, `output.schema`, `model`, `role`, `maxSteps` |
+| `agent` | a model that may call the tools of its bindings | `prompt`, `tools`, `output.schema`, `model`, `role`, `maxSteps`, `skills` |
 | `tool` | one MCP call | `tool` (a binding), `call`, `arguments` |
 | `code` | a Python function | `source`, `output.schema`, `tools`, `timeout`, `memory` |
 | `approval` | waits until a person decides | `message`, `approvers`, `form`, `expiresIn` |
@@ -131,6 +131,10 @@ An agent is a specialist when it says so (#133). Each of these is optional:
   run read goes into the prompt, fenced as data, never into the instructions.
 - `maxSteps`: how many model and tool steps the agent may take, at most the
   workflow's `limits.maxSteps`, which it has without one.
+- `skills`: at most 10 skills from the library the agent may follow, each
+  `{ name, version }` and each named once (#221). The version is pinned: a
+  new version of the skill changes nothing until the workflow names it.
+  [`docs/skills.md`](skills.md) says what a skill is.
 
 Each model call counts at its own model's prices toward the run's `maxCost`,
 and the run's page shows which model each agent ran on and what it used.
@@ -384,8 +388,8 @@ When a workflow is saved, and again when a run starts:
   - an approval's form names only its own fields, and no binding allows a
     call that decides a review, which a person does in the tool itself
   - every `unattended` call is one of its binding's `allowTools`
-  - an agent takes at most the workflow's `maxSteps`, and its role holds no
-    template
+  - an agent takes at most the workflow's `maxSteps`, its role holds no
+    template, and it names each skill once (`skill_twice`)
   - a repository's `project` and `name` read nothing but `inputs`
   - a workspace names a repository binding, and writes only through one that
     may push (`workspace_binding`)
@@ -393,6 +397,14 @@ When a workflow is saved, and again when a run starts:
     the work tree, and asks for no longer than its run (`test_node`)
 - **The models an administrator allows:** an agent's own `model` is one of
   them (`model_not_allowed`).
+- **The skills, as you read them,** when saving: each skill an agent names
+  is one you may read (`skill_unknown`, which a skill nobody has answers
+  too), it has the version pinned (`skill_version_unknown`), and it is not
+  archived (`skill_archived`). When a run starts, by hand or by a trigger,
+  the run's person must be able to read every skill, or the start is refused
+  with `skill_unreadable`, naming the skill; a trigger is turned off for it.
+  An archived skill does not stop a run of a version saved before, since its
+  pin holds.
 - **The tools as you see them,** when saving, and when a run starts, read
   afresh from the tools as the run's person, so a call a tool turned into a
   write since is caught:
@@ -494,6 +506,22 @@ and its sandbox's network.
 Exciter (#25): an agent drafts a title and a statement, and a tool node files them with `create_requirement` as the
 person who runs it.
 
+`examples/` is the single source of the workflows Rotor ships: the editor bundles every `.yaml` file in it when the
+web app is built, so a file added there is offered with no other change (#214). On New workflow, the Start from
+list offers a blank workflow first, then each file by its `metadata.name` and `metadata.description`, with a link
+to its section below. Choosing one puts its YAML in the editor, and undo takes it back; nothing is saved until you
+save, and saving checks it like any workflow, so a tool it binds must be connected first. `/workflows/new?start=<name>`
+opens the editor with that workflow, and an unknown name opens the blank one.
+
+Three of them pin a skill Rotor ships (#225), which their agents load when its method helps
+([`skills.md`](skills.md#skills-rotor-ships)):
+
+| Workflow | Agent | Skill |
+|---|---|---|
+| `story-refinement` | `analyse` | `requirements-engineering` version 1 |
+| `story-to-requirements` | `analyse` | `requirements-engineering` version 1 |
+| `requirement-to-test-spec` | `design`, `design-review` | `test-engineering` version 1 |
+
 ### Clarify a story, then write its requirements
 
 [`story-to-requirements.yaml`](../examples/story-to-requirements.yaml) (#130)
@@ -504,9 +532,9 @@ conversation on the ticket. A trigger on Armature's `issue.created` and
    requirements Rotor filed for it before. It ends the run unless the issue
    is a Story, and, on a comment, unless the comment answers the questions
    Rotor asked last.
-2. **Analyse**, an agent with no tools, reads what gather found and answers
-   either questions or the requirements to create or update. Nothing the
-   story says can make it write.
+2. **Analyse**, an agent whose one tool reads the `requirements-engineering`
+   skill, reads what gather found and answers either questions or the
+   requirements to create or update. Nothing the story says can make it write.
 3. With questions, a code node posts them as one comment headed
    **Questions from Rotor**, and the run ends. The answer starts the next run.
 4. Otherwise a code node writes the requirements in the trigger's Exciter
@@ -522,6 +550,35 @@ equal `true`, and `exciterProject` set to the Exciter project; agree to the
 calls the form lists. [`triggers.md`](triggers.md#the-story-workflow-against-armature)
 walks through it, Armature's webhook included. The suite runs it against the
 real Armature and Exciter (`TestSuiteAStoryInArmatureBecomesRequirementsInExciter`).
+
+### Refine a story before its requirements
+
+[`story-refinement.yaml`](../examples/story-refinement.yaml) (#212) makes an
+Armature user story ready to plan, holding the conversation on the ticket. A
+trigger on Armature's `issue.created` and `comment.added` starts it as the
+trigger's owner:
+1. **Gather**, a code node, reads the issue and its comments. It ends the run
+   unless the issue is a Story; on a comment, unless the comment answers the
+   refinement questions Rotor asked last; and on a new event, when Rotor has
+   refined the story before. Any comment headed "... from Rotor" is Rotor's,
+   so the comments of story-to-requirements answer nothing here, and the
+   other way round.
+2. **Analyse**, an agent whose one tool reads the `requirements-engineering`
+   skill, checks the story for a real role and benefit, unmeasurable words, hidden design, missing error, boundary and
+   permission behaviour, and its size. It answers either questions or a
+   refinement.
+3. With questions, a code node posts them as one comment headed
+   **Refinement questions from Rotor**, and the run ends. The answer starts
+   the next run.
+4. Otherwise a code node comments **Refined story from Rotor**: the story as
+   "As a ..., I want ..., so that ...", numbered acceptance criteria as given,
+   when and then, what is out of scope, the assumptions to confirm, and a
+   split proposal when the story is too large for one iteration. The
+   description stays the people's; they copy from it what they agree with.
+
+Its only write is that comment, `unattended`. To use it before
+story-to-requirements, see
+[`triggers.md`](triggers.md#refining-a-story-first).
 
 ### Implement a feature through reviewed, tested code
 
@@ -578,6 +635,33 @@ Armature, on a fixture repository (`TestAFeatureIsImplementedThroughReviewedTest
 the suite runs its test design against the real Exciter and Armature
 (`TestSuiteAFeaturesTestCasesAreDesignedAndFiledInExciter`). The suite's
 Armature has no Gitea yet, so its repository half runs on the double alone.
+
+### Design a feature's test cases and file them for review
+
+[`requirement-to-test-spec.yaml`](../examples/requirement-to-test-spec.yaml)
+(#213) is the test design of `implement-feature.yaml` on its own, for a
+feature whose code is not written yet or is written elsewhere. A person starts
+it with the Exciter project, the feature (a section or a requirement) and the
+section test cases go under:
+1. **Gather**, a code node, reads the feature's requirements, the test cases
+   that verify them, and which requirements changed: one whose `verifies` link
+   is suspect, or that no test case verifies yet. With no change, the run
+   ends there and files nothing.
+2. **Test design**, at most three rounds, as in `implement-feature.yaml`: a
+   test designer drafts the specification (levels, techniques, risks and what
+   is not covered) and the cases the changed requirements need, a test
+   reviewer approves or names what to change, both with the
+   `test-engineering` skill, and after the third draft a
+   person decides whether to file it as it is.
+3. **File**, a code node, creates or updates the cases as test case
+   requirements under the test section, links each to the requirements it
+   verifies, clears the suspect links the design settled, comments the
+   specification on the feature as **Test specification from Rotor**, and
+   asks for the cases' review.
+
+The agents only read; every write is the code node's. The integration test
+runs it against the tool double's Exciter
+(`TestAFeaturesTestCasesAreDesignedReviewedAndFiled`).
 
 The examples below are the golden fixtures, which show more of the spec.
 

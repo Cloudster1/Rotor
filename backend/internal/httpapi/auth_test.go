@@ -15,6 +15,7 @@ import (
 
 	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
+	"github.com/cloudster1/rotor/backend/internal/perm"
 )
 
 type fakeSessions struct {
@@ -61,7 +62,8 @@ func signedInServer(t *testing.T) (*Server, *fakeSessions, *fakeSignIn) {
 	t.Helper()
 	s := newServer(t)
 	sessions := &fakeSessions{people: map[string]*auth.Principal{
-		"alice": {UserID: uuid.New(), Email: "alice@suite.test", Name: "Alice Admin", Role: auth.RoleAdmin, Groups: []string{"rotor-administrators"}},
+		"alice": {UserID: uuid.New(), Email: "alice@suite.test", Name: "Alice Admin", Groups: []string{"rotor-administrators"},
+			Perms: perm.NewSet([]perm.Grant{{Role: perm.Administrator}})},
 	}}
 	signIn := &fakeSignIn{}
 	s.Sessions, s.SignIn, s.SessionTTL = sessions, signIn, time.Hour

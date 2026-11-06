@@ -3,6 +3,226 @@
 Newest first. Each entry says what was decided and why, so a later change can
 tell whether the reason still holds.
 
+## 2026-11-05: Run tracing, for M18 (#240)
+
+- **Spans live in Postgres.** A run's trace is read where its run is, by the
+  people who read the run, so the rule that decides who sees a run's events
+  decides who sees its trace, in row level security, with nothing new to keep
+  in step. Text in spans is what a run read, so it is sealed with the run's key
+  (#41) and goes when the run goes. A trace is at most `MaxTraceSpans` spans
+  and `MaxTraceBytes`, kept for days, which Postgres holds without trouble.
+- **No bundled Tempo or Jaeger.** Either would be one more stateful service
+  in every installation, with its own storage, retention, backups and access
+  control, which knows nothing of Rotor's grants, so the api would have to
+  stand in front of it and filter. The observe profile's Jaeger stays the
+  operator's, for the control plane's own spans; teams that want a tracing
+  tool send runs to it as a destination.
+- **OpenInference for LangChain and LangGraph.** It traces every chain,
+  graph node, tool and model call through LangChain's own callbacks, with
+  inputs and outputs in attributes that Arize Phoenix, Langfuse and other
+  OTLP tools read, and it is plain OpenTelemetry, so the runner's provider,
+  channel and checks from #37 stay. Writing the spans ourselves would repeat
+  it and lag behind LangChain; LangSmith's own tracer speaks to LangSmith
+  alone. Its text is chosen by one `TraceConfig`, which the runner sets from
+  the run's `trace_content`.
+- **This changes #37's "prompts and answers go to LangSmith alone".** Text
+  now goes where an administrator allowed it: Rotor keeps it while
+  `keep_content` is on, and each destination receives it once an administrator
+  acknowledged that text leaves for it. It still never reaches the operator's
+  collector. A run records text when any of them may keep it, and the control
+  plane strips it from each place that may not. Text kept in Rotor is read by
+  exactly the people who read the run's events, which already carry the
+  tools' answers and the agents' outputs, so keeping it widens nobody's
+  view; it is still opt-in, as the user chose.
+- **One OTLP endpoint for apps and tools.** Any LangChain app speaks OTLP
+  already, so taking OTLP/HTTP with a bearer token means an app sets three
+  standard variables. A span joins a run only when its sender reads that run,
+  and is otherwise kept as the sender's own, so the endpoint answers a run the
+  sender may not see as one that does not exist.
+- **LangSmith becomes a destination.** LangSmith reads OTLP with two
+  headers, so it is one destination among many rather than a setting of its
+  own; carrying it over keeps every installation sending what it sent.
+
+### Alternatives considered
+
+- Keeping text in Rotor whenever any destination has it: simpler, but text
+  would be kept somewhere nobody chose.
+- A per-workflow switch for text: closer to who knows the data, left for
+  later, since the installation answers for what it keeps.
+- Refusing spans into a run the sender may not see with 403: plainer, but it
+  would tell anyone with a trace id whether the run exists.
+
+## 2026-11-05: Skills for workflow agents, for M17 (#218)
+
+- **The Agent Skills format, unchanged.** A skill is a folder with a
+  `SKILL.md` and reference files, as Claude Code and other agents read them,
+  so a team brings the skills it has and takes them out again. Rotor keeps the
+  front matter it does not enforce, such as `allowed-tools`, rather than
+  dropping it: what an agent may call stays its node's bindings.
+- **Skills live in Postgres.** Rotor has no file store, and a skill is small
+  text, like a workflow's YAML, which is a text column already. Rows give
+  versions, row level security, the audit log and backups with nothing new to
+  run; an object store would be a new dependency for a few megabytes.
+- **Versions are pinned, and the pin is what makes a skill trusted.** An agent
+  follows a skill as it follows its role, so a skill's text is not fenced as
+  untrusted data. That is safe only because a workflow names the exact version
+  its author chose, and a version never changes: editing a skill makes a new
+  version nobody uses until a workflow pins it.
+- **Names are unique in the installation.** A workflow names skills as it
+  names tools, by a word a person reads in the YAML. One namespace keeps that
+  word meaning one skill; Agent Skills' name rule already keeps names short.
+- **The run's person must read every skill.** A run acts as its person in the
+  tools; reading skills the same way keeps one rule for what a run may see.
+  Sharing a workflow then means sharing its skills, which the editor says.
+  Letting the pin alone grant access would make sharing a workflow a way to
+  hand out skills its owner never shared.
+- **Loaded on demand, over the runner's stream.** An agent first sees each
+  skill's name and description and reads the rest when it decides to, as
+  Agent Skills intends, so a skill costs tokens only when used. The files come
+  through a request and answer on the stream the runner already holds, checked
+  per read against the run's pin and person, rather than whole in `StartRun`,
+  which is rebuilt on every reconnect and shares the 8 MiB message cap with
+  checkpoints. A REST fetch would need a credential the runner does not have.
+- **The skills Rotor ships come from the repository.** `skills/` is their
+  single source, as `examples/` is for workflows; the api installs each
+  declared version at start and never rewrites one, so an upgrade adds
+  versions and every pin keeps its meaning.
+
+### Alternatives considered
+
+- Named prompt snippets included whole in the role: simpler, but every step
+  pays for every snippet, and teams' existing skills would not import.
+- Administrators curating one library: less to share, but skills are written
+  by the people who write workflows, and workflows already have grants.
+
+## 2026-11-04: A workflow's settings, and sharing retired (#205)
+
+- **Archived, never deleted.** The standard's workflow settings delete with a
+  `ConfirmDialog`, but a Rotor workflow's versions are immutable and every run
+  pins one, and `rotor_app` holds no `DELETE` on `workflow`. Deleting would
+  take the runs' history with it, so General archives instead, and archiving
+  from the list, where nothing undoes it on the spot, asks in a
+  `ConfirmDialog`.
+- **Undo, not a question.** Archiving on General happens at once with an Undo
+  beside it, as the standard asks: `POST /workflows/{id}/restore` takes the
+  workflow out of the archive. Restoring takes what archiving takes,
+  `workflow.administer`, in the service and in `workflow_change_guard`, which
+  now guards `archived_at` in either direction alone.
+- **The name is the spec's.** A workflow's name and description are its
+  metadata, which every save copies onto the row, so General saves them as a
+  new version, splicing the YAML as the canvas does, rather than a column a
+  later save would overwrite. Renaming therefore takes `workflow.edit`.
+- **The list counts grants, in the same query.** `sharedWith` is how many
+  people and groups besides the owner hold a role on the workflow; everyone
+  signed in reads `role_assignment`, so a subquery answers it without a request
+  per row. What the caller may do comes from `canRun`, `canEdit` and
+  `canAdminister`, which the list already carries.
+- **Sharing and the role word go together.** Nothing read the sharing columns
+  or `app_user.role` once #203 and #204 asked the grants, so 01340 drops them
+  and their trigger. Its Down rebuilds both from the grants that replaced them,
+  so going back keeps everyone's access. `workflows@1` promised
+  `PUT /workflows/{id}/sharing`; no partner used it (Dynamo's compatibility
+  table names none), so the capability promises the grants operations instead
+  of raising its number.
+
+## 2026-11-04: Letting people in, and single sign-on kept in Rotor (#204, #171)
+
+- **Signing in is not being let in.** A person the realm knows who is not let in
+  waits: their join request is kept and shown on Admin's Users page, where an
+  administrator lets them in as a member or turns them away, as in Armature.
+  Only somebody let in joins Everyone or holds anything, which `actor_can()`
+  and the Everyone guards now ask of `app_user.standing` too. Rotor acts in
+  three tools as the person who starts a run, and the suite's standard has
+  every tool decide who is let in; a realm shared by the whole suite is not an
+  allow-list of Rotor's. Everybody with an account before the change is let in,
+  so nobody's access changes.
+- **A group holding Administrator always lets its members in.** With "Let
+  people in by their groups" off, a fresh installation would otherwise have
+  nobody to let anybody in, and the realm's service accounts, which must be in
+  `rotor-administrators` (#168), would stop working. Any other group with a
+  grant lets its members in only with the setting on, Armature's
+  `admit_by_group`.
+- **Bootstrap members as Stator and Exciter read them.**
+  `ROTOR_BOOTSTRAP_MEMBERS` takes Dynamo's `DYNAMO_MEMBERS` as it is
+  (`email=role`, comma separated), and plain addresses separated by commas or
+  white space too. The api lets them in at every start, making an account for a
+  name not yet signed in, which their first sign-in takes by its address; a
+  later start adds names and lets nobody out, and `admin` grants Administrator
+  to whom the list lets in, never to somebody already in. A start rather than
+  the siblings' seed Job, because Rotor has no seed command and every replica
+  can run the same idempotent statement.
+- **Single sign-on is kept in Rotor's database, which reverses "OIDC only,
+  configured from the environment" of the sign-in for M0.** The suite's
+  standard and Armature edit single sign-on on the Access page, and an
+  administrator should not need an operator and a restart to rotate a secret or
+  turn on admission by group. `oidc_provider` is one row, read on every use, so
+  a change another replica saved applies at the next sign-in there too, while
+  the discovery document and the secret are held until the row changes. The
+  environment still seeds the first row, so Dynamo's deployment and the
+  development stack keep signing in; after that the database's is used and the
+  log says so.
+- **The client secret is in OpenBao, never in the row.** Armature keeps it in a
+  column; Rotor keeps every long-lived secret in OpenBao, as it does a model
+  provider's key. The row says only when one was put there. Until an
+  administrator gives one, the environment's secret is used while the issuer
+  and client are the ones it came with; changing either with the secret left
+  blank moves that secret to OpenBao, so it is kept as the form says.
+- **A provider that could not work is refused.** Saving needs an issuer, a
+  client ID and a secret, and reads the issuer's discovery document first, so a
+  typo is refused on the page rather than locking everybody out at the next
+  sign-in.
+- **Single sign-on is not turned off while it is the only way in.** Rotor has
+  no password or other sign-in, so turning it off would lock out everybody, the
+  administrator who did it included, until somebody edited the database. The
+  API refuses it with a sentence saying so, and the tab says it instead of
+  offering the button. The OpenBao login of the control plane keeps using the
+  environment's issuer and its own client, which this does not touch.
+
+## 2026-11-04: Access as roles, groups and grants, kept in row level security (#202)
+
+- **Armature's model, ported whole.** Permissions are a catalogue in
+  `internal/perm`, held to the database by `role_known_permissions`; roles are
+  rows, the built-in five editable but never deleted; groups come from the
+  realm, by hand or are the built-in Everyone; a grant gives a role to a person
+  or a group over the installation or one workflow. Rotor is one of a suite
+  whose administrators should meet one model, and Armature's is the one the
+  suite's standard names.
+- **Row level security stays, asking the grants.** Armature dropped it and
+  checks grants in its handlers alone; Rotor's policies were its second line
+  against a handler that forgets, so each one now asks `actor_can(permission,
+  workflow)`, a plain SQL function that reads the grants under the caller's
+  own policies. `current_actor_is_admin()` became `actor_can('rotor.administer',
+  NULL)`, so every administrators' policy followed without being rewritten.
+  The api resolves the same grants once per request (`perm.Set` on the
+  principal), so a handler asks memory and the database asks itself.
+- **Reading grants never asks `actor_can()`.** A policy on `role_assignment` or
+  `group_member` that asked it would ask itself forever, so everyone signed in
+  reads who holds which role, as in Armature, and a person reads only their own
+  memberships. Writing a grant asks it: an administrator of Rotor grants
+  anything, an administrator of a workflow grants on it, never an assistant.
+- **A fifth built-in role, Author.** Anyone signed in creating workflows was a
+  rule without a grant; Author holds `workflow.create`, installation-wide only,
+  and Everyone holds it, so the rule is a grant an administrator can take away.
+- **Two grants are made by the database itself.** A workflow's creator becomes
+  its Workflow administrator by a trigger, since nobody may grant on a workflow
+  before administering it; and until #203 replaces sharing, a workflow's
+  sharing columns are its runner grants to groups, rewritten by a trigger
+  whenever they change. Both run as the definer, as the oauth triggers do.
+- **One update policy, two permissions.** Saving a version takes
+  `workflow.edit`, sharing and archiving take `workflow.administer`; a policy
+  sees rows, not columns, so `workflow_change_guard` tells the columns apart.
+- **The migration keeps everyone's access.** Membership of
+  `rotor-administrators` becomes an Administrator grant to that group, each
+  owner its workflow's Workflow administrator, and sharing runner grants. The
+  one change is meant: Administrator holds every permission, so an
+  administrator now edits and shares every workflow too, where before they saw
+  and archived them.
+- **Approvals keep the realm groups.** An approval node names a realm group and
+  `current_actor_groups()` still reads `app_user.groups`, written at each
+  sign-in beside the synced membership, so who decides an approval is unchanged.
+- **`app_user.role` stays one release**, written at sign-in as the word the
+  grants give, so a client reading it keeps working; `/auth/me` computes it.
+
 ## 2026-10-22: Coding agents in Rotor's own loop, for M13 (#131)
 
 - **A coder is an agent node with a workspace, not a vendor's coding agent.**
@@ -842,9 +1062,11 @@ This supersedes "Registration only, for now" of #47 below.
   be ended by a query (back-channel logout, switching someone off). Valkey
   stays in the stack for caches and fan-out later; it holds nothing that
   must survive.
-- **OIDC only, configured from the environment.** Rotor never acts on its
-  own: every run acts as a person whose identity in the suite comes from the
-  shared realm, so a local password account would be a person no tool knows.
+- **OIDC only, configured from the environment.** Reversed on 2026-11-04
+  (#204): single sign-on is kept in Rotor's database, which the environment
+  seeds. Rotor never acts on its own: every run acts as a person whose
+  identity in the suite comes from the shared realm, so a local password
+  account would be a person no tool knows.
   The issuer, client and secret are `ROTOR_OIDC_*` variables rather than a
   table an administrator edits, because an installation of Rotor belongs to
   one suite and one realm. Reconsider if Rotor is ever run without the suite.
@@ -853,10 +1075,12 @@ This supersedes "Registration only, for now" of #47 below.
   runs that act in three tools. Keycloak sends a logout token to the api,
   which ends the sessions of that realm session (`sid`), or of the person
   when only `sub` is given.
-- **Every person of the realm may sign in, as a member.** What a person may
-  do in Exciter, Armature and Stator is decided by those tools when a run
-  acts as them, so Rotor needs no gate of its own beyond the realm.
-  `rotor-administrators` makes an administrator of Rotor itself.
+- **Every person of the realm may sign in, as a member.** Reversed on
+  2026-11-04 (#204): a person is let in by an administrator, their group or
+  the bootstrap list. What a person may do in Exciter, Armature and Stator is
+  decided by those tools when a run acts as them, so Rotor needs no gate of
+  its own beyond the realm. `rotor-administrators` makes an administrator of
+  Rotor itself.
 - **A logout token that names a session ends that session alone.** Leaving
   one browser keeps a person's others, as the specification asks; a token
   naming only the person ends all of theirs. Keycloak answers its admin

@@ -36,6 +36,8 @@ type operation struct {
 	// request is the JSON body type the handler decodes; form is a urlencoded form's.
 	request any
 	form    any
+	// binaryRequest and binaryResponse say a body is bytes, not JSON, and name its media type; the response is the 200's.
+	binaryRequest, binaryResponse string
 	// responses maps a status to its envelope or bare type; nil is no body.
 	responses map[int]any
 	// public routes need no session.
@@ -45,6 +47,8 @@ type operation struct {
 	description string
 	// pending routes are agreed but not built yet: they answer 501.
 	pending bool
+	// deprecated routes still work, and a client should move to what the description names.
+	deprecated bool
 	// admin routes are for administrators of Rotor alone; anyone else is refused with 403.
 	admin bool
 	// tool names the row as an MCP tool an assistant may call (#47), with toolHelp to tell the model when; a row
@@ -56,6 +60,8 @@ type operation struct {
 	reads bool
 	// serviceAccount routes also take an access token of the realm, of an account in rotor-administrators (#168).
 	serviceAccount bool
+	// tokensOnly routes take a Rotor access token or a realm's of any account let in, never the session cookie (#243).
+	tokensOnly bool
 }
 
 // operations is the table, by area, then by path.

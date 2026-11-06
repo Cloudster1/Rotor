@@ -114,29 +114,28 @@ sentences.
 | `GET /workflows` | signed in | `{workflows}` the caller may see; `?archived=true` for archived ones |
 | `POST /workflows` | signed in | `{specYAML, comment?}`; 201 `{workflow, version}`; 422 `{problems}` in the envelope's fields |
 | `GET /workflows/{workflowID}` | may see | `{workflow, version}` |
-| `PUT /workflows/{workflowID}` | owner | `{specYAML, comment, baseVersion}`; 409 when `baseVersion` is not current |
-| `DELETE /workflows/{workflowID}` | owner or admin | 204; archives |
+| `PUT /workflows/{workflowID}` | edits it | `{specYAML, comment, baseVersion}`; 409 when `baseVersion` is not current |
+| `DELETE /workflows/{workflowID}` | administers it | 204; archives, never deletes |
+| `POST /workflows/{workflowID}/restore` | administers it | `{workflow, version}`; takes it out of the archive, which undoes archiving (#205) |
 | `GET /workflows/{workflowID}/versions[/{versionNumber}]` | may see | the versions, or one with its YAML |
 | `GET /workflows/{workflowID}/diff?from=&to=` | may see | hunks of lines with `equal`, `insert` and `delete` |
-| `PUT /workflows/{workflowID}/sharing` | owner | `{sharing: private\|groups\|everyone, groups}` |
+| ~~`PUT /workflows/{workflowID}/sharing`~~ | | removed in #205: a workflow is shared by its grants, `docs/api-contract-access.md` |
 | `POST /workflows/validate` | signed in | `{valid, problems}` without saving |
 | `GET /schemas/workflow.v1.json` | signed in | the schema, for the editor |
 | `GET /tools/{toolID}/catalog` | signed in | `{tool, build, tools}`; 409 when the caller is not connected |
 
-- **Who may see a workflow:**
-  - its owner
-  - everyone when `sharing` is `everyone`
-  - a person in one of `sharedGroups` (their realm groups, as of their last sign-in) when it is `groups`
-  - administrators
-
-  Only the owner saves and shares; the database refuses anyone else.
+- **Who may see a workflow** is its grants' to say since #202: a role on it, or over the installation, given to
+  the person, to a group of theirs or to Everyone. Its creator is its Workflow administrator. `sharing` and
+  `sharedGroups` left the workflow in #205; `sharedWith` counts who besides its owner holds a role on it.
+  Editing saves versions, administering grants, archives and restores; the database refuses anyone else.
 - **Versions** are numbered from 1 without gaps and never change. A run pins one.
 - **Sharing** shares the workflow, never the owner's tokens: a run acts as whoever starts it.
 - **The catalog:**
   - It is the tool's `tools/list`, called with an access token minted for the caller.
   - It is cached per tool, tool build (from the tool's `/meta`) and person for `CatalogTTL`.
   - It gives each tool's name, description, input schema and the `readOnlyHint` and `destructiveHint` it declares.
-- **Audit:** `workflow.created`, `workflow.changed` (version), `workflow.shared` (sharing, groups), `workflow.archived`.
+- **Audit:** `workflow.created`, `workflow.changed` (version), `workflow.archived`, `workflow.restored` (#205);
+  `workflow.shared` was written by the sharing route until #205, and grants are audited as `role.granted` and `role.revoked`.
 - **As built (#15):**
   - A 422 lists each problem's message in the envelope's `fields`, by JSON pointer. The editor places problems by line and column through `POST /workflows/validate`.
   - The owner's and each version author's names are kept on the rows, because a person sees only their own row of `app_user`.
@@ -308,6 +307,7 @@ type Spec struct {
   | `interrupt` | `{node, message}` |
   | `run.finished` | `{status, reason, output}` |
   | `runner.lost` | `{since}` |
+  | `skill.read` | `{node, skill, version, path, offset, bytes}`, one per `read_skill` call answered, never its content; since M17 (#222) |
 
 - **As built (#22):**
   - **The extra move:** besides the moves above, a running run whose sandbox was lost goes back to `starting`, and a fresh sandbox resumes it from the last checkpoint. After `MaxRunAttempts` (3) sandboxes it fails with `runner_lost`.

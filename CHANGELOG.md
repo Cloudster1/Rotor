@@ -14,6 +14,270 @@ and the versioning [Semantic Versioning](https://semver.org/).
   `/rotor/policies/`, signed with its SBOM attested like the other images.
   Dynamo runs its OpenBao server and the one-shot setup from it
   (`entrypoint: ["/bin/sh", "/rotor/init.sh"]`) without copying Rotor's files.
+- A run's page shows its trace (#245): each step, model call and tool call as
+  a tree of spans, each with its kind, its duration and a bar placed on the
+  run's time, and the chosen span's details: kind, timing, status and message,
+  who sent it, model and tokens, attributes, events with each exception's
+  message and stack, and the whole input and output where Rotor kept text.
+  Failed spans are marked in words and with an icon, and when the run failed,
+  the span it failed in is opened. The page says when a trace expired, reached
+  its limit and how many spans it lost, or kept no text, and how long traces
+  are kept. Span text shows as text: nothing in it is markup, markdown or a
+  link. The tree works by keyboard (the arrows move, open and close, Enter
+  shows a span) and to a screen reader; a large trace opens to its nodes and
+  shows wide levels 100 spans at a time.
+- A run's trace reads through the API and MCP (#244).
+  `GET /api/v1/runs/{runID}/trace` answers its spans as a tree, each with its
+  kind, timing, status, model, tokens, attributes, events and the first 200
+  characters of its input and output where Rotor kept text, and says whether
+  the trace is kept, expired or not begun and whether it was cut;
+  `GET /api/v1/runs/{runID}/trace/spans/{spanID}` answers one span whole.
+  Whoever reads the run reads its trace, and a run anyone else asks for is
+  answered as one that does not exist. A run carries its `traceId`.
+  `GET /api/v1/traces`, `/traces/{traceID}` and its spans read the traces a
+  sender posted of no run, for the sender and administrators. Assistants get
+  `get_run_trace`, the tree shortened for a model (failed spans and their
+  ancestors first, at most 300 spans in 32 KiB, values cut to 1000 characters
+  and given while 48 KiB lasts), and `get_run_trace_span` for one span whole.
+- Any LangChain app or tool service sends its spans to Rotor over OTLP/HTTP
+  (#243), at `POST /api/v1/otlp/v1/traces`, as protobuf or JSON, gzip or not.
+  The app sets two variables and its stock exporter does the rest:
+
+  ```sh
+  OTEL_EXPORTER_OTLP_ENDPOINT=https://rotor.example/api/v1/otlp
+  OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer%20<token>
+  ```
+
+  The token is an access token from Rotor's authorization server whose grant
+  may act, or an access token of the realm of any account Rotor lets in, such
+  as a service account's from client credentials; a session cookie, a grant
+  to read and an account nobody let in are refused. A span whose trace id is
+  a run's the sender may read joins that run's trace; any other, a run the
+  sender may not read among them, forms a trace of the sender's own, so the
+  answer never tells whether a run exists. Tools a run calls get the run's
+  `traceparent` with each MCP request, so their spans join the run. A sender
+  may send 300 requests and 20000 spans a minute to each api replica, 4 MiB a
+  request (16 MiB unpacked) and 2048 spans in it; spans past a limit or a
+  check are named in OTLP's partial success, and text is kept only while an
+  administrator keeps traces' text.
+- Rotor keeps each run's trace (#242). Every run is traced now, and the
+  spans its runner sends are stored in Postgres beside being sent on, for
+  whoever may read the run's events and nobody else; storing them never holds
+  up a run. A trace stops at 10000 spans or 32 MiB and records what it cut.
+  An administrator sets how long traces are kept, 14 days by default and at
+  most 90, and whether Rotor keeps their prompts, answers and tool calls,
+  off by default and sealed with the run's own key when on, through
+  `GET` and `PUT /settings/traces`; the worker deletes spans past it. The
+  operator's collector still gets the share of runs `ROTOR_TRACE_SAMPLE_RATIO`
+  says.
+- A run's trace shows every chain, graph node, tool and model call of its
+  agents (#241), traced with OpenInference beside Rotor's run, node and MCP
+  spans, so a trace in Jaeger or LangSmith shows why a run did what it did.
+  Model calls keep their model and token counts. Inputs, outputs and messages
+  are recorded only while LangSmith is on, redacted and cut short, and the
+  operator's collector never gets them; an exception shows with or without
+  them. The model call span is named after the model's class, such as
+  `ChatOpenAI`, instead of `llm <model>`, and its prompt and answer are under
+  `llm.input_messages` and `llm.output_messages` instead of `gen_ai.prompt`
+  and `gen_ai.completion`.
+- How runs are traced is agreed (#240): `docs/api-contract-m18.md` says how
+  the runner traces every chain, graph node, tool and model call with
+  OpenInference, how Rotor keeps each run's trace for whoever reads the run,
+  how a LangChain app sends spans to Rotor over OTLP, how a trace is read
+  through the API, MCP and the run's page, and how administrators send traces
+  to OTLP destinations, the LangSmith setting carried over as one. The trace,
+  OTLP and destination routes answer 501 until their issues land.
+- Rotor ships the skills `requirements-engineering` and `test-engineering`
+  (#225), installed by the api at start as built-ins everyone reads and nobody
+  changes. The default workflows use them: the analysing agent of
+  `story-refinement` and `story-to-requirements` loads
+  `requirements-engineering`, and the test designer and reviewer of
+  `requirement-to-test-spec` load `test-engineering`, each pinned to version 1.
+  An upgrade that ships a new version of a skill adds it beside the old ones,
+  so a workflow pinned to an older version keeps reading its text.
+- Skills in the web app (#223). **Skills** in the sidebar lists the skills you
+  may read, built-in ones marked, with a search, the archived ones behind a
+  toggle and an empty state that says what a skill is. **New skill** starts
+  from a `SKILL.md` that passes the checks and checks it as you type; **Import
+  a zip** says whether it made a skill or saved the next version of one. A
+  skill's page shows its files, `SKILL.md` first, and with Skill editor
+  changes, adds and removes them and saves them as a version with a comment,
+  each problem shown at its file; Versions opens, downloads and compares
+  versions file by file; Sharing grants Skill reader, Skill editor and Skill
+  administrator, to Everyone too; General archives and restores, with an
+  Undo. In the workflow editor a **Skills** picker beside the tool picker pins
+  a skill, at the version you pick, under `skills:` of the agent node at the
+  cursor, and the canvas inspector lists an agent's skills and removes one. A
+  workflow's Sharing page says that whoever runs it must read its skills too.
+- Skills through MCP (#224). An assistant lists, reads and checks the skills
+  its person may read and, unless connected to read only, creates skills and
+  saves their next versions, with `list_skills`, `get_skill`,
+  `get_skill_version`, `get_skill_file`, `validate_skill`, `create_skill` and
+  `save_skill`. Sharing, archiving, restoring and importing remain in person.
+- Skills import and export as Agent Skills zips (#220). `POST /skills/import`
+  takes a zip of one skill folder, `SKILL.md` at its root or in its one top
+  folder, and makes the skill or, when you may edit the skill of that name,
+  saves its next version; `GET /skills/{id}/versions/{n}/export` answers a
+  version as a zip that imports unchanged. A zip that is not one, is over
+  2 MiB, holds a path out of the folder, a link, a binary file or more than the
+  library allows once unpacked is refused with a sentence naming the file, and
+  the import is audited as `skill.imported`.
+- Agents load their skills during a run (#222). An agent's instructions list
+  each skill it was given, by name, version and description, and the new
+  built-in tool `read_skill` reads a skill's `SKILL.md` or another of its
+  files when the agent decides to, 64 KiB at a time. What it reads is followed
+  as the workflow's own instruction rather than fenced as data, and is
+  answered only for a version the run's workflow pins and while the run's
+  person may still read the skill. Each read shows in the run's timeline and
+  is recorded as a `skill.read` event, without the text.
+- An agent node names the skills it may follow, each pinned to a version
+  (#221), and `not_built` no longer refuses them. Saving a workflow, and the
+  editor's check as you type, refuses a skill you may not read as if there
+  were none (`skill_unknown`), a version the skill does not have
+  (`skill_version_unknown`), an archived skill (`skill_archived`) and a skill
+  named twice on one node (`skill_twice`). A run, by hand or by a trigger,
+  starts only when its person may read every skill the version names;
+  otherwise it is refused with `skill_unreadable`, naming the skill, and a
+  trigger is turned off for that reason. A version saved before its skill
+  was archived keeps starting.
+- Rotor keeps a library of skills (#219), in the Agent Skills format: a
+  `SKILL.md` with a name and a description, and the reference files it points
+  to. Each save is a new numbered version that never changes, a save made on
+  a version someone else has since replaced is refused, and any two versions
+  compare file by file. Skills are shared like workflows, through the new
+  Skill reader, Skill editor and Skill administrator roles; whoever creates a
+  skill administers it, Author now also creates skills and Administrator holds
+  every skill permission. Skills are archived and restored, never deleted.
+  The `/skills` routes are built but for import and export, which follow
+  (#220); `docs/skills.md` says how to write and share one.
+- How a workflow gets skills is agreed (#218): `docs/api-contract-m17.md`
+  says how Rotor keeps skills in the Agent Skills format as a versioned,
+  shared library, how an agent node pins the ones it may use, how an agent
+  loads them during a run, and how they reach the web app and MCP. The schema
+  carries an agent's `skills`, and a workflow using it is refused as
+  `not_built` until its issue lands; the `/skills` routes answer 501 until then.
+- New workflow offers a Start from list: a blank workflow, then every workflow
+  Rotor ships by name and description, each with a link to its section of the
+  workflows guide (#214). Choosing one fills the editor (undo takes it back)
+  and nothing is saved until you save; `/workflows/new?start=<name>` opens it
+  directly. `examples/` is the single source of the list.
+- A test design workflow to start from, `examples/requirement-to-test-spec.yaml`
+  (#213): for an Exciter feature, it designs the test cases its changed
+  requirements need, has them reviewed for up to three drafts before a person
+  decides, files them as test cases linked to what they verify, clears the
+  suspect links it settled, comments the test specification on the feature
+  and asks for the cases' review.
+- A story refinement workflow to start from, `examples/story-refinement.yaml`
+  (#212): it asks on a new Armature story what is unclear, and once answered
+  comments a refined story with acceptance criteria as given, when and then,
+  what is out of scope, assumptions to confirm and, for a story too large, a
+  split proposal. The story to requirements workflow now takes its comments
+  for Rotor's, so neither answers the other's questions.
+- Settings gathers your own pages (#206), each opening with a sentence on what
+  it is for: Profile, Theme, Assistants, Usage and Tool accounts.
+  - Profile, which was Account, shows your name, email and groups as the
+    suite's sign-in gives them, and this installation's build, and lets you
+    choose the time zone every date in Rotor is written in; until you choose
+    one, Rotor follows your browser's. The API is `GET` and
+    `PUT /auth/me/preferences`, and only you change yours, in person.
+    `/settings/account` sends you to Profile.
+  - Theme chooses the colour scheme, as the system, light or dark, the same
+    choice the top bar's button steps through, kept in this browser.
+  - Tool accounts is where you connect your accounts in Exciter, Armature and
+    Stator, moved from Connections, which leaves the sidebar. A tool's consent
+    now returns to `/settings/accounts`, and `/connections` sends you there,
+    with what the tool said.
+- Each workflow has settings pages of its own (#205), at
+  `/workflows/<id>/settings/<section>`: General (its name and description, and
+  archiving it), Versions, Sharing and Triggers, with a side nav as Settings
+  has. Everybody the workflow is shared with opens them, and sees read only
+  what their grants do not let them change. Saving a new name or description
+  saves a new version. The editor keeps the YAML, the canvas and the checks,
+  with the Run button and a link to the settings.
+  - Archiving offers Undo, which takes the workflow out of the archive again,
+    and an archived workflow's General page restores it. Both take
+    administering the workflow; the API is `POST /workflows/{id}/restore`,
+    audited as `workflow.restored`. Workflows are still archived and never
+    deleted, since runs pin their versions; archiving from the list asks first
+    in a dialog, and so does removing a trigger.
+  - The list says how many people and groups a workflow is shared with and
+    what your grants let you do with it, in place of the old sharing badge.
+- Signing in is no longer being let in (#204). Somebody the identity provider
+  knows who has not been let in waits, and the sign-in page tells them so; their
+  request shows above the table on Admin's Users page, where an administrator
+  lets them in as a member or turns them away, and somebody turned away may
+  ask again by signing in. Everybody who had an account before is let in
+  already, so nobody's access changes.
+  - "Let people in by their groups", off at first, lets somebody in at sign-in
+    when a realm group of theirs holds a grant, with that group's roles. A
+    group holding Administrator always lets its members in, so the realm's
+    administrators and service accounts keep working.
+  - The API: `GET /users/requests`, `POST /users/requests/{userID}/admit` and
+    `DELETE /users/requests/{userID}`, for administrators.
+- Single sign-on is a tab of Admin's Access page (#204): the issuer, the client
+  ID, the client secret, the groups claim and "Let people in by their groups".
+  A change applies at the next sign-in, without a restart. The client secret is
+  kept in OpenBao and never shown; the page says only that one is stored, and a
+  blank one keeps it. A provider that could not work is refused, and so is
+  turning it off while it is the only way into Rotor, saying why. The API is
+  `GET` and `PUT /oidc-provider`.
+- `ROTOR_BOOTSTRAP_MEMBERS` and the chart's `bootstrap.members` let people in by
+  their address, as Stator's and Exciter's bootstrap members do (#171): at
+  every start of the api, or at their first sign-in when they have not signed
+  in yet. It takes Dynamo's `DYNAMO_MEMBERS` as it is (`email=admin`,
+  `email=member`, comma separated) and plain addresses, and a later start adds
+  names without letting anybody out. A malformed entry stops the start with a
+  sentence naming it.
+- `ROTOR_OIDC_GROUPS_CLAIM` and the chart's `oidc.groupsClaim` name the claim
+  that lists somebody's groups, `groups` unless set.
+
+- Admin's People and access section keeps who may do what, as in Armature
+  (#203):
+  - Access has the tabs Roles, Matrix and Groups. Roles lists the grants,
+    who holds which role and where, with a search, a role filter, granting to
+    a person or a group over the installation or one workflow, and taking a
+    grant away; the last Administrator grant stays.
+  - Matrix shows the permissions down and the roles across, and a tick saves
+    at once. Roles of your own are added, renamed, described and deleted, with
+    the grants they take with them named first; the built-in roles stay.
+  - Groups lists Everyone, then the realm's groups, then those made by hand,
+    whose members are added and taken out here.
+  - Users lists every person with their groups and roles, and switches a
+    person off, which ends their sessions and connections, or on again. Your
+    own account and the last active administrator stay on.
+  - The API behind them: `/roles`, `/permissions`, `/groups`,
+    `/role-assignments`, `/people`, `/users` and a workflow's `/grants`
+    (`docs/api-contract-access.md`).
+
+- Access is held as roles, groups and grants, as in Armature (#202):
+  - The permissions are `workflow.read`, `workflow.run`, `workflow.edit`,
+    `workflow.administer`, `workflow.create` and `rotor.administer`, and the
+    built-in roles Administrator, Workflow administrator, Editor, Runner and
+    Author hold them. A built-in role is edited but never deleted, and the
+    Administrator always administers Rotor.
+  - Groups come from the realm's `groups` claim, followed exactly at every
+    sign-in, are made by hand, or are the built-in Everyone, which holds every
+    person who may sign in and never administers.
+  - A grant gives a role to a person or a group over the whole installation or
+    one workflow; the last Administrator grant cannot be taken away.
+  - `GET /api/v1/access/me` answers your grants and what they let you do, and
+    every workflow carries `canRun`, `canEdit` and `canAdminister`, which the
+    workflow pages now follow.
+  - Nobody's access changes: `rotor-administrators` holds Administrator, a
+    workflow's owner is its Workflow administrator, a share is a Runner grant
+    to its groups or to Everyone, and Everyone holds Author, so anyone signed in
+    still creates workflows. Sharing writes Runner grants from now on.
+
+- A workflow is built on the canvas's graph (#198):
+  - Drag a way from a node's bottom handle onto another node to connect them.
+  - Let go in the open, or press the "+" under a node, to add a node already
+    connected after it, under a free id such as `agent-2`.
+  - A selected way can be removed with Delete, or a node inserted into it.
+  - Connecting a router asks for the case value or makes it the default.
+  - A toolbar adds, inserts, removes, undoes, redoes, zooms and fits. With the
+    graph focused, Ctrl+Z, Ctrl+Shift+Z and A do the same.
+  - Every change is still an edit of the YAML that keeps its comments, and the
+    graph keeps laying itself out.
 - An installation that runs no sandboxes, such as Dynamo's compose server,
   refuses to start a run (#178): the api answers 409 `runs_off` with a
   sentence that says it runs no workflows and that an administrator installs
@@ -455,6 +719,44 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- The built-in Author role says it creates workflows and skills of their own,
+  as it has granted since #219. An installation whose administrator reworded
+  the role keeps their words (#236).
+- Sharing is the workflow's grants alone (#205). `PUT /workflows/{id}/sharing`
+  is gone, and so are `sharing` and `sharedGroups` on a workflow, which now
+  carries `sharedWith`; grant on `/workflows/{id}/grants` instead. The
+  `workflows@1` capability promises the grants operations in its place. The
+  migration keeps everyone's access: runner grants already held what sharing
+  said.
+- `app_user.role` is gone (#205): whether somebody administers Rotor is asked of
+  their grants alone, and sign-in no longer writes `user.role_changed`.
+  `/auth/me` still answers `role`, computed from the grants.
+- Single sign-on is kept in Rotor's database (#204). `ROTOR_OIDC_ISSUER`,
+  `ROTOR_OIDC_CLIENT_ID` and `ROTOR_OIDC_CLIENT_SECRET` seed it on the first
+  start, so a deployment that sets them keeps signing people in; after that
+  the database's provider is used, and the api's log says when the two differ.
+  The OpenBao policy of the control plane gains `settings/oidc/*`, which the
+  chart and the OpenBao image carry.
+
+- A workflow's Sharing is its grants (#203): anybody who sees it reads who
+  holds which role there, and whoever administers it grants people or groups
+  Runner, Editor or Workflow administrator. `PUT /workflows/{id}/sharing`
+  still works and writes Runner grants, but is deprecated.
+
+- An administrator of Rotor now saves versions of and shares every workflow,
+  as the Administrator role holds every permission; before, they saw and
+  archived everyone's workflows but changed only their own (#202).
+
+- Settings and Admin are laid out as pages with a side nav, each using the
+  page's width, instead of one long column of narrow cards (#199). Settings
+  holds your own Account, Assistants and Usage; Admin, which the sidebar
+  shows to administrators alone, holds Work (Workspaces, Unattended writes),
+  Integrations (Model providers, LangSmith, Tools, Connected apps) and
+  Records (Audit log, everyone's Usage and the limits, Retention). Anybody
+  else who opens an Admin page is told it is for administrators. Members no
+  longer see the list of tools in Settings. The audit log moved to
+  `/admin/audit`, and the old `/settings/audit` link leads there. Below a
+  wide screen the side nav is a row that scrolls sideways.
 - The sandbox namespace is named from the release by default,
   `<release namespace>-<fullname>-sandboxes`, or `<fullname>-sandboxes` when
   the two are the same, so two installs in one cluster never share one
@@ -463,6 +765,24 @@ and the versioning [Semantic Versioning](https://semver.org/).
   admit signed sandbox images are named after that namespace too.
 
 ### Fixed
+
+- A run stops at its approval, and the approval opens, as soon as the runner
+  reaches it, whatever the trace collector does. The control plane used to
+  send a runner's last spans on before it handled the run's end, so with the
+  collector down or slow a run stayed running for about a minute while the
+  export retried. Runner spans now go on beside the run, each batch for at
+  most 10 seconds, and a batch is dropped while 32 are still on their way.
+  The approvals end-to-end tests also give each sandboxed run its own time,
+  since two of them in turn did not fit the 20 seconds of a test (#234).
+
+- A push that changes only a shipped skill under `skills/` runs the Go layers
+  in the push gate, so a skill out of step with the copy embedded in the api
+  is caught before CI (#235).
+
+- The web tooling takes minimatch 11.0.4 in place of 10.2.6, through an npm
+  override, which closes the globparts amplification advisory
+  GHSA-g3hv-75wg-m249. eslint still asks for 10, and no 10.x is patched
+  (#194).
 
 - The runner ships opentelemetry-api and opentelemetry-sdk 1.45.1, past
   CVE-2026-114603, and certifi 2026.10.18, past PYSEC-2026-4320, so

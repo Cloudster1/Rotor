@@ -163,13 +163,21 @@ type Node struct {
 	Model    *Model `json:"model,omitempty"`
 	Role     string `json:"role,omitempty"`
 	MaxSteps int    `json:"maxSteps,omitempty"`
-	// The other fields M13 agreed (docs/api-contract-m13.md); each is refused as not built until its issue merges.
+	// The other fields M13 agreed (docs/api-contract-m13.md).
 	MaxVisits   int        `json:"maxVisits,omitempty"`
 	OnExhausted string     `json:"onExhausted,omitempty"`
 	Join        string     `json:"join,omitempty"`
 	Workspace   *Workspace `json:"workspace,omitempty"`
 	Command     []string   `json:"command,omitempty"`
 	Reports     []string   `json:"reports,omitempty"`
+	// Skills are the skills an agent may load, each pinned to a version (#221).
+	Skills []SkillRef `json:"skills,omitempty"`
+}
+
+// SkillRef names a skill and the version of it an agent gets (docs/api-contract-m17.md).
+type SkillRef struct {
+	Name    string `json:"name"`
+	Version int    `json:"version"`
 }
 
 // Workspace is the run's branch of a repository binding, checked out for a step in a toolchain image (#136).

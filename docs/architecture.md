@@ -103,7 +103,99 @@ sessions. Keycloak's sign-out of a person from every session sends one token
 naming one session, so after each token Rotor reads the person's sign-out time
 from Keycloak's admin API, as the `rotor` client's service account with
 `view-users`, and ends their sessions older than it (#53).
-`rotor-administrators` maps to Rotor's administrator role.
+Each sign-in makes the person's realm groups exactly the groups claim.
+
+The provider is single sign-on as Admin's Access page keeps it (#204): one row
+of `oidc_provider` (issuer, client ID, groups claim, "Let people in by their
+groups", turned on), read on every sign-in, so a change saved on any replica
+applies at the next sign-in everywhere without a restart; each replica holds
+the discovery document and the secret until the row is newer. The client
+secret lives in OpenBao at `settings/oidc/client-secret`, never in the row or a
+response, which answer only `hasSecret`. `ROTOR_OIDC_ISSUER`, `_CLIENT_ID`,
+`_CLIENT_SECRET` and `_GROUPS_CLAIM` seed the row when the database has none;
+until an administrator gives a secret, the environment's is used while the
+issuer and client are the ones it came with. Saving refuses a provider that
+could not work (no issuer, client or secret, or an issuer whose discovery
+document cannot be read), and turning it off is refused while it is the only
+way in, which it is: Rotor has no other sign-in. The control plane's own
+OpenBao login keeps the environment's issuer.
+
+Signing in is not being let in (#204, #171). A person the provider knows is
+let in when `app_user.standing` is set; anybody else waits, with a
+`join_request` Admin's Users page shows above the table, and the sign-in page
+says their request waits. An administrator lets them in as a member or turns
+them away, after which they may ask again by signing in. A realm group holding
+a grant lets its members in at sign-in, with its roles, once "Let people in by
+their groups" is on; one holding Administrator always does, so the realm's
+administrators and service accounts are never left waiting.
+`ROTOR_BOOTSTRAP_MEMBERS` names people let in by their address at every start
+of the api, an account made for a name not yet signed in. Only a person let in
+joins Everyone or holds anything: `actor_can()`, the Everyone triggers and the
+session lookup all ask `standing`.
+
+## Access (#202, #203, `docs/api-contract-access.md`)
+
+Access is held as roles, groups and grants, ported from Armature's `perm`
+package with its project replaced by a workflow:
+
+| Role | Scope | Permissions |
+| --- | --- | --- |
+| Administrator | installation only | every permission, always `rotor.administer` |
+| Workflow administrator | installation or workflow | `workflow.read`, `workflow.run`, `workflow.edit`, `workflow.administer` |
+| Editor | installation or workflow | `workflow.read`, `workflow.run`, `workflow.edit` |
+| Runner | installation or workflow | `workflow.read`, `workflow.run` |
+| Author | installation only | `workflow.create` |
+
+`role`, `user_group` (`oidc` from the realm, `local` by hand, or the built-in
+Everyone), `group_member` and `role_assignment` hold them, with Armature's
+guards: a built-in role is never deleted, the Administrator keeps
+`rotor.administer`, an installation-only role is never granted on a workflow,
+Everyone never administers, and the last Administrator grant stays. The api
+resolves a person's grants once per request (`internal/perm`, on
+`auth.Principal.Perms`) and answers them at `GET /api/v1/access/me`; workflow
+responses carry `canRun`, `canEdit` and `canAdminister`. Row level security
+asks the same grants through `actor_can(permission, workflow)`, a null workflow
+being the installation, and `current_actor_is_admin()` is
+`actor_can('rotor.administer', NULL)`. Everyone holds Author, so anyone signed
+in creates workflows, and a workflow's creator is its Workflow administrator.
+
+Admin's People and access section keeps all of it (#203). Access has the tabs
+Roles (the grants: who, which role, where), Matrix (permissions down, roles
+across; a tick saves the role's whole list) and Groups (Everyone, the realm's,
+then those made by hand); Users lists every person with their groups and roles
+and switches them off and on. A workflow's Sharing is its grants: anybody who
+sees the workflow reads them, and whoever administers it grants Runner, Editor
+or Workflow administrator there and nowhere else. The sharing columns, their
+trigger and `PUT /workflows/{id}/sharing` are gone since #205, and so is
+`app_user.role`: whether somebody administers Rotor is asked of the grants
+alone, and `/auth/me` computes its `role` from them. A workflow in a list
+carries `sharedWith`, how many people and groups besides its owner hold a role
+on it, counted in the same query.
+
+A workflow's settings are pages of their own (#205),
+`/workflows/<id>/settings/<section>`: General (name, description, archiving),
+Versions, Sharing and Triggers, with Settings' side nav. Everybody who sees the
+workflow opens them; a section they may not change is read only, as
+`canEdit`, `canAdminister` and `canRun` say. The name and description are the
+spec's metadata, so General saves them as a new version, splicing the YAML as
+the canvas does. Archiving happens at once and offers Undo, which is
+`POST /workflows/{id}/restore`; both take `workflow.administer`, in the api
+and in `workflow_change_guard`. Workflows are archived, never deleted: runs pin
+their versions, and `rotor_app` holds no `DELETE` on `workflow`. The editor
+keeps the YAML, the canvas and the checks, with a link to the settings.
+
+Writing roles, groups and grants goes through `rotor_app`, so the policies
+decide. Two things are not `rotor_app`'s to read: other people's `app_user`
+rows and other people's `group_member` rows (a policy that asked `actor_can()`
+there would ask itself). The people picker, the grants listing with names,
+group members and the Users page therefore read as `rotor_admin`, and writing
+a membership too, each after asking in the same transaction whether the person
+it acts for may: `actor_can('rotor.administer', NULL)` for Admin's pages, a
+grant of `workflow.administer` anywhere for the picker and the group list, and
+`actor_can('workflow.read', workflow)` for a workflow's grants. Switching off
+the last active person who administers Rotor is refused by the database
+(`app_user_keeps_an_administrator`, under the lock revoking takes), and
+`rotor_app` cannot switch anybody at all.
 
 ## Tool connections (M1, `docs/api-contract-m1.md`)
 
@@ -111,7 +203,9 @@ An administrator adds a tool by its address; Rotor discovers its MCP
 endpoint and authorization server (RFC 9728, RFC 8414) and registers as its
 OAuth client (RFC 7591). A person connects on the tool's consent page; the
 refresh token goes to OpenBao, at `rotor/connections/{user}/{tool}`, and
-never to Postgres. When a run starts, the control plane mints a fresh access
+never to Postgres. The callback lands the browser on Tool accounts,
+`/settings/accounts` (#206), or on the page connecting started from; the old
+`/connections` sends a browser on there with its query. When a run starts, the control plane mints a fresh access
 token for it, one refresh per connection at a time, so the tool's refresh
 token rotation never ends a grant. The api reaches OpenBao with JWT auth as
 the realm client `rotor-control-plane`.
@@ -145,8 +239,8 @@ account it names as a sign-in would, without a session. Everywhere else
 ## Workflows (#14, #15)
 
 A workflow is YAML checked by `internal/workflow/spec`; `internal/workflows`
-keeps it as `workflow` and immutable, gap-free `workflow_version` rows, shared
-by realm group through row-level security. Saving checks a spec against its
+keeps it as `workflow` and immutable, gap-free `workflow_version` rows, seen,
+run, edited and administered by the grants on it through row-level security. Saving checks a spec against its
 tools as the saver sees them: `internal/catalog` mints the saver a token,
 reads the tool's MCP `tools/list` and caches it in Valkey per tool build and
 person (`internal/cache`), which is Valkey's first use; losing the cache costs
@@ -167,6 +261,18 @@ nodes it starts as children cannot read its memory or environment (#89).
 React 19, TanStack Router and Query, Tailwind with the suite's design tokens,
 a client typed from `api/openapi.json`, and an accessibility check on every
 page in the browser suite.
+
+Settings holds a person's own pages (#206), each opening with a sentence on
+what it is for: Profile, Theme, Assistants, Usage and Tool accounts. The time
+zone dates are written in is `app_user.time_zone`, as Armature keeps it on the
+person, NULL following the browser's; `GET` and `PUT /auth/me/preferences`
+read and change it. `rotor_app` holds `UPDATE` on that one column and
+`app_user_self_change` lets it touch only the acting person's row, in person,
+so nobody changes anybody else's, nor anything the realm gives. The shell reads
+it before any page draws and `web/src/lib/dates.ts` writes every date in it.
+The colour scheme stays in the browser's storage: Armature keeps a chosen theme
+on the server, but a theme there is a set of colours and type of its own, and
+Rotor's choice of system, light or dark has nothing like it to follow.
 
 ## Runner protocol (#18)
 
@@ -312,12 +418,17 @@ sandboxes and `runnerctl` the end of every run, both without an actor.
 
 Each run is one trace. Starting it opens a `run.start` span, whose context
 the run keeps as its `traceparent`; the worker's sandbox steps join it, and
-`StartRun` hands it to the runner, which traces the run, its nodes, its model
-calls and its MCP calls. The runner sends its spans on its stream; the api
-keeps those of the run's own trace, redacts them again and exports them with
-its own over OTLP to the collector, so a sandbox reaches no collector. While
-an administrator allows it, the api also sends the runner's spans, with
-prompts and answers, to LangSmith with a key from OpenBao. The worker and the
+`StartRun` hands it to the runner, which traces the run, its nodes and its
+MCP calls, and with OpenInference every chain, graph node, tool and model call
+of its agents (#241). The runner sends its spans on its stream; the api keeps
+those of the run's own trace, holds them to the span limits, redacts them
+again and exports them with its own over OTLP to the collector, without their
+text, so a sandbox reaches no collector. While an administrator allows it, the
+api also sends the runner's spans, with their inputs, outputs and messages, to
+LangSmith with a key from OpenBao. Apps and tools post their own spans to the
+api's OTLP endpoint with a bearer token (#243); each joins the run its trace id
+names when the sender may read that run, judged by row level security as the
+sender, and a trace of the sender's own otherwise. The worker and the
 api serve Prometheus metrics; `make observe` adds a collector, Jaeger and
 Prometheus to the development stack.
 

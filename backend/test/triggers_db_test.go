@@ -18,7 +18,11 @@ func TestTheDatabaseKeepsTriggersToTheirOwners(t *testing.T) {
 	ctx := context.Background()
 	alice, bob := h.addPerson(t, "member"), h.addPerson(t, "member")
 	var workflowID, triggerID uuid.UUID
-	if err := h.super.QueryRow(ctx, `INSERT INTO workflow (name, owner_id, sharing) VALUES ('shared', $1, 'everyone') RETURNING id`, alice).Scan(&workflowID); err != nil {
+	if err := h.super.QueryRow(ctx, `INSERT INTO workflow (name, owner_id) VALUES ('shared', $1) RETURNING id`, alice).Scan(&workflowID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.super.Exec(ctx, `INSERT INTO role_assignment (role, workflow_id, group_id)
+		SELECT 'runner', $1, id FROM user_group WHERE builtin = 'everyone'`, workflowID); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {

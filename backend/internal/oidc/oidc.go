@@ -11,8 +11,6 @@ import (
 const (
 	// randomTokenBytes makes a state and a nonce unguessable.
 	randomTokenBytes = 32
-	// groupsClaim is the claim the realm's groups mapper writes.
-	groupsClaim = "groups"
 	// backchannelLogoutEvent marks a JWT as a logout token in its events claim.
 	backchannelLogoutEvent = "http://schemas.openid.net/event/backchannel-logout"
 )
@@ -22,8 +20,10 @@ var scopes = []string{"openid", "profile", "email"}
 
 // Errors a sign-in or a logout can end in, each answered in its own sentence.
 var (
-	// ErrNotConfigured is a process started without ROTOR_OIDC_ISSUER.
+	// ErrNotConfigured is an installation that keeps no provider, or keeps it turned off.
 	ErrNotConfigured = errors.New("no identity provider is configured")
+	// ErrNotAMember is somebody the provider knows whom nobody has let in yet; their request waits (#204).
+	ErrNotAMember = errors.New("nobody here has let you in yet")
 	// ErrUnreachable is a provider that did not answer discovery.
 	ErrUnreachable = errors.New("the identity provider cannot be reached")
 	// ErrUnknownLogin is a callback whose state was never issued, already used or expired.

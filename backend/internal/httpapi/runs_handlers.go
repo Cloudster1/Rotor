@@ -54,7 +54,10 @@ func runError(err error) error {
 	var quota *usage.Refused
 	var changed *runs.ToolsChanged
 	var image *runs.ImageNotAllowed
+	var skill *runs.SkillUnreadable
 	switch {
+	case errors.As(err, &skill):
+		return &APIError{Status: http.StatusUnprocessableEntity, Code: spec.CodeSkillUnreadable, Message: skill.Error()}
 	case errors.As(err, &image):
 		fields := map[string]string{}
 		for _, p := range image.Problems {
@@ -139,7 +142,11 @@ func toRunResponse(r runs.Run) runResponse {
 		agents = append(agents, agentUsage{Node: a.Node, Provider: a.Provider, Model: a.Model, InputTokens: a.InputTokens,
 			OutputTokens: a.OutputTokens, Cost: a.Cost})
 	}
-	return runResponse{ID: r.ID.String(), ApprovalID: approval, ApprovalIDs: approvals, Trigger: trigger,
+	var traceID *string
+	if r.TraceID != "" {
+		traceID = &r.TraceID
+	}
+	return runResponse{ID: r.ID.String(), TraceID: traceID, ApprovalID: approval, ApprovalIDs: approvals, Trigger: trigger,
 		Usage: runUsage{InputTokens: r.InputTokens, OutputTokens: r.OutputTokens, Cost: r.Cost, Agents: agents}, Workflow: personRef{ID: r.WorkflowID.String(), Name: r.WorkflowName}, Version: r.Version,
 		Status: runStatus(r.Status), StartedBy: personRef{ID: r.UserID.String(), Name: r.StartedByName}, Reason: r.Reason,
 		Inputs: r.Inputs, Output: output, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, StartedAt: r.StartedAt,

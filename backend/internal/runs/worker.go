@@ -16,6 +16,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
 	"github.com/cloudster1/rotor/backend/internal/envelope"
+	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/runnerctl"
 	"github.com/cloudster1/rotor/backend/internal/sandbox"
 )
@@ -61,6 +62,8 @@ type Worker struct {
 	Waiting Teardown
 	// Metrics counts the sandboxes alive and reaped; nil counts nothing.
 	Metrics *WorkerMetrics
+	// Tracing says which runs' traces the collector keeps, so the worker's spans of a run go where its runner's do.
+	Tracing *observability.Tracing
 	// Passed is told after every pass, such as for a health check; nil tells nobody.
 	Passed func()
 	// Events tells those following a run that the worker wrote it an event; nil leaves them to poll.

@@ -14,6 +14,8 @@ export const HTTP_UNAUTHORIZED = 401;
 
 /** The status the API answers when fields of a request need attention, each named in the error's fields. */
 export const HTTP_UNPROCESSABLE = 422;
+/** A save made from a version that is no longer current, among others (#219). */
+export const HTTP_CONFLICT = 409;
 
 /** Where the index sends a visitor, the first place of the sidebar. */
 export const HOME_PATH = "/workflows";
@@ -31,6 +33,9 @@ export const META_STALE_MS = 300_000;
 
 /** Where this browser remembers the colour scheme the person chose. */
 export const THEME_STORAGE_KEY = "rotor.theme";
+
+/** The zone dates are written in when neither the person nor the browser names one. */
+export const FALLBACK_TIME_ZONE = "UTC";
 
 /** The product's mark beside its name in the sidebar, in pixels. */
 export const MARK_WIDTH_PX = 24;
@@ -50,6 +55,9 @@ export const MAX_VERSION_COMMENT = 500;
 
 /** How often a run's page asks for the run again until it ends; #24 streams its events instead. */
 export const RUN_POLL_MS = 2_000;
+
+/** How long after a run ends its page still asks for the trace: the runner sends its last spans in batches seconds apart. */
+export const TRACE_SETTLE_MS = 10_000;
 
 /** How often the sidebar asks how many approvals wait for the person; an approval waits hours, not seconds. */
 export const APPROVALS_POLL_MS = 15_000;
@@ -72,7 +80,14 @@ export const GRAPH_LOOP_DASH = "6 4";
 export const GRAPH_HEIGHT_PX = 360;
 
 /** How tall the workflow editor draws its canvas, in pixels; taller than a run's, since it is worked in. */
-export const EDITOR_GRAPH_HEIGHT_PX = 420;
+export const EDITOR_GRAPH_HEIGHT_PX = 600;
+
+/** How many of the canvas's edits it can undo (#198). */
+export const CANVAS_HISTORY_LIMIT = 100;
+
+/** How much room the canvas leaves round a node it brings into view, as a share of the view, and how long it glides. */
+export const GRAPH_REVEAL_PADDING = 0.4;
+export const GRAPH_REVEAL_MS = 200;
 
 /** How many lines the canvas shows of a prompt or source, and of an approval's message, before it scrolls. */
 export const CANVAS_TEXT_ROWS = 5;
@@ -83,6 +98,9 @@ export const MAX_BADGE_PROBLEMS = 9;
 
 /** Where this browser remembers whether the person edits workflows as YAML or on the canvas. */
 export const EDITOR_VIEW_STORAGE_KEY = "rotor.workflowEditorView";
+
+/** The workflows guide on GitHub, where the editor links each shipped workflow's section. */
+export const WORKFLOWS_DOC_URL = "https://github.com/Cloudster1/Rotor/blob/main/docs/workflows.md";
 
 /** The products whose webhook deliveries start event triggers (#35), as the server names them. */
 export const HOOK_PRODUCTS = ["armature", "exciter", "stator"] as const;
@@ -101,3 +119,32 @@ export const HOOK_TOPICS: Record<string, string[]> = {
 /** The longest LangSmith key and project the server takes (MaxLangSmithKeyChars, MaxLangSmithProjectChars). */
 export const MAX_LANGSMITH_KEY = 512;
 export const MAX_LANGSMITH_PROJECT = 128;
+
+/** How many grants the Roles tab shows a page, and how many people the Users page shows (#203). */
+export const ROLE_ASSIGNMENT_PAGE_SIZE = 50;
+export const USERS_PAGE_SIZE = 50;
+/** How long typing in a search pauses before the server is asked, so each key is not a request. */
+export const SEARCH_DELAY_MS = 250;
+/** The roles a workflow's own grants offer, as backend/internal/perm names them; the others are installation-wide. */
+export const WORKFLOW_GRANT_ROLES = ["runner", "editor", "workflow_administrator"] as const;
+/** The role and the permission that always go together, so somebody can still administer Rotor. */
+export const ADMINISTRATOR_ROLE = "administrator";
+export const ADMINISTER_PERMISSION = "rotor.administer";
+/** What a new role starts with, as in Armature: seeing the workflows it is granted over. */
+export const NEW_ROLE_PERMISSIONS = ["workflow.read"];
+/** The built-in group every person is in, as the API marks it. */
+export const EVERYONE_GROUP = "everyone";
+/** The longest name and description a workflow's metadata takes, as api/workflow.v1.schema.json bounds them (#205). */
+export const MAX_WORKFLOW_NAME = 63;
+export const MAX_WORKFLOW_DESCRIPTION = 2000;
+/** The roles a skill's own grants offer (#219); Skill reader to Everyone makes a skill available to everyone. */
+export const SKILL_GRANT_ROLES = ["skill_reader", "skill_editor", "skill_administrator"] as const;
+/** How many skills the Skills page lists a page, and how many the editor's picker asks for, the server's most (#223). */
+export const SKILL_PAGE_SIZE = 50;
+export const SKILL_PICKER_LIMIT = 200;
+/** The file every skill has at its root, which the Files page shows first. */
+export const SKILL_MD = "SKILL.md";
+/** Where a problem that belongs to no one file of a skill is placed, as the library answers it. */
+export const SKILL_NO_PATH = "-";
+/** The largest zip an import takes (MaxSkillImportBytes), checked before it is sent. */
+export const MAX_SKILL_IMPORT_BYTES = 2 * 1024 * 1024;

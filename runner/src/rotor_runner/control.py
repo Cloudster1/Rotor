@@ -37,6 +37,7 @@ from rotor_runner.pb.rotor.runner.v1 import runner_pb2 as pb
 from rotor_runner.pb.rotor.runner.v1 import runner_pb2_grpc as pb_grpc
 from rotor_runner.redact import Redactor
 from rotor_runner.repository import Repositories, Repository
+from rotor_runner.skills import Skills, skills_from
 from rotor_runner.spec import parse
 from rotor_runner.telemetry import RunTracing
 from rotor_runner.tokens import UnwrapError, Unwrapper
@@ -234,7 +235,7 @@ class Channel:
             opening = asyncio.create_task(self._open_secret(response.secret_grant))
             self._opening.add(opening)
             opening.add_done_callback(self._opening.discard)
-        elif kind.startswith("checkpoint_"):
+        elif kind.startswith("checkpoint_") or kind == "skill_file":
             reply = getattr(response, kind)
             future = self.replies.pop(reply.request_id, None)
             if future is not None and not future.done():
@@ -278,7 +279,9 @@ class Channel:
             queue.put_nowait(pb.ConnectRequest(heartbeat=pb.Heartbeat(), ack=self._handled_control))
 
     async def _execute(self, start: pb.StartRun) -> None:
-        self.tracing = RunTracing(start.traceparent, self.send, self.redactor.scrub, start.trace_content)
+        self.tracing = RunTracing(
+            start.traceparent, self.send, self.redactor.scrub, start.trace_content, run=start.run_id
+        )
         try:
             outcome = await self._run_workflow(start)
         except asyncio.CancelledError:
@@ -319,6 +322,7 @@ class Channel:
             link_hosts=frozenset(h for b in bindings.values() for h in b.link_hosts),
             repositories=Repositories(bindings, self.tokens),
             workspaces=Workspaces(self.workspace, start.run_id, self.emit),
+            skills=Skills(skills_from(start.agent_skills), self),
         )
         inputs = json.loads(start.inputs_json or "{}")
         resume = json.loads(start.resume_json) if start.resume else None

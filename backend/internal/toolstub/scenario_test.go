@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -362,9 +363,22 @@ func TestTheStubModelAnswersFromItsScript(t *testing.T) {
 	if took := time.Since(asked); took < scriptDelay {
 		t.Errorf("the first turn came after %s, before its delay of %s", took, scriptDelay)
 	}
+	messages := []any{map[string]any{"role": "system", "content": "Follow the skill."},
+		map[string]any{"role": "user", "content": []any{map[string]any{"type": "text", "text": "Who "}, map[string]any{"type": "text", "text": "am I?"}}}}
+	tools := []any{map[string]any{"type": "function", "function": map[string]any{"name": "read_skill"}}}
 	status, raw = send(public.URL, "POST", "/t/model"+llmPath+"/chat/completions", "k",
-		map[string]any{"model": StubModel, "messages": []any{}, "stream": true, "stream_options": map[string]any{"include_usage": true}})
+		map[string]any{"model": StubModel, "messages": messages, "tools": tools, "stream": true, "stream_options": map[string]any{"include_usage": true}})
 	if status != http.StatusOK || !strings.Contains(raw, "You are bob.") || !strings.Contains(raw, `"usage"`) || !strings.HasSuffix(strings.TrimSpace(raw), "data: [DONE]") {
 		t.Errorf("the streamed second turn = %d %s", status, raw)
+	}
+	// Each request is recorded, so a test sees the instructions and the tools an agent was given (#222).
+	var stats Stats
+	if status, raw := send(control.URL, "GET", "/control/tenants/model/stats", "", nil); status != http.StatusOK || json.Unmarshal([]byte(raw), &stats) != nil {
+		t.Fatalf("stats = %d %s", status, raw)
+	}
+	want := []LLMRequest{{Messages: []LLMMessage{}, Tools: []string{}}, {Messages: []LLMMessage{{Role: "system", Content: "Follow the skill."},
+		{Role: "user", Content: "Who am I?"}}, Tools: []string{"read_skill"}}}
+	if !reflect.DeepEqual(stats.LLMRequests, want) {
+		t.Errorf("recorded requests = %+v", stats.LLMRequests)
 	}
 }

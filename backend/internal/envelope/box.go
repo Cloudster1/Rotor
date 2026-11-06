@@ -28,7 +28,12 @@ const (
 	ColumnApprovalPreview  = "approval.preview"
 	ColumnApprovalValues   = "approval.form_values"
 	ColumnApprovalApproved = "approval.approved_values"
+	// A span's text is bound to its trace and span id (#242), as TraceSpanRow writes them.
+	ColumnTraceContent = "trace_span.content"
 )
+
+// TraceSpanRow is the row a span's sealed text is bound to: the trace's id in Rotor and the span's id.
+func TraceSpanRow(trace uuid.UUID, spanID string) string { return trace.String() + "/" + spanID }
 
 const (
 	// version leads every sealed value, so a later format can be told apart.

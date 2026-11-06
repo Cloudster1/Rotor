@@ -119,7 +119,7 @@ carry_run() {
     local run status="" session workflow
     session="kind-$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
     psql >/dev/null <<SQL
-WITH u AS (INSERT INTO app_user (email, name, role) VALUES ('kind-' || gen_random_uuid() || '@suite.test', 'Kind', 'member') RETURNING id)
+WITH u AS (INSERT INTO app_user (email, name, standing) VALUES ('kind-' || gen_random_uuid() || '@suite.test', 'Kind', 'member') RETURNING id)
 INSERT INTO user_session (user_id, token_hash, expires_at)
 SELECT id, sha256(convert_to('${session}', 'UTF8')), now() + interval '1 hour' FROM u;
 SQL

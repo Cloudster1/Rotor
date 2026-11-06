@@ -20,7 +20,7 @@ test("a visitor is sent to sign in and lands where they were headed @desktop", a
 });
 
 test("the settings say who is signed in and with which role @desktop", async ({ page }) => {
-  await signIn(page, PEOPLE.bob, "/settings");
+  await signIn(page, PEOPLE.bob, "/settings/profile");
   await expect(page.locator("[data-account] [data-role]")).toHaveText(PEOPLE.bob.role);
 });
 

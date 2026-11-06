@@ -38,7 +38,9 @@ and checked before saving. A workflow's spec is the YAML of
 - `GET /workflows/{workflowID}/versions`,
   `GET /workflows/{workflowID}/versions/{versionNumber}`,
   `GET /workflows/{workflowID}/diff`
-- `PUT /workflows/{workflowID}/sharing`
+- `GET /workflows/{workflowID}/grants`, `POST /workflows/{workflowID}/grants`,
+  `DELETE /workflows/{workflowID}/grants/{grantID}`, which replaced
+  `PUT /workflows/{workflowID}/sharing` in #205
 - `POST /workflows/validate`
 
 ### `runs@1`
@@ -75,8 +77,9 @@ An assistant works with workflows, runs and approvals over MCP 2025-11-25 or
 authorization server (RFC 9728, RFC 8414, PKCE S256); an assistant registers
 (RFC 7591) or names its client ID metadata document (#114). Its tools are
 `whoami`, `list_workflows`, `get_workflow`, `validate_workflow`, `start_run`,
-`list_runs`, `get_run`, `cancel_run`, `list_approvals` and `get_approval`;
-approvals are decided in Rotor's pages alone.
+`list_runs`, `get_run`, `get_run_trace`, `get_run_trace_span` (#244),
+`cancel_run`, `list_approvals` and `get_approval`; approvals are decided in
+Rotor's pages alone.
 [`docs/api-contract-m10.md`](api-contract-m10.md) has the whole contract and
 [`docs/assistants.md`](assistants.md) how to connect one.
 
@@ -122,7 +125,7 @@ Checking again never registers again, so nobody's connection is lost.
 
 | Capability | What goes without it |
 |---|---|
-| `mcp@1` | Everything: the tool cannot be added, and a tool that stops offering it shows on the Connections page as needing an update, with no way to connect |
+| `mcp@1` | Everything: the tool cannot be added, and a tool that stops offering it shows under Settings, Tool accounts, as needing an update, with no way to connect |
 | `webhooks@1` | Event triggers: Rotor takes no webhook secret for the tool, so none of its events start a workflow. A hook set before keeps working |
 
 **Partner OAuth is read from the tool's metadata, not by name.** Connecting a
@@ -256,10 +259,17 @@ Rotor cannot add Stator (#105).
 Rotor is not one of the three tools Dynamo pins in `versions.yaml`; it has not
 released yet (#167). This is what Dynamo needs to know to install and size it.
 
-**Who may sign in.** Rotor signs people in through the shared realm `dynamo`.
-Everyone in that realm may sign in, and membership of the realm group
-`rotor-administrators` makes an administrator. That realm membership is all the
-access Rotor has until #161 adds an allow-list.
+**Who may sign in.** Rotor signs people in through the shared realm `dynamo`,
+but signing in is not being let in (#204). Somebody let in by an administrator
+on Admin > Users, by `ROTOR_BOOTSTRAP_MEMBERS`, or by a realm group holding a
+grant with "Let people in by their groups" on, is a member; anybody else waits.
+Membership of `rotor-administrators`, whose grant is Administrator, always lets
+a person in and makes an administrator. Dynamo passes `DYNAMO_MEMBERS` as
+`ROTOR_BOOTSTRAP_MEMBERS` (praetorianer777/Dynamo#97), in the same
+`email=admin,email=member` form Stator and Exciter take. The `ROTOR_OIDC_*`
+Dynamo passes seed single sign-on on the first start; after that an
+administrator changes it on Admin > Access, and the client secret is kept in
+OpenBao.
 
 **Images and memory.** A release publishes five images, `rotor-backend`,
 `rotor-web`, `rotor-runner`, `rotor-agent` and `rotor-openbao`, each signed with

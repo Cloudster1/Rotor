@@ -26,8 +26,9 @@ for (const scheme of SCHEMES) {
   test(`an administrator filters the audit log to one workflow and exports it, in ${scheme} @desktop`, async ({ page }) => {
     const workflowID = await createWorkflow(page, workflow(`e2e-${randomUUID().slice(0, 12)}`));
     await startInScheme(page, scheme);
-    await page.goto("/settings");
-    await page.locator("[data-audit-link] a").click();
+    await page.goto("/admin");
+    await page.locator('[data-settings-page="audit"]').click();
+    await expect(page).toHaveURL(/\/admin\/audit$/);
     await expect(page.getByRole("heading", { level: 1, name: "Audit log" })).toBeVisible();
 
     await page.getByLabel("Action").selectOption("workflow.created");
@@ -56,11 +57,12 @@ for (const scheme of SCHEMES) {
   });
 }
 
-test("a member is told the audit log is not theirs to read", async ({ browser }) => {
+test("a member is told the audit log is not theirs to read, at its old address too", async ({ browser }) => {
   const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   const page = await context.newPage();
   await signIn(page, PEOPLE.bob, "/settings/audit");
-  await expect(page.getByRole("alert")).toHaveText("Only administrators read the audit log.");
+  await expect(page).toHaveURL(/\/admin\/audit$/);
+  await expect(page.getByRole("alert")).toHaveText("Only administrators open Admin. Ask one of them if a setting here needs changing.");
   const response = await page.request.get("/api/v1/audit");
   expect(response.status()).toBe(403);
   await context.close();

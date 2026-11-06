@@ -32,6 +32,8 @@ const (
 	// ToolStubPromptTokens and ToolStubCompletionTokens are the usage every stub model answer reports.
 	ToolStubPromptTokens     = 10
 	ToolStubCompletionTokens = 5
+	// ToolStubMaxLLMRequests is how many chat requests a tenant keeps for tests to read, the oldest dropped (#222).
+	ToolStubMaxLLMRequests = 50
 	// ToolStubMaxOTLPBytes bounds one export the LangSmith stand-in takes, and ToolStubMaxOTLPCalls how many it keeps.
 	ToolStubMaxOTLPBytes = 4 << 20
 	ToolStubMaxOTLPCalls = 200

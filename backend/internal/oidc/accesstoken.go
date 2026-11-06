@@ -1,7 +1,8 @@
 package oidc
 
 // How a service account of the realm is let in at the few routes that take its access token (#168): signed with the
-// realm's published keys, by the configured issuer, for Rotor, unexpired, and in the group that administers Rotor.
+// realm's published keys, by the configured issuer, for Rotor, unexpired, and in the group that administers Rotor;
+// at the OTLP endpoint (#243), any account Rotor lets in.
 
 import (
 	"context"
@@ -57,9 +58,23 @@ type accessToken struct {
 	Claims   map[string]any
 }
 
-// VerifyAccessToken checks an access token of the realm against now and says who it names.
+// VerifyAccessToken checks an access token of the realm against now, for an account in the administrators' group,
+// and says who it names.
 func (s *Service) VerifyAccessToken(ctx context.Context, raw string, now time.Time) (*Identity, error) {
-	provider, err := s.discover(ctx)
+	identity, err := s.verifyAnyAccessToken(ctx, raw, now)
+	if err != nil {
+		return nil, err
+	}
+	if RoleFor(identity.Groups) != auth.RoleAdmin {
+		return nil, refuse(ErrTokenNotAdmin, "The token's account is not in the group %s, so it cannot administer Rotor. "+
+			"Add the client's service account to %s in the realm, then take a fresh token.", AdminGroup, AdminGroup)
+	}
+	return identity, nil
+}
+
+// verifyAnyAccessToken checks an access token of the realm against now, of any account, and says who it names.
+func (s *Service) verifyAnyAccessToken(ctx context.Context, raw string, now time.Time) (*Identity, error) {
+	st, provider, err := s.discover(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -69,19 +84,19 @@ func (s *Service) VerifyAccessToken(ctx context.Context, raw string, now time.Ti
 	token, err := verifier.Verify(s.providerContext(ctx), raw)
 	if err != nil {
 		return nil, refuse(fmt.Errorf("%w: %w", ErrTokenUnverified, err),
-			"The token is not signed with the keys the realm at %s publishes. Take a fresh access token from that realm with the client's credentials and send it again.", s.cfg.Issuer)
+			"The token is not signed with the keys the realm at %s publishes. Take a fresh access token from that realm with the client's credentials and send it again.", st.issuer)
 	}
 	var claims map[string]any
 	if err := token.Claims(&claims); err != nil {
 		return nil, refuse(fmt.Errorf("%w: read its claims: %w", ErrTokenUnverified, err),
-			"The token's claims cannot be read. Take a fresh access token from the realm at %s and send it again.", s.cfg.Issuer)
+			"The token's claims cannot be read. Take a fresh access token from the realm at %s and send it again.", st.issuer)
 	}
 	return checkAccessToken(accessToken{Issuer: token.Issuer, Audience: token.Audience, Subject: token.Subject,
-		Expiry: token.Expiry, Claims: claims}, s.cfg.Issuer, s.cfg.ClientID, now)
+		Expiry: token.Expiry, Claims: claims}, st.issuer, st.clientID, st.groupsClaim, now)
 }
 
-// checkAccessToken holds a verified token to the issuer, Rotor's audience, its expiry and the administrators' group.
-func checkAccessToken(token accessToken, issuer, audience string, now time.Time) (*Identity, error) {
+// checkAccessToken holds a verified token to the issuer, Rotor's audience and its expiry.
+func checkAccessToken(token accessToken, issuer, audience, groupsClaim string, now time.Time) (*Identity, error) {
 	switch {
 	case token.Issuer != issuer:
 		return nil, refuse(ErrTokenIssuer, "The token was issued by %q, and Rotor takes tokens of %s alone. Take the token from that realm.",
@@ -96,22 +111,14 @@ func checkAccessToken(token accessToken, issuer, audience string, now time.Time)
 	case token.Subject == "":
 		return nil, refuse(ErrTokenNoAccount, "The token names no account. Take it with the client credentials of a client that has a service account.")
 	}
-	identity, err := tokenIdentity(token)
-	if err != nil {
-		return nil, err
-	}
-	if RoleFor(identity.Groups) != auth.RoleAdmin {
-		return nil, refuse(ErrTokenNotAdmin, "The token's account is not in the group %s, so it cannot administer Rotor. "+
-			"Add the client's service account to %s in the realm, then take a fresh token.", AdminGroup, AdminGroup)
-	}
-	return identity, nil
+	return tokenIdentity(token, groupsClaim)
 }
 
 // tokenIdentity is a person when the token carries an address, and otherwise the service account of the client it
 // was issued to, known by that client's name.
-func tokenIdentity(token accessToken) (*Identity, error) {
+func tokenIdentity(token accessToken, groupsClaim string) (*Identity, error) {
 	if strings.TrimSpace(asString(token.Claims["email"])) != "" {
-		identity, err := identityFromClaims(token.Issuer, token.Subject, token.Claims)
+		identity, err := identityFromClaims(token.Issuer, token.Subject, token.Claims, groupsClaim)
 		if err != nil {
 			return nil, refuse(err, "The token's account has an email address the realm has not verified. Verify it in the realm, then take a fresh token.")
 		}
@@ -125,20 +132,46 @@ func tokenIdentity(token accessToken) (*Identity, error) {
 		Groups: normalizeGroups(asStrings(token.Claims[groupsClaim]))}, nil
 }
 
-// Authenticate lets in the account a realm's access token names: it is made or updated as a sign-in would, its role
-// copied from the realm, without a session.
+// Authenticate lets in the account a realm's access token names: it is made or updated as a sign-in would, its groups
+// followed from the realm, without a session.
 func (s *Service) Authenticate(ctx context.Context, raw string) (*auth.Principal, error) {
 	identity, err := s.VerifyAccessToken(ctx, raw, time.Now())
 	if err != nil {
 		return nil, err
 	}
+	return s.admit(ctx, identity)
+}
+
+// AuthenticateSender lets in the account a realm's access token names to send spans (#243): any account Rotor lets
+// in, since sending spans administers nothing; one nobody has let in is refused.
+func (s *Service) AuthenticateSender(ctx context.Context, raw string) (*auth.Principal, error) {
+	identity, err := s.verifyAnyAccessToken(ctx, raw, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	p, err := s.admit(ctx, identity)
+	if errors.Is(err, ErrNotAMember) {
+		return nil, refuse(ErrNotAMember, "The token's account %s has not been let into Rotor. Ask an administrator of Rotor to "+
+			"let it in, or to map a group it is in, then send again.", identity.Email)
+	}
+	return p, err
+}
+
+// admit makes or updates the person a verified token names, without a session.
+func (s *Service) admit(ctx context.Context, identity *Identity) (*auth.Principal, error) {
+	st, err := s.current(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var p *auth.Principal
 	err = s.db.WriteAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
-		user, role, err := adopt(ctx, tx, identity)
+		// An administrators' account is let in by its group's grant whatever the setting says; a sender's must be.
+		user, set, err := adopt(ctx, tx, identity, st.admitByGroup)
 		if err != nil {
 			return err
 		}
-		p = &auth.Principal{UserID: user.id, Email: identity.Email, Name: identity.Name, Role: role, Groups: identity.Groups}
+		p = &auth.Principal{UserID: user.id, Email: identity.Email, Name: identity.Name, Groups: identity.Groups,
+			Perms: set}
 		return nil
 	})
 	if err != nil {

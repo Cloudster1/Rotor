@@ -20,9 +20,10 @@ import (
 )
 
 // The tools docs/api-contract-m10.md names: workflows and runs read, checked, started and cancelled, and approvals
-// read, never decided.
+// read, never decided; M17's skills and M18's run traces (#244).
 var contractTools = []string{
-	"cancel_run", "get_approval", "get_run", "get_workflow", "list_approvals", "list_runs", "list_workflows", "start_run",
+	"cancel_run", "create_skill", "get_approval", "get_run", "get_run_trace", "get_run_trace_span", "get_skill", "get_skill_file",
+	"get_skill_version", "get_workflow", "list_approvals", "list_runs", "list_skills", "list_workflows", "save_skill", "start_run", "validate_skill",
 	"validate_workflow", "whoami",
 }
 
@@ -67,7 +68,7 @@ func TestAToolRequiresItsPathAndReadsWhenItGets(t *testing.T) {
 		}
 	}
 	for _, tool := range toolCatalog() {
-		if tool.ReadOnly != (tool.Method == http.MethodGet || tool.Name == "validate_workflow") {
+		if tool.ReadOnly != (tool.Method == http.MethodGet || tool.Name == "validate_workflow" || tool.Name == "validate_skill") {
 			t.Errorf("%s: readOnly %v for %s", tool.Name, tool.ReadOnly, tool.Method)
 		}
 		for _, name := range pathParams(tool.Path) {
@@ -117,7 +118,7 @@ func TestAReadOnlyGrantIsOfferedOnlyWhatItMayCall(t *testing.T) {
 
 // assistant is a principal acting through a grant, as the OAuth service makes it.
 func assistant(readOnly bool) *auth.Principal {
-	return &auth.Principal{UserID: uuid.New(), Name: "Bob", Role: auth.RoleMember,
+	return &auth.Principal{UserID: uuid.New(), Name: "Bob",
 		Assistant: &auth.Assistant{GrantID: uuid.New(), Client: "Claude Code", ReadOnly: readOnly}}
 }
 

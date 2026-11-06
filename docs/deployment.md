@@ -34,7 +34,7 @@ Four things come from outside the chart.
   the database: without the transit key no run's data opens again. The key rotates every 90 days and keeps its
   older versions, so older runs still open; an installation upgraded from before #41 may delete the unused key
   `rotor-checkpoints`.
-  Finished runs are deleted after the retention an administrator sets under Settings (90 days by default); traces
+  Finished runs are deleted after the retention an administrator sets under Admin, Retention (90 days by default); traces
   sent to a collector or to LangSmith follow their own retention there. The api and the worker sign in with their own ServiceAccount tokens
   (`openbao.auth: kubernetes`); sandboxes hold no OpenBao credential at all, only the single-use wrapping tokens they
   are handed.
@@ -59,8 +59,14 @@ Four things come from outside the chart.
     The init script refuses an OpenBao without one, so the token it runs with must be allowed to list audit
     devices (`sys/audit`, which needs `sudo`); `openbao.configure.requireAudit: false` lets a throwaway test server
     through.
-- **Keycloak**, the realm people sign in through: `oidc.issuer`, `oidc.clientId` and the Secret holding the client
-  secret in `oidc.clientSecret`. Outside development the chart refuses to render without it.
+- **Keycloak**, the realm people sign in through: `oidc.issuer`, `oidc.clientId`, `oidc.groupsClaim` and the Secret
+  holding the client secret in `oidc.clientSecret`. Outside development the chart refuses to render without it. They
+  seed single sign-on on the first start; after that an administrator changes it on Admin > Access, and a secret
+  given there is kept in OpenBao (#204).
+- **Bootstrap members**, `bootstrap.members`: `[{ email, role }]`, each role `admin` or `member`, let in at every start
+  of the api, or at their first sign-in when they have not signed in yet (#171). Anybody else the realm knows waits
+  until an administrator lets them in on Admin > Users, unless their realm group holds a grant and "Let people in by
+  their groups" is on; members of `rotor-administrators` are always let in.
   - Turn on the client's service account and give it the `realm-management` role `view-users`. When an
     administrator signs a person out of every session, Keycloak's single logout token names only one of them;
     Rotor then reads the person's sign-out time from the admin API and ends their other sessions too. Without the
@@ -106,7 +112,7 @@ says why this shape.
   memory as large as the settings allow (1 GiB unless an administrator says). Plan the nodes for the runner's and
   the toolchains' memory together.
 - **The package mirror.** Builds fetch dependencies from one mirror an administrator runs, such as Athens for Go and
-  Verdaccio for npm, and names in the settings; the toolchains get it as `GOPROXY`, `GOSUMDB` and
+  Verdaccio for npm, and names under Admin, Workspaces; the toolchains get it as `GOPROXY`, `GOSUMDB` and
   `npm_config_registry`. Let workspace pods reach it with `sandbox.workspaces.packageMirror.host` (needs Cilium) or
   `.cidr`; the policy selects pods labelled `rotor.dev/workspace`, so other sandboxes never reach it. Name the same
   host in both places. The public Go proxy is no mirror: it fetches any module asked for and redirects to Cloud
@@ -202,6 +208,10 @@ Prometheus scrapes the worker on `worker.metricsPort` (9464: sandboxes, runs by 
 LangSmith is off until an administrator turns it on in Rotor's settings with a key, which Rotor keeps in OpenBao. The
 api then sends runs' spans, with prompts and answers, to `telemetry.langsmithEndpoint`, so the api's pods must reach
 that host; the sandboxes never do. `docs/api-contract-m7-telemetry.md` says what is sent.
+
+Apps and tool services send their own spans to `/api/v1/otlp/v1/traces` (#243). The nginx of the compose file and the
+chart passes `/api/` through and leaves body sizes to the api, which takes 4 MiB a request; a proxy or ingress of your
+own in front of Rotor must pass that path and such a body too, or exporters see its 404 or 413.
 
 In development, `make observe` starts the stack with a collector, Jaeger and Prometheus and says where they are.
 

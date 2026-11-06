@@ -3,22 +3,15 @@ import { type FormEvent, useId, useState } from "react";
 import { ApiError } from "@/api/client";
 import { setWorkspaces, type WorkspaceSetting, workspacesQuery, workspacesQueryKey } from "@/api/workspaces";
 import { s } from "@/strings";
-
-const card = "max-w-xl rounded-overlay border border-border bg-surface p-5 shadow-1";
-const input = "h-9 w-full rounded-control border border-border-strong bg-surface px-3 text-sm text-ink";
-const primary = "h-9 rounded-control bg-accent px-4 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-60";
-const secondary = "h-9 rounded-control border border-border-strong px-3 text-sm text-ink hover:bg-surface-raised";
+import { input, primary, secondary } from "./styles";
+import { SettingsCard } from "./ui";
 
 /** The toolchain images, package mirror and limits workspaces may use, for administrators (#136). */
 export function WorkspacesSection() {
   const id = useId();
   const setting = useQuery(workspacesQuery);
   return (
-    <section className={card} aria-labelledby={`${id}-title`} data-workspaces>
-      <h2 id={`${id}-title`} className="mb-1 text-lg font-semibold text-ink">
-        {s.workspaces.title}
-      </h2>
-      <p className="mb-3 text-sm text-ink-muted">{s.workspaces.body}</p>
+    <SettingsCard titleId={`${id}-title`} title={s.workspaces.title} description={s.workspaces.body} wide data-workspaces>
       {setting.isPending && <p className="text-sm text-ink-muted">{s.workspaces.loading}</p>}
       {setting.isError && (
         <p role="alert" className="text-sm text-danger">
@@ -26,7 +19,7 @@ export function WorkspacesSection() {
         </p>
       )}
       {setting.data && <WorkspacesForm current={setting.data} labelledBy={`${id}-title`} />}
-    </section>
+    </SettingsCard>
   );
 }
 
@@ -78,9 +71,9 @@ function WorkspacesForm({ current, labelledBy }: { current: WorkspaceSetting; la
           return (
             // biome-ignore lint/suspicious/noArrayIndexKey: an image's place is all a row has before it is named
             <div key={i} className="flex flex-col gap-1" data-workspaces-image={i}>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <input
-                  className={`${input} w-40`}
+                  className={`${input} sm:max-w-48`}
                   aria-label={s.workspaces.imageName(i + 1)}
                   value={image.name}
                   onChange={(e) => setImage(i, "name", e.target.value)}
@@ -91,7 +84,11 @@ function WorkspacesForm({ current, labelledBy }: { current: WorkspaceSetting; la
                   value={image.reference}
                   onChange={(e) => setImage(i, "reference", e.target.value)}
                 />
-                <button type="button" className={secondary} onClick={() => setForm({ ...form, images: form.images.filter((_, j) => j !== i) })}>
+                <button
+                  type="button"
+                  className={`${secondary} self-start sm:self-auto`}
+                  onClick={() => setForm({ ...form, images: form.images.filter((_, j) => j !== i) })}
+                >
                   {s.workspaces.removeImage(image.name)}
                 </button>
               </div>
@@ -105,8 +102,8 @@ function WorkspacesForm({ current, labelledBy }: { current: WorkspaceSetting; la
           </button>
         </div>
       </fieldset>
-      {field("packageMirror", s.workspaces.packageMirrorHint)}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {field("packageMirror", s.workspaces.packageMirrorHint)}
         {field("maxStepTime", s.workspaces.maxStepTimeHint)}
         {field("maxVolume", s.workspaces.maxVolumeHint)}
       </div>

@@ -1,5 +1,5 @@
-// Package workflows keeps people's workflows: immutable, numbered versions of a spec, shared privately, with
-// realm groups or with everyone. Who sees and changes what is enforced by the database's policies too.
+// Package workflows keeps people's workflows: immutable, numbered versions of a spec. Who sees, runs, edits and
+// administers each is the grants' to say, and the database's policies ask them too.
 package workflows
 
 import (
@@ -13,14 +13,17 @@ import (
 
 	"github.com/cloudster1/rotor/backend/internal/db"
 	"github.com/cloudster1/rotor/backend/internal/providers"
+	"github.com/cloudster1/rotor/backend/internal/skills"
 	"github.com/cloudster1/rotor/backend/internal/workflow/spec"
 )
 
 // Errors a caller tells apart; *Invalid lists what is wrong with a spec.
 var (
 	ErrNotFound = errors.New("no such workflow")
-	// ErrNotOwner is a workflow the caller may see but not change.
-	ErrNotOwner = errors.New("only the workflow's owner may change it")
+	// ErrNotOwner is a workflow the caller may see but whose grants do not let them change it this way.
+	ErrNotOwner = errors.New("the caller's grants do not let them change the workflow this way")
+	// ErrCannotCreate is a caller whose grants do not let them create workflows.
+	ErrCannotCreate = errors.New("the caller's grants do not let them create workflows")
 	// ErrStale is a save based on a version that is no longer the current one.
 	ErrStale = errors.New("the workflow changed since it was opened")
 	// ErrArchived is a save to an archived workflow.
@@ -37,25 +40,20 @@ func (e *Invalid) Error() string {
 	return fmt.Sprintf("the workflow has %d problems, the first: %s", len(e.Problems), e.Problems[0].Message)
 }
 
-// Sharing values, as the table and the API name them.
-const (
-	SharingPrivate  = "private"
-	SharingGroups   = "groups"
-	SharingEveryone = "everyone"
-)
-
 // Workflow is a workflow as its viewers see it.
 type Workflow struct {
-	ID             uuid.UUID
-	Name           string
-	Description    string
-	OwnerID        uuid.UUID
-	OwnerName      string
-	Sharing        string
-	SharedGroups   []string
+	ID          uuid.UUID
+	Name        string
+	Description string
+	OwnerID     uuid.UUID
+	OwnerName   string
+	// SharedWith counts the people and groups besides its owner holding a role on it, as its grants say (#205).
+	SharedWith     int
 	CurrentVersion int
 	UpdatedAt      time.Time
 	ArchivedAt     *time.Time
+	// What the caller's grants let them do with it, as the database's policies answer (#202).
+	CanRun, CanEdit, CanAdminister bool
 }
 
 // Version is one saved version of a workflow.
@@ -90,6 +88,12 @@ type ImageSource interface {
 	ImageNames(ctx context.Context) ([]string, error)
 }
 
+// SkillSource finds the skills an agent names, as the person on the context reads them (#221); *skills.Service is the
+// real one. A skill they may not read is left out, as one that does not exist is.
+type SkillSource interface {
+	ByNames(ctx context.Context, names []string) (map[string]skills.Pinnable, error)
+}
+
 // Service is the workflows.
 type Service struct {
 	db      *db.Cluster
@@ -98,6 +102,8 @@ type Service struct {
 	Models ModelSource
 	// Images checks a workspace's image when a workflow is saved (#136); nil leaves it to the run's start.
 	Images ImageSource
+	// Skills checks each skill an agent names when a workflow is saved (#221); nil leaves it to the run's start.
+	Skills SkillSource
 }
 
 // NewService returns the workflows; catalog may be nil, which checks a spec without its tools.
@@ -105,15 +111,19 @@ func NewService(cluster *db.Cluster, catalog CatalogSource) *Service {
 	return &Service{db: cluster, catalog: catalog}
 }
 
-const workflowColumns = `w.id, w.name, w.description, w.owner_id, w.owner_name, w.sharing, w.shared_groups,
-	w.current_version, w.updated_at, w.archived_at`
+// Everyone signed in reads who holds which role, so the count needs no second query per workflow.
+const workflowColumns = `w.id, w.name, w.description, w.owner_id, w.owner_name,
+	(SELECT count(DISTINCT COALESCE(a.user_id, a.group_id)) FROM role_assignment a
+		WHERE a.workflow_id = w.id AND a.user_id IS DISTINCT FROM w.owner_id),
+	w.current_version, w.updated_at, w.archived_at,
+	actor_can('workflow.run', w.id), actor_can('workflow.edit', w.id), actor_can('workflow.administer', w.id)`
 
 const workflowFrom = ` FROM workflow w`
 
 func scanWorkflow(row pgx.Row) (Workflow, error) {
 	var w Workflow
-	err := row.Scan(&w.ID, &w.Name, &w.Description, &w.OwnerID, &w.OwnerName, &w.Sharing, &w.SharedGroups,
-		&w.CurrentVersion, &w.UpdatedAt, &w.ArchivedAt)
+	err := row.Scan(&w.ID, &w.Name, &w.Description, &w.OwnerID, &w.OwnerName, &w.SharedWith,
+		&w.CurrentVersion, &w.UpdatedAt, &w.ArchivedAt, &w.CanRun, &w.CanEdit, &w.CanAdminister)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return w, ErrNotFound
 	}

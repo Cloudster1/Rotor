@@ -16,8 +16,9 @@ import (
 
 // Actions recorded so far; each feature adds its own as it lands, named domain.verb.
 const (
-	ActionSignedIn               = "user.signed_in"
-	ActionSignedOut              = "user.signed_out"
+	ActionSignedIn  = "user.signed_in"
+	ActionSignedOut = "user.signed_out"
+	// ActionRoleChanged and ActionWorkflowShared are written no more since #205; the log keeps the entries made before.
 	ActionRoleChanged            = "user.role_changed"
 	ActionSwitchedOff            = "user.switched_off"
 	ActionSessionEndedByProvider = "session.ended_by_provider"
@@ -33,45 +34,83 @@ const (
 	ActionWorkflowChanged        = "workflow.changed"
 	ActionWorkflowShared         = "workflow.shared"
 	ActionWorkflowArchived       = "workflow.archived"
-	ActionProviderChanged        = "provider.changed"
-	ActionRunStarted             = "run.started"
-	ActionRunCancelled           = "run.cancelled"
-	ActionApprovalDecided        = "approval.decided"
-	ActionTriggerCreated         = "trigger.created"
-	ActionTriggerChanged         = "trigger.changed"
-	ActionTriggerRemoved         = "trigger.removed"
-	ActionTriggerEnabled         = "trigger.enabled"
-	ActionTriggerDisabled        = "trigger.disabled"
-	ActionSandboxSpawned         = "sandbox.spawned"
-	ActionSandboxDestroyed       = "sandbox.destroyed"
-	ActionRunEnded               = "run.ended"
-	ActionApprovalRequested      = "approval.requested"
-	ActionAuditExported          = "audit.exported"
-	ActionLimitsChanged          = "limits.changed"
-	ActionHookSecretChanged      = "hook.secret_changed"
-	ActionLangSmithChanged       = "langsmith.changed"
-	ActionRetentionChanged       = "retention.changed"
-	ActionRunDataDeleted         = "run.data_deleted"
-	ActionOAuthGranted           = "oauth.granted"
-	ActionOAuthRevoked           = "oauth.revoked"
-	ActionOAuthSwitched          = "oauth.switched"
+	// ActionWorkflowRestored is a workflow taken out of the archive, which is how archiving is undone (#205).
+	ActionWorkflowRestored  = "workflow.restored"
+	ActionProviderChanged   = "provider.changed"
+	ActionRunStarted        = "run.started"
+	ActionRunCancelled      = "run.cancelled"
+	ActionApprovalDecided   = "approval.decided"
+	ActionTriggerCreated    = "trigger.created"
+	ActionTriggerChanged    = "trigger.changed"
+	ActionTriggerRemoved    = "trigger.removed"
+	ActionTriggerEnabled    = "trigger.enabled"
+	ActionTriggerDisabled   = "trigger.disabled"
+	ActionSandboxSpawned    = "sandbox.spawned"
+	ActionSandboxDestroyed  = "sandbox.destroyed"
+	ActionRunEnded          = "run.ended"
+	ActionApprovalRequested = "approval.requested"
+	ActionAuditExported     = "audit.exported"
+	ActionLimitsChanged     = "limits.changed"
+	ActionHookSecretChanged = "hook.secret_changed"
+	ActionLangSmithChanged  = "langsmith.changed"
+	ActionRetentionChanged  = "retention.changed"
+	ActionRunDataDeleted    = "run.data_deleted"
+	ActionOAuthGranted      = "oauth.granted"
+	ActionOAuthRevoked      = "oauth.revoked"
+	ActionOAuthSwitched     = "oauth.switched"
 	// ActionUnattendedSwitched and ActionTriggerUnattendedWrite are M12's (#128): the administrators' switch, and a
 	// write a triggered run made with no approval through a call its owner agreed to.
 	ActionUnattendedSwitched     = "unattended.switched"
 	ActionTriggerUnattendedWrite = "trigger.unattended_write"
 	// ActionWorkspacesChanged is an administrator changing what workspaces may use (#136).
 	ActionWorkspacesChanged = "workspaces.changed"
+	// ActionRoleGranted, ActionRoleRevoked and ActionRoleRemoved are grants given and taken away, and a role deleted (#202).
+	ActionRoleGranted = "role.granted"
+	ActionRoleRevoked = "role.revoked"
+	ActionRoleRemoved = "role.removed"
+	// ActionRoleDefined and ActionRoleRedefined are a role added and a role renamed or given other permissions (#203).
+	ActionRoleDefined   = "role.defined"
+	ActionRoleRedefined = "role.redefined"
+	// ActionGroupCreated, ActionGroupDeleted, ActionGroupMemberAdded and ActionGroupMemberRemoved are groups kept by
+	// hand (#203).
+	ActionGroupCreated       = "group.created"
+	ActionGroupDeleted       = "group.deleted"
+	ActionGroupMemberAdded   = "group.member_added"
+	ActionGroupMemberRemoved = "group.member_removed"
+	// ActionSwitchedOn is a switched-off person let in again (#203).
+	ActionSwitchedOn = "user.switched_on"
+	// ActionMemberAdmitted and ActionMemberDeclined are a waiting person let in or turned away (#204), and
+	// ActionOIDCSaved single sign-on set up or changed; its secret is never in the entry.
+	ActionMemberAdmitted = "member.admitted"
+	ActionMemberDeclined = "member.declined"
+	ActionOIDCSaved      = "oidc.saved"
+	// ActionSkillCreated, ActionSkillChanged, ActionSkillArchived and ActionSkillRestored are the skill library's (#219);
+	// sharing a skill is role.granted and role.revoked naming it.
+	ActionSkillCreated  = "skill.created"
+	ActionSkillChanged  = "skill.changed"
+	ActionSkillArchived = "skill.archived"
+	ActionSkillRestored = "skill.restored"
+	// ActionSkillImported is a zip that made a skill or saved its next version (#220), beside skill.created or skill.changed.
+	ActionSkillImported = "skill.imported"
+	// ActionSkillInstalled is a version of a skill Rotor ships, which the api added at its start (#225).
+	ActionSkillInstalled = "skill.installed"
+	// ActionTracesChanged is an administrator changing how long traces are kept and whether their text is (#242).
+	ActionTracesChanged = "traces.changed"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
 var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, ActionSwitchedOff, ActionSessionEndedByProvider,
 	ActionToolAdded, ActionToolRemoved, ActionToolChecked, ActionToolAllowed, ActionConnectionGranted, ActionConnectionEnded, ActionTokenMinted, ActionTokenRevoked, ActionProviderChanged,
-	ActionWorkflowCreated, ActionWorkflowChanged, ActionWorkflowShared, ActionWorkflowArchived, ActionRunStarted, ActionRunCancelled,
+	ActionWorkflowCreated, ActionWorkflowChanged, ActionWorkflowShared, ActionWorkflowArchived, ActionWorkflowRestored, ActionRunStarted, ActionRunCancelled,
 	ActionApprovalDecided, ActionTriggerCreated, ActionTriggerChanged, ActionTriggerRemoved, ActionTriggerEnabled, ActionTriggerDisabled,
 	ActionHookSecretChanged, ActionLimitsChanged, ActionLangSmithChanged,
 	ActionSandboxSpawned, ActionSandboxDestroyed, ActionRunEnded, ActionApprovalRequested, ActionAuditExported,
 	ActionRetentionChanged, ActionRunDataDeleted, ActionOAuthGranted, ActionOAuthRevoked, ActionOAuthSwitched,
-	ActionUnattendedSwitched, ActionTriggerUnattendedWrite, ActionWorkspacesChanged}
+	ActionUnattendedSwitched, ActionTriggerUnattendedWrite, ActionWorkspacesChanged, ActionRoleGranted, ActionRoleRevoked,
+	ActionRoleRemoved, ActionRoleDefined, ActionRoleRedefined, ActionGroupCreated, ActionGroupDeleted, ActionGroupMemberAdded,
+	ActionGroupMemberRemoved, ActionSwitchedOn, ActionMemberAdmitted, ActionMemberDeclined, ActionOIDCSaved,
+	ActionSkillCreated, ActionSkillChanged, ActionSkillArchived, ActionSkillRestored, ActionSkillImported,
+	ActionSkillInstalled, ActionTracesChanged}
 
 // Redacted stands in the record for a value that looked like a credential.
 var Redacted = redact.Redacted
