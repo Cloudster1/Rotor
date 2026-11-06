@@ -2,6 +2,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -105,9 +106,22 @@ func toAPIError(err error) *APIError {
 	}
 }
 
+// statusClientClosed is what the access line shows for a request its client abandoned; nobody reads it.
+const statusClientClosed = 499
+
+// clientGone says whether err is only the client's own cancellation, which is no fault of the server.
+func clientGone(r *http.Request, err error) bool {
+	return errors.Is(err, context.Canceled) && errors.Is(r.Context().Err(), context.Canceled)
+}
+
 // respondError writes err in the envelope and logs the cause when there is one
 // worth seeing.
 func respondError(w http.ResponseWriter, r *http.Request, err error) {
+	if clientGone(r, err) {
+		loggerFrom(r.Context()).Debug("request cancelled by the client")
+		w.WriteHeader(statusClientClosed)
+		return
+	}
 	apiErr := toAPIError(err)
 	body := *apiErr
 	body.RequestID = RequestIDFrom(r.Context())

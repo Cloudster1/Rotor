@@ -41,6 +41,21 @@ func addTool(t *testing.T, stub *toolStub) string {
 	return id
 }
 
+// connectionsTo lists the person's connections to one tool; their whole list also holds other tests' tools.
+func (b *browser) connectionsTo(t *testing.T, toolID string) (int, []map[string]any) {
+	t.Helper()
+	status, answer := b.api(http.MethodGet, "/connections", nil)
+	var own []map[string]any
+	all, _ := answer["connections"].([]any)
+	for _, each := range all {
+		c, _ := each.(map[string]any)
+		if tool, _ := c["tool"].(map[string]any); tool["id"] == toolID {
+			own = append(own, c)
+		}
+	}
+	return status, own
+}
+
 // reachStub lets the browser follow the tool's public address, as a person's browser would.
 func (b *browser) reachStub(t *testing.T) {
 	t.Helper()
@@ -121,12 +136,11 @@ func TestAPersonConnectsTheirAccountAndOnlyOpenBaoHoldsTheToken(t *testing.T) {
 	if landed := bob.landing(t, bob.consent(t, toolID, "bob", "allow")); landed != "/settings/accounts?connected="+toolID {
 		t.Fatalf("landed on %q", landed)
 	}
-	status, answer := bob.api(http.MethodGet, "/connections", nil)
-	list, _ := answer["connections"].([]any)
+	status, list := bob.connectionsTo(t, toolID)
 	if status != http.StatusOK || len(list) != 1 {
-		t.Fatalf("bob's connections = %d %v", status, answer)
+		t.Fatalf("bob's connections to the tool = %d %v", status, list)
 	}
-	connection := list[0].(map[string]any)
+	connection := list[0]
 	if connection["status"] != "connected" || !strings.Contains(stringOf(connection["scopes"]), "mcp") {
 		t.Errorf("the connection = %v", connection)
 	}
@@ -146,8 +160,8 @@ func TestAPersonConnectsTheirAccountAndOnlyOpenBaoHoldsTheToken(t *testing.T) {
 
 	carol := newBrowser(t)
 	carol.signIn("carol")
-	if _, answer := carol.api(http.MethodGet, "/connections", nil); len(answer["connections"].([]any)) != 0 {
-		t.Errorf("carol sees bob's connection: %v", answer)
+	if _, own := carol.connectionsTo(t, toolID); len(own) != 0 {
+		t.Errorf("carol sees bob's connection: %v", own)
 	}
 	if status, _ := carol.api(http.MethodDelete, "/tools/"+toolID+"/connection", nil); status != http.StatusNotFound {
 		t.Errorf("carol ending a connection she does not have = %d, want 404", status)
@@ -193,8 +207,8 @@ func TestAnAnswerIsRefusedFromAnotherSessionTwiceOrFromAnotherIssuer(t *testing.
 	if landed := bob.landing(t, bob.consent(t, toolID, "bob", "deny")); !strings.Contains(landed, "error=denied") {
 		t.Errorf("a refusal at the tool landed on %q", landed)
 	}
-	if _, answer := bob.api(http.MethodGet, "/connections", nil); len(answer["connections"].([]any)) != 0 {
-		t.Errorf("a refused answer left a connection: %v", answer)
+	if _, own := bob.connectionsTo(t, toolID); len(own) != 0 {
+		t.Errorf("a refused answer left a connection: %v", own)
 	}
 }
 
@@ -219,8 +233,8 @@ func TestRemovingAToolEndsEveryConnectionToIt(t *testing.T) {
 	if stats := stub.Stats(); stats["revocations"] != float64(1) || stats["liveGrants"] != float64(0) {
 		t.Errorf("removing the tool left the tool counting %v", stats)
 	}
-	if _, answer := bob.api(http.MethodGet, "/connections", nil); len(answer["connections"].([]any)) != 0 {
-		t.Errorf("bob still has a connection to a removed tool: %v", answer)
+	if _, own := bob.connectionsTo(t, toolID); len(own) != 0 {
+		t.Errorf("bob still has a connection to a removed tool: %v", own)
 	}
 }
 
