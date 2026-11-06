@@ -57,6 +57,9 @@ for (const scheme of SCHEMES) {
     const details = section.getByRole("region", { name: "Span node file" });
     await expect(details.locator("[data-span-detail-status]")).toHaveText("Failed");
     await expect(details).toContainText(FAILURE);
+    // The status message is the error alone; the stack trace is in the exception event under it.
+    const message = details.locator('[data-span-text="status-message"]');
+    await expect(message).toHaveText(`RunEnded: file raised ValueError: ${FAILURE} (line 2)`);
     if (!setting.keepContent) await expect(section.locator("[data-trace-no-text]")).toBeVisible();
     await expect(section.locator('[data-trace-state="kept"]')).toContainText("days after its last span");
     await expectAccessible(page);

@@ -177,7 +177,9 @@ whichever comes first, so a batch of large spans stays under `MaxRunnerMessageBy
   the other attributes without text when `MaxSpanAttributes` cuts, so the run and the node stay.
 - **Events:** the latest `MaxSpanEvents` are kept; an exception LangGraph raises for its control flow,
   such as an approval's `GraphInterrupt`, is dropped, as it is no failure. The status message is
-  LangChain's error up to its stack, which the exception event carries.
+  the error alone, `Type: message` as Python prints it, made from LangChain's repr; LangChain
+  glues its stack to that repr without a newline, so the message is cut at
+  `Traceback (most recent call last):`. The event carries the whole stack (#254).
 - **Messages:** the last 16 of `llm.input_messages.*` are numbered from 0 again.
 - **Destinations until #242 and #246:** the collector gets every span without its text and LangSmith
   gets it with its text; `trace_content` is still set while LangSmith is on.
