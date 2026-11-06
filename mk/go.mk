@@ -74,11 +74,13 @@ fmt-check: | $(GO_CACHE) ## Fail when a Go file is not gofmt-clean
 check-go: fmt-check vet test-go openapi-check $(if $(wildcard $(ROOT)/proto),proto-check proto-breaking) ## The backend gate: formatting, vet, race-checked tests, OpenAPI drift
 
 .PHONY: test-integration
+# The suite outgrew go test's default ten minutes (#289); reports/summary.md names the slowest tests as it grows.
+INTEGRATION_TIMEOUT ?= 20m
 test-integration: | $(GO_CACHE) ## Run the integration suite against this checkout's running stack
 	@docker compose ps --status running --services 2>/dev/null | grep -qx api \
 		|| { echo "The stack for this checkout is not running. Start it with make up or make stack-up, then run this again."; exit 1; }
 	$(ROOT)/tests/test-openbao-persist.sh
-	$(ROOT)/scripts/go-test.sh $(REPORTS)/integration.json $(DOCKER_GO_STACK) go test -race -json -tags integration -count=1 $(TESTFLAGS) ./test/...
+	$(ROOT)/scripts/go-test.sh $(REPORTS)/integration.json $(DOCKER_GO_STACK) go test -race -json -tags integration -count=1 -timeout $(INTEGRATION_TIMEOUT) $(TESTFLAGS) ./test/...
 	$(if $(wildcard $(ROOT)/runner/pyproject.toml),$(MAKE) --no-print-directory test-runner)
 
 .PHONY: shell
