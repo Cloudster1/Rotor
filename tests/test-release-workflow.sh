@@ -8,6 +8,8 @@ WF="${SRC}/.github/workflows/release.yml"
 COMPOSE="${SRC}/deploy/docker-compose.yml"
 VALUES="${SRC}/deploy/charts/rotor/values.yaml"
 SUPPLY="${SRC}/mk/supply.mk"
+# Released for Dynamo to run (#196), not by the chart.
+EXTRA_IMAGES="openbao"
 
 W="$(mktemp -d)" || exit 1
 trap 'rm -rf "${W}"' EXIT
@@ -28,8 +30,8 @@ while read -r name repository; do
     [[ -n "${name}" ]] || continue
     check "the chart pulls ${name} from where release.yml pushes it" "${repository}" "${prefix}-${name}"
 done <<<"${released}"
-check "release.yml pushes exactly the images the chart runs at its appVersion" \
-    "${pushed}" "$(cut -d' ' -f1 <<<"${released}" | sort | paste -sd' ')"
+check "release.yml pushes exactly the images the chart runs at its appVersion, and ${EXTRA_IMAGES}" \
+    "${pushed}" "$( { cut -d' ' -f1 <<<"${released}"; tr ' ' '\n' <<<"${EXTRA_IMAGES}"; } | sort | paste -sd' ')"
 check "the release notes list the same images" \
     "$(sed -n 's/^ *for image in \(.*\); do$/\1/p' "${WF}" | tr ' ' '\n' | sort | paste -sd' ')" "${pushed}"
 
@@ -46,6 +48,19 @@ grep -qxF "${runner_dockerfile}" <<<"${dockerfiles}" && pass "release.yml builds
 while read -r dockerfile; do
     [[ -f "${SRC}/${dockerfile}" ]] && pass "${dockerfile} exists" || fail "release.yml builds ${dockerfile}, which does not exist"
 done <<<"${dockerfiles}"
+# Dynamo runs the server and the setup from this image, so it must carry the setup and leave OpenBao's entrypoint be.
+OPENBAO_DOCKERFILE="${SRC}/deploy/Dockerfile.openbao"
+grep -qxF "COPY deploy/openbao/init.sh /rotor/init.sh" "${OPENBAO_DOCKERFILE}" \
+    && grep -qxF "COPY deploy/openbao/policies/ /rotor/policies/" "${OPENBAO_DOCKERFILE}" \
+    && pass "the openbao image carries the setup script and the policies under /rotor" \
+    || fail "deploy/Dockerfile.openbao does not copy init.sh and policies/ to /rotor"
+grep -qE '^(ENTRYPOINT|CMD|USER) ' "${OPENBAO_DOCKERFILE}" \
+    && fail "deploy/Dockerfile.openbao changes the entrypoint, the command or the user of the OpenBao image" \
+    || pass "the openbao image leaves OpenBao's entrypoint and command alone"
+compose_tag=$(sed -n 's,^ *image: openbao/openbao:\(.*\)$,\1,p' "${COMPOSE}" | sort -u)
+grep -q "^FROM openbao/openbao:${compose_tag}@sha256:" "${OPENBAO_DOCKERFILE}" \
+    && pass "the openbao image is the version the stack runs, pinned by digest" \
+    || fail "deploy/Dockerfile.openbao is not FROM openbao/openbao:${compose_tag}@sha256:..."
 
 echo "== release.yml runs only actions pinned to a commit"
 unpinned=$(grep -E '^ *(- )?uses: ' "${WF}" | grep -vE 'uses: [^@ ]+@[0-9a-f]{40} # v[0-9.]+$' || true)

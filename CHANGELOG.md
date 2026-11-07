@@ -9,6 +9,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A release publishes `ghcr.io/cloudster1/rotor-openbao` (#196): OpenBao 2.7.1
+  with Rotor's setup script at `/rotor/init.sh` and its policies at
+  `/rotor/policies/`, signed with its SBOM attested like the other images.
+  Dynamo runs its OpenBao server and the one-shot setup from it
+  (`entrypoint: ["/bin/sh", "/rotor/init.sh"]`) without copying Rotor's files.
 - OpenTelemetry SDKs that speak OTLP over gRPC send their spans to Rotor
   without changing protocol (#262). The api takes
   `opentelemetry.proto.collector.trace.v1.TraceService/Export` on a port of

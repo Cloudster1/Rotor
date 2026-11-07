@@ -271,7 +271,11 @@ Dynamo passes seed single sign-on on the first start; after that an
 administrator changes it on Admin > Access, and the client secret is kept in
 OpenBao.
 
-**Images and memory.** The compose stack (`make up`) runs eight images:
+**Images and memory.** A release publishes five images, `rotor-backend`,
+`rotor-web`, `rotor-runner`, `rotor-agent` and `rotor-openbao`, each signed with
+its SBOM attested. The chart runs the first four; Dynamo's compose stack runs
+OpenBao and Rotor's setup from the fifth (below). The compose stack (`make up`)
+runs eight images:
 `rotor-backend` (the api, the worker, the migrate job and the tool stub),
 `rotor-web`, `rotor-runner`, `rotor-agent` (the workspace exec agent, started
 with a run, not a service), and Postgres 18, Valkey 8, OpenBao 2.7.1 and
@@ -299,6 +303,17 @@ otherwise the installer's. Sandboxes are counted apart: each run is a pod, and
 a run with workspace steps adds one toolchain container per image that
 defaults to 3072 MiB and 2000m (`sandbox.workspaces.toolchain`, #136), so size
 the sandbox namespace for the runs allowed at once, not for the chart.
+
+**OpenBao in a compose server.** `ghcr.io/cloudster1/rotor-openbao` is
+`openbao/openbao` 2.7.1, the version Rotor pins, with Rotor's setup script at
+`/rotor/init.sh` and its policies at `/rotor/policies/` (`ROTOR_POLICY_DIR`
+defaults there). It leaves OpenBao's entrypoint and command alone, so it runs
+an OpenBao server as upstream's image does. Dynamo runs both its OpenBao
+server and the one-shot setup from this one image, so the OpenBao version is
+Rotor's pin; the setup is the same service with
+`entrypoint: ["/bin/sh", "/rotor/init.sh"]` and `BAO_ADDR` and `BAO_TOKEN` set
+to the server and a token allowed to configure it. Dynamo copies neither the
+script nor the policy.
 
 **What an umbrella chart sets.** Dynamo's chart sets, for Rotor
 ([`docs/deployment.md`](deployment.md#under-a-parent-chart), #169):

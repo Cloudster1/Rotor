@@ -1,0 +1,7 @@
+# OpenBao as docker-compose.yml runs it, with Rotor's setup script and policies in it, so a consumer such as Dynamo
+# runs the server and the one-shot setup from one released image at Rotor's pinned version. The entrypoint and the
+# command stay upstream's; the setup runs as `entrypoint: ["/bin/sh", "/rotor/init.sh"]` against BAO_ADDR and BAO_TOKEN.
+FROM openbao/openbao:2.7.1@sha256:6d2b93856e3fcf7b18ad855a0b51eaba474dc8b79cf554379ea32034797d2acf
+
+COPY deploy/openbao/init.sh /rotor/init.sh
+COPY deploy/openbao/policies/ /rotor/policies/

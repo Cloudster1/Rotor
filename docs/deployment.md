@@ -140,7 +140,7 @@ the Kubernetes API included. The install test proves each of these from a pod wi
 
 ### Images you can check
 
-Rotor's images, backend, web, runner and agent, are signed with cosign and carry their SPDX SBOMs as signed attestations
+Rotor's images, backend, web, runner, agent and openbao (the last is for Dynamo, not the chart), are signed with cosign and carry their SPDX SBOMs as signed attestations
 (#42), so you can tell what runs in a sandbox and that it is the image that was built. A release (#44,
 `docs/releasing.md`) signs them keyless, as its own workflow at the release's tag; the targets below do the same with a
 key for images you build.
