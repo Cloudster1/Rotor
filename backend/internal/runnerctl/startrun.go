@@ -2,6 +2,7 @@ package runnerctl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/connections"
 	"github.com/cloudster1/rotor/backend/internal/db"
 	"github.com/cloudster1/rotor/backend/internal/envelope"
+	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/providers"
 	"github.com/cloudster1/rotor/backend/internal/runnerpb"
 	"github.com/cloudster1/rotor/backend/internal/tools"
@@ -55,7 +57,9 @@ type run struct {
 	// Traceparent is the run's trace, which its runner's spans join (#37); TraceContent lets them carry text.
 	Traceparent  string
 	TraceContent bool
-	spec         *spec.Spec
+	// tracing is what the run's workflow chose of its trace (#259), read once per stream so no batch reads it.
+	tracing observability.RunTracing
+	spec    *spec.Spec
 	// triggerID is the trigger that started the run, whose unattended writes are audited (#128); nil for a person's.
 	triggerID *uuid.UUID
 	// model is the provider and model the run's agents use; nil for a workflow without agents.
@@ -67,6 +71,8 @@ type run struct {
 // binding is a spec binding resolved to a tool, for minting its tokens.
 type binding struct {
 	toolID uuid.UUID
+	// tool is the tool's name, for the sentence a failed grant says.
+	tool   string
 	scopes []string
 }
 
@@ -76,9 +82,11 @@ func (s *Server) loadRun(ctx context.Context, runID uuid.UUID) (*run, error) {
 	var resume []approved
 	err := s.DB.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
 		err := tx.QueryRow(ctx, `SELECT r.user_id, r.workflow_id, r.status, v.spec_yaml, r.data_key, r.sealed_inputs, r.traceparent,
-			r.trigger_id FROM run r JOIN workflow_version v ON v.workflow_id = r.workflow_id AND v.number = r.version
+			r.trigger_id, `+observability.RunTracingColumns+` FROM run r
+			JOIN workflow_version v ON v.workflow_id = r.workflow_id AND v.number = r.version
+			LEFT JOIN workflow_tracing t ON t.workflow_id = r.workflow_id
 			WHERE r.id = $1`, runID).Scan(&r.UserID, &r.WorkflowID, &r.Status, &r.SpecYAML, &r.dataKey, &sealed, &r.Traceparent,
-			&r.triggerID)
+			&r.triggerID, &r.tracing.NoText, &r.tracing.Chosen, &r.tracing.Destinations, &r.tracing.SampleRatio)
 		if err != nil {
 			return err
 		}
@@ -153,7 +161,7 @@ func (s *Server) resolve(ctx context.Context, r *run) ([]*runnerpb.ToolBinding, 
 			}
 		}
 		out = append(out, bound)
-		resolved[name] = binding{toolID: tool.ID, scopes: scopes}
+		resolved[name] = binding{toolID: tool.ID, tool: tool.Name, scopes: scopes}
 	}
 	return out, resolved, nil
 }
@@ -279,7 +287,7 @@ func (s *Server) grant(ctx context.Context, r *run, bindings map[string]binding,
 	if !ok {
 		g.Error = name + " is not one of the run's bindings"
 	} else if delivered, err := s.Mint.Deliver(ctx, connections.MintRequest{UserID: r.UserID, ToolID: b.toolID, Scopes: b.scopes, RunID: r.ID.String()}); err != nil {
-		g.Error = err.Error()
+		g.Error = s.grantError(ctx, r, b.tool, err)
 		if s.MintFailed != nil {
 			s.MintFailed(mintFailure(err))
 		}
@@ -288,4 +296,24 @@ func (s *Server) grant(ctx context.Context, r *run, bindings map[string]binding,
 		g.ExpiresAt = timestamppb.New(delivered.ExpiresAt)
 	}
 	return &runnerpb.ConnectResponse{Message: &runnerpb.ConnectResponse_TokenGrant{TokenGrant: g}}
+}
+
+// grantError is why a run's token was not minted, in the sentence the run's person reads among its events: what to
+// do, never an address of the tool's (#266); the error itself goes to the log.
+func (s *Server) grantError(ctx context.Context, r *run, tool string, err error) string {
+	switch {
+	case errors.Is(err, connections.ErrNeedsRegistration):
+		return tool + " no longer knows Rotor. Ask an administrator to register it again under Admin, Tools, then connect your account again."
+	case errors.Is(err, connections.ErrReconnect):
+		return tool + " ended your connection. Connect your account again in Settings, under Tool accounts, then start the run again."
+	case errors.Is(err, connections.ErrNotConnected):
+		return "You are not connected to " + tool + ". Connect your account in Settings, under Tool accounts, then start the run again."
+	case errors.Is(err, connections.ErrScopeNotConsented), errors.Is(err, connections.ErrRunNotLive), errors.Is(err, connections.ErrSwitchedOff):
+		return err.Error()
+	}
+	s.Log.WarnContext(ctx, "a run's token was not minted", "run", r.ID, "tool", tool, "error", err)
+	if errors.Is(err, connections.ErrUnreachable) {
+		return tool + " did not answer when Rotor asked it for a token. Try the run again in a moment."
+	}
+	return "Rotor could not get a token for " + tool + ". Try the run again, and tell an administrator if it keeps happening."
 }

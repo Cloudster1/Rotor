@@ -5,10 +5,10 @@ import { AuditLog } from "@/features/audit/AuditLog";
 import { AllAssistantsSection } from "@/features/oauth/AllAssistantsSection";
 import { ProvidersSection } from "@/features/providers/ProvidersSection";
 import { FIRST_ADMIN_PATH } from "@/features/settings/groups";
-import { LangSmithSection } from "@/features/settings/LangSmithSection";
 import { RetentionSection } from "@/features/settings/RetentionSection";
 import { AdminLayout } from "@/features/settings/SettingsLayout";
 import { SettingsPage } from "@/features/settings/ui";
+import { TraceDestinationsSection } from "@/features/settings/TraceDestinationsSection";
 import { UnattendedWritesSection } from "@/features/settings/UnattendedWritesSection";
 import { WorkspacesSection } from "@/features/settings/WorkspacesSection";
 import { ToolsSection } from "@/features/tools/ToolsSection";
@@ -82,7 +82,7 @@ export const adminTree = adminRoute.addChildren([
   page("workspaces", s.admin.pages.workspaces, () => <WorkspacesSection />),
   page("unattended-writes", s.admin.pages.unattendedWrites, () => <UnattendedWritesSection />),
   page("providers", s.admin.pages.providers, () => <ProvidersSection />),
-  page("langsmith", s.admin.pages.langsmith, () => <LangSmithSection />),
+  page("traces", s.admin.pages.traces, () => <TraceDestinationsSection />),
   page("tools", s.admin.pages.tools, () => <ToolsSection />),
   page("assistants", s.admin.pages.assistants, () => <AllAssistantsSection />),
   createRoute({ getParentRoute: () => adminRoute, path: "audit", component: AuditLog }),

@@ -24,6 +24,8 @@ import (
 var (
 	ErrNotFound    = errors.New("no such tool")
 	ErrUnreachable = errors.New("the tool did not answer")
+	// ErrAmbiguous is a name several tools share from before names were unique (#267), so a binding finds none.
+	ErrAmbiguous = errors.New("several tools have the name")
 )
 
 // Refusal is a tool Rotor will not add, with the sentence an administrator reads.
@@ -58,8 +60,10 @@ const (
 
 // Tool is a tool Rotor knows.
 type Tool struct {
-	ID       uuid.UUID
+	ID uuid.UUID
+	// Name is what workflows bind; Product is what the tool's /meta names, which only Check again changes (#267).
 	Name     string
+	Product  string
 	BaseURL  string
 	Resource string
 	// MCPURL is where Rotor calls MCP: the resource itself at Exciter, under it at Armature.
@@ -97,12 +101,12 @@ func (t Tool) LinkHosts() []string {
 }
 
 // Profile is how the tool names its scopes and hands out tokens, by the product it is.
-func (t Tool) Profile() profiles.Profile { return profiles.For(t.Name) }
+func (t Tool) Profile() profiles.Profile { return profiles.For(t.Product) }
 
 // OffersExchange says whether a run's token is exchanged from the grant's (RFC 8693); only a tool with one token per
 // grant does that, since Exciter's exchange trades the identity provider's tokens for partner apps instead (#139).
 func (t Tool) OffersExchange() bool {
-	return exchangesGrantTokens(t.Name, t.GrantTypes)
+	return exchangesGrantTokens(t.Product, t.GrantTypes)
 }
 
 // exchangesGrantTokens says whether the product's exchange, where its server offers one, trades its own grant's tokens.
@@ -119,9 +123,11 @@ type Secrets interface {
 	DeleteWebhookSecret(ctx context.Context, toolID uuid.UUID) error
 }
 
-// ConnectionEnder ends every connection to a tool before it goes, revoking them at the tool.
+// ConnectionEnder ends every connection to a tool before it goes, revoking them at the tool, and marks them to be
+// made again once the tool holds a new client of Rotor's.
 type ConnectionEnder interface {
 	EndToolConnections(ctx context.Context, tool Tool) (int, error)
+	ReconnectToolConnections(ctx context.Context, tool Tool) (int, error)
 }
 
 // Service is the registry.
@@ -142,13 +148,13 @@ func NewService(cluster *db.Cluster, secrets Secrets, client *http.Client, redir
 	return &Service{db: cluster, vault: secrets, http: client, redirectURL: redirectURL, allowHTTP: allowHTTP}
 }
 
-const toolColumns = `id, name, base_url, resource, mcp_url, issuer, authorization_endpoint, token_endpoint,
+const toolColumns = `id, name, product, base_url, resource, mcp_url, issuer, authorization_endpoint, token_endpoint,
 	COALESCE(revocation_endpoint, ''), COALESCE(registration_endpoint, ''), scopes_supported, capabilities, grant_types,
 	client_id, client_auth_method, registration, status, created_at`
 
 func scanTool(row pgx.Row) (Tool, error) {
 	var t Tool
-	err := row.Scan(&t.ID, &t.Name, &t.BaseURL, &t.Resource, &t.MCPURL, &t.Issuer, &t.AuthorizationEndpoint, &t.TokenEndpoint,
+	err := row.Scan(&t.ID, &t.Name, &t.Product, &t.BaseURL, &t.Resource, &t.MCPURL, &t.Issuer, &t.AuthorizationEndpoint, &t.TokenEndpoint,
 		&t.RevocationEndpoint, &t.RegistrationEndpoint, &t.ScopesSupported, &t.Capabilities, &t.GrantTypes,
 		&t.ClientID, &t.ClientAuthMethod, &t.Registration, &t.Status, &t.AddedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -200,7 +206,8 @@ func (s *Service) Lookup(ctx context.Context, id uuid.UUID) (Tool, error) {
 	return t, err
 }
 
-// ByName is the tool a workflow's binding names, for the control plane; ErrNotFound when none or several have it.
+// ByName is the tool a workflow's binding names, for the control plane; ErrNotFound when none has it and ErrAmbiguous
+// when several still share it.
 func (s *Service) ByName(ctx context.Context, name string) (Tool, error) {
 	var found []Tool
 	err := s.db.ReadAdmin(ctx, func(ctx context.Context, tx db.DBTX) error {
@@ -221,10 +228,13 @@ func (s *Service) ByName(ctx context.Context, name string) (Tool, error) {
 	if err != nil {
 		return Tool{}, err
 	}
-	if len(found) != 1 {
-		return Tool{}, fmt.Errorf("%w: %d tools are called %s", ErrNotFound, len(found), name)
+	switch len(found) {
+	case 0:
+		return Tool{}, fmt.Errorf("%w: none is called %s", ErrNotFound, name)
+	case 1:
+		return found[0], nil
 	}
-	return found[0], nil
+	return Tool{}, fmt.Errorf("%w: %d tools are called %s", ErrAmbiguous, len(found), name)
 }
 
 // Client is Rotor's client at a tool, secret included, for the token endpoint.

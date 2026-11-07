@@ -61,8 +61,6 @@ x-control-plane-env: &control-plane-env
   ROTOR_HOOKS_URL: http://rotor-api:8080
   # Traces go to the observe profile's collector (#37); without it running they are dropped, quietly.
   ROTOR_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
-  # LangSmith, once an administrator turns it on, is the tool double's stand-in, which records what reaches it.
-  ROTOR_LANGSMITH_ENDPOINT: http://tool-stub:8080/langsmith/otel/v1/traces
 
 services:
   postgres:
@@ -217,6 +215,8 @@ services:
       sandbox:
     ports:
       - "127.0.0.1:${API_PORT:-8301}:8080"
+      # OTLP over gRPC (#262), which the web's nginx cannot carry, published beside the api's HTTP.
+      - "127.0.0.1:${OTLP_GRPC_PORT:-8319}:4317"
     healthcheck:
       test: ["CMD", "/app/api", "-healthcheck"]
       interval: 10s
@@ -252,6 +252,11 @@ services:
   tool-stub:
     <<: *backend
     command: ["/app/tool-stub"]
+    # Clients and grants survive a rebuild of the backend image, which recreates this service (#268).
+    environment:
+      TOOLSTUB_STATE_FILE: /var/lib/tool-stub/state.json
+    volumes:
+      - tool-stub-data:/var/lib/tool-stub
     # Sandboxes reach the tools on the internal network, as they reach the api.
     networks:
       - default
@@ -319,3 +324,4 @@ volumes:
   postgres-data:
   valkey-data:
   openbao-data:
+  tool-stub-data:

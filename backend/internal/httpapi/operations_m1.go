@@ -21,10 +21,12 @@ var m1Operations = []operation{
 		summary: "Add a tool by its address; Rotor registers itself there as an OAuth client.",
 		description: "Reads the tool's /api/v1/meta, which must offer mcp@1, then its protected resource and " +
 			"authorization server metadata (RFC 9728, RFC 8414), and registers by RFC 7591 unless a client is given. " +
-			"Adding an address Rotor already knows registers again, for a tool that forgot its client.",
+			"Adding an address Rotor already knows registers again, for a tool that forgot its client, and keeps its name. " +
+			"A name another tool has, case aside, is refused with 409 tool_name_taken (#267).",
 		request: addToolRequest{},
 		responses: map[int]any{http.StatusCreated: env{"tool": toolResponse{}}, http.StatusOK: env{"tool": toolResponse{}},
-			http.StatusUnprocessableEntity: errorEnvelope{}, http.StatusBadGateway: errorEnvelope{}, http.StatusServiceUnavailable: errorEnvelope{}}},
+			http.StatusConflict: errorEnvelope{}, http.StatusUnprocessableEntity: errorEnvelope{}, http.StatusBadGateway: errorEnvelope{},
+			http.StatusServiceUnavailable: errorEnvelope{}}},
 	{method: "GET", path: "/tools/{toolID}", handler: "handleGetTool", tag: "tools",
 		summary: "One tool.", responses: map[int]any{http.StatusOK: env{"tool": toolResponse{}}, http.StatusNotFound: errorEnvelope{}}},
 	{method: "DELETE", path: "/tools/{toolID}", handler: "handleRemoveTool", tag: "tools", admin: true,
@@ -88,8 +90,10 @@ var m1Enums = map[reflect.Type][]string{
 // toolResponse is a tool as everyone signed in sees it; its client secret never leaves OpenBao.
 type toolResponse struct {
 	ID string `json:"id"`
-	// Name is the product the tool's /api/v1/meta names, such as exciter.
-	Name    string `json:"name"`
+	// Name is what workflows bind the tool by: its product's when added, unless an administrator gave one (#267).
+	Name string `json:"name"`
+	// Product is what the tool's /api/v1/meta names, such as exciter; Check again keeps it as the tool answers.
+	Product string `json:"product"`
 	BaseURL string `json:"baseURL"`
 	// Resource is what tokens are asked for (RFC 8707): the MCP endpoint, or the API holding it.
 	Resource string `json:"resource"`
@@ -109,7 +113,9 @@ type toolResponse struct {
 
 // addToolRequest names a tool by its address; a pre-registered client comes with its secret.
 type addToolRequest struct {
-	BaseURL      string `json:"baseURL"`
+	BaseURL string `json:"baseURL"`
+	// Name is what workflows bind the tool by; the product its meta names when left out. No other tool may have it.
+	Name         string `json:"name,omitempty"`
 	ClientID     string `json:"clientID,omitempty"`
 	ClientSecret string `json:"clientSecret,omitempty"`
 }

@@ -1,10 +1,11 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { everyoneGroupID, grantOnWorkflow } from "../fixtures/access";
 import { PEOPLE, signIn } from "../fixtures/auth";
 import { expectAccessible, startInScheme, type ColourScheme } from "../fixtures/shell";
 import { createWorkflow, RUN_TIMEOUT_MS } from "../fixtures/runs";
 import { toolStubURL } from "../fixtures/stack";
+import { test } from "../fixtures/tools";
 
 const SCHEMES: ColourScheme[] = ["light", "dark"];
 
@@ -63,10 +64,11 @@ for (const scheme of SCHEMES) {
   });
 }
 
-test("a run that acts in a tool the person has not connected offers it, then starts once connected @desktop", async ({ page, browser }) => {
+test("a run that acts in a tool the person has not connected offers it, then starts once connected @desktop", async ({ page, browser, trackTool }) => {
   // A tenant named <product>--<rest> answers as that product, so this tool's name is the test's alone.
   const product = `e2e${randomUUID().slice(0, 8)}`;
   const address = `${toolStubURL()}/t/${product}--run`;
+  trackTool(address);
   await page.goto("/admin/tools");
   const form = page.locator("[data-add-tool]");
   await form.getByLabel("Address").fill(address);
@@ -104,10 +106,5 @@ test("a run that acts in a tool the person has not connected offers it, then sta
     await expect(bob.locator("[data-run-output]")).toContainText("Hi from the sandbox");
   } finally {
     await context.close();
-    await page.goto("/admin/tools");
-    const row = page.locator("[data-tools] li", { hasText: address });
-    await row.locator('[data-action="remove-tool"]').click();
-    await row.locator('[data-action="confirm-remove"]').click();
-    await expect(row).toHaveCount(0);
   }
 });

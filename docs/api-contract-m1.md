@@ -106,7 +106,7 @@ not exist is 404. A refusal is a sentence that says what to do.
 
 - **Discovery.** From the base URL an admin enters, Rotor reads, in order:
   1. `GET {base}/api/v1/meta`, which must list `mcp@1`. The product it names
-     becomes the tool's name.
+     becomes the tool's product, and its name unless one is given (#267).
   2. `GET {base}/.well-known/oauth-protected-resource/api/v1/mcp` (RFC 9728),
      whose `resource` becomes the tool's resource and whose first
      `authorization_servers` entry its issuer.
@@ -128,7 +128,8 @@ not exist is 404. A refusal is a sentence that says what to do.
   no grant has used for 24 hours, and an idle one after 30 days). An
   `invalid_client` from the tool marks it `needs_registration`; `POST /tools`
   with its base URL registers again and answers 200. Connections made with
-  the old client must be made again.
+  the old client must be made again: since #266, registering again with a new
+  client marks each `reconnect` and deletes its refresh token.
 - **Removing** ends every connection to the tool as #11 does, revoking at
   the tool where it still answers, then deletes the client secret and the
   tool.
@@ -137,6 +138,44 @@ not exist is 404. A refusal is a sentence that says what to do.
   delete by anyone else.
 - **Audit:** `tool.added` (base URL, name, registration) and `tool.removed`
   (base URL, connections ended).
+
+**As built (#267): names.** A tool's `name` is what a workflow's binding
+(`tool:`) names, matched exactly; its `product` is what `/meta` names, which
+decides how Rotor asks it for scopes and tokens. They start equal, and only an
+administrator changes the name.
+
+| Operation | Needs | Answers |
+|---|---|---|
+| `POST /tools` | admin | also takes `name?`; 409 `tool_name_taken` when another tool has it, case aside |
+| `GET /tools/{toolID}/workflows` | admin | `{workflows: [{id, name, ownerName}]}`: every workflow not archived whose current version binds the tool's name |
+| `PUT /tools/{toolID}/name` | admin | `{name}`; 200 `{tool, workflows}`, the workflows that still bind the old name; 409 `tool_name_taken`; 422 `validation_failed` |
+
+- **Unique, case aside.** No two tools share a name, whatever its case, so
+  that a binding names one tool and two names never read alike; bindings
+  still match exactly. Adding takes an optional name because an installation
+  may hold two of one product (staging and production): without one the
+  product's name is used, and a taken one is refused with "A tool called
+  exciter exists already, and workflows bind tools by name. Give this one
+  another name, such as exciter-2." A name given is 1 to 63 lower case
+  letters, digits, dots, dashes or underscores, starting with a letter or
+  digit. Registering a known address again keeps its name.
+- **Renaming** keeps the product, the client and every connection, and is
+  audited as `tool.renamed` (from, to, product, base URL). Workflows binding
+  the old name stop finding the tool; Admin, Tools lists them before the
+  administrator confirms, and the answer lists them again.
+- **Check again** keeps the product as `/meta` answers it and never the name;
+  `tool.checked` records `product`, and `product_was` when it changed.
+- **Names shared from before.** Migration 01530 adds `product` (copied from
+  the name) and refuses a new duplicate with a trigger, `tool_name_unique`,
+  whoever writes it. It does not rename the duplicates installations already
+  hold, nor build a unique index over them, since either would bind their
+  workflows to a tool nobody chose; a trigger rather than an index is what
+  lets those rows stay. Until an administrator renames all but one, a binding
+  of such a name resolves to none, and says so: `tool_ambiguous` at the
+  binding's path when a workflow is validated or saved, 409 `tool_ambiguous`
+  with the name in `fields` when a run starts, and the run dialog asks for an
+  administrator. Admin, Tools lists the shared names, and the api logs each
+  at start-up.
 
 ## #10 Secrets
 
@@ -183,8 +222,9 @@ response or the database.
 - **Who sees what.** A person sees and ends only their own connections; the
   database refuses `rotor_app` anyone else's.
 - **Audit:** `connection.granted` (tool, scopes) and `connection.ended`
-  (tool, `by`: `self`, `tool_removed`, `switched_off` or `tool` for an
-  `invalid_grant`, and whether the tool confirmed the revocation).
+  (tool, `by`: `self`, `tool_removed`, `switched_off`, `tool` for an
+  `invalid_grant` or `registered_again` (#266), and whether the tool confirmed
+  the revocation).
 
 ## #12 Minting
 

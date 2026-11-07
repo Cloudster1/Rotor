@@ -84,6 +84,13 @@ if [[ -n "${config:-}" ]] && jq -e .services <<< "$config" > /dev/null 2>&1; the
   # The control API lets anyone end grants and forget clients, so only the stack's network may reach it.
   [[ "$(jq -r '[.services["tool-stub"].ports[]?.target] | map(tostring) | join(" ")' <<< "$config")" == 8080 ]] \
     && pass "tool-stub publishes its tools alone, never its control API" || fail "tool-stub publishes other than port 8080"
+  # A backend rebuild recreates the stub, so its clients and grants live on a volume (#268).
+  jq -e '.services["tool-stub"].volumes[] | select(.target == "/var/lib/tool-stub" and .type == "volume")' <<< "$config" > /dev/null \
+    && pass "tool-stub keeps its state on a volume" || fail "tool-stub keeps its state nowhere that survives a rebuild"
+  [[ "$(jq -r '.services["tool-stub"].environment.TOOLSTUB_STATE_FILE // ""' <<< "$config")" == /var/lib/tool-stub/state.json ]] \
+    && pass "tool-stub is told to keep its state on that volume" || fail "tool-stub is not told where to keep its state"
+  [[ "$(jq -r '[.services | to_entries[] | select(.key != "tool-stub") | .value.volumes // [] | .[] | select(.source == "tool-stub-data")] | length' <<< "$config")" == 0 ]] \
+    && pass "no other service shares the stub's state volume" || fail "another service mounts the stub's state volume"
   stub_port="$(jq -r '.services["tool-stub"].ports[0].published' <<< "$config")"
   [[ ",$(jq -r '.services.api.environment.ROTOR_TOOLS_BACKCHANNEL // ""' <<< "$config")," == *",http://localhost:$stub_port=http://tool-stub:8080,"* ]] \
     && pass "the api reaches the tool-stub's published address on the stack's network" \
@@ -174,6 +181,35 @@ check "$(as_url <<< "$changed")" && fail "a changed Rotor client passes the chec
 # Dynamo's realm holds dynamo-connect once praetorianer777/Dynamo#97 adds it; until then its absence is no difference.
 without_connect="$(jq '.clients |= map(select(.clientId != "dynamo-connect")) | .users |= map(select(.serviceAccountClientId != "dynamo-connect"))' "$REALM")"
 check "$(as_url <<< "$without_connect")" && pass "a Dynamo realm without dynamo-connect matches" || fail "dynamo-connect's absence from Dynamo's realm makes a difference"
+
+# A throwaway project with one service that exits 3 and one that is fine: the failing start must leave only the
+# failing service's log, with its timestamps.
+echo "== logs of a stack that fails to start"
+tmp="$(mktemp -d)"
+project="rotor-logs-test-$$"
+trap 'COMPOSE_FILE="$tmp/compose.yml" COMPOSE_PROJECT_NAME="$project" docker compose down -v --remove-orphans >/dev/null 2>&1; rm -rf "$tmp"' EXIT
+cat >"$tmp/compose.yml" <<'YAML'
+services:
+  fine:
+    image: busybox:stable
+    command: ["sh", "-c", "echo fine-service-line; sleep 300"]
+  broken:
+    image: busybox:stable
+    command: ["sh", "-c", "echo broken-service-line; exit 3"]
+YAML
+export COMPOSE_FILE="$tmp/compose.yml" COMPOSE_PROJECT_NAME="$project"
+if docker compose up -d --wait >/dev/null 2>&1; then
+  fail "a stack with a service that exits 3 started"
+else
+  "$SRC/scripts/stack-logs.sh" "$tmp/out" >/dev/null 2>&1
+  grep -q broken-service-line "$tmp/out/broken.log" 2>/dev/null && pass "the failing service's log is saved" \
+    || fail "no log of the failing service in the saved logs"
+  grep -Eq '^broken.*[0-9]{4}-[0-9]{2}-[0-9]{2}T' "$tmp/out/broken.log" 2>/dev/null && pass "the saved log has timestamps" \
+    || fail "the saved log has no timestamps"
+  [[ ! -e "$tmp/out/fine.log" ]] && pass "a healthy service's log is left out" || fail "a healthy service's log was saved"
+fi
+docker compose down -v --remove-orphans >/dev/null 2>&1
+unset COMPOSE_FILE COMPOSE_PROJECT_NAME
 
 if (( FAILED )); then echo "FAIL: stack tests"; exit 1; fi
 echo "PASS: stack tests"

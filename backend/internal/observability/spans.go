@@ -10,6 +10,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/redact"
 )
@@ -30,6 +32,13 @@ var traceContent = func() struct{ Text, Plain, Never []string } {
 type SpanEvent struct {
 	Name       string
 	Time       time.Time
+	Attributes map[string]string
+}
+
+// SpanLink is another span a span names as related, such as each message of a batch it handled (#262).
+type SpanLink struct {
+	TraceID    trace.TraceID
+	SpanID     trace.SpanID
 	Attributes map[string]string
 }
 
@@ -121,6 +130,35 @@ func Hold(s RunnerSpan) RunnerSpan {
 		}
 		s.Events = append(s.Events, out)
 	}
+	s.Links = heldLinks(s.Links)
 	fit(&s)
 	return s
+}
+
+// heldLinks are the first links with a valid trace id and span id, each with its attributes without text alone, since
+// none of them says where the link leads.
+func heldLinks(links []SpanLink) []SpanLink {
+	out := make([]SpanLink, 0, min(len(links), config.MaxSpanLinks))
+	for _, l := range links {
+		if len(out) == config.MaxSpanLinks {
+			break
+		}
+		if !l.TraceID.IsValid() || !l.SpanID.IsValid() {
+			continue
+		}
+		attrs := make(map[string]string, min(len(l.Attributes), config.MaxSpanLinkAttributes))
+		for _, k := range slices.Sorted(maps.Keys(l.Attributes)) {
+			if len(attrs) == config.MaxSpanLinkAttributes {
+				break
+			}
+			if IsText(k) {
+				continue
+			}
+			if key, value, ok := held(k, l.Attributes[k]); ok {
+				attrs[key] = value
+			}
+		}
+		out = append(out, SpanLink{TraceID: l.TraceID, SpanID: l.SpanID, Attributes: attrs})
+	}
+	return out
 }

@@ -34,6 +34,7 @@ export function span(name: string, ms: number, duration: number, overrides: Part
     input: null,
     output: null,
     events: [],
+    links: [],
     omitted: 0,
     children: [],
     ...overrides,

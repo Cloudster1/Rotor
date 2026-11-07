@@ -423,12 +423,19 @@ MCP calls, and with OpenInference every chain, graph node, tool and model call
 of its agents (#241). The runner sends its spans on its stream; the api keeps
 those of the run's own trace, holds them to the span limits, redacts them
 again and exports them with its own over OTLP to the collector, without their
-text, so a sandbox reaches no collector. While an administrator allows it, the
-api also sends the runner's spans, with their inputs, outputs and messages, to
-LangSmith with a key from OpenBao. Apps and tools post their own spans to the
+text, so a sandbox reaches no collector. The api also sends every run's trace
+to the OTLP destinations administrators keep (#246, `backend/internal/tracedest`):
+at most eight, each with its headers in OpenBao, side by side on the export
+pool and never holding the run up, with inputs, outputs and messages only for a
+destination an administrator acknowledged text may leave for. A destination's
+trace link puts "Open this trace in" it on the run's page. The LangSmith setting
+of #37 became one such destination (#246) and is gone (#256). Apps and tools post their own spans to the
 api's OTLP endpoint with a bearer token (#243); each joins the run its trace id
 names when the sender may read that run, judged by row level security as the
-sender, and a trace of the sender's own otherwise. The worker and the
+sender, and a trace of the sender's own otherwise. OTLP over gRPC reaches the
+same checks, rates and store on a port of its own (#262, `internal/otlpgrpc`),
+since nothing in front of the api carries gRPC; spans keep their links, and
+metrics and logs are refused. The worker and the
 api serve Prometheus metrics; `make observe` adds a collector, Jaeger and
 Prometheus to the development stack.
 
@@ -478,8 +485,8 @@ an advisory lock, deletes the runs that ended and were torn down before then,
 in batches; the cascade takes their events, checkpoints, control messages,
 approvals and usage, and one `run.data_deleted` entry per workflow records it
 (`backend/internal/retention`). Daily usage totals and the audit log stay.
-What went to LangSmith or an OpenTelemetry collector is kept by them, not
-Rotor.
+What went to a trace destination or an OpenTelemetry collector is kept by
+them, not Rotor.
 
 ## Following a run (#24)
 

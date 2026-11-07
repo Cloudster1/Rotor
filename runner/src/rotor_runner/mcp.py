@@ -4,6 +4,8 @@ Tokens are asked for at each call and never enter the graph's state."""
 from __future__ import annotations
 
 import json
+import logging
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Protocol
@@ -20,6 +22,11 @@ from rotor_runner.telemetry import TOOL, RunTracing
 
 if TYPE_CHECKING:
     from rotor_runner.repository import Repository
+
+log = logging.getLogger("rotor_runner")
+
+# An address in an error's text: the backchannel URL a sandbox reaches a tool at means nothing to a person (#266).
+ADDRESS = re.compile(r"https?://[^\s'\"<>]+")
 
 
 @dataclass(frozen=True)
@@ -55,6 +62,10 @@ class ToolFailedError(RuntimeError):
     """A call the tool answered with an error."""
 
 
+class TokenError(ToolFailedError):
+    """No token for a binding, with the control plane's sentence saying what to do; it reaches the person as is."""
+
+
 class ToolGateway(Protocol):
     """What nodes ask of the tools; McpGateway is the real one, tests bring their own."""
 
@@ -71,11 +82,26 @@ def allowed(binding: Binding, name: str, annotations: dict[str, Any] | None) -> 
     return binding.writes or bool((annotations or {}).get("readOnlyHint"))
 
 
+def unaddressed(text: str, binding: str) -> str:
+    """An error's text without the addresses it names, each said as the binding instead."""
+    return ADDRESS.sub(binding, text)
+
+
 def leaf(err: BaseException) -> BaseException:
     """The first error inside nested exception groups: what went wrong, beneath the client's plumbing."""
     while isinstance(err, BaseExceptionGroup) and err.exceptions:
         err = err.exceptions[0]
     return err
+
+
+def failure(what: str, binding: Binding, err: BaseException) -> ToolFailedError:
+    """A failed call as the person reads it: a token's own sentence as is, anything else without the address, which
+    only the log keeps."""
+    cause = leaf(err)
+    if isinstance(cause, TokenError):
+        return cause
+    log.warning("%s at %s: %s", what, binding.mcp_url, cause)
+    return ToolFailedError(f"{what}: {unaddressed(str(cause), binding.name)}")
 
 
 def result_value(result: Any) -> Any:
@@ -145,7 +171,7 @@ class McpGateway:
         try:
             hints = await self.annotations(b)
         except Exception as err:
-            raise ToolFailedError(f"{binding} cannot be reached at {b.mcp_url}: {leaf(err)}") from err
+            raise failure(f"{binding} did not list its tools", b, err) from err
         if not allowed(b, name, hints.get(name)):
             raise ToolRefusedError(f"{binding} does not allow {name}")
         if self.rate is not None:
@@ -156,7 +182,7 @@ class McpGateway:
                 async with (await self._client(b)).session(binding) as session:
                     result = await session.call_tool(name, arguments)
         except Exception as err:
-            raise ToolFailedError(f"calling {name} at {binding} failed: {leaf(err)}") from err
+            raise failure(f"calling {name} at {binding} failed", b, err) from err
         failed = bool(getattr(result, "isError", False))
         value = result_value(result)
         await self.emit("tool.called", node, called(binding, name, arguments, value, failed, hints.get(name)))
@@ -168,13 +194,16 @@ class McpGateway:
         out: list[BaseTool] = []
         for name in bindings:
             b = self.bindings[name]
-            listed = await load_mcp_tools(
-                None,
-                connection=await self._connection(b),  # type: ignore[arg-type]
-                server_name=name,
-                tool_interceptors=[self._interceptor(b, node)],
-                tool_name_prefix=len(bindings) > 1,
-            )
+            try:
+                listed = await load_mcp_tools(
+                    None,
+                    connection=await self._connection(b),  # type: ignore[arg-type]
+                    server_name=name,
+                    tool_interceptors=[self._interceptor(b, node)],
+                    tool_name_prefix=len(bindings) > 1,
+                )
+            except Exception as err:
+                raise failure(f"{name} did not list its tools", b, err) from err
             prefix = f"{name}_" if len(bindings) > 1 else ""
             out += [t for t in listed if allowed(b, t.name.removeprefix(prefix), t.metadata)]
         return out

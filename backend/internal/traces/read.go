@@ -58,6 +58,7 @@ type Span struct {
 	StatusMessage        string
 	Attributes           map[string]string
 	Events               []Event
+	Links                []Link
 	Text                 map[string]string
 }
 
@@ -66,7 +67,7 @@ const traceColumns = `t.id, t.trace_id, coalesce(t.data_key, ''), t.spans, t.byt
 	t.started_at, t.last_span_at, t.expired_at, (SELECT retention_days FROM trace_setting)`
 
 const spanColumns = `span_id, parent_span_id, name, kind, service, source, sender_id, coalesce(sender_name, ''), started_at, ended_at,
-	status, status_message, attributes, events, sealed_content`
+	status, status_message, attributes, events, links, sealed_content`
 
 // RunTrace is a run's trace and its spans, read as the caller, so row level security decides; a run the caller may
 // not read is ErrNotFound, as one that does not exist.
@@ -114,8 +115,10 @@ func (s *Service) read(ctx context.Context, find func(context.Context, db.DBTX) 
 		if t, found, err = find(ctx, tx); err != nil || !found || t.State == StateExpired {
 			return err
 		}
-		spans, sealed, err = readSpans(ctx, tx, t.row, spanID)
-		return err
+		if spans, sealed, err = readSpans(ctx, tx, t.row, spanID); err != nil {
+			return err
+		}
+		return whereLinksLead(ctx, tx, spans)
 	})
 	if err != nil {
 		return Trace{}, nil, err
@@ -198,9 +201,9 @@ func readSpans(ctx context.Context, tx db.DBTX, trace uuid.UUID, spanID string) 
 		var sp Span
 		var senderID *uuid.UUID
 		var senderName string
-		var attrs, events, content []byte
+		var attrs, events, links, content []byte
 		if err := rows.Scan(&sp.SpanID, &sp.ParentSpanID, &sp.Name, &sp.Kind, &sp.Service, &sp.Source, &senderID, &senderName,
-			&sp.StartedAt, &sp.EndedAt, &sp.Status, &sp.StatusMessage, &attrs, &events, &content); err != nil {
+			&sp.StartedAt, &sp.EndedAt, &sp.Status, &sp.StatusMessage, &attrs, &events, &links, &content); err != nil {
 			return nil, nil, err
 		}
 		if senderID != nil {
@@ -210,6 +213,9 @@ func readSpans(ctx context.Context, tx db.DBTX, trace uuid.UUID, spanID string) 
 			return nil, nil, err
 		}
 		if err := json.Unmarshal(events, &sp.Events); err != nil {
+			return nil, nil, err
+		}
+		if err := json.Unmarshal(links, &sp.Links); err != nil {
 			return nil, nil, err
 		}
 		spans, sealed = append(spans, sp), append(sealed, content)

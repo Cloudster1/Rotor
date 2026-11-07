@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"time"
 
+	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
+
 	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/config"
 	"github.com/cloudster1/rotor/backend/internal/db"
@@ -27,8 +29,8 @@ type SpanStore interface {
 // errBearerOnly refuses a request without a token at the OTLP endpoint, a session cookie included: a browser sends
 // no OTLP, and taking no cookie leaves nothing for another site to forge.
 var errBearerOnly = ErrUnauthorized("The OTLP endpoint takes a bearer token alone, never the session cookie. Send " +
-	"Authorization: Bearer with a Rotor access token or an access token of the realm that has not expired, as " +
-	"OTEL_EXPORTER_OTLP_HEADERS sets it.")
+	"Authorization: Bearer with an ingest key, a Rotor access token or an access token of the realm that has not " +
+	"expired, as OTEL_EXPORTER_OTLP_HEADERS sets it.")
 
 // mebibyte writes the body limits as the contract does.
 const mebibyte = 1 << 20
@@ -46,8 +48,8 @@ var (
 		config.OTLPSpansPerMinute)
 )
 
-// tokensOnly lets in the sender a bearer token names at the rows marked tokensOnly: an assistant's or an app's token
-// of Rotor, which authenticate read, or a realm's of any account Rotor lets in. Anything else is refused with 401.
+// tokensOnly lets in the sender a bearer token names at the rows marked tokensOnly: an ingest key or an assistant's or
+// an app's token of Rotor, which authenticate read, or a realm's of any account Rotor lets in. Else 401.
 func (s *Server) tokensOnly(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -88,13 +90,12 @@ func (s *Server) handleReceiveTraces(w http.ResponseWriter, r *http.Request) {
 		otlpRefuse(w, r, format, http.StatusUnsupportedMediaType, sayMediaType)
 		return
 	}
-	if s.Spans == nil {
-		respondError(w, r, errTracesUnavailable)
+	var busy *otlp.Busy
+	if err := s.admitOTLP(r.Context()); errors.As(err, &busy) {
+		otlpBusy(w, r, format, busy.Wait, sayRequests)
 		return
-	}
-	p := auth.PrincipalFrom(r.Context())
-	if wait, ok := s.otlpRates.Request(p.UserID); !ok {
-		otlpBusy(w, r, format, wait, sayRequests)
+	} else if err != nil {
+		respondError(w, r, err)
 		return
 	}
 	if r.ContentLength > config.MaxOTLPBodyBytes {
@@ -115,20 +116,14 @@ func (s *Server) handleReceiveTraces(w http.ResponseWriter, r *http.Request) {
 		otlpRefuse(w, r, format, http.StatusBadRequest, sayMalformed)
 		return
 	}
-	if wait, ok := s.otlpRates.Spans(p.UserID, min(otlp.Count(req), config.MaxOTLPSpansPerRequest)); !ok {
-		otlpBusy(w, r, format, wait, saySpans)
+	rejected, err := s.takeOTLP(r.Context(), req)
+	if errors.As(err, &busy) {
+		otlpBusy(w, r, format, busy.Wait, saySpans)
 		return
 	}
-	spans, rejected := otlp.Spans(req)
-	if len(spans) > 0 {
-		ctx, cancel := context.WithTimeout(r.Context(), config.TraceStoreTimeout)
-		defer cancel()
-		notKept, err := s.Spans.Receive(ctx, traces.Sender{ID: p.UserID, Name: senderName(p)}, spans)
-		if err != nil {
-			respondError(w, r, ErrInternal(err))
-			return
-		}
-		rejected.Merge(notKept)
+	if err != nil {
+		respondError(w, r, ErrInternal(err))
+		return
 	}
 	answer, err := otlp.Answer(format, rejected)
 	if err != nil {
@@ -136,6 +131,39 @@ func (s *Server) handleReceiveTraces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeOTLP(w, r, format, http.StatusOK, answer)
+}
+
+// admitOTLP is what either transport asks once it knows the sender (#262): a store to keep spans in, and a request
+// within the sender's rate. It answers an *APIError, or an *otlp.Busy for a sender over its requests a minute.
+func (s *Server) admitOTLP(ctx context.Context) error {
+	if s.Spans == nil {
+		return errTracesUnavailable
+	}
+	if wait, ok := s.otlpRates.Request(auth.PrincipalFrom(ctx).UserID); !ok {
+		return &otlp.Busy{Wait: wait}
+	}
+	return nil
+}
+
+// takeOTLP counts a request's spans against the sender's rate, keeps those that pass the checks as the sender, and
+// answers what was not kept; a sender over its spans a minute is an *otlp.Busy, and nothing is kept.
+func (s *Server) takeOTLP(ctx context.Context, req *coltracepb.ExportTraceServiceRequest) (otlp.Rejections, error) {
+	p := auth.PrincipalFrom(ctx)
+	if wait, ok := s.otlpRates.Spans(p.UserID, min(otlp.Count(req), config.MaxOTLPSpansPerRequest)); !ok {
+		return otlp.Rejections{}, &otlp.Busy{Wait: wait, Spans: true}
+	}
+	spans, rejected := otlp.Spans(req)
+	if len(spans) == 0 {
+		return rejected, nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, config.TraceStoreTimeout)
+	defer cancel()
+	notKept, err := s.Spans.Receive(ctx, traces.Sender{ID: p.UserID, Name: senderName(p), Key: ingestKeyFrom(ctx)}, spans)
+	if err != nil {
+		return rejected, err
+	}
+	rejected.Merge(notKept)
+	return rejected, nil
 }
 
 // senderName is how a span says who sent it: the person's name, or the service account's address.

@@ -39,9 +39,16 @@ and an empty list for a tool that offers it all.
 ## `POST /tools/{toolID}/check`
 
 Administrators only. Reads the tool's `/meta`, its protected resource metadata
-and its authorization server's metadata again, and keeps its name, endpoints,
+and its authorization server's metadata again, and keeps its product, endpoints,
 scopes and capabilities as they answer now. It never registers again, so every
 person's connection stays.
+
+**As built (#266):** it also proves Rotor's client: it asks the tool's token
+endpoint to refresh a token that was never issued, authenticating as the client.
+`invalid_grant` (or any refusal but `invalid_client`) shows the tool knows the
+client; `invalid_client` makes a `ready` tool `needs_registration`, as minting
+would. A tool awaiting approval is not asked, since its tool refuses a pending
+client the same way. `tool.checked` records the status.
 
 | Status | When |
 |---|---|
@@ -52,6 +59,10 @@ person's connection stays.
 
 The audit log records `tool.checked` with the tool's name, its capabilities and
 what is missing.
+
+**As built (#267):** it keeps the product `/meta` names as `product` and never
+changes the tool's `name`, which workflows bind; Admin, Tools shows the product
+on the tool's row, and `tool.checked` records `product_was` when it changed.
 
 ## Armature (#45)
 

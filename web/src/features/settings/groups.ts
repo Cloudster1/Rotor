@@ -16,7 +16,7 @@ export interface SettingsNavPage {
     | "/admin/workspaces"
     | "/admin/unattended-writes"
     | "/admin/providers"
-    | "/admin/langsmith"
+    | "/admin/traces"
     | "/admin/tools"
     | "/admin/assistants"
     | "/admin/audit"
@@ -26,6 +26,7 @@ export interface SettingsNavPage {
     | "/workflows/$workflowID/settings/versions"
     | "/workflows/$workflowID/settings/sharing"
     | "/workflows/$workflowID/settings/triggers"
+    | "/workflows/$workflowID/settings/tracing"
     | "/skills/$skillID/files"
     | "/skills/$skillID/versions"
     | "/skills/$skillID/sharing"
@@ -77,7 +78,7 @@ export const ADMIN_GROUPS: readonly SettingsNavGroup[] = [
     title: s.admin.groups.integrations,
     pages: [
       { slug: "providers", path: "/admin/providers", label: s.admin.pages.providers },
-      { slug: "langsmith", path: "/admin/langsmith", label: s.admin.pages.langsmith },
+      { slug: "traces", path: "/admin/traces", label: s.admin.pages.traces },
       { slug: "tools", path: "/admin/tools", label: s.admin.pages.tools },
       { slug: "assistants", path: "/admin/assistants", label: s.admin.pages.assistants },
     ],
@@ -107,6 +108,7 @@ export function workflowSettingsGroups(workflowID: string): readonly SettingsNav
         { slug: "versions", path: "/workflows/$workflowID/settings/versions", params, label: s.workflowSettings.pages.versions },
         { slug: "sharing", path: "/workflows/$workflowID/settings/sharing", params, label: s.workflowSettings.pages.sharing },
         { slug: "triggers", path: "/workflows/$workflowID/settings/triggers", params, label: s.workflowSettings.pages.triggers },
+        { slug: "tracing", path: "/workflows/$workflowID/settings/tracing", params, label: s.workflowSettings.pages.tracing },
       ],
     },
   ];

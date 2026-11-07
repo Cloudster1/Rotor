@@ -12,6 +12,9 @@ administrator send runs' traces to LangSmith:
 The route table in `backend/internal/httpapi/operations_m7_telemetry.go` is the source of truth for the HTTP
 operations and `proto/rotor/runner/v1/runner.proto` for the runner protocol; this file says what they mean.
 
+The LangSmith setting below became a trace destination (#246) and is gone, with its routes, its table and
+`ROTOR_LANGSMITH_ENDPOINT` (#256); `docs/api-contract-m18.md` says how.
+
 ## Migrations, packages and settings
 
 - Migrations:

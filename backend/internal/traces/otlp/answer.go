@@ -35,19 +35,28 @@ func Answer(f Format, rejected Rejections) ([]byte, error) {
 	return f.marshal(resp)
 }
 
-// statusCodes are the google.rpc codes that go with the endpoint's refusals.
+// statusCodes are the google.rpc codes that go with the endpoint's refusals, over HTTP and over gRPC (#262).
 var statusCodes = map[int]codes.Code{
 	http.StatusBadRequest:            codes.InvalidArgument,
+	http.StatusUnauthorized:          codes.Unauthenticated,
+	http.StatusForbidden:             codes.PermissionDenied,
 	http.StatusRequestEntityTooLarge: codes.ResourceExhausted,
 	http.StatusUnsupportedMediaType:  codes.InvalidArgument,
 	http.StatusTooManyRequests:       codes.ResourceExhausted,
+	http.StatusInternalServerError:   codes.Internal,
+	http.StatusNotImplemented:        codes.Unimplemented,
+	http.StatusServiceUnavailable:    codes.Unavailable,
+}
+
+// CodeOf is the google.rpc code of a refusal the endpoint answers over HTTP with httpStatus.
+func CodeOf(httpStatus int) codes.Code {
+	if code, ok := statusCodes[httpStatus]; ok {
+		return code
+	}
+	return codes.Unknown
 }
 
 // Status is the google.rpc.Status OTLP answers a refused request with, saying in a sentence what to do.
 func Status(f Format, httpStatus int, message string) ([]byte, error) {
-	code, ok := statusCodes[httpStatus]
-	if !ok {
-		code = codes.Unknown
-	}
-	return f.marshal(&statuspb.Status{Code: int32(code), Message: message})
+	return f.marshal(&statuspb.Status{Code: int32(CodeOf(httpStatus)), Message: message})
 }

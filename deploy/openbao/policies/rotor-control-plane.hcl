@@ -57,12 +57,12 @@ path "sys/wrapping/wrap" {
   capabilities = ["update"]
 }
 
-# The LangSmith key an administrator gives, which the control plane alone sends runs' spans with (#37).
-path "rotor/data/settings/langsmith/*" {
+# The headers an administrator gives a trace destination, which the control plane alone sends runs' spans with (#246).
+path "rotor/data/settings/trace-destinations/*" {
   capabilities = ["create", "read", "update", "delete"]
 }
 
-path "rotor/metadata/settings/langsmith/*" {
+path "rotor/metadata/settings/trace-destinations/*" {
   capabilities = ["read", "list", "delete"]
 }
 

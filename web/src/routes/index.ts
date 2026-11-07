@@ -11,6 +11,7 @@ import { newWorkflowRoute, workflowRoute, workflowsRoute } from "./workflows";
 import { workflowSettingsTree } from "./workflowSettings";
 import { RouteError, rootRoute } from "./root";
 import { runRoute, runsRoute } from "./runs";
+import { spanSearchRoute, traceRoute, tracesRoute } from "./traces";
 import { settingsTree } from "./settings";
 import { importSkillRoute, newSkillRoute, skillTree, skillsRoute } from "./skills";
 import { shellRoute } from "./shell";
@@ -30,6 +31,9 @@ const routeTree = rootRoute.addChildren([
     skillTree,
     runsRoute,
     runRoute,
+    tracesRoute,
+    spanSearchRoute,
+    traceRoute,
     approvalsRoute,
     approvalRoute,
     connectionsRoute,

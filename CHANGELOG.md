@@ -14,6 +14,127 @@ and the versioning [Semantic Versioning](https://semver.org/).
   `/rotor/policies/`, signed with its SBOM attested like the other images.
   Dynamo runs its OpenBao server and the one-shot setup from it
   (`entrypoint: ["/bin/sh", "/rotor/init.sh"]`) without copying Rotor's files.
+- OpenTelemetry SDKs that speak OTLP over gRPC send their spans to Rotor
+  without changing protocol (#262). The api takes
+  `opentelemetry.proto.collector.trace.v1.TraceService/Export` on a port of
+  its own, 4317 (`ROTOR_OTLP_GRPC_ADDR`, `api.otlpGrpcPort` in the chart),
+  since the web's nginx cannot carry gRPC; `make up` publishes it on
+  127.0.0.1, and the chart's optional `ingress.otlpGrpc` puts it behind TLS
+  on a host of its own. An app sets `OTEL_EXPORTER_OTLP_PROTOCOL=grpc`,
+  `OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp.rotor.example.com` and
+  `OTEL_EXPORTER_OTLP_HEADERS=authorization=Bearer%20<token>`, with an ingest
+  key, a Rotor access token or a realm token as over HTTP. The same limits
+  hold, as gRPC codes: `UNAUTHENTICATED`, `PERMISSION_DENIED`,
+  `RESOURCE_EXHAUSTED` (with a retry delay when over a rate, which counts
+  across both transports), `INVALID_ARGUMENT`, and partial success naming
+  the spans not taken. gzip is taken.
+- Span links are kept and shown (#262). A span sent over OTLP keeps up to 16
+  links, each with its trace and span ids and up to 16 attributes without
+  text, in the new `trace_span.links` (migration 01580). The trace and span
+  routes answer each span's `links` with `runId` or `sender` set when you may
+  read the linked trace, and both null otherwise, whether or not it exists;
+  the span's details on a run's page and an own trace's page list them under
+  Links, opening the run or the trace you may read. `get_run_trace_span`
+  answers them too.
+- OTLP metrics and logs are refused in a sentence an exporter logs (#262):
+  `POST /api/v1/otlp/v1/metrics` and `/logs` answer 501 and gRPC answers
+  `UNIMPLEMENTED`, saying to send them to your own collector or to set
+  `OTEL_METRICS_EXPORTER=none` and `OTEL_LOGS_EXPORTER=none`. Rotor has no
+  place to keep or show them.
+
+- Search spans across the runs you may see and your own traces (#261), at
+  Traces, Search spans, linked from Runs too: by name, kind, failed only,
+  model, service, workflow and one attribute without text, within the last
+  24 hours, 7 or 30 days, newest first, with Show more. A hit opens its
+  run's trace, or the own trace, with that span chosen. The same row level
+  security as a run's trace decides, so nobody finds a span of a run they
+  may not read; text a person, tool or model wrote is never searched.
+  `GET /spans` answers the same, a week back unless `since` says otherwise
+  and never more than 30 days, paged by cursor, and a search running past
+  5 seconds is refused as too broad; assistants get it as `search_spans`.
+
+- Ingest keys let a service send its spans to Rotor's OTLP endpoint without
+  refreshing a token (#258). Under Admin, Traces, an administrator makes a
+  key with a name, the account it sends as (an account Rotor has let in, such
+  as a service account, named by email, or themselves) and an optional
+  expiry, and copies it once: Rotor keeps only its SHA-256 and its last four
+  characters. The service sets
+  `OTEL_EXPORTER_OTLP_ENDPOINT=https://rotor.example/api/v1/otlp` and
+  `OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer%20rotor_ik_...`; its spans
+  land as that account's, joining a run the account may read and its own
+  trace otherwise, and say which key sent them in `rotor.ingest_key`. A key
+  is taken at `POST /api/v1/otlp/v1/traces` alone and refused with 401
+  everywhere else, MCP included. Rotating gives a key a new secret and
+  refuses the old one at once; for no gap, make a second key and revoke the
+  first. Revoked, rotated-away and expired keys are refused with 401. Making,
+  rotating and revoking are audited as `ingest_key.created`, `.rotated` and
+  `.revoked`, never with the key. An installation holds at most 50 keys, and
+  each key's last use is noted at most once a minute. The routes are
+  `GET`/`POST /settings/ingest-keys`, `POST
+  /settings/ingest-keys/{keyID}/rotate` and `DELETE
+  /settings/ingest-keys/{keyID}`.
+
+- A workflow's administrators choose how its runs are traced, under its
+  settings, Tracing (#259): keep text as the installation does, or none at
+  all, in Rotor or at any destination, whatever the installation keeps;
+  every enabled trace destination or only the ones chosen; and the share of
+  its runs sent to them, from 0 to 1. The page shows whether the installation
+  keeps text and which destinations take it, so inheriting says what it
+  means. An administrator of Rotor may change it on any workflow;
+  `GET`/`PUT /workflows/{workflowID}/settings/tracing` do the same, and each
+  change is audited as `workflow.tracing_changed`.
+
+- A Traces page beside Runs lists the traces your own apps sent Rotor over
+  OTLP that belong to no run (#257), newest first, 50 a page: each with its
+  root span, service, span count, start and whether a span failed or the
+  trace was cut. Administrators see every sender's, with who sent each, and
+  their own alone with Only mine. A trace opens in the same tree and details
+  as a run's trace, the span it failed in chosen, with the same notices for
+  expired, cut and text not kept. With no trace yet, the page shows the two
+  variables an app sets to send its spans and links the README's section on
+  it. Own traces are not MCP tools yet, as the M18 contract leaves them for
+  later.
+
+- Two workflows to start from that show what no other example does (#271),
+  and `docs/workflows.md` opens its examples with a table of every example
+  and the capabilities it shows. `examples/weekly-digest.yaml` is meant for a
+  schedule: with no model, it reads the Armature issues a project filed and
+  finished in the last 7 days and comments a summary on an issue kept for it,
+  with `retention` and the `maxCost`, `maxConcurrent` and
+  `toolCallsPerMinute` limits; `docs/triggers.md` shows its schedule.
+  `examples/approved-requirement.yaml` drafts a requirement from a need, lets
+  a member of the quality group correct the title, statement and rationale in
+  the approval's form, and files what they approved in Exciter through a
+  binding with `approval: beforeWrite`. A workflow with no agent no longer
+  needs a priced model to carry a `maxCost`. The tool stub answers Armature's
+  `list_project_issues`, with the NQL a digest sends, for tests.
+
+- An issue triage workflow to start from, `examples/issue-triage.yaml`
+  (#270): on a new Armature issue, or run by hand with an issue key, it picks
+  up to three labels from those already in use, adds them and comments
+  **Labels from Rotor** with the reason. An issue that has labels, or that no
+  label fits, is left alone, and a name not in use is never added, since
+  Armature would make a new label of it. The tool stub answers Armature's
+  `list_labels` and `bulk_edit_issues` (adding labels) for tests.
+
+- Administrators send runs' traces to the OTLP tools their teams use (#246),
+  such as Langfuse, Arize Phoenix or Jaeger, under Admin, Traces: at most eight
+  destinations, each a name, the whole OTLP/HTTP traces URL, headers Rotor
+  keeps in OpenBao and never shows again, and an optional trace link holding
+  `{traceId}` and `{runId}`. Each destination gets every run's trace, the
+  runner's spans and those that joined the run, beside the run and never
+  holding it up; it gets prompt, tool and answer text only once an
+  administrator acknowledges that this text leaves Rotor for it. A Test button
+  sends one span without text and says what the destination answered. A run's
+  trace links to each destination with a trace link ("Open this trace in").
+  The same page sets how many days Rotor keeps traces and whether it keeps
+  their text, and the run page's notice that text is not kept points
+  administrators there. `GET`, `POST /api/v1/settings/trace-destinations` and
+  `GET`, `PUT`, `DELETE /api/v1/settings/trace-destinations/{id}` and
+  `POST .../{id}/test` keep them; adding, changing and removing one is audited
+  as `trace_destination.added`, `.changed` and `.removed`, never with a
+  header's value.
+
 - A run's page shows its trace (#245): each step, model call and tool call as
   a tree of spans, each with its kind, its duration and a bar placed on the
   run's time, and the chosen span's details: kind, timing, status and message,
@@ -719,6 +840,11 @@ and the versioning [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- LangSmith is a trace destination like any other (#246): an administrator
+  adds it under Admin, Traces from the LangSmith preset, its key and project
+  being the headers `x-api-key` and `Langsmith-Project`. Admin's LangSmith page
+  is now Admin, Traces.
+
 - The built-in Author role says it creates workflows and skills of their own,
   as it has granted since #219. An installation whose administrator reworded
   the role keeps their words (#236).
@@ -764,7 +890,84 @@ and the versioning [Semantic Versioning](https://semver.org/).
   `sandbox.namespace` to keep it. The `ClusterImagePolicy` objects that
   admit signed sandbox images are named after that namespace too.
 
+### Removed
+
+- The LangSmith setting (#256): `GET` and `PUT /api/v1/settings/langsmith`,
+  `DELETE /api/v1/settings/langsmith/key` and `ROTOR_LANGSMITH_ENDPOINT` (the
+  chart's `telemetry.langsmithEndpoint`) are gone, as is `/admin/langsmith`.
+  LangSmith is a destination under Admin, Traces; use
+  `/settings/trace-destinations`. A development database whose LangSmith key
+  the api of #246 never moved into its destination is refused by the
+  migration, which says to start the previous version once first.
+
 ### Fixed
+
+- The integration suite runs under a 20 minute timeout, set as
+  `INTEGRATION_TIMEOUT` in `mk/go.mk`, instead of being cut off at go test's
+  default ten minutes as it outgrew them (#289).
+
+- The dev and CI stack starts OpenBao more reliably and says why when it does
+  not (#278). OpenBao's entrypoint now waits until the node is active before
+  its first write, where it used to exit 2 now and then right after unsealing,
+  and retries the JWT auth configuration that fetches Keycloak's keys. A
+  `make stack-up` that fails saves the logs of every service that is not
+  healthy to `reports/stack-logs/`, which CI uploads with the other reports.
+
+- `make up` no longer breaks every tool and connection on the dev stack: the
+  tool stub keeps its OAuth clients, grants and tokens on a volume, so
+  recreating it with a rebuilt backend image leaves Rotor's connections
+  working. `make tool-stub-reset` forgets them on purpose (#268).
+
+- A tool's name changes only when an administrator changes it, and no two
+  tools share one (#267). Adding a tool under a name another has is refused
+  with a sentence asking for another, and Admin, Tools takes an optional name
+  when adding, for a second Exciter beside the first. Administrators rename a
+  tool under Admin, Tools, which lists the workflows that bind the old name
+  first; renaming is audited. Check again no longer renames a tool after the
+  product its metadata names: it shows the product on the tool's row and
+  keeps the name workflows bind. Tools that already share a name are listed
+  on Admin, Tools to be renamed, and a workflow binding such a name says so
+  when it is validated or saved and when a run starts, where it used to say
+  the tool "is not set up in Rotor".
+
+- A request its client gave up on, such as a page closed while the workflow
+  list loads, is no longer logged as `level=ERROR ... 500 context canceled`;
+  it is noted at debug level and shows as status 499 in the access log (#269).
+
+- Rotor says and acts on the true state of a tool and of your connection to
+  it (#266). The workflow editor's tool picker tells a tool that must be
+  registered again (an administrator does it under Admin, Tools) from a
+  connection the tool ended (you connect again, with a button there), where
+  it used to ask you to connect an account that read Connected. Check again
+  under Admin, Tools now proves Rotor's client with a token request, so a
+  tool that forgot Rotor reads Needs registering again instead of Ready.
+  Registering again marks everyone's connection to the tool to be connected
+  again. A run is refused before it starts, and the run dialog says so, when
+  a tool it uses must be registered again. A run whose token could not be
+  minted says why and what to do, and no longer says that its tool "cannot be
+  reached" at an address inside Rotor's network. The warning badge on
+  Admin, Tools now has enough contrast in the light theme.
+
+- A failed span's status message on the run page holds the error alone, such
+  as `RunEnded: file raised ValueError: The story has no title (line 2)`, and
+  no longer ends with a stray `Traceback (most recent call last):`; the whole
+  stack trace stays in the span's exception event (#254).
+
+- The page scrolls inside the app and never past it: the sidebar and top bar
+  stay put at the end of a long page, and moving focus to the editor's
+  Import YAML button no longer scrolls the window and blanks the screen on a
+  phone. A visually hidden control at the end of a page used to stretch the
+  window below the app (#264).
+
+- The workflow canvas no longer traps the page. A wheel over the canvas, or
+  over a run's graph, scrolls the page, and a pinch or Ctrl and the wheel
+  zooms the graph; on a touch screen a swipe over it scrolls the page, the
+  canvas leaves room on a phone's screen to scroll past it, and the graph
+  can no longer be flung out of reach. The toolbar sits above the graph
+  instead of over its first nodes, and fitting draws a small workflow no
+  larger than life. A node added from the Add a node form is brought into
+  view as one added from the toolbar is, and on a narrow screen choosing a
+  node scrolls to its inspector below the canvas (#265).
 
 - A run stops at its approval, and the approval opens, as soon as the runner
   reaches it, whatever the trace collector does. The control plane used to

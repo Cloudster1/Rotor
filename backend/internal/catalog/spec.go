@@ -22,11 +22,10 @@ func (s *Service) For(ctx context.Context, sp *spec.Spec) (spec.Catalog, error) 
 	if err != nil {
 		return nil, err
 	}
-	byName := map[string]tools.Tool{}
+	byName, shared := map[string]tools.Tool{}, map[string]int{}
 	for _, t := range known {
-		if prior, taken := byName[t.Name]; !taken || (prior.Status != tools.StatusReady && t.Status == tools.StatusReady) {
-			byName[t.Name] = t
-		}
+		byName[t.Name] = t
+		shared[t.Name]++
 	}
 	out := specCatalog{}
 	for _, binding := range sp.Tools {
@@ -35,6 +34,11 @@ func (s *Service) For(ctx context.Context, sp *spec.Spec) (spec.Catalog, error) 
 			continue
 		}
 		if _, done := out[binding.Tool]; done {
+			continue
+		}
+		if n := shared[binding.Tool]; n > 1 {
+			// A name several tools share binds none of them, as a run's start finds too (#267).
+			out[binding.Tool] = spec.ToolInfo{Shared: n}
 			continue
 		}
 		info := spec.ToolInfo{Scopes: t.ScopesSupported, Git: t.OffersGit()}

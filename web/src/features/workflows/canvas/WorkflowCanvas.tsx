@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Problem } from "@/api/workflows";
-import { EDITOR_GRAPH_HEIGHT_PX, MAX_BADGE_PROBLEMS } from "@/config";
+import { EDITOR_GRAPH_HEIGHT, MAX_BADGE_PROBLEMS, REDUCED_MOTION_QUERY, STACKED_LAYOUT_QUERY } from "@/config";
 import { GraphCanvas } from "@/features/graph/GraphCanvas";
 import type { Graph } from "@/features/graph/layout";
 import type { TextHistory } from "@/features/workflows/history";
+import { matchesMedia } from "@/lib/useMediaQuery";
 import { s } from "@/strings";
 import { AddNode } from "./AddNode";
 import * as edit from "./edits";
@@ -43,6 +44,13 @@ export function WorkflowCanvas({
   const selected = chosen && ids.includes(chosen) ? chosen : (spec?.nodes.find((n) => n.id === spec.entry)?.id ?? ids[0]);
   const placed = useMemo(() => (spec ? placeProblems(spec, problems) : undefined), [spec, problems]);
   const graph = useMemo(() => (spec ? graphOf(spec) : undefined), [spec]);
+  const inspector = useRef<HTMLElement>(null);
+  // A node chosen on the graph, a new object each time; where the inspector stacks below the canvas it is scrolled to.
+  const [chosenOnGraph, setChosenOnGraph] = useState<{ id: string }>();
+  useEffect(() => {
+    if (!chosenOnGraph || !matchesMedia(STACKED_LAYOUT_QUERY)) return;
+    inspector.current?.scrollIntoView({ block: "nearest", behavior: matchesMedia(REDUCED_MOTION_QUERY) ? "auto" : "smooth" });
+  }, [chosenOnGraph]);
 
   const draw = useCallback(
     (id: string, type: string) => {
@@ -133,10 +141,12 @@ export function WorkflowCanvas({
       {!readOnly && (
         <AddNode
           taken={ids}
-          onAdd={(type, id) => {
-            apply((t) => edit.addNode(t, type, id));
-            setChosen(id);
-          }}
+          onAdd={(type, id) =>
+            graphEdit.added(
+              id,
+              apply((t) => edit.addNode(t, type, id)),
+            )
+          }
         />
       )}
       {failed && (
@@ -153,13 +163,14 @@ export function WorkflowCanvas({
           <GraphCanvas
             graph={graph}
             label={s.canvas.graph}
-            height={EDITOR_GRAPH_HEIGHT_PX}
+            height={EDITOR_GRAPH_HEIGHT}
             draw={draw}
             edgeTone={edgeTone}
             // While a way is selected no node is, so Delete takes only the way.
             selected={graphEdit.selectedEdge === undefined ? selected : undefined}
             onSelect={(id) => {
               setChosen(id);
+              setChosenOnGraph({ id });
               graphEdit.selectEdge(undefined);
             }}
             region={REGION}
@@ -171,6 +182,7 @@ export function WorkflowCanvas({
           />
         </div>
         <Inspector
+          ref={inspector}
           spec={spec}
           selected={selected}
           onSelect={setChosen}

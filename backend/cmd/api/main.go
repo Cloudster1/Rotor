@@ -25,12 +25,13 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/envelope"
 	"github.com/cloudster1/rotor/backend/internal/hooks"
 	"github.com/cloudster1/rotor/backend/internal/httpapi"
-	"github.com/cloudster1/rotor/backend/internal/langsmith"
+	"github.com/cloudster1/rotor/backend/internal/ingestkeys"
 	"github.com/cloudster1/rotor/backend/internal/metrics"
 	"github.com/cloudster1/rotor/backend/internal/netguard"
 	"github.com/cloudster1/rotor/backend/internal/oauth"
 	"github.com/cloudster1/rotor/backend/internal/observability"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
+	"github.com/cloudster1/rotor/backend/internal/otlpgrpc"
 	"github.com/cloudster1/rotor/backend/internal/perm"
 	"github.com/cloudster1/rotor/backend/internal/preferences"
 	"github.com/cloudster1/rotor/backend/internal/providers"
@@ -39,6 +40,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/runs"
 	"github.com/cloudster1/rotor/backend/internal/skills"
 	"github.com/cloudster1/rotor/backend/internal/tools"
+	"github.com/cloudster1/rotor/backend/internal/tracedest"
 	"github.com/cloudster1/rotor/backend/internal/traces"
 	"github.com/cloudster1/rotor/backend/internal/triggers"
 	"github.com/cloudster1/rotor/backend/internal/usage"
@@ -174,6 +176,7 @@ func run() error {
 		registry.Connections = people
 		sessions.OnSwitchOff = people.EndPersonConnections
 		server.Tools, server.Connections = registry, people
+		warnSharedToolNames(ctx, registry, log)
 		hookService := hooks.NewService(cluster, secrets)
 		server.Hooks = hookService
 		reader := catalog.NewService(registry, people, boot.ToolClient(cfg), store, log)
@@ -197,9 +200,10 @@ func run() error {
 		runners.Checkpoints = runs.NewCheckpoints(cluster, keys)
 		runners.Signals, runners.Wrap, runners.Events, runners.Host = store, secrets, store, cfg.Runner.Host
 		runners.ApprovalTTL = cfg.Approvals.TTL
-		smith := langsmith.NewService(cluster, secrets, cfg.Telemetry.LangSmithEndpoint)
-		server.LangSmith, server.LangSmithEndpoint = smith, cfg.Telemetry.LangSmithEndpoint
-		forwarder := &langsmith.Forwarder{Tracing: tracing, LangSmith: smith, Log: log}
+		// Runs' traces go to the OTLP destinations administrators choose (#246).
+		destinations := tracedest.NewService(cluster, secrets, log)
+		server.TraceDestinations, server.WorkflowTracing = destinations, destinations
+		forwarder := &tracedest.Forwarder{Tracing: tracing, Destinations: destinations, Log: log}
 		runners.Telemetry = forwarder
 		// A sender's spans that join a run go where the run's runner's go.
 		traceService.Keys, traceService.Forward, runners.Traces = keys, forwarder, traceService
@@ -222,14 +226,25 @@ func run() error {
 	server.Retention = retention.NewService(cluster, log)
 	server.Workspaces = workspaceService
 	server.Preferences = preferences.New(cluster)
+	// Services send spans with long-lived keys administrators make (#258).
+	server.IngestKeys = ingestkeys.NewService(cluster)
 	origins := cfg.CORSOrigins
 	if len(origins) == 0 && !cfg.IsProduction() {
 		origins = devOrigins
 	}
 
+	handler := server.Routes(origins)
+	// OTLP over gRPC (#262) asks the endpoint Routes made, so it shares its rates.
+	if cfg.OTLPGRPCAddr != "" {
+		go func() {
+			if err := otlpgrpc.Serve(ctx, cfg.OTLPGRPCAddr, server, log); err != nil {
+				log.Error("OTLP over gRPC stopped", "error", err)
+			}
+		}()
+	}
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           server.Routes(origins),
+		Handler:           handler,
 		ReadHeaderTimeout: config.ReadHeaderTimeout,
 		ReadTimeout:       config.ReadTimeout,
 		WriteTimeout:      config.WriteTimeout,
@@ -296,4 +311,18 @@ func flushTraces(ctx context.Context, tracing *observability.Tracing) {
 	flush, cancel := context.WithTimeout(context.WithoutCancel(ctx), config.ShutdownGrace)
 	defer cancel()
 	_ = tracing.Shutdown(flush)
+}
+
+// warnSharedToolNames names the tools that share a name from before names were unique (#267), whose bindings resolve
+// to none until an administrator renames all but one on Admin, Tools, which lists them too.
+func warnSharedToolNames(ctx context.Context, registry *tools.Service, log *slog.Logger) {
+	shared, err := registry.Duplicates(ctx)
+	if err != nil {
+		log.Warn("could not look for tools that share a name", "error", err)
+		return
+	}
+	for name, n := range shared {
+		log.Warn("several tools share a name, so workflows binding it find none; rename all but one on Admin, Tools",
+			"name", name, "tools", n)
+	}
 }

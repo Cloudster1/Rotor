@@ -23,6 +23,28 @@ On a workflow's page, under Triggers, add a schedule:
 "Show the next runs" lists the next five times. A time missed while Rotor was
 down fires once when it is back; earlier missed times are not made up.
 
+### A weekly digest
+
+[`weekly-digest.yaml`](../examples/weekly-digest.yaml) (#271) comments a
+summary of an Armature project's week on an issue kept for it, with no model.
+Armature must be connected, as for the story workflow below; it needs no
+webhook. Then:
+1. In Armature, open an issue for the digests, such as **Weekly digest**, and
+   pin it or keep it open.
+2. **The trigger's owner** connects to Armature, adds the workflow, and on its
+   page, under Triggers, adds a schedule:
+   - **Cron fields:** `0 8 * * 1`, Mondays at 8:00.
+   - **Time zone:** the team's, such as `Europe/Berlin`.
+   - **Skip a time while the last run has not ended:** on; one digest a week
+     is enough.
+   - **Inputs:** `projectKey`, such as `CP`, and `digestIssue`, such as
+     `CP-1`.
+   - **Writes without an approval:** agree to Armature's `add_comment`.
+
+The owner needs to read the project's issues and comment on the digest issue;
+the comment is theirs, written through Rotor, and counts only the issues they
+can see. To try it first, run it from its page with the same inputs.
+
 ## What a triggered run may do
 
 Nobody watches a triggered run, so until Rotor holds writes back at the tool
@@ -224,6 +246,25 @@ stories ready to plan, such as `Ready`; the second is on `comment.added`, as
 above, so answers to its questions still reach it. A condition holds for
 every topic of its trigger, which is why they are two. Each workflow answers
 only its own questions, so the two conversations on one ticket stay apart.
+
+### Labelling new issues
+
+[`issue-triage.yaml`](../examples/issue-triage.yaml) (#270) labels each new
+Armature issue from the labels already in use. Its setup is the story
+workflow's without Exciter:
+1. **Connect Armature** and add **Armature's webhook** as above, with the
+   topic `issue.created`.
+2. **The trigger's owner** connects to Armature, adds the workflow, and adds
+   a trigger **On a tool's event**: Armature, the topic `issue.created`, the
+   projects to triage, and `issueKey` left empty. Agree to the two calls the
+   form lists, Armature's `bulk_edit_issues` and `add_comment`.
+
+The owner needs to edit and comment on issues in those projects; the labels
+and the comment are theirs, written through Rotor. The workflow only picks
+labels that exist, so create the ones your team uses in Armature first, or
+label a few issues by hand. To try it on one issue without the webhook, run
+it from its page with `issueKey` set to the issue's key and `event` left
+empty; that run is yours, not the trigger's owner's.
 
 ### Later
 

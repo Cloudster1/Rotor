@@ -26,6 +26,11 @@ var armatureOperations = map[string]struct{ method, path, status string }{
 	GetIssueDevelopmentTool: {"get", "/issues/{issueKey}/development", "200"},
 	CreateIssueBranchTool:   {"post", "/issues/{issueKey}/branches", "201"},
 	OpenPullRequestTool:     {"post", "/issues/{issueKey}/pull-requests", "201"},
+	// The label tools (#270).
+	ListLabelsTool:     {"get", "/labels", "200"},
+	BulkEditIssuesTool: {"post", "/issues/bulk", "200"},
+	// The digest's reading (#271).
+	ListProjectIssuesTool: {"get", "/projects/{projectKey}/issues", "200"},
 }
 
 // notArmatureAPI are the stub's routes an Armature tenant serves that are no operation of Armature's API: its
@@ -92,7 +97,7 @@ func TestEveryRouteOfAnArmatureTenantIsAnArmatureOperation(t *testing.T) {
 	router, _ := newTestStub(t).Public().(chi.Routes)
 	_ = chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		path := documentPath(method, route)
-		if path == "" || strings.HasPrefix(path, llmPath+"/") || path == LangSmithPath || notArmatureAPI[method+" "+path] {
+		if path == "" || strings.HasPrefix(path, llmPath+"/") || path == OTLPPath || notArmatureAPI[method+" "+path] {
 			return nil
 		}
 		if item, ok := doc.Paths[path]; !ok || item[strings.ToLower(method)] == nil {

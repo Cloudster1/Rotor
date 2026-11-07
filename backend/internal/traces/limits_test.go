@@ -11,8 +11,12 @@ import (
 	"github.com/cloudster1/rotor/backend/migrations"
 )
 
-// keepTraces is the migration whose trigger and checks hold the cap whoever inserts.
-const keepTraces = "01500_keep_traces.sql"
+// keepTraces is the migration whose trigger and checks hold the cap whoever inserts, and spanLinks the one that
+// redefines the trigger last (#262).
+const (
+	keepTraces = "01500_keep_traces.sql"
+	spanLinks  = "01580_span_links.sql"
+)
 
 // The cap is enforced by the database, which cannot read Go: the numbers written into the migration must be the
 // constants the rest of Rotor reads, or a change to one would leave the other behind.
@@ -42,6 +46,31 @@ func TestTheMigrationsNumbersAreTheConstants(t *testing.T) {
 		}
 		if got, _ := strconv.Atoi(match[1]); got != c.want {
 			t.Errorf("%s: the migration says %d, config says %d", name, got, c.want)
+		}
+	}
+
+	// The trigger as it stands now is 01580's, which also bounds a span's links.
+	linksRaw, err := migrations.FS.ReadFile(spanLinks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	linksUp, _, _ := strings.Cut(string(linksRaw), "-- +goose Down")
+	for name, c := range map[string]struct {
+		pattern string
+		want    int
+	}{
+		"MaxTraceSpans":  cases["MaxTraceSpans"],
+		"MaxTraceBytes":  cases["MaxTraceBytes"],
+		"MaxSenderSpans": cases["MaxSenderSpans"],
+		"MaxSpanLinks":   {`jsonb_array_length\(links\) <= (\d+)`, config.MaxSpanLinks},
+	} {
+		match := regexp.MustCompile(c.pattern).FindStringSubmatch(linksUp)
+		if match == nil {
+			t.Errorf("%s: %s no longer says %q", name, spanLinks, c.pattern)
+			continue
+		}
+		if got, _ := strconv.Atoi(match[1]); got != c.want {
+			t.Errorf("%s: %s says %d, config says %d", name, spanLinks, got, c.want)
 		}
 	}
 

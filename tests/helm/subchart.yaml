@@ -166,8 +166,8 @@ data:
   ROTOR_RUNNER_DIAL: "rotor-api.dynamo.svc:9443"
   ROTOR_WORKER_METRICS_ADDR: ":9464"
   ROTOR_API_METRICS_ADDR: ":9465"
+  ROTOR_OTLP_GRPC_ADDR: ":4317"
   ROTOR_TRACE_SAMPLE_RATIO: "1"
-  ROTOR_LANGSMITH_ENDPOINT: "https://api.smith.langchain.com/otel/v1/traces"
 ---
 # Source: suite/charts/rotor/templates/configmap-nginx.yaml
 apiVersion: v1
@@ -302,6 +302,10 @@ spec:
     - name: runner
       port: 9443
       targetPort: runner
+    - name: otlp-grpc
+      port: 4317
+      targetPort: otlp-grpc
+      appProtocol: grpc
   selector:
     app.kubernetes.io/name: rotor
     app.kubernetes.io/instance: suite
@@ -358,7 +362,7 @@ spec:
         app.kubernetes.io/instance: suite
         app.kubernetes.io/component: api
       annotations:
-        checksum/env: dc3e9c768dcf550a0cb078be6fecab43a7f3a8d887f23346ec959e74e2fe008e
+        checksum/env: 28133e6dd037f0792b3ab53ae3033167a2f748427f130f0d7fac56fbf697ae91
     spec:
       serviceAccountName: rotor-api
       terminationGracePeriodSeconds: 40
@@ -414,6 +418,8 @@ spec:
               containerPort: 9443
             - name: metrics
               containerPort: 9465
+            - name: otlp-grpc
+              containerPort: 4317
           readinessProbe:
             httpGet: { path: /readyz, port: http }
             periodSeconds: 5
@@ -546,7 +552,7 @@ spec:
         app.kubernetes.io/instance: suite
         app.kubernetes.io/component: worker
       annotations:
-        checksum/env: dc3e9c768dcf550a0cb078be6fecab43a7f3a8d887f23346ec959e74e2fe008e
+        checksum/env: 28133e6dd037f0792b3ab53ae3033167a2f748427f130f0d7fac56fbf697ae91
     spec:
       serviceAccountName: rotor-worker
       terminationGracePeriodSeconds: 20
@@ -732,7 +738,14 @@ data:
     # the stack's network, while bound_issuer is the browser-facing address Keycloak writes into every token.
     if [ -n "${ROTOR_OIDC_JWKS_URL:-}" ]; then
       enabled auth jwt || bao auth enable jwt
-      bao write auth/jwt/config jwks_url="$ROTOR_OIDC_JWKS_URL" bound_issuer="$ROTOR_OIDC_ISSUER" >/dev/null
+      # OpenBao fetches the JWKS while it writes this, so it fails whenever Keycloak is not answering yet (#278).
+      attempt=1
+      until bao write auth/jwt/config jwks_url="$ROTOR_OIDC_JWKS_URL" bound_issuer="$ROTOR_OIDC_ISSUER" >/dev/null; do
+        [ "$attempt" -lt 5 ] || { echo "OpenBao could not configure JWT auth from $ROTOR_OIDC_JWKS_URL after $attempt tries" >&2; exit 1; }
+        echo "JWT auth configuration failed (try $attempt of 5), is Keycloak answering at $ROTOR_OIDC_JWKS_URL? Trying again in 3 seconds" >&2
+        attempt=$((attempt + 1))
+        sleep 3
+      done
       bao write auth/jwt/role/rotor-control-plane - >/dev/null <<JSON
     {
       "role_type": "jwt",
@@ -819,12 +832,12 @@ data:
       capabilities = ["update"]
     }
     
-    # The LangSmith key an administrator gives, which the control plane alone sends runs' spans with (#37).
-    path "rotor/data/settings/langsmith/*" {
+    # The headers an administrator gives a trace destination, which the control plane alone sends runs' spans with (#246).
+    path "rotor/data/settings/trace-destinations/*" {
       capabilities = ["create", "read", "update", "delete"]
     }
     
-    path "rotor/metadata/settings/langsmith/*" {
+    path "rotor/metadata/settings/trace-destinations/*" {
       capabilities = ["read", "list", "delete"]
     }
     

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	oteltrace "go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/cloudster1/rotor/backend/internal/config"
@@ -24,7 +25,7 @@ type keptSpans struct {
 	sent  chan struct{}
 }
 
-func (k *keptSpans) Spans(_ context.Context, _ uuid.UUID, spans []observability.RunnerSpan) {
+func (k *keptSpans) Spans(_ context.Context, _ uuid.UUID, _ observability.RunTracing, spans []observability.RunnerSpan) {
 	k.mu.Lock()
 	k.spans = append(k.spans, spans...)
 	k.mu.Unlock()
@@ -46,7 +47,9 @@ func (k *keptSpans) kept(t *testing.T, due bool) []observability.RunnerSpan {
 	return append([]observability.RunnerSpan(nil), k.spans...)
 }
 
-func (k *keptSpans) Content(context.Context) bool { return false }
+func (k *keptSpans) Content(context.Context, observability.RunTracing, oteltrace.TraceID) bool {
+	return false
+}
 
 func hexBytes(t *testing.T, s string) []byte {
 	t.Helper()
@@ -124,7 +127,7 @@ type stuckCollector struct {
 	release chan struct{}
 }
 
-func (c *stuckCollector) Spans(ctx context.Context, _ uuid.UUID, _ []observability.RunnerSpan) {
+func (c *stuckCollector) Spans(ctx context.Context, _ uuid.UUID, _ observability.RunTracing, _ []observability.RunnerSpan) {
 	c.calls <- ctx
 	select {
 	case <-c.release:
@@ -132,7 +135,9 @@ func (c *stuckCollector) Spans(ctx context.Context, _ uuid.UUID, _ []observabili
 	}
 }
 
-func (c *stuckCollector) Content(context.Context) bool { return false }
+func (c *stuckCollector) Content(context.Context, observability.RunTracing, oteltrace.TraceID) bool {
+	return false
+}
 
 // A runner sends its last spans right before its Done, on the same stream (#234): were the stream to wait for the
 // collector, a run would reach waiting, and open its approval, only once the export gave up a minute later.

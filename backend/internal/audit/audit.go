@@ -26,14 +26,16 @@ const (
 	ActionToolRemoved            = "tool.removed"
 	ActionToolChecked            = "tool.checked"
 	ActionToolAllowed            = "tool.allowed"
-	ActionConnectionGranted      = "connection.granted"
-	ActionConnectionEnded        = "connection.ended"
-	ActionTokenMinted            = "token.minted"
-	ActionTokenRevoked           = "token.revoked"
-	ActionWorkflowCreated        = "workflow.created"
-	ActionWorkflowChanged        = "workflow.changed"
-	ActionWorkflowShared         = "workflow.shared"
-	ActionWorkflowArchived       = "workflow.archived"
+	// ActionToolRenamed is an administrator changing the name workflows bind a tool by (#267).
+	ActionToolRenamed       = "tool.renamed"
+	ActionConnectionGranted = "connection.granted"
+	ActionConnectionEnded   = "connection.ended"
+	ActionTokenMinted       = "token.minted"
+	ActionTokenRevoked      = "token.revoked"
+	ActionWorkflowCreated   = "workflow.created"
+	ActionWorkflowChanged   = "workflow.changed"
+	ActionWorkflowShared    = "workflow.shared"
+	ActionWorkflowArchived  = "workflow.archived"
 	// ActionWorkflowRestored is a workflow taken out of the archive, which is how archiving is undone (#205).
 	ActionWorkflowRestored  = "workflow.restored"
 	ActionProviderChanged   = "provider.changed"
@@ -96,11 +98,25 @@ const (
 	ActionSkillInstalled = "skill.installed"
 	// ActionTracesChanged is an administrator changing how long traces are kept and whether their text is (#242).
 	ActionTracesChanged = "traces.changed"
+	// ActionTraceDestinationAdded, ActionTraceDestinationChanged and ActionTraceDestinationRemoved are an administrator
+	// keeping the OTLP destinations runs' traces go to (#246), never a header's value.
+	ActionTraceDestinationAdded   = "trace_destination.added"
+	ActionTraceDestinationChanged = "trace_destination.changed"
+	ActionTraceDestinationRemoved = "trace_destination.removed"
+	// ActionTraceDestinationCarriedOver is the api's start making the LangSmith setting a destination (#246).
+	ActionTraceDestinationCarriedOver = "trace_destination.carried_over"
+	// ActionWorkflowTracingChanged is a workflow's administrator choosing what its runs' traces keep and where they go (#259).
+	ActionWorkflowTracingChanged = "workflow.tracing_changed"
+	// ActionIngestKeyCreated, ActionIngestKeyRotated and ActionIngestKeyRevoked are an administrator keeping the keys
+	// services send spans with (#258), never a key or its hash.
+	ActionIngestKeyCreated = "ingest_key.created"
+	ActionIngestKeyRotated = "ingest_key.rotated"
+	ActionIngestKeyRevoked = "ingest_key.revoked"
 )
 
 // Actions is every action the log may hold, for a filter to offer and a client to name.
 var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, ActionSwitchedOff, ActionSessionEndedByProvider,
-	ActionToolAdded, ActionToolRemoved, ActionToolChecked, ActionToolAllowed, ActionConnectionGranted, ActionConnectionEnded, ActionTokenMinted, ActionTokenRevoked, ActionProviderChanged,
+	ActionToolAdded, ActionToolRemoved, ActionToolChecked, ActionToolAllowed, ActionToolRenamed, ActionConnectionGranted, ActionConnectionEnded, ActionTokenMinted, ActionTokenRevoked, ActionProviderChanged,
 	ActionWorkflowCreated, ActionWorkflowChanged, ActionWorkflowShared, ActionWorkflowArchived, ActionWorkflowRestored, ActionRunStarted, ActionRunCancelled,
 	ActionApprovalDecided, ActionTriggerCreated, ActionTriggerChanged, ActionTriggerRemoved, ActionTriggerEnabled, ActionTriggerDisabled,
 	ActionHookSecretChanged, ActionLimitsChanged, ActionLangSmithChanged,
@@ -110,7 +126,9 @@ var Actions = []string{ActionSignedIn, ActionSignedOut, ActionRoleChanged, Actio
 	ActionRoleRemoved, ActionRoleDefined, ActionRoleRedefined, ActionGroupCreated, ActionGroupDeleted, ActionGroupMemberAdded,
 	ActionGroupMemberRemoved, ActionSwitchedOn, ActionMemberAdmitted, ActionMemberDeclined, ActionOIDCSaved,
 	ActionSkillCreated, ActionSkillChanged, ActionSkillArchived, ActionSkillRestored, ActionSkillImported,
-	ActionSkillInstalled, ActionTracesChanged}
+	ActionSkillInstalled, ActionTracesChanged, ActionTraceDestinationAdded, ActionTraceDestinationChanged,
+	ActionTraceDestinationRemoved, ActionTraceDestinationCarriedOver, ActionWorkflowTracingChanged, ActionIngestKeyCreated,
+	ActionIngestKeyRotated, ActionIngestKeyRevoked}
 
 // Redacted stands in the record for a value that looked like a credential.
 var Redacted = redact.Redacted

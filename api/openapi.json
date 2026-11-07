@@ -2521,6 +2521,70 @@
         }
       }
     },
+    "/otlp/v1/logs": {
+      "post": {
+        "operationId": "refuseLogs",
+        "summary": "Refuse OTLP logs: Rotor takes traces alone.",
+        "description": "Answers 501 with a google.rpc.Status (UNIMPLEMENTED) in the request's encoding, JSON when it names none OTLP knows, to anyone and without reading the body: Rotor keeps no metrics or logs. Send them to your own OpenTelemetry collector, or set OTEL_METRICS_EXPORTER=none and OTEL_LOGS_EXPORTER=none.",
+        "tags": [
+          "traces"
+        ],
+        "responses": {
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtlpStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/otlp/v1/metrics": {
+      "post": {
+        "operationId": "refuseMetrics",
+        "summary": "Refuse OTLP metrics: Rotor takes traces alone.",
+        "description": "Answers 501 with a google.rpc.Status (UNIMPLEMENTED) in the request's encoding, JSON when it names none OTLP knows, to anyone and without reading the body: Rotor keeps no metrics or logs. Send them to your own OpenTelemetry collector, or set OTEL_METRICS_EXPORTER=none and OTEL_LOGS_EXPORTER=none.",
+        "tags": [
+          "traces"
+        ],
+        "responses": {
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtlpStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/otlp/v1/traces": {
       "post": {
         "operationId": "receiveTraces",
@@ -2624,6 +2688,9 @@
           }
         },
         "security": [
+          {
+            "ingestKey": []
+          },
           {
             "rotorToken": []
           },
@@ -4262,12 +4329,12 @@
         }
       }
     },
-    "/settings/langsmith": {
+    "/settings/ingest-keys": {
       "get": {
-        "operationId": "getLangSmith",
-        "summary": "Whether runs' spans also go to LangSmith, and under which project; never the key.",
+        "operationId": "listIngestKeys",
+        "summary": "The keys services send spans to the OTLP endpoint with, by name; never a key itself.",
         "tags": [
-          "telemetry"
+          "traces"
         ],
         "responses": {
           "200": {
@@ -4275,7 +4342,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LangSmithResponse"
+                  "$ref": "#/components/schemas/IngestKeyList"
                 }
               }
             }
@@ -4302,36 +4369,46 @@
           }
         }
       },
-      "put": {
-        "operationId": "setLangSmith",
-        "summary": "Turn LangSmith on or off, name its project, or give a new key, kept in OpenBao.",
-        "description": "Turning it on is refused with 422 data_leaves_unacknowledged unless acknowledgeDataLeaves is true, since run data then leaves the installation, and with 422 langsmith_key_missing while no key is held. Leaving key out keeps the one held.",
+      "post": {
+        "operationId": "createIngestKey",
+        "summary": "Make a key that sends spans as one account; the answer holds the key, which is never shown again.",
+        "description": "accountEmail names an account Rotor has let in and not switched off, your own when left out. The key is taken at POST /api/v1/otlp/v1/traces alone. A name another key has answers 409 ingest_key_taken; a key past the most there can be 422 ingest_keys_full. The audit log records ingest_key.created.",
         "tags": [
-          "telemetry"
+          "traces"
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/LangSmithRequest"
+                "$ref": "#/components/schemas/IngestKeyRequest"
               }
             }
           }
         },
         "responses": {
-          "200": {
-            "description": "OK",
+          "201": {
+            "description": "Created",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LangSmithResponse"
+                  "$ref": "#/components/schemas/IngestKeySecret"
                 }
               }
             }
           },
           "403": {
             "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -4363,12 +4440,79 @@
         }
       }
     },
-    "/settings/langsmith/key": {
+    "/settings/ingest-keys/{keyID}": {
       "delete": {
-        "operationId": "removeLangSmithKey",
-        "summary": "Forget the LangSmith key, which turns LangSmith off.",
+        "operationId": "revokeIngestKey",
+        "summary": "Revoke a key: it is refused from the next request. The audit log records ingest_key.revoked.",
         "tags": [
-          "telemetry"
+          "traces"
+        ],
+        "parameters": [
+          {
+            "name": "keyID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/ingest-keys/{keyID}/rotate": {
+      "post": {
+        "operationId": "rotateIngestKey",
+        "summary": "Give a key a new secret, shown once; the old one is refused from the next request.",
+        "description": "The name, account and expiry stay. An expired key answers 409 ingest_key_expired. The audit log records ingest_key.rotated.",
+        "tags": [
+          "traces"
+        ],
+        "parameters": [
+          {
+            "name": "keyID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -4376,13 +4520,33 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LangSmithResponse"
+                  "$ref": "#/components/schemas/IngestKeySecret"
                 }
               }
             }
           },
           "403": {
             "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -4633,16 +4797,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
           "default": {
             "description": "An error, in the one shape every endpoint uses.",
             "content": {
@@ -4658,7 +4812,7 @@
       "post": {
         "operationId": "addTraceDestination",
         "summary": "Add an OTLP destination; its headers are kept in OpenBao.",
-        "description": "content true is refused with 422 content_leaves_unacknowledged unless acknowledgeContentLeaves is true. A name another destination has answers 409.",
+        "description": "content true is refused with 422 content_leaves_unacknowledged unless acknowledgeContentLeaves is true. A name another destination has answers 409 trace_destination_taken; a ninth destination 422 trace_destinations_full. traceLink holds {traceId} and may hold {runId}, which a run's trace fills.",
         "tags": [
           "telemetry"
         ],
@@ -4705,16 +4859,6 @@
           },
           "422": {
             "description": "Unprocessable Entity",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4770,16 +4914,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4848,16 +4982,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
           "default": {
             "description": "An error, in the one shape every endpoint uses.",
             "content": {
@@ -4873,7 +4997,7 @@
       "put": {
         "operationId": "changeTraceDestination",
         "summary": "Change an OTLP destination.",
-        "description": "Leaving headers out keeps the ones held; {} removes them. Turning content on needs acknowledgeContentLeaves.",
+        "description": "Leaving headers out keeps the ones held; {} removes them. Turning content on, or moving the endpoint of a destination that gets text, needs acknowledgeContentLeaves.",
         "tags": [
           "telemetry"
         ],
@@ -4949,16 +5073,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
           "default": {
             "description": "An error, in the one shape every endpoint uses.",
             "content": {
@@ -5013,16 +5127,6 @@
           },
           "404": {
             "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented: agreed, not built yet.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6416,6 +6520,156 @@
         }
       }
     },
+    "/spans": {
+      "get": {
+        "operationId": "searchSpans",
+        "summary": "Spans of the traces you may read that match a search, newest first: runs' and senders' own.",
+        "description": "since defaults to 7 days before until, which defaults to now, and starts at most 30 days back. Text a person, a tool or a model wrote is sealed and never searched. A search that runs past 5 seconds answers 422 search_too_broad. next is the cursor of the next page.",
+        "tags": [
+          "traces"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "description": "Spans whose name holds this, whatever the case.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "description": "Spans of this OpenInference kind, such as TOOL or LLM.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Spans with this status: error finds the failed ones.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "model",
+            "in": "query",
+            "description": "Model calls whose model holds this, whatever the case.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "service",
+            "in": "query",
+            "description": "Spans of this service, such as rotor-runner.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workflow",
+            "in": "query",
+            "description": "Spans of this workflow's runs, by its id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attrKey",
+            "in": "query",
+            "description": "An attribute without text, such as tool.name, to match exactly with attrValue.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attrValue",
+            "in": "query",
+            "description": "The value attrKey must have.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "description": "The earliest start, RFC 3339; 7 days before until when left out, and at most 30 days back.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "description": "The latest start, RFC 3339, not included; now when left out.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "At most this many spans, 50 when left out and never more than 200.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "The next of the page before, for the page after it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpanSearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/tools": {
       "get": {
         "operationId": "listTools",
@@ -6468,7 +6722,7 @@
       "post": {
         "operationId": "addTool",
         "summary": "Add a tool by its address; Rotor registers itself there as an OAuth client.",
-        "description": "Reads the tool's /api/v1/meta, which must offer mcp@1, then its protected resource and authorization server metadata (RFC 9728, RFC 8414), and registers by RFC 7591 unless a client is given. Adding an address Rotor already knows registers again, for a tool that forgot its client.",
+        "description": "Reads the tool's /api/v1/meta, which must offer mcp@1, then its protected resource and authorization server metadata (RFC 9728, RFC 8414), and registers by RFC 7591 unless a client is given. Adding an address Rotor already knows registers again, for a tool that forgot its client, and keeps its name. A name another tool has, case aside, is refused with 409 tool_name_taken (#267).",
         "tags": [
           "tools"
         ],
@@ -6521,6 +6775,16 @@
           },
           "403": {
             "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -6697,6 +6961,7 @@
       "get": {
         "operationId": "toolCatalog",
         "summary": "The MCP tools you may call at a tool, as your connection sees them, with their read-only and destructive hints.",
+        "description": "409 says why in its code: not_connected (connect your account), reconnect (the tool ended your connection; connect again) or needs_registration (the tool forgot Rotor's client; an administrator registers it again).",
         "tags": [
           "tools"
         ],
@@ -6769,7 +7034,7 @@
       "post": {
         "operationId": "checkTool",
         "summary": "Read the tool's meta and metadata again, for a tool that was updated, without registering again.",
-        "description": "Keeps the tool's name, endpoints, scopes and capabilities as they answer now. A tool that stopped offering mcp@1 is kept and lists it under missing, so its pages say what to update.",
+        "description": "Keeps the tool's name, endpoints, scopes and capabilities as they answer now. A tool that stopped offering mcp@1 is kept and lists it under missing, so its pages say what to update. A token request with Rotor's client proves the tool still knows it; one refused with invalid_client makes the tool needs_registration.",
         "tags": [
           "tools"
         ],
@@ -7197,6 +7462,162 @@
             "realmToken": []
           }
         ]
+      }
+    },
+    "/tools/{toolID}/name": {
+      "put": {
+        "operationId": "renameTool",
+        "summary": "Rename a tool: the name workflows bind it by.",
+        "description": "Its product, client and connections stay. Workflows that bound the old name no longer find the tool, and the answer lists them for their owners to change. A name another tool has, case aside, is refused with 409 tool_name_taken. The audit log records tool.renamed.",
+        "tags": [
+          "tools"
+        ],
+        "parameters": [
+          {
+            "name": "toolID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameToolRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenameToolResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/{toolID}/workflows": {
+      "get": {
+        "operationId": "toolWorkflows",
+        "summary": "The workflows whose current version binds the tool by its name, which stop finding it once it is renamed.",
+        "description": "Every workflow not archived, whoever owns it, so an administrator renaming the tool knows whom to tell.",
+        "tags": [
+          "tools"
+        ],
+        "parameters": [
+          {
+            "name": "toolID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToolWorkflowsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: for administrators of Rotor alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/traces": {
@@ -8887,7 +9308,7 @@
       "post": {
         "operationId": "startRun",
         "summary": "Start a run of a workflow as yourself.",
-        "description": "An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false. A skill the version names that you may not read refuses the start with 422 code skill_unreadable.",
+        "description": "An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). A binding to a tool that no longer knows Rotor's client is refused with 409 code needs_registration, whose fields map each such tool's name to its id, until an administrator registers it again. An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false. A skill the version names that you may not read refuses the start with 422 code skill_unreadable.",
         "tags": [
           "runs"
         ],
@@ -8953,6 +9374,140 @@
           },
           "409": {
             "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workflows/{workflowID}/settings/tracing": {
+      "get": {
+        "operationId": "getWorkflowTracing",
+        "summary": "Whether the workflow's runs keep trace text, which destinations get them and what share, for whoever reads it.",
+        "description": "installation.keepContent and each destination's content say what inherit means; a destination is answered by name alone. canChange says the caller administers the workflow.",
+        "tags": [
+          "telemetry"
+        ],
+        "parameters": [
+          {
+            "name": "workflowID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowTracingResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error, in the one shape every endpoint uses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setWorkflowTracing",
+        "summary": "Choose whether the workflow's runs keep trace text, which destinations get them, and the share of runs sent.",
+        "description": "For whoever administers the workflow or Rotor. content none keeps no text of its runs in Rotor or at any destination; there is no more text than the installation keeps. destinations null sends to every enabled one, ones added later too; sampleRatio from 0 to 1 is decided by the trace id. Runs started afterwards follow it.",
+        "tags": [
+          "telemetry"
+        ],
+        "parameters": [
+          {
+            "name": "workflowID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowTracingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowTracingResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -9374,6 +9929,9 @@
             "type": "string"
           },
           "clientSecret": {
+            "type": "string"
+          },
+          "name": {
             "type": "string"
           }
         },
@@ -10528,6 +11086,146 @@
           "version"
         ]
       },
+      "IngestKey": {
+        "type": "object",
+        "properties": {
+          "account": {
+            "$ref": "#/components/schemas/IngestKeyAccount"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expired": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "hint": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "lastUsedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "name": {
+            "type": "string"
+          },
+          "rotatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "account",
+          "hint",
+          "expiresAt",
+          "expired",
+          "lastUsedAt",
+          "createdBy",
+          "createdAt",
+          "rotatedAt"
+        ]
+      },
+      "IngestKeyAccount": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email"
+        ]
+      },
+      "IngestKeyList": {
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngestKey"
+            }
+          }
+        },
+        "required": [
+          "keys"
+        ]
+      },
+      "IngestKeyRequest": {
+        "type": "object",
+        "properties": {
+          "accountEmail": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "IngestKeySecret": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/IngestKey"
+          },
+          "secret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "secret"
+        ]
+      },
+      "InstallationTracing": {
+        "type": "object",
+        "properties": {
+          "keepContent": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "keepContent"
+        ]
+      },
       "JoinRequestView": {
         "type": "object",
         "properties": {
@@ -10550,71 +11248,6 @@
           "email",
           "name",
           "requestedAt"
-        ]
-      },
-      "LangSmithRequest": {
-        "type": "object",
-        "properties": {
-          "acknowledgeDataLeaves": {
-            "type": "boolean"
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "key": {
-            "type": "string"
-          },
-          "project": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "enabled",
-          "project",
-          "acknowledgeDataLeaves"
-        ]
-      },
-      "LangSmithResponse": {
-        "type": "object",
-        "properties": {
-          "changedBy": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "endpoint": {
-            "type": "string"
-          },
-          "keySet": {
-            "type": "boolean"
-          },
-          "keySetAt": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "project": {
-            "type": "string"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "enabled",
-          "project",
-          "keySet",
-          "keySetAt",
-          "changedBy",
-          "updatedAt",
-          "endpoint"
         ]
       },
       "LimitsBody": {
@@ -11768,6 +12401,35 @@
           "models"
         ]
       },
+      "RenameToolRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "RenameToolResponse": {
+        "type": "object",
+        "properties": {
+          "tool": {
+            "$ref": "#/components/schemas/ToolResponse"
+          },
+          "workflows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolBinder"
+            }
+          }
+        },
+        "required": [
+          "tool",
+          "workflows"
+        ]
+      },
       "RequestBody": {
         "type": "object",
         "properties": {
@@ -12625,6 +13287,180 @@
           "attributes"
         ]
       },
+      "SpanHit": {
+        "type": "object",
+        "properties": {
+          "durationMs": {
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "CHAIN",
+              "LLM",
+              "TOOL",
+              "AGENT",
+              "RETRIEVER",
+              "EMBEDDING",
+              "RERANKER",
+              "GUARDRAIL",
+              "EVALUATOR",
+              "PROMPT",
+              "UNKNOWN"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "runId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "runner",
+              "otlp"
+            ]
+          },
+          "spanId": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unset",
+              "ok",
+              "error"
+            ]
+          },
+          "statusMessage": {
+            "type": "string"
+          },
+          "traceId": {
+            "type": "string"
+          },
+          "workflow": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/WorkflowRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "spanId",
+          "name",
+          "kind",
+          "service",
+          "source",
+          "status",
+          "statusMessage",
+          "startedAt",
+          "durationMs",
+          "model",
+          "traceId",
+          "runId",
+          "workflow",
+          "owner"
+        ]
+      },
+      "SpanLink": {
+        "type": "object",
+        "properties": {
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "runId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sender": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "spanId": {
+            "type": "string"
+          },
+          "traceId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "traceId",
+          "spanId",
+          "attributes",
+          "runId",
+          "sender"
+        ]
+      },
+      "SpanSearchResponse": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer"
+          },
+          "next": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "spans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpanHit"
+            }
+          },
+          "until": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "spans",
+          "next",
+          "since",
+          "until",
+          "limit"
+        ]
+      },
       "SpanTokens": {
         "type": "object",
         "properties": {
@@ -12702,6 +13538,25 @@
           "name"
         ]
       },
+      "ToolBinder": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "ownerName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "ownerName"
+        ]
+      },
       "ToolResponse": {
         "type": "object",
         "properties": {
@@ -12739,6 +13594,9 @@
           "name": {
             "type": "string"
           },
+          "product": {
+            "type": "string"
+          },
           "registration": {
             "type": "string",
             "enum": [
@@ -12767,6 +13625,7 @@
         "required": [
           "id",
           "name",
+          "product",
           "baseURL",
           "resource",
           "mcpURL",
@@ -12778,6 +13637,20 @@
           "registration",
           "status",
           "addedAt"
+        ]
+      },
+      "ToolWorkflowsResponse": {
+        "type": "object",
+        "properties": {
+          "workflows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolBinder"
+            }
+          }
+        },
+        "required": [
+          "workflows"
         ]
       },
       "TraceDestination": {
@@ -13092,6 +13965,12 @@
               "UNKNOWN"
             ]
           },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpanLink"
+            }
+          },
           "model": {
             "type": "string"
           },
@@ -13182,6 +14061,7 @@
           "input",
           "output",
           "events",
+          "links",
           "children",
           "omitted"
         ]
@@ -13239,6 +14119,12 @@
               "PROMPT",
               "UNKNOWN"
             ]
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpanLink"
+            }
           },
           "model": {
             "type": "string"
@@ -13327,6 +14213,7 @@
           "input",
           "output",
           "events",
+          "links",
           "content"
         ]
       },
@@ -13483,6 +14370,29 @@
           "expiresAt",
           "links",
           "roots"
+        ]
+      },
+      "TracingDestination": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "enabled",
+          "content"
         ]
       },
       "TriggerCondition": {
@@ -14128,6 +15038,21 @@
           "role"
         ]
       },
+      "WorkflowRef": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
       "WorkflowResponse": {
         "type": "object",
         "properties": {
@@ -14195,6 +15120,105 @@
           "canAdminister"
         ]
       },
+      "WorkflowTracing": {
+        "type": "object",
+        "properties": {
+          "changedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "enum": [
+              "inherit",
+              "none"
+            ]
+          },
+          "destinations": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "sampleRatio": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "content",
+          "destinations",
+          "sampleRatio",
+          "changedBy",
+          "updatedAt"
+        ]
+      },
+      "WorkflowTracingRequest": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "enum": [
+              "inherit",
+              "none"
+            ]
+          },
+          "destinations": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "sampleRatio": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "content",
+          "destinations",
+          "sampleRatio"
+        ]
+      },
+      "WorkflowTracingResponse": {
+        "type": "object",
+        "properties": {
+          "canChange": {
+            "type": "boolean"
+          },
+          "destinations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TracingDestination"
+            }
+          },
+          "installation": {
+            "$ref": "#/components/schemas/InstallationTracing"
+          },
+          "tracing": {
+            "$ref": "#/components/schemas/WorkflowTracing"
+          }
+        },
+        "required": [
+          "tracing",
+          "installation",
+          "destinations",
+          "canChange"
+        ]
+      },
       "WorkspaceImage": {
         "type": "object",
         "properties": {
@@ -14238,6 +15262,11 @@
       }
     },
     "securitySchemes": {
+      "ingestKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "A long-lived key an administrator made under Admin, Traces, starting rotor_ik_, sending as one account; taken at the OTLP endpoint alone."
+      },
       "realmToken": {
         "type": "http",
         "scheme": "bearer",

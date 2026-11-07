@@ -79,8 +79,23 @@ export const GRAPH_LOOP_DASH = "6 4";
 /** How tall the run graph is drawn, in pixels; it fits the graph inside. */
 export const GRAPH_HEIGHT_PX = 360;
 
-/** How tall the workflow editor draws its canvas, in pixels; taller than a run's, since it is worked in. */
-export const EDITOR_GRAPH_HEIGHT_PX = 600;
+/** How tall the workflow editor draws its canvas: taller than a run's, since it is worked in, yet short enough on a
+ * phone to leave the page room to scroll past it (#265). */
+export const EDITOR_GRAPH_HEIGHT = "clamp(320px, 60svh, 600px)";
+
+/** The largest zoom a fitted graph is drawn at, so a workflow of one node is not blown up to twice its size (#265). */
+export const GRAPH_FIT_MAX_ZOOM = 1;
+
+/** How far past its outermost nodes a graph can be moved, in pixels, so it is never flung out of reach (#265). */
+export const GRAPH_EXTENT_MARGIN_PX = 200;
+
+/** A finger as the main pointer, which scrolls the page over a canvas instead of moving its graph (#265). */
+export const COARSE_POINTER_QUERY = "(pointer: coarse)";
+
+/** Below Tailwind's lg breakpoint the editor's inspector stacks under its canvas, so choosing a node scrolls to it,
+ * smoothly unless the person asked for less motion. */
+export const STACKED_LAYOUT_QUERY = "(width < 64rem)";
+export const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
 /** How many of the canvas's edits it can undo (#198). */
 export const CANVAS_HISTORY_LIMIT = 100;
@@ -102,6 +117,21 @@ export const EDITOR_VIEW_STORAGE_KEY = "rotor.workflowEditorView";
 /** The workflows guide on GitHub, where the editor links each shipped workflow's section. */
 export const WORKFLOWS_DOC_URL = "https://github.com/Cloudster1/Rotor/blob/main/docs/workflows.md";
 
+/** The README's Operations section, whose Traces paragraph says how an app sends Rotor its spans (#243). */
+export const SENDING_SPANS_DOC_URL = "https://github.com/Cloudster1/Rotor/blob/main/README.md#operations";
+/** The path an app's OpenTelemetry exporter is pointed at, to which the SDK adds /v1/traces. */
+export const OTLP_PATH = "/api/v1/otlp";
+/** How many owned traces a page of the Traces list shows. */
+export const OWN_TRACES_PAGE_SIZE = 50;
+
+/** How many spans a page of Search spans asks for, as the API's own default (#261). */
+export const SPAN_SEARCH_PAGE_SIZE = 50;
+/** The windows Search spans offers, in days back from now; the API reads at most 30 and 7 when none is named. */
+export const SPAN_SEARCH_WINDOWS = [1, 7, 30] as const;
+export const SPAN_SEARCH_DEFAULT_DAYS = 7;
+/** How much later than its days a window starts, so a clock a little ahead of the server's is not past the API's bound. */
+export const SPAN_SEARCH_SLACK_MS = 60_000;
+
 /** The products whose webhook deliveries start event triggers (#35), as the server names them. */
 export const HOOK_PRODUCTS = ["armature", "exciter", "stator"] as const;
 /** What Rotor needs of a tool to act in it and to take its events, as backend/internal/tools/needs.go names them (#43). */
@@ -115,10 +145,6 @@ export const HOOK_TOPICS: Record<string, string[]> = {
   armature: ["issue.created", "issue.updated", "issue.transitioned", "comment.added"],
   stator: ["page.published", "page.moved", "page.deleted", "comment.created"],
 };
-
-/** The longest LangSmith key and project the server takes (MaxLangSmithKeyChars, MaxLangSmithProjectChars). */
-export const MAX_LANGSMITH_KEY = 512;
-export const MAX_LANGSMITH_PROJECT = 128;
 
 /** How many grants the Roles tab shows a page, and how many people the Users page shows (#203). */
 export const ROLE_ASSIGNMENT_PAGE_SIZE = 50;
@@ -148,3 +174,19 @@ export const SKILL_MD = "SKILL.md";
 export const SKILL_NO_PATH = "-";
 /** The largest zip an import takes (MaxSkillImportBytes), checked before it is sent. */
 export const MAX_SKILL_IMPORT_BYTES = 2 * 1024 * 1024;
+
+/** What the server takes of a trace destination (MaxTraceDestinations, MaxDestinationNameChars, MaxDestinationHeaders, MaxDestinationHeaderChars, MaxDestinationURLChars). */
+export const MAX_TRACE_DESTINATIONS = 8;
+export const MAX_DESTINATION_NAME = 64;
+export const MAX_DESTINATION_HEADERS = 16;
+export const MAX_DESTINATION_HEADER = 4096;
+export const MAX_DESTINATION_URL = 2048;
+/** What the server takes of ingest keys (MaxIngestKeys, MaxIngestKeyNameChars) and how an exporter sends one (#258). */
+export const MAX_INGEST_KEYS = 50;
+export const MAX_INGEST_KEY_NAME = 64;
+export const OTLP_HEADERS_VARIABLE = "OTEL_EXPORTER_OTLP_HEADERS";
+/** The longest a trace is kept (MaxTraceRetentionDays) and the shortest. */
+export const MAX_TRACE_RETENTION_DAYS = 90;
+export const MIN_TRACE_RETENTION_DAYS = 1;
+/** Headers the server sets itself and refuses to take from an administrator. */
+export const RESERVED_DESTINATION_HEADERS = ["Content-Type", "Content-Encoding", "Content-Length", "Host"] as const;

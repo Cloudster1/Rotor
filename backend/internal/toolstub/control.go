@@ -22,6 +22,7 @@ func (s *Stub) Control() http.Handler {
 	r := chi.NewRouter()
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	r.Post("/control/tenants", s.handleMakeTenant)
+	r.Delete("/control/tenants", s.handleReset)
 	r.Get("/control/tenants/{tenant}/stats", s.controlled(s.handleStats))
 	r.Get("/control/tenants/{tenant}/records", s.controlled(s.handleRecords))
 	r.Delete("/control/tenants/{tenant}/grants", s.controlled(s.handleEndGrants))
@@ -30,9 +31,18 @@ func (s *Stub) Control() http.Handler {
 	r.Put("/control/tenants/{tenant}/capabilities", s.controlled(s.handleSetCapabilities))
 	r.Post("/control/tenants/{tenant}/clients/approve", s.controlled(s.handleApproveClients))
 	r.Delete("/control/tenants/{tenant}", s.controlled(s.handleForgetTenant))
-	r.Get("/control/langsmith", s.handleLangSmithCalls)
-	r.Delete("/control/langsmith", s.handleForgetLangSmith)
+	r.Get("/control/otlp/{sink}", s.handleOTLPCalls)
+	r.Delete("/control/otlp/{sink}", s.handleForgetOTLP)
 	return r
+}
+
+// handleReset forgets every tenant, clients and grants included, and so what the stub kept on disk.
+func (s *Stub) handleReset(w http.ResponseWriter, _ *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	forgotten := len(s.tenants)
+	s.tenants = map[string]*tenant{}
+	writeJSON(w, http.StatusOK, map[string]int{"forgotten": forgotten})
 }
 
 // handleMakeTenant makes a tenant with the options given, forgetting one of the name that existed.

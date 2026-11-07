@@ -34,11 +34,22 @@ const (
 	ToolStubCompletionTokens = 5
 	// ToolStubMaxLLMRequests is how many chat requests a tenant keeps for tests to read, the oldest dropped (#222).
 	ToolStubMaxLLMRequests = 50
-	// ToolStubMaxOTLPBytes bounds one export the LangSmith stand-in takes, and ToolStubMaxOTLPCalls how many it keeps.
+	// ToolStubMaxOTLPBytes bounds one export an OTLP sink takes, ToolStubMaxOTLPCalls how
+	// many each keeps, and ToolStubMaxOTLPSinks how many sinks are kept before all are forgotten (#246).
 	ToolStubMaxOTLPBytes = 4 << 20
 	ToolStubMaxOTLPCalls = 200
+	ToolStubMaxOTLPSinks = 64
 	// ToolStubMaxPushBytes is the largest push Armature's git proxy forwards, and ToolStubMaxObjectBytes the largest
 	// object the stand-in inflates, so a hostile pack cannot fill the stub's memory (#137).
 	ToolStubMaxPushBytes   = 32 << 20
 	ToolStubMaxObjectBytes = 16 << 20
+	// ToolStubLabelPage and ToolStubMaxLabelPage are Armature's pages of labels, ToolStubMaxBulkSelection the most
+	// issues one bulk change takes and ToolStubMaxLabelName the longest label name, in runes (#270).
+	ToolStubLabelPage        = 50
+	ToolStubMaxLabelPage     = 200
+	ToolStubMaxBulkSelection = 200
+	ToolStubMaxLabelName     = 40
+	// ToolStubIssuePage and ToolStubMaxIssuePage are Armature's pages of a project's issues (#271).
+	ToolStubIssuePage    = 50
+	ToolStubMaxIssuePage = 200
 )

@@ -16,6 +16,7 @@ func TestEveryKnownShapeOfCredentialIsCut(t *testing.T) {
 		"Rotor's own token":    "rotor_pat_0123456789",
 		"an assistant's token": "rotor_oat_0123456789",
 		"an assistant's code":  "rotor_oac_0123456789",
+		"an ingest key":        "rotor_ik_0123456789",
 		"an Exciter token":     "exciter_oat_9z",
 		"an Armature secret":   "armature_whs_abcdef",
 		"the stub's token":     "stub_oat_0a1b2c",

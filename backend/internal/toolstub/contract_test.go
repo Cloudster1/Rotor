@@ -137,8 +137,8 @@ func TestEveryRouteIsAnExciterOperation(t *testing.T) {
 	_ = chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		path := documentPath(method, route)
 		// The stub model stands in for a language model provider, not for Exciter; its contract is OpenAI's chat API.
-		// The LangSmith stand-in takes OTLP, whose contract is OpenTelemetry's. The git proxy is Armature's alone.
-		if path == "" || strings.HasPrefix(path, llmPath+"/") || path == LangSmithPath || strings.HasPrefix(path, "/git/") {
+		// The OTLP sinks take OTLP, whose contract is OpenTelemetry's. The git proxy is Armature's alone.
+		if path == "" || strings.HasPrefix(path, llmPath+"/") || path == OTLPPath || strings.HasPrefix(path, "/git/") {
 			return nil
 		}
 		if item, ok := doc.Paths[path]; !ok || item[strings.ToLower(method)] == nil {
@@ -154,7 +154,8 @@ var answeredTools = map[string][]string{
 		ListArmatureLinksTool, LinkArmatureIssueTool, RequestReviewsTool, ListTypesTool, GetTreeTool, LinkRequirementsTool,
 		ListTestPlansTool, StartTestExecutionTool, RecordTestResultTool, CloseTestExecutionTool, ListLinksTool, ClearSuspectLinkTool, CommentOnRequirementTool},
 	SnapshotArmature: {WhoamiTool, GetIssueTool, ListCommentsTool, AddCommentTool, ListRemoteLinksTool, AddRemoteLinkTool,
-		ListRepositoriesTool, GetIssueDevelopmentTool, CreateIssueBranchTool, OpenPullRequestTool},
+		ListRepositoriesTool, GetIssueDevelopmentTool, CreateIssueBranchTool, OpenPullRequestTool, ListLabelsTool, BulkEditIssuesTool,
+		ListProjectIssuesTool},
 }
 
 // Each snapshot is served as recorded, so a client sees the tool's own tools by name, schema and hints, and a
@@ -186,9 +187,10 @@ type contract struct {
 	served  map[string]bool
 }
 
-func newContract(t *testing.T) *contract {
-	s := newTestStub(t)
-	public, control := httptest.NewServer(s.Public()), httptest.NewServer(s.Control())
+func newContract(t *testing.T) *contract { return newContractFor(t, newTestStub(t)) }
+
+func newContractFor(t *testing.T, s *Stub) *contract {
+	public, control := httptest.NewServer(s.Persisted(s.Public())), httptest.NewServer(s.Persisted(s.Control()))
 	t.Cleanup(public.Close)
 	t.Cleanup(control.Close)
 	return &contract{t: t, doc: loadDocument(t, "exciter"), base: public.URL, control: control.URL, served: map[string]bool{},

@@ -720,6 +720,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/otlp/v1/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refuse OTLP logs: Rotor takes traces alone.
+         * @description Answers 501 with a google.rpc.Status (UNIMPLEMENTED) in the request's encoding, JSON when it names none OTLP knows, to anyone and without reading the body: Rotor keeps no metrics or logs. Send them to your own OpenTelemetry collector, or set OTEL_METRICS_EXPORTER=none and OTEL_LOGS_EXPORTER=none.
+         */
+        post: operations["refuseLogs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/otlp/v1/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refuse OTLP metrics: Rotor takes traces alone.
+         * @description Answers 501 with a google.rpc.Status (UNIMPLEMENTED) in the request's encoding, JSON when it names none OTLP knows, to anyone and without reading the body: Rotor keeps no metrics or logs. Send them to your own OpenTelemetry collector, or set OTEL_METRICS_EXPORTER=none and OTEL_LOGS_EXPORTER=none.
+         */
+        post: operations["refuseMetrics"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/otlp/v1/traces": {
         parameters: {
             query?: never;
@@ -1097,28 +1137,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/settings/langsmith": {
+    "/settings/ingest-keys": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Whether runs' spans also go to LangSmith, and under which project; never the key. */
-        get: operations["getLangSmith"];
+        /** The keys services send spans to the OTLP endpoint with, by name; never a key itself. */
+        get: operations["listIngestKeys"];
+        put?: never;
         /**
-         * Turn LangSmith on or off, name its project, or give a new key, kept in OpenBao.
-         * @description Turning it on is refused with 422 data_leaves_unacknowledged unless acknowledgeDataLeaves is true, since run data then leaves the installation, and with 422 langsmith_key_missing while no key is held. Leaving key out keeps the one held.
+         * Make a key that sends spans as one account; the answer holds the key, which is never shown again.
+         * @description accountEmail names an account Rotor has let in and not switched off, your own when left out. The key is taken at POST /api/v1/otlp/v1/traces alone. A name another key has answers 409 ingest_key_taken; a key past the most there can be 422 ingest_keys_full. The audit log records ingest_key.created.
          */
-        put: operations["setLangSmith"];
-        post?: never;
+        post: operations["createIngestKey"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/settings/langsmith/key": {
+    "/settings/ingest-keys/{keyID}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1128,8 +1168,28 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Forget the LangSmith key, which turns LangSmith off. */
-        delete: operations["removeLangSmithKey"];
+        /** Revoke a key: it is refused from the next request. The audit log records ingest_key.revoked. */
+        delete: operations["revokeIngestKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/ingest-keys/{keyID}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a key a new secret, shown once; the old one is refused from the next request.
+         * @description The name, account and expiry stay. An expired key answers 409 ingest_key_expired. The audit log records ingest_key.rotated.
+         */
+        post: operations["rotateIngestKey"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1186,7 +1246,7 @@ export interface paths {
         put?: never;
         /**
          * Add an OTLP destination; its headers are kept in OpenBao.
-         * @description content true is refused with 422 content_leaves_unacknowledged unless acknowledgeContentLeaves is true. A name another destination has answers 409.
+         * @description content true is refused with 422 content_leaves_unacknowledged unless acknowledgeContentLeaves is true. A name another destination has answers 409 trace_destination_taken; a ninth destination 422 trace_destinations_full. traceLink holds {traceId} and may hold {runId}, which a run's trace fills.
          */
         post: operations["addTraceDestination"];
         delete?: never;
@@ -1206,7 +1266,7 @@ export interface paths {
         get: operations["getTraceDestination"];
         /**
          * Change an OTLP destination.
-         * @description Leaving headers out keeps the ones held; {} removes them. Turning content on needs acknowledgeContentLeaves.
+         * @description Leaving headers out keeps the ones held; {} removes them. Turning content on, or moving the endpoint of a destination that gets text, needs acknowledgeContentLeaves.
          */
         put: operations["changeTraceDestination"];
         post?: never;
@@ -1535,6 +1595,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/spans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Spans of the traces you may read that match a search, newest first: runs' and senders' own.
+         * @description since defaults to 7 days before until, which defaults to now, and starts at most 30 days back. Text a person, a tool or a model wrote is sealed and never searched. A search that runs past 5 seconds answers 422 search_too_broad. next is the cursor of the next page.
+         */
+        get: operations["searchSpans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tools": {
         parameters: {
             query?: never;
@@ -1547,7 +1627,7 @@ export interface paths {
         put?: never;
         /**
          * Add a tool by its address; Rotor registers itself there as an OAuth client.
-         * @description Reads the tool's /api/v1/meta, which must offer mcp@1, then its protected resource and authorization server metadata (RFC 9728, RFC 8414), and registers by RFC 7591 unless a client is given. Adding an address Rotor already knows registers again, for a tool that forgot its client.
+         * @description Reads the tool's /api/v1/meta, which must offer mcp@1, then its protected resource and authorization server metadata (RFC 9728, RFC 8414), and registers by RFC 7591 unless a client is given. Adding an address Rotor already knows registers again, for a tool that forgot its client, and keeps its name. A name another tool has, case aside, is refused with 409 tool_name_taken (#267).
          */
         post: operations["addTool"];
         delete?: never;
@@ -1581,7 +1661,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The MCP tools you may call at a tool, as your connection sees them, with their read-only and destructive hints. */
+        /**
+         * The MCP tools you may call at a tool, as your connection sees them, with their read-only and destructive hints.
+         * @description 409 says why in its code: not_connected (connect your account), reconnect (the tool ended your connection; connect again) or needs_registration (the tool forgot Rotor's client; an administrator registers it again).
+         */
         get: operations["toolCatalog"];
         put?: never;
         post?: never;
@@ -1602,7 +1685,7 @@ export interface paths {
         put?: never;
         /**
          * Read the tool's meta and metadata again, for a tool that was updated, without registering again.
-         * @description Keeps the tool's name, endpoints, scopes and capabilities as they answer now. A tool that stopped offering mcp@1 is kept and lists it under missing, so its pages say what to update.
+         * @description Keeps the tool's name, endpoints, scopes and capabilities as they answer now. A tool that stopped offering mcp@1 is kept and lists it under missing, so its pages say what to update. A token request with Rotor's client proves the tool still knows it; one refused with invalid_client makes the tool needs_registration.
          */
         post: operations["checkTool"];
         delete?: never;
@@ -1649,6 +1732,46 @@ export interface paths {
         post?: never;
         /** Forget the secret; the tool's events are refused from then on. */
         delete: operations["removeHookSecret"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tools/{toolID}/name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rename a tool: the name workflows bind it by.
+         * @description Its product, client and connections stay. Workflows that bound the old name no longer find the tool, and the answer lists them for their owners to change. A name another tool has, case aside, is refused with 409 tool_name_taken. The audit log records tool.renamed.
+         */
+        put: operations["renameTool"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tools/{toolID}/workflows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The workflows whose current version binds the tool by its name, which stop finding it once it is renamed.
+         * @description Every workflow not archived, whoever owns it, so an administrator renaming the tool knows whom to tell.
+         */
+        get: operations["toolWorkflows"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2066,9 +2189,33 @@ export interface paths {
         put?: never;
         /**
          * Start a run of a workflow as yourself.
-         * @description An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false. A skill the version names that you may not read refuses the start with 422 code skill_unreadable.
+         * @description An Idempotency-Key header makes a retried request answer the run it started, with 200. A binding to a tool you are not connected to is refused with 409 code connections_needed, whose fields map each tool's name to its id (empty for a tool this installation does not have). A binding to a tool that no longer knows Rotor's client is refused with 409 code needs_registration, whose fields map each such tool's name to its id, until an administrator registers it again. An installation without sandboxes refuses every start with 409 code runs_off; GET /meta says so beforehand with runs false. A skill the version names that you may not read refuses the start with 422 code skill_unreadable.
          */
         post: operations["startRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{workflowID}/settings/tracing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether the workflow's runs keep trace text, which destinations get them and what share, for whoever reads it.
+         * @description installation.keepContent and each destination's content say what inherit means; a destination is answered by name alone. canChange says the caller administers the workflow.
+         */
+        get: operations["getWorkflowTracing"];
+        /**
+         * Choose whether the workflow's runs keep trace text, which destinations get them, and the share of runs sent.
+         * @description For whoever administers the workflow or Rotor. content none keeps no text of its runs in Rotor or at any destination; there is no more text than the installation keeps. destinations null sends to every enabled one, ones added later too; sampleRatio from 0 to 1 is decided by the trace id. Runs started afterwards follow it.
+         */
+        put: operations["setWorkflowTracing"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2168,6 +2315,7 @@ export interface components {
             baseURL: string;
             clientID?: string;
             clientSecret?: string;
+            name?: string;
         };
         AdmitRequest: {
             /** @enum {string} */
@@ -2464,29 +2612,49 @@ export interface components {
             title: string;
             version: string;
         };
+        IngestKey: {
+            account: components["schemas"]["IngestKeyAccount"];
+            /** Format: date-time */
+            createdAt: string;
+            createdBy: string | null;
+            expired: boolean;
+            /** Format: date-time */
+            expiresAt: string | null;
+            hint: string;
+            id: string;
+            /** Format: date-time */
+            lastUsedAt: string | null;
+            name: string;
+            /** Format: date-time */
+            rotatedAt: string | null;
+        };
+        IngestKeyAccount: {
+            email: string;
+            id: string;
+            name: string;
+        };
+        IngestKeyList: {
+            keys: components["schemas"]["IngestKey"][];
+        };
+        IngestKeyRequest: {
+            accountEmail?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+            name: string;
+        };
+        IngestKeySecret: {
+            key: components["schemas"]["IngestKey"];
+            secret: string;
+        };
+        InstallationTracing: {
+            keepContent: boolean;
+        };
         JoinRequestView: {
             email: string;
             name: string;
             /** Format: date-time */
             requestedAt: string;
             userId: string;
-        };
-        LangSmithRequest: {
-            acknowledgeDataLeaves: boolean;
-            enabled: boolean;
-            key?: string;
-            project: string;
-        };
-        LangSmithResponse: {
-            changedBy: string | null;
-            enabled: boolean;
-            endpoint: string;
-            keySet: boolean;
-            /** Format: date-time */
-            keySetAt: string | null;
-            project: string;
-            /** Format: date-time */
-            updatedAt: string;
         };
         LimitsBody: {
             concurrentRuns: number | null;
@@ -2778,6 +2946,13 @@ export interface components {
             models: string[];
             ok: boolean;
         };
+        RenameToolRequest: {
+            name: string;
+        };
+        RenameToolResponse: {
+            tool: components["schemas"]["ToolResponse"];
+            workflows: components["schemas"]["ToolBinder"][];
+        };
         RequestBody: {
             content: {
                 [key: string]: components["schemas"]["MediaType"];
@@ -3000,6 +3175,44 @@ export interface components {
             };
             name: string;
         };
+        SpanHit: {
+            durationMs: number;
+            /** @enum {string} */
+            kind: "CHAIN" | "LLM" | "TOOL" | "AGENT" | "RETRIEVER" | "EMBEDDING" | "RERANKER" | "GUARDRAIL" | "EVALUATOR" | "PROMPT" | "UNKNOWN";
+            model: string;
+            name: string;
+            owner: components["schemas"]["PersonRef"] | null;
+            runId: string | null;
+            service: string;
+            /** @enum {string} */
+            source: "runner" | "otlp";
+            spanId: string;
+            /** Format: date-time */
+            startedAt: string;
+            /** @enum {string} */
+            status: "unset" | "ok" | "error";
+            statusMessage: string;
+            traceId: string;
+            workflow: components["schemas"]["WorkflowRef"] | null;
+        };
+        SpanLink: {
+            attributes: {
+                [key: string]: string;
+            };
+            runId: string | null;
+            sender: string | null;
+            spanId: string;
+            traceId: string;
+        };
+        SpanSearchResponse: {
+            limit: number;
+            next: string | null;
+            /** Format: date-time */
+            since: string;
+            spans: components["schemas"]["SpanHit"][];
+            /** Format: date-time */
+            until: string;
+        };
         SpanTokens: {
             completion: number;
             prompt: number;
@@ -3022,6 +3235,11 @@ export interface components {
             description?: string;
             name: string;
         };
+        ToolBinder: {
+            id: string;
+            name: string;
+            ownerName: string;
+        };
         ToolResponse: {
             /** Format: date-time */
             addedAt: string;
@@ -3033,12 +3251,16 @@ export interface components {
             mcpURL: string;
             missing: components["schemas"]["MissingCapability"][];
             name: string;
+            product: string;
             /** @enum {string} */
             registration: "dynamic" | "manual";
             resource: string;
             scopesSupported: string[];
             /** @enum {string} */
             status: "ready" | "needs_registration" | "awaiting_approval";
+        };
+        ToolWorkflowsResponse: {
+            workflows: components["schemas"]["ToolBinder"][];
         };
         TraceDestination: {
             carriedOver: boolean;
@@ -3116,6 +3338,7 @@ export interface components {
             input: components["schemas"]["SpanValue"] | null;
             /** @enum {string} */
             kind: "CHAIN" | "LLM" | "TOOL" | "AGENT" | "RETRIEVER" | "EMBEDDING" | "RERANKER" | "GUARDRAIL" | "EVALUATOR" | "PROMPT" | "UNKNOWN";
+            links: components["schemas"]["SpanLink"][];
             model: string;
             name: string;
             omitted: number;
@@ -3147,6 +3370,7 @@ export interface components {
             input: components["schemas"]["SpanValue"] | null;
             /** @enum {string} */
             kind: "CHAIN" | "LLM" | "TOOL" | "AGENT" | "RETRIEVER" | "EMBEDDING" | "RERANKER" | "GUARDRAIL" | "EVALUATOR" | "PROMPT" | "UNKNOWN";
+            links: components["schemas"]["SpanLink"][];
             model: string;
             name: string;
             output: components["schemas"]["SpanValue"] | null;
@@ -3198,6 +3422,12 @@ export interface components {
             /** @enum {string} */
             state: "kept" | "expired" | "none";
             traceId: string;
+        };
+        TracingDestination: {
+            content: boolean;
+            enabled: boolean;
+            id: string;
+            name: string;
         };
         TriggerCondition: {
             /** @enum {string} */
@@ -3357,6 +3587,10 @@ export interface components {
             role: string;
             userId?: string;
         };
+        WorkflowRef: {
+            id: string;
+            name: string;
+        };
         WorkflowResponse: {
             version: components["schemas"]["VersionResponse"];
             workflow: components["schemas"]["WorkflowSummary"];
@@ -3374,6 +3608,27 @@ export interface components {
             sharedWith: number;
             /** Format: date-time */
             updatedAt: string;
+        };
+        WorkflowTracing: {
+            changedBy: string | null;
+            /** @enum {string} */
+            content: "inherit" | "none";
+            destinations: string[] | null;
+            sampleRatio: number;
+            /** Format: date-time */
+            updatedAt: string | null;
+        };
+        WorkflowTracingRequest: {
+            /** @enum {string} */
+            content: "inherit" | "none";
+            destinations: string[] | null;
+            sampleRatio: number;
+        };
+        WorkflowTracingResponse: {
+            canChange: boolean;
+            destinations: components["schemas"]["TracingDestination"][];
+            installation: components["schemas"]["InstallationTracing"];
+            tracing: components["schemas"]["WorkflowTracing"];
         };
         WorkspaceImage: {
             name: string;
@@ -5279,6 +5534,64 @@ export interface operations {
             };
         };
     };
+    refuseLogs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OtlpStatus"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    refuseMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OtlpStatus"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     receiveTraces: {
         parameters: {
             query?: never;
@@ -6586,7 +6899,7 @@ export interface operations {
             };
         };
     };
-    getLangSmith: {
+    listIngestKeys: {
         parameters: {
             query?: never;
             header?: never;
@@ -6601,7 +6914,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LangSmithResponse"];
+                    "application/json": components["schemas"]["IngestKeyList"];
                 };
             };
             /** @description Forbidden: for administrators of Rotor alone. */
@@ -6624,7 +6937,7 @@ export interface operations {
             };
         };
     };
-    setLangSmith: {
+    createIngestKey: {
         parameters: {
             query?: never;
             header?: never;
@@ -6633,21 +6946,30 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LangSmithRequest"];
+                "application/json": components["schemas"]["IngestKeyRequest"];
             };
         };
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Created */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LangSmithResponse"];
+                    "application/json": components["schemas"]["IngestKeySecret"];
                 };
             };
             /** @description Forbidden: for administrators of Rotor alone. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6675,11 +6997,60 @@ export interface operations {
             };
         };
     };
-    removeLangSmithKey: {
+    revokeIngestKey: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                keyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    rotateIngestKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                keyID: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -6690,11 +7061,29 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LangSmithResponse"];
+                    "application/json": components["schemas"]["IngestKeySecret"];
                 };
             };
             /** @description Forbidden: for administrators of Rotor alone. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6918,15 +7307,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
                 headers: {
@@ -6987,15 +7367,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
                 headers: {
@@ -7038,15 +7409,6 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7125,15 +7487,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
             /** @description An error, in the one shape every endpoint uses. */
             default: {
                 headers: {
@@ -7174,15 +7527,6 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7232,15 +7576,6 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Not Implemented: agreed, not built yet. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8303,6 +8638,78 @@ export interface operations {
             };
         };
     };
+    searchSpans: {
+        parameters: {
+            query?: {
+                /** @description Spans whose name holds this, whatever the case. */
+                name?: string;
+                /** @description Spans of this OpenInference kind, such as TOOL or LLM. */
+                kind?: string;
+                /** @description Spans with this status: error finds the failed ones. */
+                status?: string;
+                /** @description Model calls whose model holds this, whatever the case. */
+                model?: string;
+                /** @description Spans of this service, such as rotor-runner. */
+                service?: string;
+                /** @description Spans of this workflow's runs, by its id. */
+                workflow?: string;
+                /** @description An attribute without text, such as tool.name, to match exactly with attrValue. */
+                attrKey?: string;
+                /** @description The value attrKey must have. */
+                attrValue?: string;
+                /** @description The earliest start, RFC 3339; 7 days before until when left out, and at most 30 days back. */
+                since?: string;
+                /** @description The latest start, RFC 3339, not included; now when left out. */
+                until?: string;
+                /** @description At most this many spans, 50 when left out and never more than 200. */
+                limit?: number;
+                /** @description The next of the page before, for the page after it. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpanSearchResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     listTools: {
         parameters: {
             query?: never;
@@ -8371,6 +8778,15 @@ export interface operations {
             };
             /** @description Forbidden: for administrators of Rotor alone. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8860,6 +9276,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HookResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    renameTool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                toolID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameToolRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenameToolResponse"];
+                };
+            };
+            /** @description Forbidden: for administrators of Rotor alone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    toolWorkflows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                toolID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolWorkflowsResponse"];
                 };
             };
             /** @description Forbidden: for administrators of Rotor alone. */
@@ -10198,6 +10734,108 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getWorkflowTracing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflowID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowTracingResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description An error, in the one shape every endpoint uses. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    setWorkflowTracing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workflowID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowTracingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowTracingResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

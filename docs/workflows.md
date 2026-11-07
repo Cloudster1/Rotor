@@ -355,7 +355,8 @@ that passes one ends and says which. Three more keep a workflow from costing
 too much or flooding a tool:
 - `maxCost`: the most the run's model calls may cost, in US dollars, each at the
   prices an administrator set for its own model. A run whose models are not
-  all priced cannot carry a `maxCost`, and is refused when it starts.
+  all priced cannot carry a `maxCost`, and is refused when it starts; a
+  workflow with no agent uses no model, so its `maxCost` needs no prices.
 - `maxConcurrent`: how many runs of the workflow may be starting or running at
   once. More wait, queued, and start as others end; a run waiting for an
   approval holds no place.
@@ -501,10 +502,19 @@ and its sandbox's network.
 
 ## Examples
 
-[`examples/`](../examples) holds workflows to start from; the Go and Python checks validate each, and
-[`draft-requirements.yaml`](../examples/draft-requirements.yaml) is the one the suite runs against the real
-Exciter (#25): an agent drafts a title and a statement, and a tool node files them with `create_requirement` as the
-person who runs it.
+[`examples/`](../examples) holds workflows to start from; the Go and Python checks validate each, and the tests run
+each against the tool double or the real tools, as its section says.
+
+| Example | What it does | Started by | What it shows |
+|---|---|---|---|
+| [`story-to-requirements`](#clarify-a-story-then-write-its-requirements) | Turns an Armature story into Exciter requirements, each linked back to the issue as `implements` and sent for review, after asking its questions on the ticket | A trigger on Armature's `issue.created` and `comment.added` | Event triggers, a conversation across runs, an agent with a skill, unattended writes in two tools |
+| [`story-refinement`](#refine-a-story-before-its-requirements) | Comments a refined story, with acceptance criteria, on the Armature ticket | A trigger on Armature's `issue.created` and `comment.added` | Event triggers, an agent with a skill, an unattended comment |
+| [`issue-triage`](#label-a-new-issue-from-the-labels-in-use) | Labels a new Armature issue from the labels in use, and comments why | A trigger on Armature's `issue.created`, or a person | An agent with no tools whose answer code checks before writing, routers |
+| [`implement-feature`](#implement-a-feature-through-reviewed-tested-code) | Takes a feature in Exciter to a reviewed pull request in Armature, traced to passing tests | A person | Loops, four reviewers in parallel joined by `join: all`, a test node, workspaces that read or write, agents with their own model and role, approvals after the last round |
+| [`requirement-to-test-spec`](#design-a-features-test-cases-and-file-them-for-review) | Designs a feature's test cases and files them in Exciter | A person | A designer and reviewer loop, agents with a skill, an approval after the third draft |
+| [`draft-requirements`](#draft-a-requirement-and-file-it) | Drafts a requirement about a topic and files it | A person | The smallest workflow: an agent and a tool node |
+| [`approved-requirement`](#draft-a-requirement-let-a-reviewer-correct-it-then-file-it) | Drafts a requirement from a need and files it once a reviewer corrected and approved it | A person | An approval with an editable `form`, `approvers.group` and `expiresIn`, a binding with `approval: beforeWrite`, an agent with a skill |
+| [`weekly-digest`](#sum-up-a-projects-week-without-a-model) | Comments a summary of the issues a project filed and finished in the week | A schedule | A schedule trigger, code and tool nodes only with no model, `retention`, the `maxCost`, `maxConcurrent` and `toolCallsPerMinute` limits |
 
 `examples/` is the single source of the workflows Rotor ships: the editor bundles every `.yaml` file in it when the
 web app is built, so a file added there is offered with no other change (#214). On New workflow, the Start from
@@ -513,13 +523,14 @@ to its section below. Choosing one puts its YAML in the editor, and undo takes i
 save, and saving checks it like any workflow, so a tool it binds must be connected first. `/workflows/new?start=<name>`
 opens the editor with that workflow, and an unknown name opens the blank one.
 
-Three of them pin a skill Rotor ships (#225), which their agents load when its method helps
+Four of them pin a skill Rotor ships (#225), which their agents load when its method helps
 ([`skills.md`](skills.md#skills-rotor-ships)):
 
 | Workflow | Agent | Skill |
 |---|---|---|
 | `story-refinement` | `analyse` | `requirements-engineering` version 1 |
 | `story-to-requirements` | `analyse` | `requirements-engineering` version 1 |
+| `approved-requirement` | `draft` | `requirements-engineering` version 1 |
 | `requirement-to-test-spec` | `design`, `design-review` | `test-engineering` version 1 |
 
 ### Clarify a story, then write its requirements
@@ -579,6 +590,31 @@ trigger's owner:
 Its only write is that comment, `unattended`. To use it before
 story-to-requirements, see
 [`triggers.md`](triggers.md#refining-a-story-first).
+
+### Label a new issue from the labels in use
+
+[`issue-triage.yaml`](../examples/issue-triage.yaml) (#270) labels a new
+Armature issue. A trigger on Armature's `issue.created` starts it as the
+trigger's owner, or a person runs it by hand with `issueKey` and leaves
+`event` empty:
+1. **Gather**, a code node, reads the issue with `get_issue` and every label
+   in use with `list_labels`; labels belong to the whole installation, not to
+   one project. It ends the run when the issue has labels already, so a
+   person's triage or an earlier run's stands, or when there are no labels.
+2. **Classify**, an agent with no tools, reads what gather found and answers
+   `label` with at most three of the listed names and a short reason, or
+   `skip` when none clearly fits.
+3. With labels, a code node keeps only names that are in use, in Armature's
+   spelling, and adds them with `bulk_edit_issues` on the one key, since
+   Armature has no tool that labels one issue. That call makes a label of any
+   name it does not know, which is why the agent's answer is checked rather
+   than trusted. It then comments **Labels from Rotor** with the labels and
+   the reason. A refusal from Armature fails the run with its reason.
+
+Both writes are `unattended`, through a binding of `issue.write` and
+`comment.write`. Its labels arrive at Armature as `issue.updated` and its
+comment as `comment.added`, neither of which it listens to. To use it, see
+[`triggers.md`](triggers.md#labelling-new-issues).
 
 ### Implement a feature through reviewed, tested code
 
@@ -662,6 +698,57 @@ section test cases go under:
 The agents only read; every write is the code node's. The integration test
 runs it against the tool double's Exciter
 (`TestAFeaturesTestCasesAreDesignedReviewedAndFiled`).
+
+### Draft a requirement and file it
+
+[`draft-requirements.yaml`](../examples/draft-requirements.yaml) is the smallest example. A person starts it with
+an Exciter project and a topic:
+1. **Draft**, an agent with no tools, writes a title and a statement.
+2. **File**, a tool node, files them with `create_requirement` as the person who runs it. Exciter decides whether
+   they may, and marks the revision as written through Rotor.
+
+Nobody reads the draft before it is filed; `approved-requirement` below puts a person in between. The suite runs it
+against the real Exciter (`TestSuiteAWorkflowWritesToExciterAsThePersonWhoStartedIt`).
+
+### Draft a requirement, let a reviewer correct it, then file it
+
+[`approved-requirement.yaml`](../examples/approved-requirement.yaml) (#271) puts a person between a model's draft
+and Exciter. A person starts it with an Exciter project and a need in their own words:
+1. **Draft**, an agent with the `requirements-engineering` skill and a binding that only reads, searches the
+   project for requirements that say the same already, and answers a title, a statement, a rationale and notes
+   for the approver.
+2. **Review**, an approval node, waits for a member of the `quality` group (`approvers.group`); the person who
+   started the run cannot decide it unless they are one. Its `form` offers the title, statement and rationale,
+   filled from the draft through `form.values`; the approver corrects them and approves, or rejects, which ends the
+   run. Nobody deciding within `expiresIn: 120h` ends it too.
+3. **File**, a tool node, writes the approved values with `create_requirement` as the person who started the run,
+   through a binding with `approval: beforeWrite`.
+
+`approval: beforeWrite` does not add an approval of its own: it makes saving refuse the workflow unless an approval
+node stands on every way to a write through the binding. The review node is that approval, so the run asks once,
+and the approval page lists the `create_requirement` call it is about to make. The form's values are the review
+node's output, so what Exciter gets is what the approver left in the form, never the draft they did not see. The
+integration test decides the approval through the API with corrected values
+(`TestARequirementIsFiledAsItsReviewerCorrectedIt`).
+
+### Sum up a project's week, without a model
+
+[`weekly-digest.yaml`](../examples/weekly-digest.yaml) (#271) comments a weekly summary of an Armature project on an
+issue the team keeps for it, such as a pinned "Weekly digest" issue. It is meant for a schedule trigger, with the
+project and the digest issue as the trigger's inputs:
+1. **Filed** and **finished**, two tool nodes, call `list_project_issues` with an NQL query each:
+   `created >= -7d` for the issues filed, and `statusCategory = done AND resolved >= -7d` for the ones finished.
+2. **Post**, a code node, counts each from Armature's totals, lists the first 50 by key and summary, and comments
+   them on the digest issue under **Weekly digest from Rotor**. A quiet week says so rather than posting nothing.
+
+There is no agent and no model: tool and code nodes read and write, so a run costs only its tool calls. Its limits
+show the ones a scheduled workflow wants: `maxCost` keeps it near nothing should someone add an agent,
+`maxConcurrent: 1` makes a run by hand wait for the schedule's rather than post beside it, and
+`toolCallsPerMinute` bounds its three calls. `retention: 30d` drops each run's data after a month, since the
+comment keeps the digest. Armature does not let a connected app post a project status update, so the digest is a
+comment, `unattended` for the trigger's owner to agree to. To schedule it, see
+[`triggers.md`](triggers.md#a-weekly-digest). The integration test fires its schedule
+(`TestAWeeklyDigestSumsUpTheProjectWithoutAModel`).
 
 The examples below are the golden fixtures, which show more of the spec.
 

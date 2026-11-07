@@ -147,7 +147,7 @@ func TestATraceSaysWhetherItIsKeptExpiredOrCut(t *testing.T) {
 
 	expired := h.runWithTrace(t, person)
 	spans := runnerSpans(expired, 3)
-	if err := h.traceStore(t).Keep(ctx, expired.id, expired.dataKey, spans); err != nil {
+	if err := h.traceStore(t).Keep(ctx, expired.id, expired.dataKey, observability.AllTracing, spans); err != nil {
 		t.Fatal(err)
 	}
 	kept, _ := h.keptTraceOf(t, expired.id)
@@ -169,7 +169,7 @@ func TestATraceSaysWhetherItIsKeptExpiredOrCut(t *testing.T) {
 	}
 
 	cut := h.runWithTrace(t, person)
-	if err := h.traceStore(t).Keep(ctx, cut.id, cut.dataKey, runnerSpans(cut, 2)); err != nil {
+	if err := h.traceStore(t).Keep(ctx, cut.id, cut.dataKey, observability.AllTracing, runnerSpans(cut, 2)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := h.super.Exec(ctx, `UPDATE trace SET cut_at = now(), dropped = 7 WHERE run_id = $1`, cut.id); err != nil {
@@ -194,12 +194,12 @@ func TestOneSpanReadsWholeWithItsTextOnlyWhereTextWasKept(t *testing.T) {
 	with := stepSpan(r, trace.SpanID{}, "node ask", "AGENT", long, time.Now())
 	with.Attributes["input.mime_type"] = "text/plain"
 	h.keepContent(t, true)
-	if err := h.traceStore(t).Keep(ctx, r.id, r.dataKey, []observability.RunnerSpan{with}); err != nil {
+	if err := h.traceStore(t).Keep(ctx, r.id, r.dataKey, observability.AllTracing, []observability.RunnerSpan{with}); err != nil {
 		t.Fatal(err)
 	}
 	h.keepContent(t, false)
 	without := stepSpan(r, with.SpanID, "ChatOpenAI", "LLM", long, time.Now().Add(time.Millisecond))
-	if err := h.traceStore(t).Keep(ctx, r.id, r.dataKey, []observability.RunnerSpan{without}); err != nil {
+	if err := h.traceStore(t).Keep(ctx, r.id, r.dataKey, observability.AllTracing, []observability.RunnerSpan{without}); err != nil {
 		t.Fatal(err)
 	}
 

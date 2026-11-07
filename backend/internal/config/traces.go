@@ -17,8 +17,13 @@ const (
 	MaxSpanStackChars = 4096
 	// MaxSpanEvents bounds a span's events, its exceptions and retries; the latest are kept.
 	MaxSpanEvents = 16
-	// MaxSpanBytes bounds one span's name, attributes and events; its text goes first, longest first, to fit.
+	// MaxSpanBytes bounds one span's name, attributes, events and links; its text goes first, longest first, to fit.
 	MaxSpanBytes = 64 << 10
+	// MaxSpanLinks bounds the links a span keeps, the first ones sent: a batch's fan-in, not every input (#262).
+	// Migration 01580 checks the same number.
+	MaxSpanLinks = 16
+	// MaxSpanLinkAttributes bounds the attributes without text one link keeps, each cut to MaxSpanAttrChars.
+	MaxSpanLinkAttributes = 16
 	// MaxRunnerSpansPerBatch bounds the spans one message of a runner carries; more are dropped.
 	MaxRunnerSpansPerBatch = 256
 )
@@ -49,8 +54,8 @@ const (
 	TraceSweepEvery = time.Hour
 	// TraceSweepLockKey is the advisory lock one worker holds while it sweeps traces, "rotor" and the issue in hex.
 	TraceSweepLockKey = 0x726f746f72_0242
-	// TraceSettingTTL is how long a replica trusts what it read of the trace setting and LangSmith's; one changed on
-	// another replica takes at most this long to reach this one.
+	// TraceSettingTTL is how long a replica trusts what it read of the trace setting and the destinations; one changed
+	// on another replica takes at most this long to reach this one.
 	TraceSettingTTL = 30 * time.Second
 )
 
@@ -69,6 +74,39 @@ const (
 	OTLPRateWindow = time.Minute
 )
 
+// Where and how the api takes OTLP over gRPC (#262), beside OTLP/HTTP and held to its limits.
+const (
+	// Mebibyte writes the OTLP endpoint's size limits in its refusals as the contract does.
+	Mebibyte = 1 << 20
+	// DefaultOTLPGRPCAddr is OTLP's own gRPC port, so an SDK's default port is right inside a network.
+	DefaultOTLPGRPCAddr = ":4317"
+	// OTLPGRPCMaxStreams bounds the exports one connection carries at once; an exporter sends one at a time.
+	OTLPGRPCMaxStreams = 64
+	// OTLPGRPCConnectionAge is how long a connection lives, and OTLPGRPCConnectionGrace how long it then has to finish
+	// its exports, so a sender that stalls mid-message holds nothing for long; exporters dial again on their own.
+	OTLPGRPCConnectionAge   = 10 * time.Minute
+	OTLPGRPCConnectionGrace = 30 * time.Second
+)
+
+// Where runs' traces are sent (#246). Migration 01520 writes the same numbers into its checks and trigger, and a test
+// holds them to these.
+const (
+	// MaxTraceDestinations bounds the destinations, since each is one more export per batch.
+	MaxTraceDestinations = 8
+	// MaxDestinationNameChars bounds a destination's name.
+	MaxDestinationNameChars = 64
+	// MaxDestinationHeaders and MaxDestinationHeaderChars bound a destination's headers, which carry keys and basic
+	// credentials; the chars bound each name and each value.
+	MaxDestinationHeaders     = 16
+	MaxDestinationHeaderChars = 4096
+	// MaxDestinationURLChars bounds a destination's endpoint and its trace link.
+	MaxDestinationURLChars = 2048
+	// DestinationTestTimeout bounds the one span a test sends, as RunnerSpanExportTimeout bounds a batch.
+	DestinationTestTimeout = RunnerSpanExportTimeout
+	// MaxDestinationTestBodyBytes bounds what Rotor reads of a destination's answer to a test.
+	MaxDestinationTestBodyBytes = 4 << 10
+)
+
 // How a trace is read back (#244); docs/api-contract-m18.md gives the reasons.
 const (
 	// TracePreviewChars bounds an input or an output in a trace's tree; the span route answers it whole.
@@ -81,4 +119,19 @@ const (
 	MCPTraceValueChars = 1000
 	// MCPTraceBudgetBytes is where get_run_trace stops adding values, under MCPMaxToolResultBytes.
 	MCPTraceBudgetBytes = 48 << 10
+)
+
+// How spans are searched across traces (#261); docs/api-contract-m18.md gives the reasons.
+const (
+	// SpanSearchDefaultDays is the window a search reads when it names none: a week of debugging.
+	SpanSearchDefaultDays = 7
+	// SpanSearchMaxDays bounds how far back a search starts, so its index range stays a month at most.
+	SpanSearchMaxDays = 30
+	// SpanSearchPageSize and SpanSearchMaxPage are a page of hits when the search names none, and the most it may ask.
+	SpanSearchPageSize = 50
+	SpanSearchMaxPage  = 200
+	// SpanSearchTimeout bounds one search's statement, which row level security may make walk many spans it skips.
+	SpanSearchTimeout = 5 * time.Second
+	// MCPSpanSearchMaxPage bounds a page of search_spans, and its answer stops at MCPTraceBudgetBytes before that.
+	MCPSpanSearchMaxPage = 50
 )

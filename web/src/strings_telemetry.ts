@@ -1,30 +1,3 @@
-/** The words of the LangSmith setting (#37), spread into s as s.langsmith; strings.ts holds the rest. */
-export const langSmithStrings = {
-  title: "LangSmith",
-  body: "Rotor can send each run's trace to LangSmith as well: its steps, model calls with their prompts and answers, and tool calls. Rotor sends them itself, so no sandbox ever holds the key.",
-  warning:
-    "Turning this on sends run data out of this installation to LangSmith's servers. Secrets Rotor knows of are removed first, but what people and tools write passes as it is.",
-  loading: "Reading the setting...",
-  on: "Runs are sent to LangSmith.",
-  off: "Runs stay in this installation.",
-  enabled: "Send runs to LangSmith",
-  project: "Project",
-  projectHint: "The LangSmith project runs are filed under.",
-  key: "Key",
-  keyHint: "A key made in LangSmith's settings. Rotor keeps it in OpenBao and never shows it again.",
-  keyKept: "A key is held; leave this empty to keep it.",
-  noKey: "No key is held yet.",
-  acknowledge: "I confirm that run data may leave this installation for LangSmith.",
-  endpoint: (url: string) => `Sent to ${url}`,
-  save: "Save",
-  saving: "Saving...",
-  saved: "Saved.",
-  removeKey: "Forget the key",
-  confirmRemoveKey: "Forget the key? LangSmith is turned off with it.",
-  confirm: "Forget it",
-  keep: "Keep",
-} as const;
-
 const MS_PER_SECOND = 1000;
 const SECONDS_PER_MINUTE = 60;
 
@@ -54,6 +27,7 @@ export const traceStrings = {
     `This trace reached its limit: ${dropped === 1 ? "1 more span was" : `${dropped} more spans were`} not kept. The spans below are the ones that came first.`,
   noText:
     "Text is not kept: inputs, outputs and messages are left out of traces, and only timing, status, attributes and errors are kept. An administrator chooses whether Rotor keeps text.",
+  chooseText: "Choose in Admin, Traces",
   links: "Open this trace in",
   openIn: (destination: string) => `${destination} (opens in a new tab)`,
   tree: "Spans",
@@ -107,5 +81,12 @@ export const traceStrings = {
     cut: "Cut short when it was kept.",
     notKept: "Not kept: Rotor keeps no text of traces.",
     nothing: "None.",
+    links: {
+      title: "Links",
+      inRun: "Open the linked span's run",
+      inTrace: "Open the linked span's trace",
+      unreadable: "You may not read the linked trace, or Rotor does not hold it.",
+      ids: (traceID: string, spanID: string) => `Trace ${traceID}, span ${spanID}`,
+    },
   },
 } as const;

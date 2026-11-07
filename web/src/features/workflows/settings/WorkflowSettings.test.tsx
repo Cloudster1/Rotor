@@ -71,7 +71,7 @@ const answers = (workflow: WorkflowResponse | (() => Response) = response()) => 
 const pathname = (router: { state: { location: { pathname: string } } }) => router.state.location.pathname;
 
 describe("a workflow's settings", () => {
-  it("open General from /settings, with a side nav of its four sections and a way back to the editor", async () => {
+  it("open General from /settings, with a side nav of its five sections and a way back to the editor", async () => {
     const { router } = await renderAt(SETTINGS, { answers: answers() });
     expect(await screen.findByRole("heading", { level: 1, name: s.workflowSettings.pages.general })).toBeInTheDocument();
     expect(pathname(router)).toBe(`${SETTINGS}/general`);
@@ -80,7 +80,7 @@ describe("a workflow's settings", () => {
       within(nav)
         .getAllByRole("link")
         .map((link) => link.getAttribute("href")),
-    ).toEqual(["general", "versions", "sharing", "triggers"].map((section) => `${SETTINGS}/${section}`));
+    ).toEqual(["general", "versions", "sharing", "triggers", "tracing"].map((section) => `${SETTINGS}/${section}`));
     expect(screen.getByText(s.workflowSettings.of("triage"))).toBeInTheDocument();
     expect(screen.getByRole("link", { name: s.workflowSettings.editor })).toHaveAttribute("href", `/workflows/${ID}`);
     await userEvent.click(within(nav).getByRole("link", { name: s.workflowSettings.pages.triggers }));
@@ -93,6 +93,7 @@ describe("a workflow's settings", () => {
     ["versions", s.workflowSettings.pages.versions],
     ["sharing", s.workflowSettings.pages.sharing],
     ["triggers", s.workflowSettings.pages.triggers],
+    ["tracing", s.workflowSettings.pages.tracing],
   ])("give %s a route of its own that passes axe", async (section, title) => {
     await renderAt(`${SETTINGS}/${section}`, { answers: answers() });
     expect(await screen.findByRole("heading", { level: 1, name: title })).toBeInTheDocument();

@@ -19,7 +19,7 @@ finding updates this document in the same pull request.
 | Refresh tokens of people's tool connections | OpenBao, `rotor/connections/{user}/{tool}` | Each acts as the person in a tool until revoked |
 | Access tokens minted for a run | OpenBao `rotor/runs/{run}`, the runner's memory | Act as the person for minutes |
 | Model provider keys | OpenBao `rotor/providers/{id}/key`, the runner's memory | Spend money; read prompts |
-| LangSmith key, webhook secrets | OpenBao | Send data out; start workflows |
+| Webhook secrets | OpenBao | Send data out; start workflows |
 | Trace destinations' headers | OpenBao, `rotor/settings/trace-destinations/{id}/headers` | Write into a team's tracing tool; read it, for some |
 | Traces: spans, and the prompt, tool and answer text in them | Postgres, the text sealed with the run's key | Show what a run read and wrote, step by step |
 | Run data: inputs, events, checkpoints, outputs, approvals | Postgres | Hold what a run read from the tools, which may be confidential |
@@ -40,10 +40,10 @@ finding updates this document in the same pull request.
 | Compromised tool or provider | Answers to Rotor's calls | Tokens of other tools; data from the run |
 | Network attacker | A position between components | Tokens in transit |
 | Supply chain | A dependency or base image | Code in every sandbox or in the control plane |
-| Span sender | A Rotor access token or a realm token, at the OTLP endpoint | To write into another person's run trace, to show readers text of its choosing, or to fill the database |
+| Span sender | An ingest key, a Rotor access token or a realm token, at the OTLP endpoint over HTTP or gRPC | To write into another person's run trace, to show readers text of its choosing, or to fill the database |
 
 Administrators are the trust boundary, not a target inside it: they already
-configure tools, providers, prices, limits, LangSmith and trace destinations,
+configure tools, providers, prices, limits and trace destinations,
 and read the audit log. Operators who hold the database, OpenBao or the
 cluster hold everything Rotor holds.
 
@@ -68,7 +68,7 @@ cluster hold everything Rotor holds.
        |
        +--(7) webhooks, signed, into the api's public endpoint
 
-  LangChain apps and tools --(8) OTLP spans, with a bearer token--> api
+  LangChain apps and tools --(8) OTLP spans over HTTP or gRPC, with a bearer token--> api
 ```
 
 1. **Browser to web and api:** a person's session.
@@ -82,8 +82,9 @@ cluster hold everything Rotor holds.
    enforces the person's rights.
 6. **Sandbox to provider:** prompts carrying tool content.
 7. **Tools to api:** event deliveries that start runs.
-8. **Apps and tools to api:** spans over OTLP/HTTP, each judged as its
-   sender (#243). Everything a sender sends is treated as untrusted.
+8. **Apps and tools to api:** spans over OTLP/HTTP, and over OTLP/gRPC on a
+   port of its own (#262), each judged as its sender (#243). Everything a
+   sender sends is treated as untrusted.
 
 ## STRIDE by component
 
@@ -213,21 +214,32 @@ listed.
 | | Threat | Mitigation | Status |
 |---|---|---|---|
 | I | Spans carrying secrets | Attributes are redacted by the runner and again by the api, the endpoint's spans too | Built (#37, #243) |
-| I | Run data leaving the installation | LangSmith is off until an administrator turns it on and acknowledges it; the key stays in the control plane | Built (#37) |
-| I | Prompt, tool and answer text leaving for a destination | A destination receives none until an administrator acknowledges that text leaves for it; headers live in OpenBao and are never answered; the operator's collector never receives text | Open #246 |
+| I | Run data leaving the installation | Since #246 LangSmith is a trace destination, held as the row below; its setting of #37 is gone (#256) | Built (#37, #246, #256) |
+| I | Prompt, tool and answer text leaving for a destination | A destination receives none until an administrator acknowledges that text leaves for it; headers live in OpenBao and are never answered; the operator's collector never receives text; the database refuses text unacknowledged and a ninth destination | Built (#246) |
 | I | Data in Jaeger, LangSmith or a destination outliving Rotor's retention | The operator's collector and each destination keep their own retention | Accepted, documented with #41 |
 | I | Reading another person's trace | Row level security: a run's trace exactly when its events, a sender's own trace by its sender and administrators; any other answers 404, as the run does | Open #242 |
+| I | Learning of another person's spans by searching | The search reads as `rotor_app`, so the trace's policies decide which spans it finds and counts nothing else; text is sealed and never searched; tried straight through SQL as `rotor_app` | Built (#261) |
 | I | Text kept at rest in Rotor | Kept only while an administrator turns `keep_content` on; sealed with the run's key; gone after the retention, 14 days by default, or with the run | Open #242 |
 | I | An exception's message quoting an input while text is off | Redacted and cut to 512 characters | Accepted: a failure must show to be debugged |
 | S | A sender naming a run's trace id to write into a run it may not read | A span joins a run only when its sender reads the run, judged by row level security as the sender; otherwise it joins the sender's own trace, answered as a trace id of no run, so nothing tells whether the run exists | Built (#243) |
 | S | A sender posing as the runner or as another run | `source`, `service`, `rotor.run`, `rotor.workflow` and `rotor.sender` are set by Rotor and `rotor.*` keys a sender sends are dropped; the page shows who sent each span | Built (#243, #245) |
 | S | A token taken from an app used to send spans | Bearer tokens alone, never the cookie; Rotor's tokens last an hour and work at MCP and the endpoint alone; a grant to read is refused; a realm token is checked as #168's, for an account Rotor lets in | Built (#243) |
+| S | An ingest key stolen from a service's configuration used to send spans | A key sends spans and nothing else: it is refused with 401 at every other route, MCP included, before any lookup; it sends as one account, so it writes only where that account may, at that account's rates; an administrator revokes or rotates it under Admin, Traces, refused from the next request, and may give it an expiry; its last use shows on the list | Built (#258) |
+| I | An ingest key read from the database or a backup | Only its SHA-256 and its last four characters are kept; 256 random bits make the hash useless to guess from; the table is administrators' alone for `rotor_app` | Built (#258) |
+| I | An ingest key in a log line, the audit log or a later answer | Requests are logged by path; the audit log names a key by name and id; the key is answered once, with `Cache-Control: no-store`, and never listed; the `rotor_ik_` prefix is among the patterns redaction cuts everywhere | Built (#258) |
+| R | Spans an administrator's key sends passed off as a person's own | A key's spans carry `rotor.ingest_key`; making, rotating and revoking a key are audited with who did it and the account it sends as | Built (#258) |
 | T | A span reusing a span id to replace the runner's | A span id already in the trace is skipped; spans are immutable to `rotor_app` | Open #242 |
 | T | Text in a span steering whoever reads the trace, or the assistant reading it | Span text is shown as text, never markdown or HTML, and no address in it is a link; a sender's spans say who sent them; `get_run_trace` answers spans as data, as `get_run` answers outputs | Built (#244, #245) |
 | D | Large or packed bodies at the endpoint | 4 MiB as sent and 16 MiB unpacked, read through a limit, 413 past it | Built (#243) |
+| D | A span search walking every span | A window of at most 30 days on an index in the search's order, a page of at most 200, and a 5 second statement timeout answered as too broad | Built (#261) |
 | D | A sender flooding the endpoint or the database | Per sender and replica, 300 requests and 20000 spans a minute, then 429; 2048 spans a request; 10000 spans and 32 MiB a trace and 100000 spans a sender's own traces, held by a trigger whoever inserts | Built (#243) |
 | D | A sender filling a run's trace to its cap, so the runner's later spans are lost | Only someone who reads the run can; the trace says it was cut and how many spans it refused | Accepted |
 | D | Storing or exporting spans holding up a run | Both run beside the run on bounded pools of their own, dropping a batch rather than waiting | Built (#234) for export; Open #242 for storing |
+| I | Bearer tokens read off the gRPC port, which carries no TLS | The port is the api's alone, published on 127.0.0.1 in development and reached through the chart's gRPC Ingress or the operator's TLS load balancer in production; the deployment guide says never to publish it without TLS in front, as for the HTTP port | Built (#262) |
+| S | A sender taking another way in over gRPC | The gRPC service asks the HTTP endpoint's own checks for the token, the requests and spans a minute and the store; one window counts a sender across both; only the trace service is served and every other method answers `UNIMPLEMENTED` before any credential is read | Built (#262) |
+| D | Large, packed or stalled messages on the gRPC port | The token is checked before the message is read; 16 MiB unpacked is refused by grpc-go and 4 MiB as sent by the service; 64 exports at once on a connection, which lives 10 minutes and then 30 seconds to finish | Built (#262) |
+| I | A span link telling a reader that a trace exists | A link names the run or the own trace it leads to only when row level security lets the reader read it, judged as the reader when the span is read; any other link answers as one to a trace Rotor never held | Built (#262) |
+| I | Text in a span link's attributes | Only attributes without text are kept, redacted and cut, at most 16 a link and 16 links a span | Built (#262) |
 | E | An administrator pointing a destination at an address inside the network | Administrators choose the api's egress for traces as operators do for the collector; the api reads no answer beyond its status | Accepted |
 
 ### Images and dependencies
@@ -331,6 +343,7 @@ make hard.
 | Session cookies | Only the hash is stored; ending a session at Keycloak or in Rotor deletes the row |
 | Assistants' codes and refresh tokens | A code is used once and a refresh token turns over; either used twice ends the whole grant (#47) |
 | Assistants' access tokens | Only the hash is stored; they last an hour, work at MCP alone, and end with their grant or when assistants are switched off |
+| Ingest keys | Not refused by design, since a service sends with one for months: only the hash is stored, a key works at the OTLP endpoint alone and only sends, and an administrator revokes or rotates it at once (#258) |
 
 ### Webhook spoofing
 

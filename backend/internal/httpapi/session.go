@@ -11,6 +11,7 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/audit"
 	"github.com/cloudster1/rotor/backend/internal/auth"
 	"github.com/cloudster1/rotor/backend/internal/db"
+	"github.com/cloudster1/rotor/backend/internal/ingestkeys"
 	"github.com/cloudster1/rotor/backend/internal/oauth"
 	"github.com/cloudster1/rotor/backend/internal/oidc"
 )
@@ -31,16 +32,19 @@ type SignIn interface {
 var errSwitchedOff = &APIError{Status: http.StatusForbidden, Code: "account_switched_off",
 	Message: "Your account is switched off. Ask an administrator of Rotor to switch it on again."}
 
-// authenticate puts the person a session cookie, or an assistant's access token, names on the request; it never
-// refuses an anonymous one, which requireAuth does where it matters. A switched-off person is refused rather than
-// made anonymous.
+// authenticate puts the person a session cookie, an assistant's access token or an ingest key names on the request;
+// it never refuses an anonymous one, which requireAuth does where it matters, nor lets a switched-off person in.
 func (s *Server) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// A call MCP makes in this process starts from the outer request's context, whose caller is checked again.
 		ctx := audit.WithIP(forgetCaller(r.Context()), s.clientIP(r))
 		credential, bearer := credentialFrom(r, s.CookieName)
-		if credential == "" || (!bearer && s.Sessions == nil) {
+		if credential == "" || (!bearer && s.Sessions == nil) || refusedSignal(r) {
 			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+		if bearer && ingestkeys.IsKey(credential) {
+			s.authenticateIngestKey(w, r.WithContext(ctx), credential, next)
 			return
 		}
 		var (

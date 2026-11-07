@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -15,9 +16,11 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/vault"
 )
 
-// AddRequest names a tool by its address; a client registered by hand comes with its secret.
+// AddRequest names a tool by its address; a client registered by hand comes with its secret. Name is what workflows
+// bind it by, the product its /meta names when empty.
 type AddRequest struct {
 	BaseURL      string
+	Name         string
 	ClientID     string
 	ClientSecret string
 }
@@ -46,9 +49,14 @@ func (s *Service) Add(ctx context.Context, req AddRequest) (tool Tool, created b
 		return Tool{}, false, err
 	}
 	created = errors.Is(err, ErrNotFound)
-	id := known.ID
+	id, name := known.ID, known.Name
 	if created {
 		id = uuid.Must(uuid.NewV7())
+		if name, err = s.newName(ctx, strings.TrimSpace(req.Name), d.Name); err != nil {
+			return Tool{}, false, err
+		}
+	} else if given := strings.TrimSpace(req.Name); given != "" && given != known.Name {
+		return Tool{}, false, refuse("%s is added already, as %s. Register it again without a name, and rename it on its own.", base, known.Name)
 	}
 
 	client, registration, status := vault.ToolClient{ClientID: req.ClientID, ClientSecret: req.ClientSecret, AuthMethod: method}, RegistrationManual, StatusReady
@@ -66,7 +74,7 @@ func (s *Service) Add(ctx context.Context, req AddRequest) (tool Tool, created b
 		return Tool{}, false, err
 	}
 
-	tool = Tool{ID: id, Name: d.Name, BaseURL: base, Resource: d.Resource, MCPURL: d.MCPURL, Issuer: d.Issuer,
+	tool = Tool{ID: id, Name: name, Product: d.Name, BaseURL: base, Resource: d.Resource, MCPURL: d.MCPURL, Issuer: d.Issuer,
 		AuthorizationEndpoint: d.AuthorizationEndpoint, TokenEndpoint: d.TokenEndpoint, RevocationEndpoint: d.RevocationEndpoint,
 		RegistrationEndpoint: d.RegistrationEndpoint, ScopesSupported: d.ScopesSupported, Capabilities: d.Capabilities,
 		GrantTypes: d.GrantTypes, ClientID: client.ClientID, ClientAuthMethod: client.AuthMethod, Registration: registration, Status: status}
@@ -76,6 +84,12 @@ func (s *Service) Add(ctx context.Context, req AddRequest) (tool Tool, created b
 			_ = s.vault.DeleteToolClient(context.WithoutCancel(ctx), id)
 		}
 		return Tool{}, false, err
+	}
+	if !created && known.ClientID != client.ClientID && s.Connections != nil {
+		// Every grant belongs to the client the tool forgot, so each person connects again (#266).
+		if _, err := s.Connections.ReconnectToolConnections(ctx, tool); err != nil {
+			return Tool{}, false, fmt.Errorf("mark the connections to %s to be made again: %w", tool.Name, err)
+		}
 	}
 	return tool, created, nil
 }
@@ -105,20 +119,22 @@ func (s *Service) save(ctx context.Context, t *Tool, created bool) error {
 			err = tx.QueryRow(ctx, `
 				INSERT INTO tool (id, name, base_url, resource, issuer, authorization_endpoint, token_endpoint,
 					revocation_endpoint, registration_endpoint, scopes_supported, capabilities, client_id,
-					client_auth_method, registration, status, added_by, mcp_url, grant_types)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), NULLIF($9, ''), $10, $11, $12, $13, $14, $15, $16, $17, $18)
+					client_auth_method, registration, status, added_by, mcp_url, grant_types, product)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), NULLIF($9, ''), $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 				RETURNING created_at`,
 				t.ID, t.Name, t.BaseURL, t.Resource, t.Issuer, t.AuthorizationEndpoint, t.TokenEndpoint,
 				t.RevocationEndpoint, t.RegistrationEndpoint, t.ScopesSupported, t.Capabilities, t.ClientID,
-				t.ClientAuthMethod, t.Registration, t.Status, nullable(actor), t.MCPURL, t.GrantTypes).Scan(&t.AddedAt)
+				t.ClientAuthMethod, t.Registration, t.Status, nullable(actor), t.MCPURL, t.GrantTypes, t.Product).Scan(&t.AddedAt)
+			err = nameRefused(err, t.Name)
 		} else {
+			// Registering again keeps the name workflows bind; only Rename changes it (#267).
 			err = tx.QueryRow(ctx, `
-				UPDATE tool SET name = $2, resource = $3, issuer = $4, authorization_endpoint = $5, token_endpoint = $6,
+				UPDATE tool SET product = $2, resource = $3, issuer = $4, authorization_endpoint = $5, token_endpoint = $6,
 					revocation_endpoint = NULLIF($7, ''), registration_endpoint = NULLIF($8, ''), scopes_supported = $9,
 					capabilities = $10, client_id = $11, client_auth_method = $12, registration = $13, status = $14,
 					mcp_url = $15, grant_types = $16
 				WHERE id = $1 RETURNING created_at`,
-				t.ID, t.Name, t.Resource, t.Issuer, t.AuthorizationEndpoint, t.TokenEndpoint, t.RevocationEndpoint,
+				t.ID, t.Product, t.Resource, t.Issuer, t.AuthorizationEndpoint, t.TokenEndpoint, t.RevocationEndpoint,
 				t.RegistrationEndpoint, t.ScopesSupported, t.Capabilities, t.ClientID, t.ClientAuthMethod,
 				t.Registration, t.Status, t.MCPURL, t.GrantTypes).Scan(&t.AddedAt)
 		}
@@ -126,8 +142,16 @@ func (s *Service) save(ctx context.Context, t *Tool, created bool) error {
 			return err
 		}
 		return audit.Write(ctx, tx, audit.Entry{Action: audit.ActionToolAdded, TargetType: "tool", TargetID: t.ID.String(), Actor: actor,
-			Data: map[string]any{"base_url": t.BaseURL, "name": t.Name, "registration": t.Registration, "again": !created}})
+			Data: map[string]any{"base_url": t.BaseURL, "name": t.Name, "product": t.Product, "registration": t.Registration, "again": !created}})
 	})
+}
+
+// newName is the name a new tool is added by: the one given, or its product's; either must be free.
+func (s *Service) newName(ctx context.Context, given, product string) (string, error) {
+	if given != "" {
+		return given, s.checkName(ctx, given, uuid.Nil)
+	}
+	return product, s.nameFree(ctx, product, uuid.Nil)
 }
 
 func (s *Service) byBaseURL(ctx context.Context, base string) (Tool, error) {

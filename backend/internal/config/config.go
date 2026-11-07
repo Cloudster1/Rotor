@@ -66,7 +66,9 @@ var ProviderSignOutChecks = []time.Duration{2 * time.Second, 10 * time.Second}
 type Config struct {
 	Env      string
 	HTTPAddr string
-	LogLevel string
+	// OTLPGRPCAddr is where the api takes OTLP over gRPC (#262); empty takes none.
+	OTLPGRPCAddr string
+	LogLevel     string
 	// AppBaseURL is where the web client is served; the same-site check accepts writes from it.
 	AppBaseURL string
 	// CORSOrigins may call the API with credentials from another origin.
@@ -143,6 +145,7 @@ func Load() (Config, error) {
 	c := Config{
 		Env:             l.str("ROTOR_ENV", EnvDevelopment),
 		HTTPAddr:        l.str("ROTOR_HTTP_ADDR", DefaultHTTPAddr),
+		OTLPGRPCAddr:    l.orEmpty("ROTOR_OTLP_GRPC_ADDR", DefaultOTLPGRPCAddr),
 		LogLevel:        l.str("ROTOR_LOG_LEVEL", "info"),
 		AppBaseURL:      strings.TrimSuffix(l.str("ROTOR_APP_URL", DefaultAppBaseURL), "/"),
 		CORSOrigins:     splitList(l.str("ROTOR_CORS_ORIGINS", "")),

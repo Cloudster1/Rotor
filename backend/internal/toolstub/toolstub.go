@@ -60,6 +60,8 @@ type Options struct {
 	Snapshot string `json:"snapshot,omitempty"`
 	// Issues are the Armature issues the tenant holds, by key, each shown to its readers alone (#129).
 	Issues map[string]Issue `json:"issues,omitempty"`
+	// Labels are an Armature tenant's labels that its issues need not carry; every project shares them (#270).
+	Labels []string `json:"labels,omitempty"`
 	// TestPlans are an Exciter tenant's test plans, which only Exciter's web client makes; see TestPlanID (#139).
 	TestPlans []TestPlan `json:"testPlans,omitempty"`
 	// Repositories are what an Armature tenant's projects connect, cloned and pushed through its stand-in proxy (#137).
@@ -94,8 +96,11 @@ type Stub struct {
 	tenants   map[string]*tenant
 	snapshots map[string][]map[string]any
 	now       func() time.Time
-	// langsmith is what reached the LangSmith stand-in (#37), newest last.
-	langsmith []LangSmithCall
+	// statePath, when set, is the file the OAuth state is kept in; lastSaved is what it holds.
+	statePath string
+	lastSaved []byte
+	// otlp is what reached each OTLP sink (#246), newest last, at most config.ToolStubMaxOTLPSinks of them.
+	otlp map[string][]OTLPCall
 }
 
 // New makes a stub serving recorded tools/list results ({"tools": [...]}) by the tool they were recorded from;
@@ -215,7 +220,7 @@ func (s *Stub) Public() http.Handler {
 		r.Get(llmPath+"/models", s.withTenant(s.handleLLMModels))
 		r.Post(llmPath+"/chat/completions", s.thinking(s.withTenant(s.handleLLMChat)))
 	})
-	r.Post(LangSmithPath, s.handleLangSmith)
+	r.Post(OTLPPath, s.handleOTLP)
 	r.Get("/.well-known/oauth-authorization-server"+TenantPrefix+"/{tenant}", s.withOAuth(s.handleServerMetadata))
 	r.Get("/.well-known/oauth-protected-resource"+TenantPrefix+"/{tenant}"+mcpPath, s.withOAuth(s.handleProtectedResource))
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {

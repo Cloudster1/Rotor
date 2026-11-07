@@ -1,0 +1,108 @@
+# Comments a weekly digest of an Armature project on an issue the team keeps for it (#271). A schedule trigger starts
+# it, such as Mondays at 8:00, as the trigger's owner. It needs no model: tool nodes read, code writes the summary, so
+# a run costs nothing but its tool calls. Armature lets a connected app post no project status update, which is why
+# the digest is a comment.
+apiVersion: rotor.dev/v1
+kind: Workflow
+metadata:
+  name: weekly-digest
+  description: Comments a summary of a project's issues filed and finished in the last 7 days, with no model.
+inputs:
+  type: object
+  required: [projectKey, digestIssue]
+  properties:
+    projectKey: { type: string, title: Project key, description: "The Armature project to sum up, such as CP." }
+    digestIssue: { type: string, title: Digest issue, description: "The issue the digest is commented on, such as CP-1; keep one open for it." }
+tools:
+  armature-read:
+    tool: armature
+    scopes: [read]
+    allowTools: [list_project_issues]
+  armature-comment:
+    tool: armature
+    scopes: [comment.write]
+    access: write
+    allowTools: [add_comment]
+    unattended: [add_comment]
+limits:
+  maxSteps: 6
+  timeout: 5m
+  # With no agent a run costs nothing; the bound keeps it so should someone add one.
+  maxCost: 0.05
+  # One digest at a time, so a run by hand next to the schedule's waits rather than posting beside it.
+  maxConcurrent: 1
+  toolCallsPerMinute: 10
+# A digest is read the week it is posted, and the comment keeps it; the run's own data is not needed for long.
+retention: 30d
+entry: filed
+nodes:
+  - id: filed
+    type: tool
+    tool: armature-read
+    call: list_project_issues
+    arguments:
+      projectKey: "{{ inputs.projectKey }}"
+      q: created >= -7d ORDER BY created ASC
+      limit: 50
+  - id: finished
+    type: tool
+    tool: armature-read
+    call: list_project_issues
+    arguments:
+      projectKey: "{{ inputs.projectKey }}"
+      q: statusCategory = done AND resolved >= -7d ORDER BY resolved ASC
+      limit: 50
+  # Counts from Armature's totals, so an issue past the first page still counts, and lists the ones it read.
+  - id: post
+    type: code
+    tools: [armature-comment]
+    timeout: 30s
+    output:
+      schema:
+        type: object
+        required: [filed, finished, comment]
+        properties:
+          filed: { type: integer }
+          finished: { type: integer }
+          comment: { type: string }
+    source: |
+      from datetime import datetime, timedelta, timezone
+
+      HEADING = "**Weekly digest from Rotor**"
+      DAYS = 7
+
+
+      def kinds(issues):
+          counts = {}
+          for issue in issues:
+              name = (issue.get("type") or {}).get("name", "Issue")
+              counts[name] = counts.get(name, 0) + 1
+          return ", ".join(f"{n} {name}" for name, n in sorted(counts.items()))
+
+
+      def section(title, page, digest):
+          issues = [i for i in page["issues"] if i["key"] != digest]
+          total = page["total"] - (len(page["issues"]) - len(issues))
+          if total == 0:
+              return total, [f"**{title}:** none."]
+          if total > len(issues):
+              lines = [f"**{title}: {total}**, the first {len(issues)} of them:"]
+          else:
+              lines = [f"**{title}: {total}** ({kinds(issues)})"]
+          return total, lines + [f"- {i['key']} {i['summary']}" for i in issues]
+
+
+      def run(state, ctx):
+          inputs = state["inputs"]
+          digest = inputs["digestIssue"].strip()
+          today = datetime.now(timezone.utc).date()
+          since = today - timedelta(days=DAYS)
+          filed, new = section("Filed", state["nodes"]["filed"], digest)
+          finished, done = section("Finished", state["nodes"]["finished"], digest)
+          body = "\n".join([HEADING, "", f"{inputs['projectKey']}, {since.isoformat()} to {today.isoformat()} (UTC).",
+                            "", *new, "", *done])
+          comment = ctx.call_tool("armature-comment", "add_comment", {"issueKey": digest, "bodyMarkdown": body})
+          return {"filed": filed, "finished": finished, "comment": comment["comment"]["id"]}
+edges:
+  - { from: filed, to: finished }
+  - { from: finished, to: post }

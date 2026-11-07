@@ -44,7 +44,7 @@ func TestAnAssistantReadsALargeTraceShortenedToItsBudget(t *testing.T) {
 		big.Attributes[fmt.Sprintf("llm.input_messages.%d.message.content", i)] = strings.Repeat("m", config.MaxSpanContentChars)
 	}
 	spans = append(spans, failed, big)
-	if err := h.traceStore(t).Keep(ctx, r.id, r.dataKey, spans); err != nil {
+	if err := h.traceStore(t).Keep(ctx, r.id, r.dataKey, observability.AllTracing, spans); err != nil {
 		t.Fatal(err)
 	}
 

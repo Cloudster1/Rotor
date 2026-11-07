@@ -50,11 +50,15 @@ type records struct {
 	executions    []*execution
 	// requirementComments are the threads started on requirements, by requirement key.
 	requirementComments map[string][]map[string]any
+	// issueLabels are the label names of each Armature issue a write labelled, and coined the labels it made (#270).
+	issueLabels map[string][]string
+	coined      []coinedLabel
 }
 
 func newRecords() *records {
 	return &records{comments: map[string][]map[string]any{}, remoteLinks: map[string][]map[string]any{},
-		armatureLinks: map[string][]map[string]any{}, requirementComments: map[string][]map[string]any{}}
+		armatureLinks: map[string][]map[string]any{}, requirementComments: map[string][]map[string]any{},
+		issueLabels: map[string][]string{}}
 }
 
 // view is the records as the control API answers them.
@@ -77,7 +81,7 @@ func (r *records) view() map[string]any {
 	}
 	return map[string]any{"comments": r.comments, "remoteLinks": r.remoteLinks, "requirements": reqs,
 		"armatureLinks": r.armatureLinks, "reviews": reviews, "requirementLinks": links, "testExecutions": executions,
-		"requirementComments": r.requirementComments}
+		"requirementComments": r.requirementComments, "labels": r.issueLabels}
 }
 
 // stubID is an id derived from what it names, so a test can expect it and two tenants never share one.

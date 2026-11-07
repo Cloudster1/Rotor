@@ -56,10 +56,10 @@ type Server struct {
 	Usage Usage
 	// Hooks is nil where OpenBao is not configured; its routes then answer 503.
 	Hooks Hooks
-	// LangSmith is nil where OpenBao is not configured; its routes then answer 503 (#37).
-	LangSmith LangSmith
-	// LangSmithEndpoint is where runs' spans go while LangSmith is on, shown to administrators.
-	LangSmithEndpoint string
+	// TraceDestinations is nil where OpenBao is not configured; its routes then answer 503 and traces link nowhere (#246).
+	TraceDestinations TraceDestinations
+	// WorkflowTracing is nil where OpenBao is not configured, as TraceDestinations is; its routes then answer 503 (#259).
+	WorkflowTracing WorkflowTracing
 	// Retention is how long a finished run's data is kept (#41); nil answers 503.
 	Retention Retention
 	// Traces is how long runs' traces are kept and whether their text is (#242); nil answers 503.
@@ -70,6 +70,8 @@ type Server struct {
 	TraceReads TraceReader
 	// Workspaces is what workspaces may use (#136); nil answers 503.
 	Workspaces Workspaces
+	// IngestKeys are the keys services send spans with (#258); nil answers 503 and refuses every key.
+	IngestKeys IngestKeys
 	// Preferences are what a person chooses for themselves (#206); nil answers 503.
 	Preferences Preferences
 	// OAuth is Rotor as the authorization server of its MCP endpoint (#47); nil answers 503 and refuses every token.
@@ -150,6 +152,8 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 		r.With(s.requireMCPAuth).Post("/mcp", s.handleMCP)
 		// Apps send spans with a token alone (#243); the session cookie is refused there.
 		r.With(s.tokensOnly).Post("/otlp/v1/traces", s.handleReceiveTraces)
+		r.Post("/otlp/v1/metrics", s.handleRefuseMetrics)
+		r.Post("/otlp/v1/logs", s.handleRefuseLogs)
 		mountPending(r, true, false)
 		// A service account of the realm adds tools and hands Rotor their hook secrets (#168); nothing else takes its
 		// token. The table marks these rows serviceAccount, and a test holds the two to each other.
@@ -174,6 +178,8 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Get("/roles", s.handleListRoles)
 			r.Get("/permissions", s.handleListPermissions)
 			r.Get("/workflows/{workflowID}/grants", s.handleListWorkflowGrants)
+			r.Get("/workflows/{workflowID}/settings/tracing", s.handleGetWorkflowTracing)
+			r.With(requireSession).Put("/workflows/{workflowID}/settings/tracing", s.handleSetWorkflowTracing)
 			// Granting is a person's act, never an assistant's, and so is looking up whom to grant to.
 			r.Group(func(r chi.Router) {
 				r.Use(requireSession)
@@ -210,6 +216,7 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 			r.Get("/runs/{runID}/trace", s.handleGetRunTrace)
 			r.Get("/runs/{runID}/trace/spans/{spanID}", s.handleGetRunTraceSpan)
 			r.Get("/traces", s.handleListTraces)
+			r.Get("/spans", s.handleSearchSpans)
 			r.Get("/traces/{traceID}", s.handleGetTrace)
 			r.Get("/traces/{traceID}/spans/{spanID}", s.handleGetTraceSpan)
 			r.Get("/approvals", s.handleListApprovals)
@@ -253,6 +260,8 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Post("/providers/{providerID}/test", s.handleTestProvider)
 				r.Delete("/tools/{toolID}", s.handleRemoveTool)
 				r.Post("/tools/{toolID}/check", s.handleCheckTool)
+				r.Get("/tools/{toolID}/workflows", s.handleToolWorkflows)
+				r.Put("/tools/{toolID}/name", s.handleRenameTool)
 				r.Get("/audit", s.handleListAudit)
 				r.Get("/audit/facets", s.handleAuditFacets)
 				r.Get("/audit/export", s.handleExportAudit)
@@ -262,9 +271,16 @@ func (s *Server) Routes(allowedOrigins []string) http.Handler {
 				r.Put("/settings/limits", s.handleSetLimits)
 				r.Get("/providers/{providerID}/prices", s.handleGetPrices)
 				r.Put("/providers/{providerID}/prices", s.handleSetPrices)
-				r.Get("/settings/langsmith", s.handleGetLangSmith)
-				r.Put("/settings/langsmith", s.handleSetLangSmith)
-				r.Delete("/settings/langsmith/key", s.handleRemoveLangSmithKey)
+				r.Get("/settings/trace-destinations", s.handleListTraceDestinations)
+				r.Post("/settings/trace-destinations", s.handleAddTraceDestination)
+				r.Get("/settings/trace-destinations/{destinationID}", s.handleGetTraceDestination)
+				r.Put("/settings/trace-destinations/{destinationID}", s.handleChangeTraceDestination)
+				r.Delete("/settings/trace-destinations/{destinationID}", s.handleRemoveTraceDestination)
+				r.Post("/settings/trace-destinations/{destinationID}/test", s.handleTestTraceDestination)
+				r.Get("/settings/ingest-keys", s.handleListIngestKeys)
+				r.Post("/settings/ingest-keys", s.handleCreateIngestKey)
+				r.Post("/settings/ingest-keys/{keyID}/rotate", s.handleRotateIngestKey)
+				r.Delete("/settings/ingest-keys/{keyID}", s.handleRevokeIngestKey)
 				r.Get("/settings/retention", s.handleGetRetention)
 				r.Put("/settings/retention", s.handleSetRetention)
 				r.Put("/settings/traces", s.handleSetTraceSetting)

@@ -10,6 +10,7 @@ administrators send runs' traces on to the OTLP tools their teams use.
 - a run's trace through the API and MCP (#244)
 - the trace on the run's page (#245)
 - OTLP destinations, the LangSmith setting carried over as one (#246)
+- searching spans across the traces a person reads (#261)
 
 This file is #240. It builds on `docs/api-contract-m7-telemetry.md` (#37), whose run trace, runner
 span messages and checks stay unless this file says otherwise. The route table in
@@ -30,6 +31,11 @@ hex characters and span ids 16, as W3C trace context writes them.
   | 01500-01519 | #242 | `trace`, `trace_span`, `trace_setting`, `run.trace_id`, the policies and the `trace_span_cap` trigger |
   | 01520-01529 | #246 | `trace_destination`, and the LangSmith setting carried over into it |
   | 01530-01539 | #243 | anything the endpoint needs beyond #242, if any |
+  | 01540 | #256 | `langsmith_setting` dropped |
+  | 01550 | #259 | `workflow_tracing` |
+  | 01560 | #258 | `ingest_key`, its policies and the `ingest_key_cap` trigger |
+  | 01570 | #261 | the indexes a span search walks |
+  | 01580 | #262 | `trace_span.links`, and `trace_span_cap` counting their bytes |
 
 - Packages: `internal/traces` (the store, the cap, sealing, the tree and the sweep; #242, #244),
   `internal/traces/otlp` (decoding OTLP, #243), `internal/tracedest` (destinations, replacing
@@ -40,8 +46,8 @@ hex characters and span ids 16, as W3C trace context writes them.
   tool or a model wrote. Go and Python both read it, and a test on each side refuses a copy that
   differs, as for `api/secret-patterns.json`.
 - Settings, `ROTOR_` variables: none new. `ROTOR_OTLP_ENDPOINT` and `ROTOR_TRACE_SAMPLE_RATIO` keep
-  their meaning for the operator's collector. `ROTOR_LANGSMITH_ENDPOINT` is read only to carry
-  LangSmith over (#246) and goes when `langsmith_setting` is dropped.
+  their meaning for the operator's collector. `ROTOR_LANGSMITH_ENDPOINT` was read only to carry
+  LangSmith over (#246) and went with `langsmith_setting` (#256).
 
 ### Limits
 
@@ -81,6 +87,13 @@ Each replaces or joins #37's.
 | `MCPTraceValueChars` | 1000 | an input or output in `get_run_trace` |
 | `MCPTraceSpanBudgetBytes` | 32 KiB | where `get_run_trace` stops adding spans, so values have room (#244, as built) |
 | `MCPTraceBudgetBytes` | 48 KiB | where `get_run_trace` stops adding values, under `MCPMaxToolResultBytes` |
+| `MaxIngestKeys` | 50 | ingest keys an installation holds, each a standing credential to review (#258) |
+| `MaxIngestKeyNameChars` | 64 | as a destination's name |
+| `IngestKeyLastUsedEvery` | 1 minute | how often a key's use is written, as `OAuthLastUsedEvery` |
+| `MaxSpanLinks` | 16 | links a span keeps, the first ones sent: a fan-in of a batch, not a list of every input (#262) |
+| `MaxSpanLinkAttributes` | 16 | attributes without text one link keeps, each cut to `MaxSpanAttrChars` (#262) |
+| `OTLPGRPCMaxStreams` | 64 | exports one gRPC connection carries at once; an exporter sends one at a time (#262) |
+| `OTLPGRPCConnectionAge`, `OTLPGRPCConnectionGrace` | 10 minutes, 30 s | how long a gRPC connection lives, then finishes its exports, so a stalled one ends (#262) |
 
 The runner adds `SPAN_BATCH_BYTES` = 2 MiB: it sends a batch at 64 spans, 2 MiB or 2 seconds,
 whichever comes first, so a batch of large spans stays under `MaxRunnerMessageBytes`.
@@ -177,7 +190,9 @@ whichever comes first, so a batch of large spans stays under `MaxRunnerMessageBy
   the other attributes without text when `MaxSpanAttributes` cuts, so the run and the node stay.
 - **Events:** the latest `MaxSpanEvents` are kept; an exception LangGraph raises for its control flow,
   such as an approval's `GraphInterrupt`, is dropped, as it is no failure. The status message is
-  LangChain's error up to its stack, which the exception event carries.
+  the error alone, `Type: message` as Python prints it, made from LangChain's repr; LangChain
+  glues its stack to that repr without a newline, so the message is cut at
+  `Traceback (most recent call last):`. The event carries the whole stack (#254).
 - **Messages:** the last 16 of `llm.input_messages.*` are numbered from 0 again.
 - **Destinations until #242 and #246:** the collector gets every span without its text and LangSmith
   gets it with its text; `trace_content` is still set while LangSmith is on.
@@ -598,6 +613,456 @@ and write it, `rotor_admin` for the api's sending; a trigger refuses a row past
   shapes and refusals, and are removed one minor release later, with `langsmith_setting`. The admin
   page shows destinations and the trace setting in place of the LangSmith section.
 
+### As built (#246)
+
+- **Where:** `internal/tracedest` (`tracedest.go` the rows, `check.go` the input, `forward.go` sending and links,
+  `probe.go` the test, `carry.go` the carry-over, `langsmith.go` the deprecated routes), replacing `internal/langsmith`;
+  header values through `vault/tracedest.go`. The control plane's OpenBao policy, in the compose stack and the chart,
+  gains `rotor/{data,metadata}/settings/trace-destinations/*`.
+- **Migration:** one file, `01520_trace_destinations.sql`. A name is unique whatever its case (`lower(name)`), and one
+  row at most is `carried_over`. The cap's trigger takes an advisory lock, so two administrators adding at once cannot
+  pass it between them, and refuses as `trace_destination_cap`; text unacknowledged is refused as
+  `trace_destination_content_acknowledged`; a Go test holds the SQL numbers to the constants. A member is refused by the
+  policy, straight through SQL as `rotor_app`.
+- **Carried over, the migration:** "ever held a key" is `key_set_at IS NOT NULL`, since forgetting a key cleared it and
+  nothing else remembers one; the row is acknowledged by `changed_by` at `updated_at` when it was on. `header_names` are
+  kept in order, case aside, as every row keeps them. `langsmith_setting` gains `carried_at`, not in the table above:
+  the api's start sets it once it has carried LangSmith over, since a carried row without headers cannot otherwise be
+  told from one whose headers an administrator removed.
+- **Carried over, the start:** as `rotor_admin` under the advisory lock `rotor.tracedest.langsmith`, so replicas starting
+  together do it once. `ROTOR_LANGSMITH_ENDPOINT` always becomes the endpoint, as its default is LangSmith's own;
+  `headers_set_at` is the time the key was given. Without a key the row is turned off and its text with its
+  acknowledgement cleared. The old key is deleted after the commit, at every start, so one that stopped between the two
+  deletes it next time. A start that cannot reach OpenBao logs a warning and serves; the row sends nothing meanwhile.
+  `trace_destination.carried_over` has no actor.
+- **Sending:** a destination is sent to while `enabled` and its headers are set or it names none. One batch is made once
+  with text and once without, and each destination exports side by side on the pool the batch came on (the runner's
+  `MaxRunnerSpanExports`, or #243's own). An exporter is kept per destination and made again when its `updated_at`
+  moves; the old one is shut down beside the export. A failure is logged at warn, naming the destination, as LangSmith's
+  was. `StartRun.trace_content` is set while `keep_content` is on or any destination sent to takes text.
+- **Endpoints:** the acknowledgement is asked on a change that turns text on or moves the endpoint of a destination that
+  gets text, and taken again when given, so it then names the caller; turning text off clears it. A name is trimmed and
+  at most 64 characters without control characters. A header name is an RFC 9110 token, values are trimmed, one line and
+  not empty, each name and value at most `MaxDestinationHeaderChars`, and a name twice in another case is refused. An
+  empty `traceLink` is none; a link must be `http` or `https` once filled. Without OpenBao the routes answer 503
+  `trace_destinations_unavailable`, and a trace links nowhere.
+- **The test** posts one OTLP protobuf span, `rotor.test` of the service `rotor`, in a fresh trace, whether or not the
+  destination is on, within `DestinationTestTimeout` (10 s), following no redirect, which would carry its headers to
+  another host. `status` is 0 when it could not be reached, and `message` a sentence naming what to check.
+- **Audit:** `headers` of `trace_destination.added` lists the names, and `acknowledged` of `.changed` says whether that
+  change acknowledged text. The audit test's shape of an action now takes a domain in snake case.
+- **The deprecated LangSmith routes** audit as `trace_destination.added` or `.changed` rather than `langsmith.changed`,
+  since they change a destination. On means sending text, acknowledged by the caller, and off clears it; the key and the
+  project are the headers `x-api-key` and `Langsmith-Project`, so `GET` reads OpenBao for the project, and `keySetAt` is
+  `headersSetAt` while the key is held. `DELETE /settings/langsmith/key` keeps the project. With no carried-over row
+  `GET` answers LangSmith off with the default project, and `PUT` makes a row named `LangSmith` at
+  `ROTOR_LANGSMITH_ENDPOINT`, answering 409 `trace_destination_taken` should another destination have the name.
+- **Links:** for a run's trace whose `state` is not `none`, in the browser's answer and MCP's alike: each destination sent
+  to that has a link, by name, read as `rotor_admin` within `TraceSettingTTL`, so whoever reads the run sees them.
+- **The tool stub** takes OTLP at `POST /otlp/{sink}/v1/traces` for any sink name and answers each sink's exports at
+  `GET /control/otlp/{sink}` with every header, so each test has a destination of its own.
+- **Web:** Admin, Traces (`/admin/traces`, which `/admin/langsmith` leads to) in place of the LangSmith section:
+  `TraceKeepingCard` sets the retention and whether text is kept, and `TraceDestinationsSection` with `DestinationForm`
+  lists, adds, changes, tests and removes destinations, from presets for Langfuse, Arize Phoenix, Jaeger and LangSmith
+  that only fill the form. Editing one that holds headers chooses to keep, replace or remove them; values are password
+  fields and never shown. Keeping text on for a destination that sends it leaves the acknowledgement ticked, so saving
+  acknowledges it again in the editor's name. The words are `s.traceDestinations` in `web/src/strings_destinations.ts`.
+  The run page's notice that text is not kept now links an administrator to Admin, Traces.
+
+### As built (#256)
+
+- **Removed before the first release** rather than one minor release after #246, as the user chose, since Rotor was
+  never released: `GET`/`PUT /settings/langsmith`, `DELETE /settings/langsmith/key`, `tracedest/langsmith.go`, the
+  start's carry-over (`tracedest/carry.go`, `vault/langsmith.go`), `ROTOR_LANGSMITH_ENDPOINT` with the chart's
+  `telemetry.langsmithEndpoint`, the tool stub's LangSmith stand-in (a test sends to a sink with LangSmith's headers),
+  `rotor/{data,metadata}/settings/langsmith/*` from the control plane's OpenBao policy, and `/admin/langsmith` in the
+  web, which only development ever linked to. The old routes answer 404.
+- **Migration 01540** drops `langsmith_setting` and `trace_destination_one_carried`, whose one reader was the old
+  routes; `carried_over` stays, so the row 01520 made still shows as carried over. Its Down makes the table again as
+  01520 left it, with one row whose `carried_at` is set, so the start of #246 has nothing to move and its routes find
+  the row they read.
+- **The key not yet moved:** SQL cannot reach OpenBao, and goose cannot run the start of #246 between two migrations,
+  so 01540 refuses (`55000`, a sentence saying what to do) while a row has `key_set_at` set and `carried_at` null,
+  rather than lose the key. Starting the previous version once with OpenBao reachable moves it; then the migrations
+  run again. A key whose move committed but whose old copy a stopped start never deleted stays at the old path, as
+  nothing reads or deletes it any more.
+- **Audit:** `langsmith.changed` and `trace_destination.carried_over` stay among the actions, as entries of them stay
+  in the log.
+
+## Per-workflow tracing (#259)
+
+An administrator of a workflow chooses whether its runs' traces keep text and where they are sent, beside its
+other settings (#205).
+
+### What a workflow chooses
+
+- **Text:** `content` is `inherit` (the default: as the installation's `keep_content` and each destination's
+  `content` say) or `none` (no text, whatever the installation says). There is no `keep`: a workflow only ever
+  has less text than the installation, since an installation administrator's choice to keep none must hold.
+- **What `none` means:** the runner is started with `trace_content` false, Rotor stores none of the run's text,
+  and no destination gets any, spans joining the run through the OTLP endpoint included. Only then is the choice
+  safe to rely on for a sensitive workflow.
+- **Destinations:** `destinations` is null (the default: every enabled destination, ones added later included)
+  or a list of destination ids (those of them that are enabled; an empty list is none). A list is chosen so a
+  sensitive workflow does not start sending to a destination added later without its administrators knowing.
+  A destination removed drops out of every list.
+- **Sampling:** `sampleRatio`, 0 to 1, default 1, is the share of the workflow's runs sent to its destinations,
+  decided by the trace id as the collector's ratio is, so a trace is sent whole or not at all, to each chosen
+  destination alike. Rotor's own store keeps every run's trace and `ROTOR_TRACE_SAMPLE_RATIO` still bounds the
+  collector alone, since the ratio is about what leaves Rotor for a shared tool.
+
+### Storage and who changes it
+
+- Migration 01550 makes `workflow_tracing`: `workflow_id` (the key, cascading with the workflow), `content`
+  (`inherit` or `none`), `destinations uuid[]` (null for all, at most `MaxTraceDestinations`), `sample_ratio`
+  (`double precision`, 0 to 1), `changed_by`, `updated_at`. A table of its own rather than columns on
+  `workflow`, since `workflow_change_guard` tells columns apart by who may change them and this takes its own
+  policies; a workflow without a row has the defaults, so no workflow needs filling in.
+- Policies: whoever reads the workflow (`workflow.read`) reads its row, whoever administers it
+  (`workflow.administer`) adds, changes and removes it, an installation administrator through the
+  installation-wide grant; `rotor_admin` reads every row for the api's runs and the OTLP endpoint.
+- `destinations` is not a foreign key, since Postgres has none for an array: the api refuses an id that is
+  not a destination, and a removed one is left out wherever the list is read.
+
+### Endpoints
+
+| Method and path | Who | What |
+|---|---|---|
+| `GET /workflows/{workflowID}/settings/tracing` | whoever reads the workflow | `{tracing, installation: {keepContent}, destinations: [{id, name, enabled, content}], canChange}` |
+| `PUT /workflows/{workflowID}/settings/tracing` | its administrators, session | `{content, destinations, sampleRatio}` changes it; answers as `GET` |
+
+- A route of its own rather than the workflow's `PUT`, which saves a version: the choice is the
+  installation's handling of runs, not part of the spec, and a version restored must not undo it.
+- `tracing` is `{content, destinations, sampleRatio, changedBy, updatedAt}`, `changedBy` and `updatedAt` null
+  while the workflow has the defaults. `installation.keepContent` and each destination's `content` say what
+  `inherit` means for the person choosing, who need not be an installation administrator; a destination is
+  answered by name alone, as a run's trace links already show it, never its endpoint or headers.
+- A workflow it does not read is 404; one it reads but does not administer is 403 `forbidden`. A `content`
+  other than the two, a ratio outside 0 to 1, or a destination id that is none, twice, or past
+  `MaxTraceDestinations` is 422 `validation_failed` naming the field.
+- A change is audited as `workflow.tracing_changed` on the workflow, naming the destinations rather than their ids.
+
+### Applying it
+
+- **The runner's spans:** the stream reads the workflow's row with the run, once per runner stream as
+  `rotor_admin` (`loadRun`), so no batch reads the database; a change reaches runs started afterwards, and a
+  running run at its runner's next stream. `StartRun.trace_content` is `content` not `none` and (`keep_content`,
+  or some destination the run's trace is sent to, chosen, enabled and sampled, takes text).
+- **Rotor's store** keeps no text of a `none` run's spans, as with `keep_content` off.
+- **The forwarder** takes the run's choice with each batch and sends to the destinations it read within
+  `TraceSettingTTL` that the choice names and the ratio keeps; the collector is untouched.
+- **Spans joining a run** through the OTLP endpoint: the choices of the runs a request joins are read once per
+  request beside finding the runs, and applied as to the runner's.
+
+### As built (#259)
+
+- **Where:** `tracedest/workflow.go` (reading, checking and changing the choice), the routes in
+  `httpapi/workflow_tracing_handlers.go`, and `observability.RunTracing` (`choice.go`), the choice as a run carries it
+  to the runner protocol, the store and the forwarder; its `SendsTo` decides by the trace id with the SDK's
+  `TraceIDRatioBased`, as the collector's ratio does. A Go test holds the migration's cap to `MaxTraceDestinations`.
+- **Who:** the api asks `actor_can('workflow.administer', id)` of a workflow the caller reads, so an administrator of
+  Rotor needs no grant on it; an editor or runner reads it with `canChange` false. Like the destinations, the routes
+  answer 503 `traces_unavailable` where Rotor has no OpenBao, since nothing would run there either. A destination id
+  that is not a UUID is refused as one that is none.
+- **Spans joining a run:** the choices are read as `rotor_admin` in one query for the workflows of the runs a request
+  joins, since a run's starter may no longer read its workflow.
+- **Web:** the workflow's settings gain Tracing (`/workflows/$workflowID/settings/tracing`,
+  `features/workflows/settings/TracingSection.tsx`), with the words in `web/src/strings_workflow_tracing.ts`; it says
+  whether the installation keeps text and which destinations take it, and is read only without `canChange`.
+## Ingest keys (#258)
+
+A service sends spans with a long-lived key in place of a token it refreshes:
+`OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer%20rotor_ik_...`. Each decision, with its reason:
+
+- **Who manages keys:** administrators alone, in the browser (`admin`, behind `requireSession`), as the issue says; a
+  member does not make one even for themselves, since a secret that outlives every session is the installation's to
+  answer for, and a member already sends with an assistant's or the realm's token.
+- **Which account a key sends as:** one account Rotor has let in and not switched off, named by its email when the key is
+  made and fixed for the key's life; the administrator's own when none is named. People and service accounts are the
+  same rows to Rotor, and a service account's id is known to nobody, while its email is.
+- **Spans say a key sent them:** `rotor.ingest_key` holds the key's id beside `rotor.sender`, so a reader tells a key's
+  spans from the account's own, and an administrator who made a key for a person cannot pass its spans off as theirs.
+- **The format:** `rotor_ik_` and 32 random bytes in unpadded base64url, 52 characters, shown once in the answer that
+  makes or rotates it (`Cache-Control: no-store`). The prefix tells it from Rotor's other tokens before any lookup and
+  lets redaction find it (`api/secret-patterns.json`).
+- **Storage:** the SHA-256 of the whole key (`auth.Hash`), unique, and its last 4 characters as a `hint` to tell keys
+  apart; never the key. 256 random bits need no slow or keyed hash, as sessions and assistants' tokens show.
+- **Lookup:** by the hash, as `rotor_admin`, since nobody is signed in yet; a value of another shape is refused
+  without a query.
+- **Expiry:** optional `expiresAt`, in the future when given; none lasts until revoked. A key is long-lived on purpose,
+  so expiry is the administrator's choice, not a default.
+- **Naming:** a name of 1 to 64 characters, unique case aside, as destinations are, so a list and the audit log tell
+  keys apart.
+- **Rotation:** `POST /settings/ingest-keys/{keyID}/rotate` answers a new secret for the same key, name, account and
+  expiry, and the old secret is refused at once, for a key that leaked. For a change without a gap, make a second key
+  and revoke the first once the service sends with it. An expired key is not rotated (409 `ingest_key_expired`), since
+  its new secret would not send.
+- **Revocation:** `DELETE /settings/ingest-keys/{keyID}` deletes the row, so the key is refused from the next request;
+  the audit log keeps who made, rotated and revoked it. A revoked key has no use a kept row would serve.
+- **`last_used_at`:** written at most once a minute per key (`IngestKeyLastUsedEvery`), as an assistant's grant is,
+  so a busy exporter writes once a minute at most.
+- **Limits:** `MaxIngestKeys` = 50 per installation, held by a trigger whoever inserts, since each is a standing
+  credential to review; `MaxIngestKeyNameChars` = 64. A key's account shares its rates
+  (`OTLPRequestsPerMinute`, `OTLPSpansPerMinute`) with that account's other tokens, since rates are per sender.
+- **Only the OTLP endpoint:** a value with the prefix at any other route, MCP and the calls it makes included, answers
+  401 `invalid_token` saying where a key is taken, before any lookup; a unit test walks every row of the table.
+- **At the endpoint:** an unknown, revoked or rotated-away key, and an expired one, answer 401 `invalid_token`; a key
+  whose account was switched off 403 `account_switched_off`, and one whose account is no longer let in 403
+  `forbidden`. A grant's read-only rule does not apply, since a key does nothing but send.
+- **Where its spans go:** as the account's, judged as the account by row level security (#243): they join a run the
+  account may read, and its own trace otherwise.
+- **Never seen again:** the key appears in no list, log line, audit detail or later answer; requests are logged by
+  path, and the audit log names the key by name and id.
+
+### Table and routes
+
+`ingest_key` (migration 01560): `id`, `name`, `account_id` (the account it sends as; deleted with it), `secret_hash`,
+`hint`, `expires_at`, `last_used_at`, `created_by`, `created_at`, `rotated_at`. Row level security holds it to
+administrators for `rotor_app`, every statement alike; `rotor_admin` reads it to let a key in and writes `last_used_at`.
+
+| Route | Answer |
+|---|---|
+| `GET /settings/ingest-keys` | 200 `{keys: [IngestKey]}`, by name |
+| `POST /settings/ingest-keys` `{name, accountEmail?, expiresAt?}` | 201 `{key: IngestKey, secret}`; 409 `ingest_key_taken`, 422 `ingest_keys_full` or `validation_failed` |
+| `POST /settings/ingest-keys/{keyID}/rotate` | 200 `{key, secret}`; 404, 409 `ingest_key_expired` |
+| `DELETE /settings/ingest-keys/{keyID}` | 204; 404 |
+
+`IngestKey` is `{id, name, account: {id, name, email}, hint, expiresAt, expired, lastUsedAt, createdBy, createdAt,
+rotatedAt}`. The web shows the keys under Admin, Traces, beside the destinations.
+
+### As built (#258)
+
+- **Migration 01560**, not 01550, which #259's open branch holds for `workflow_tracing`.
+- **Package** `internal/ingestkeys`: `key.go` makes, shapes and hashes a key, `store.go` keeps them; the routes are
+  `operations_ingest_keys.go` and `ingest_keys_handlers.go`. The session middleware hands any bearer value with the
+  prefix to `ingest_key_auth.go` before Rotor's or the realm's tokens are tried, so a key never reaches either check.
+  The answer that holds a key carries `Cache-Control: no-store`.
+- **The route table** takes no new flag: the OTLP row's `tokensOnly` also takes a key, and the OpenAPI document lists
+  an `ingestKey` scheme first among its three.
+- **Names** of a key's account and maker are read as `rotor_admin` once the key rows were read as the administrator,
+  since `app_user`'s policy shows `rotor_app` only the person it acts for.
+- **The account** must be let in (`standing` set) and switched on when the key is made; one let in no longer or
+  switched off later is refused at the endpoint (403), and the key comes back when it is let in or switched on again.
+  An unknown email answers 422 `validation_failed` on `accountEmail`.
+- **`rotor.ingest_key`** is set by Rotor, as `rotor.sender` is; a sender's own `rotor.*` keys are dropped as before.
+- **Web:** `IngestKeysSection` and `IngestKeyForm` under `web/src/features/settings/`, words in
+  `web/src/strings_ingest_keys.ts` as `s.traceDestinations.ingestKeys`. A key is shown once in a read-only field with
+  a Copy button and the `OTEL_EXPORTER_OTLP_HEADERS` line, until the administrator says it is saved; an expired key
+  offers no rotation.
+
+## Searching spans (#261)
+
+A person searches the spans they may read across runs and their own traces, to find every run where a tool or a
+model failed the same way. The same row level security as a run's trace decides (#242): the search reads as
+`rotor_app`, so a span of a run the person may not read is never found, counted or named.
+
+### The query
+
+`GET /spans`, a route of its own rather than under `/traces`, whose ids are an own trace's, and read by anyone signed
+in. Every filter narrows; none is needed.
+
+| Parameter | Matches |
+|---|---|
+| `name` | the span's name holds it, whatever the case |
+| `kind` | the OpenInference kind, exactly (`TOOL`, `LLM`, ...), whatever the case |
+| `status` | `unset`, `ok` or `error`; `error` finds failed spans |
+| `model` | the model a span called (`llm.model_name`, else `gen_ai.request.model`) holds it, whatever the case |
+| `service` | the span's service, exactly |
+| `workflow` | spans of that workflow's runs, by its id; never an own trace |
+| `attrKey`, `attrValue` | one attribute without text equal to the value; both or neither |
+| `since`, `until` | RFC 3339; the span started at or after `since` and before `until` |
+| `limit`, `cursor` | a page: 50 by default, at most 200; `cursor` is the `next` of the page before |
+
+- **The window is always bounded:** `until` defaults to now and `since` to `SpanSearchDefaultDays` (7) before it;
+  a `since` more than `SpanSearchMaxDays` (30) back, or an `until` not after it, is 422 `validation_failed` naming
+  the field. A month is what a person debugging reaches back for, and bounds the index range a search may walk.
+- **Text is never searched:** a key `api/trace-content.json` calls text (`input.value`, messages, anything it does
+  not list as plain) is 422 under `attrKey`, since its value is sealed (#242) and searching it would need it open.
+  A name or a status message is plain and is searched and answered.
+- A filter longer than `MaxSpanNameChars` (a value than `MaxSpanAttrChars`), a kind or status that is none, or a
+  workflow that is not a UUID is 422 naming the field; a cursor no page answered is 400.
+
+```json
+{"spans": [{
+  "spanId": "00f067aa0ba902b7", "name": "mcp whoami", "kind": "TOOL", "service": "rotor-runner", "source": "runner",
+  "status": "error", "statusMessage": "The tool refused the call.", "startedAt": "...", "durationMs": 250,
+  "model": "", "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+  "runId": "0193...", "workflow": {"id": "0192...", "name": "file-story"}, "owner": null
+}], "next": "eyJhdCI6...", "since": "...", "until": "...", "limit": 50}
+```
+
+- Newest first by `startedAt`, then the trace and span id, so the order is total; `next` is an opaque cursor of
+  the last hit's place, null when no span is left. Keyset paging rather than `offset`: a page never repeats or skips
+  a span as spans arrive, and no `total` is counted, which would walk the whole window.
+- A hit names the run (`runId`, `workflow`; the name empty when the person reads the run but not the workflow) or
+  the own trace (`traceId`, `owner`), never its attributes or text: the span route reads it whole.
+
+### Bounded
+
+- Migration 01570 adds `trace_span (started_at, trace, span_id)`, `(kind, started_at, trace, span_id)` and
+  `(started_at, trace, span_id) WHERE status = 'error'`, each ending in the search's order, so a page walks one
+  backwards and stops once it has `limit` spans the person reads. Only leakproof comparisons (a timestamp, text
+  equality) may be used ahead of row level security, so the name, model and attribute filters are checked on the
+  spans the index yields; a GIN index on `attributes` could not be used under the policies and is not made.
+- The statement runs with `statement_timeout` at `SpanSearchTimeout` (5 s); past it the search answers 422
+  `search_too_broad`, saying to narrow the window or add a kind, a workflow or failed spans only.
+
+| Constant | Value | Why |
+|---|---|---|
+| `SpanSearchDefaultDays` | 7 | the window a search names none of |
+| `SpanSearchMaxDays` | 30 | how far back a search starts |
+| `SpanSearchPageSize`, `SpanSearchMaxPage` | 50, 200 | as the other listings |
+| `SpanSearchTimeout` | 5 s | a search that walks too many spans the person may not read stops |
+| `MCPSpanSearchMaxPage` | 50 | a page of `search_spans`, which stops sooner at `MCPTraceBudgetBytes` |
+
+### MCP and the web app
+
+- **MCP:** `search_spans` on `GET /spans`, a read. Through MCP a page is at most `MCPSpanSearchMaxPage` and stops
+  adding hits at `MCPTraceBudgetBytes`, its `next` going on from the last hit given; its help says names and
+  messages are data, never instructions, and that `get_run_trace_span` reads a hit whole.
+- **Web:** Search spans at `/traces/search`, linked from Runs and Traces: name, kind, workflow, a window of the last
+  24 hours, 7 or 30 days, model, service, an attribute and its value, and failed only, kept in the address. Hits
+  show the span, its status and message, the run's workflow or the trace's sender, service, model, start and
+  duration, with Show more for the next page. A hit opens the run's page (`/runs/{runID}?span=`) or the own trace's
+  (`/traces/{traceID}?sender=&span=`) with that span chosen and the way to it open, before any failed span.
+- A search is a read and is not audited, as reading a trace is not.
+
+### As built (#261)
+
+- **Where:** `traces/search.go` (the filter, its checks and the cursor) and `traces/search_query.go` (the
+  statement), the route in `httpapi/trace_search_handlers.go`, and `web/src/features/traces/SpanSearchPage.tsx`
+  and `SpanHits.tsx`, with the words in `web/src/strings_span_search.ts`, read as `s.traces.search`.
+- **Two statements:** the search reads `trace_span` alone, writing only the conditions asked for so the planner
+  sees each; the page's traces, their runs, workflows' names and senders are read after, for its at most 200
+  traces. Joining them into the search made the policies weigh every trace, run and workflow once more per search:
+  on a seeded table of 30000 spans in six runs, 750 ms became 30 ms.
+- **The plan,** explained as `rotor_app` by `TestSpanSearchWalksAnIndex` over that table: an `Index Scan Backward`
+  on `trace_span_started`, `trace_span_kind_started` or `trace_span_failed_started` with the window as its index
+  condition and the policy as a filter against the set of traces the person reads, computed once per search
+  (one pass over `trace`, not over spans), then `Limit`. With `workflow`, the planner reads the workflow's runs by
+  `run_workflow_idx`, their traces, and their spans by the primary key, when that is fewer.
+- A search's `since` is answered as it was read, so the web app fixes the window when it asks for the first page
+  and every later page reads the same one; a 30-day window starts a minute short of 30 days, so a browser clock a
+  little ahead of the server's is not refused.
+
+## OTLP over gRPC, span links, metrics and logs (#262)
+
+Any OpenTelemetry SDK sends to Rotor in the protocol it defaults to: OTLP over gRPC beside OTLP/HTTP, held to the
+same tokens, limits and store; the links a span carries are kept and shown; metrics and logs are refused, saying so.
+Each decision, with its reason:
+
+### gRPC
+
+- **The service:** `opentelemetry.proto.collector.trace.v1.TraceService/Export` from `go.opentelemetry.io/proto/otlp`,
+  and nothing else on that server: it is the one OTLP's trace exporters call.
+- **Its own port, served directly:** `ROTOR_OTLP_GRPC_ADDR`, `:4317` unless set, empty serving none. gRPC needs HTTP/2
+  end to end; the web's nginx passes `/api/` to the api over HTTP/1.1 and the chart's Ingress goes to the web, so
+  neither carries it, and sharing the HTTP port through h2c or cmux would put a sniffer before every browser request
+  for a protocol nothing in front could pass anyway. 4317 is OTLP's own gRPC port, so an SDK's default is right.
+- **Compose:** published on 127.0.0.1 as the checkout's twentieth port (`OTLP_GRPC_PORT`, 8319 by default), as every
+  port of the stack is.
+- **Helm:** `api.otlpGrpcPort` (4317) on the api's container and Service, as `otlp-grpc`, and an optional second
+  Ingress `ingress.otlpGrpc` (off; its own host, TLS secret and annotations, `backend-protocol: GRPC` for
+  ingress-nginx), since ingress-nginx sets the backend's protocol per Ingress and the first one speaks HTTP to the web.
+- **TLS:** none in the api, as its HTTP listener has none: TLS ends at the Ingress or the operator's load balancer.
+  The runner port's certificate comes from OpenBao's PKI, which sandboxes trust and no SDK does. The documentation
+  says never to publish the port without TLS in front, since bearer tokens ride on it.
+- **Who:** `authorization: Bearer <token>` in the call's metadata, with the same three kinds as #243 and #258 (an
+  ingest key, a Rotor access token whose grant may act, a realm's token of any account Rotor lets in), checked by the
+  code the HTTP endpoint checks them with. No token, or an unknown or expired one, is `UNAUTHENTICATED`; a grant to
+  read, an account switched off or not let in, `PERMISSION_DENIED`; a realm Rotor cannot reach, or no store,
+  `UNAVAILABLE`, which exporters retry. Each says the HTTP endpoint's sentence.
+- **The order of the checks** is HTTP's: the token, before the message is read; the requests a minute; the message's
+  size and then its body; the spans a minute; the spans one by one. A sender's rates are one window across both
+  transports, since both count in one `Limiter`.
+- **Limits as codes:** over `OTLPRequestsPerMinute` or `OTLPSpansPerMinute`, `RESOURCE_EXHAUSTED` with a
+  `google.rpc.RetryInfo` to the window's end, since OTLP's exporters retry that code only with one; past
+  `MaxOTLPBodyBytes` as sent or `MaxOTLPDecodedBytes` unpacked, `RESOURCE_EXHAUSTED` without it, which they do not
+  retry; a message that is no `ExportTraceServiceRequest`, `INVALID_ARGUMENT`.
+- **Partial success** as HTTP's: the `ExportTraceServiceResponse` carries `partial_success` with `rejected_spans` and
+  the same sentence; spans past `MaxOTLPSpansPerRequest` are among them.
+- **Compression:** gzip or none, as OTLP's exporters offer; another answers `UNIMPLEMENTED`, as grpc-go does.
+- **Connections:** at most `OTLPGRPCMaxStreams` exports at once on one connection, and a connection lives
+  `OTLPGRPCConnectionAge` and then `OTLPGRPCConnectionGrace` to finish, so a sender that stalls mid-message holds
+  nothing for long; exporters dial again on their own.
+
+### Span links
+
+- **Kept:** a span's links from either transport, the first `MaxSpanLinks` with a valid trace id and span id; one
+  without them is dropped and its span kept, since a link is context, not the span. Each keeps its trace id, span id
+  and up to `MaxSpanLinkAttributes` attributes without text, redacted and cut as an event's are; its text attributes,
+  `trace_state` and flags are not kept, since none of them says where the link leads.
+- **Where:** `trace_span.links`, a jsonb array of `{traceId, spanId, attributes}` (migration 01580), at most
+  `MaxSpanLinks` long, whoever inserts. A column rather than events: an event happened at a time and the page lists it
+  as such, while a link has no time. The cap's trigger counts its bytes into the span's and the trace's.
+- **`MaxSpanBytes`:** links count; a span past it loses its text, then its events, then its links, then attributes
+  without text, so the span itself stays.
+- **Sent on:** a run's spans go to the collector and the destinations with their links.
+- **The runner's spans** carry none: `RunnerSpan` has no links and OpenInference's LangChain spans make none, so the
+  runner protocol stays as it is until one does.
+- **In the API** (#244): every span of the tree and of the span routes gains `links`, each
+  `{traceId, spanId, attributes, runId, sender}`. `runId` is the run whose trace has that trace id when the reader may
+  read the run's events; else `sender` is the account whose own trace of that id the reader may read, the reader's
+  own first. Both are null otherwise, for a trace id Rotor holds no trace of, a run the reader may not read and
+  another sender's own trace alike, so a link never tells whether a trace exists. Row level security decides, in the
+  transaction that reads the spans.
+- **Through MCP:** `get_run_trace` leaves links out, since the shortened tree says where the run went and links point
+  elsewhere; `get_run_trace_span` keeps them, their attributes cut as its other values are.
+- **On the page** (#245): the details pane lists a span's links under Links. One the reader may read opens the run's
+  page or the own trace's page (`/traces/{traceId}?sender=`); any other shows its trace and span ids as text and says
+  the reader may not read that trace or Rotor does not hold it. Words in `web/src/strings_telemetry.ts`.
+
+### Metrics and logs
+
+- **Refused for now.** Rotor has no storage, retention, access rules or page for metrics or logs, and the operator's
+  collector takes them already. Passing them on would make Rotor a collector that forwards a sender's data under the
+  operator's credentials with no rule of who may read it, so it is neither trivial nor safe.
+- **Over HTTP:** `POST /otlp/v1/metrics` and `POST /otlp/v1/logs` answer 501 with a `google.rpc.Status`
+  (`UNIMPLEMENTED`) in the request's encoding, JSON when it names none OTLP knows, saying "Rotor takes traces alone
+  over OTLP. Send metrics and logs to your own OpenTelemetry collector, or set OTEL_METRICS_EXPORTER=none and
+  OTEL_LOGS_EXPORTER=none." The answer is the same for everyone, so no credential is looked at and no body read; OTLP's
+  exporters do not retry a 501.
+- **Over gRPC:** `MetricsService` and `LogsService` are not registered; a call to any method but
+  `TraceService/Export` answers `UNIMPLEMENTED` with the same sentence.
+- **Routes:** both rows join the table without `tokensOnly`, and the walk of every row that refuses an ingest key
+  elsewhere expects their 501.
+
+### As built (#262)
+
+- **Migration 01580**, as agreed, since #261's open branch holds 01570. It adds `trace_span.links` and redefines
+  `trace_span_cap` with `CREATE OR REPLACE`; going down restores 01500's. `TestTheMigrationsNumbersAreTheConstants`
+  reads the trigger's numbers and `MaxSpanLinks` from 01580 too.
+- **One core, two transports:** `admitOTLP` (a store, the requests a minute) and `takeOTLP` (the spans a minute, the
+  checks, the store) in `otlp_handlers.go` serve the HTTP handler and `otlp_grpc_intake.go`, whose `OTLPSender`,
+  `OTLPAdmit` and `OTLPTake` the gRPC package asks through its `Intake`. The ingest key's lookup (`ingestKeySender`)
+  and the realm token's refusals (`realmRefusal`) were drawn out of the middleware unchanged, so HTTP answers as
+  before. Refusals cross as `otlp.Refusal` (status and sentence) and `otlp.Busy` (the wait); `otlp.CodeOf` maps a
+  status to its code for both.
+- **`internal/otlpgrpc`:** `Export` is registered as a stream of one message each way, the same call on the wire, so
+  the token is checked before the message is read. grpc-go writes its own status when reading a message fails, so the
+  server's codec hands the message over as bytes and the service parses it, answering `INVALID_ARGUMENT`; the size as
+  sent comes from a stats handler. Past `MaxOTLPDecodedBytes` unpacked grpc-go answers `RESOURCE_EXHAUSTED` itself,
+  in its own words, before the service sees the call.
+- **Codes:** a realm Rotor has no issuer for is `UNAUTHENTICATED`, as HTTP's 401; a fault of Rotor's is `INTERNAL`
+  and logged. Keepalive pings are held to `RunnerKeepaliveMin`, as on the runner port.
+- **Any other method** answers `UNIMPLEMENTED` with the metrics and logs sentence through grpc-go's unknown-service
+  handler, before any credential is read.
+- **Over HTTP**, the session middleware passes the two refused paths through without reading a credential, so a key or
+  a token there is neither looked up nor refused in place of the sentence.
+- **Links:** the decoder keeps the first `MaxSpanLinks` with whole ids and `Hold` again, each link's attributes taken
+  in key order. Keys `api/trace-content.json` does not list as plain count as text, so a link's `messaging.*` keys are
+  not kept. `fit` drops links from the last. The runner's insert writes none, leaving the column's `[]`.
+- **Where a link leads** is one query as the reader per read, by the linked trace ids: a run's trace first, then the
+  reader's own, then another an administrator reads.
+- **Web:** `features/runs/trace/SpanLinks.tsx` in `SpanDetails`, words as `s.trace.details.links`. A link opens the
+  run's page or the own trace's page; choosing the span there waits for #261's `span` search parameter.
+- **Ports:** compose publishes the api's 4317 as `OTLP_GRPC_PORT`, the checkout's port 19, and `.cache/stack.env`
+  names it; the integration suite dials `api:4317` (`ROTOR_TEST_OTLP_GRPC_ADDR`) and the runner's stack tests
+  `http://api:4317`. The chart's Service names the port `otlp-grpc` with `appProtocol: grpc`.
+- **Pins:** `go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc` v1.47.0 (2026-10-02), for the
+  integration tests, with `otlptrace` made direct; the runner's dev group gains
+  `opentelemetry-exporter-otlp-proto-grpc` 1.45.1 (2026-10-06), which brings no package the lock lacked.
+
 ## Audit
 
 | Action | Detail | Issue |
@@ -607,8 +1072,13 @@ and write it, `rotor_admin` for the api's sending; a trigger refuses a row past
 | `trace_destination.changed` | `{name, endpoint, headers: set\|kept\|removed, enabled, content, acknowledged}` | #246 |
 | `trace_destination.removed` | `{name}` | #246 |
 | `trace_destination.carried_over` | `{name, enabled, content}`, by the api's start | #246 |
+| `workflow.tracing_changed` | `{content, destinations: [names] or null, sampleRatio}` | #259 |
 
-Never a header's value. Spans taken, cut or swept are not audited: they are data, and
+| `ingest_key.created` | `{name, account, expiresAt}`, the account by email | #258 |
+| `ingest_key.rotated` | `{name, account}` | #258 |
+| `ingest_key.revoked` | `{name, account}` | #258 |
+
+Never a header's value, nor an ingest key or its hash. Spans taken, cut or swept are not audited: they are data, and
 `trace.dropped` counts what a cap refused.
 
 ## Problems
@@ -619,6 +1089,10 @@ Never a header's value. Spans taken, cut or swept are not audited: they are data
 | `trace_destination_taken` | 409 | another destination has the name | #246 |
 | `trace_destinations_full` | 422 | an add past `MaxTraceDestinations` | #246 |
 | `read_only` | 403 | the OTLP endpoint with a grant to read | #243 |
+| `ingest_key_taken` | 409 | another ingest key has the name | #258 |
+| `ingest_keys_full` | 422 | a key past `MaxIngestKeys` | #258 |
+| `ingest_key_expired` | 409 | rotating a key past its `expiresAt` | #258 |
+| `search_too_broad` | 422 | a span search past `SpanSearchTimeout` | #261 |
 
 ## The order the issues land in
 
@@ -652,11 +1126,7 @@ Never a header's value. Spans taken, cut or swept are not audited: they are data
 
 ## What is left for later
 
-- Long-lived ingest keys for the endpoint, in place of tokens an app refreshes.
 - Sibling tools sending their spans, and trace context in Exciter, Armature and Stator.
-- Text kept per workflow rather than per installation, and per-workflow sampling for destinations.
-- A page for senders' own traces in the web app, and own traces as MCP tools.
-- Span links, OTLP metrics and logs, and gRPC OTLP.
-- Searching spans across runs, and evaluations or scores on spans.
-- Dropping `langsmith_setting`, `ROTOR_LANGSMITH_ENDPOINT` and the `/settings/langsmith` routes, one
-  minor release after #246.
+- Own traces as MCP tools.
+- OTLP metrics and logs, which #262 refuses for now; span links on the runner's spans.
+- Evaluations or scores on spans.

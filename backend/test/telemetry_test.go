@@ -200,9 +200,12 @@ func missingSpans(seen map[string]bool, want []string) []string {
 	return missing
 }
 
+// LangSmith is a destination like any other since #246, sent to with its key and project as headers; the routes of the
+// LangSmith setting went with it (#256).
 func TestLangSmithGetsARunsSpansOnlyOnceAnAdministratorAllowsIt(t *testing.T) {
 	key, product := "llm-key-"+uuid.NewString(), "smith-"+uuid.NewString()[:8]
-	script := []map[string]any{{"toolCalls": []map[string]any{{"name": "whoami"}}}, {"content": "You are bob."}}
+	script := []map[string]any{{"toolCalls": []map[string]any{{"name": "whoami"}}}, {"content": "You are bob."},
+		{"toolCalls": []map[string]any{{"name": "whoami"}}}, {"content": "You are bob."}}
 	stub := newToolStub(t, map[string]any{"product": product, "llmKey": key, "llmScript": script})
 	bob, _, _ := connected(t, stub)
 	alice := newBrowser(t)
@@ -210,80 +213,44 @@ func TestLangSmithGetsARunsSpansOnlyOnceAnAdministratorAllowsIt(t *testing.T) {
 	provider := addProvider(t, alice, stub, key)
 	workflowID := createWorkflow(t, bob, agentWorkflow(product, provider["name"].(string)))
 	smithKey := "lsv2_pt_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	t.Cleanup(func() { alice.api(http.MethodDelete, "/settings/langsmith/key", nil) })
+	sink, endpoint := newSink(t, stub)
 
-	// Off by default: a run sends LangSmith nothing.
-	stub.controlCall(http.MethodDelete, "/control/langsmith", nil, http.StatusNoContent)
-	if status, setting := alice.api(http.MethodGet, "/settings/langsmith", nil); status != http.StatusOK || setting["enabled"] != false {
-		t.Fatalf("the setting reads %d %v", status, setting)
+	for _, route := range []struct{ method, path string }{{http.MethodGet, "/settings/langsmith"},
+		{http.MethodPut, "/settings/langsmith"}, {http.MethodDelete, "/settings/langsmith/key"}} {
+		if status, answer := alice.api(route.method, route.path, map[string]any{"enabled": false}); status != http.StatusNotFound {
+			t.Errorf("%s %s = %d %v, want 404 since #256", route.method, route.path, status, answer)
+		}
 	}
-	tracedRun(t, bob, workflowID)
-	if calls := langSmithCalls(t, stub); len(calls) != 0 {
+
+	// Off, as the LangSmith preset adds it: a run sends LangSmith nothing.
+	name := "LangSmith " + sink
+	headers := map[string]string{"x-api-key": smithKey, "Langsmith-Project": "rotor-test"}
+	d := addDestination(t, alice, map[string]any{"name": name, "endpoint": endpoint, "headers": headers})
+	id := d["id"].(string)
+	startTraced(t, bob, workflowID)
+	if calls := sinkCalls(t, stub, sink); len(calls) != 0 {
 		t.Fatalf("LangSmith got %d exports while it was off", len(calls))
 	}
 
-	// Turning it on needs a key and the acknowledgement that run data leaves the installation.
-	status, answer := alice.api(http.MethodPut, "/settings/langsmith", map[string]any{"enabled": true, "project": "rotor-test", "key": smithKey})
-	if status != http.StatusUnprocessableEntity || errorCode(answer) != "data_leaves_unacknowledged" {
-		t.Fatalf("turning it on unacknowledged = %d %v", status, answer)
-	}
-	if status, _ := bob.api(http.MethodPut, "/settings/langsmith", map[string]any{"enabled": false}); status != http.StatusForbidden {
-		t.Errorf("a member changing the setting = %d, want 403", status)
-	}
-	status, answer = alice.api(http.MethodPut, "/settings/langsmith",
-		map[string]any{"enabled": true, "project": "rotor-test", "key": smithKey, "acknowledgeDataLeaves": true})
-	if status != http.StatusOK || answer["enabled"] != true || answer["keySet"] != true || strings.Contains(stringify(answer), smithKey) {
+	// On with text, once acknowledged: the next run's spans reach it with their prompts and its headers.
+	status, answer := alice.api(http.MethodPut, "/settings/trace-destinations/"+id, map[string]any{"name": name,
+		"endpoint": endpoint, "enabled": true, "content": true, "acknowledgeContentLeaves": true})
+	if status != http.StatusOK || strings.Contains(stringify(answer), smithKey) {
 		t.Fatalf("turning it on = %d %v", status, answer)
 	}
-
-	trace := tracedRun(t, bob, workflowID)
-	var body []byte
-	deadline := time.Now().Add(traceWait)
-	for time.Now().Before(deadline) && !bytes.Contains(body, []byte("node ask")) {
-		time.Sleep(time.Second)
-		body = nil
-		for _, c := range langSmithCalls(t, stub) {
-			if c.APIKey != smithKey || c.Project != "rotor-test" {
-				t.Fatalf("an export reached LangSmith with key %q and project %q", c.APIKey, c.Project)
-			}
-			body = append(body, c.Body...)
+	_, trace := startTraced(t, bob, workflowID)
+	body, calls := sinkBody(t, stub, sink, modelPromptKey)
+	for _, c := range calls {
+		if c.Headers["x-api-key"] != smithKey || c.Headers["langsmith-project"] != "rotor-test" {
+			t.Fatalf("an export reached LangSmith with headers %v", c.Headers)
 		}
 	}
-	if !bytes.Contains(body, []byte("node ask")) || !bytes.Contains(body, []byte("llm.input_messages.0.message.content")) {
-		t.Fatalf("LangSmith did not get the run's spans with their prompts for trace %s", trace)
+	if !bytes.Contains(body, []byte("node ask")) {
+		t.Fatalf("LangSmith did not get the run's spans for trace %s", trace)
 	}
 	for _, secret := range []string{key, "stub_oat_", smithKey} {
 		if bytes.Contains(body, []byte(secret)) {
 			t.Errorf("what LangSmith got holds %q", secret)
 		}
 	}
-
-	// Forgetting the key turns it off again; the audit log says who changed it, never the key.
-	if status, answer := alice.api(http.MethodDelete, "/settings/langsmith/key", nil); status != http.StatusOK || answer["enabled"] != false || answer["keySet"] != false {
-		t.Errorf("forgetting the key = %d %v", status, answer)
-	}
-	h := newHarness(t)
-	var entries string
-	if err := h.super.QueryRow(t.Context(), `SELECT coalesce(string_agg(data::text, ' '), '') FROM audit_log WHERE action = 'langsmith.changed'`).Scan(&entries); err != nil ||
-		!strings.Contains(entries, `"key": "set"`) || strings.Contains(entries, smithKey) {
-		t.Errorf("the audit log holds %q (%v)", entries, err)
-	}
-}
-
-// langSmithCall is one export the stand-in kept.
-type langSmithCall struct {
-	APIKey  string `json:"apiKey"`
-	Project string `json:"project"`
-	Body    []byte `json:"body"`
-}
-
-func langSmithCalls(t *testing.T, stub *toolStub) []langSmithCall {
-	t.Helper()
-	answer := stub.controlCall(http.MethodGet, "/control/langsmith", nil, http.StatusOK)
-	raw, _ := json.Marshal(answer["calls"])
-	var calls []langSmithCall
-	if err := json.Unmarshal(raw, &calls); err != nil {
-		t.Fatalf("the stand-in's calls do not read: %v", err)
-	}
-	return calls
 }

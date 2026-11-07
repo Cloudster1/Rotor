@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useId, useState } from "react";
 import { ApiError } from "@/api/client";
-import { addTool, checkTool, lacks, removeTool, type Tool, toolName, toolsQuery, toolsQueryKey } from "@/api/tools";
+import { connectionsQueryKey } from "@/api/connections";
+import { addTool, checkTool, lacks, removeTool, sharedNames, type Tool, toolName, toolsQuery, toolsQueryKey } from "@/api/tools";
 import { CAPABILITY_WEBHOOKS, CONNECTION_CALLBACK_PATH, HOOK_PRODUCTS } from "@/config";
 import { danger, input, item, itemGrid, primary, secondary } from "@/features/settings/styles";
 import { SettingsCard } from "@/features/settings/ui";
 import { s } from "@/strings";
 import { HookPanel } from "./HookPanel";
+import { RenameTool } from "./RenameTool";
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -24,6 +26,7 @@ export function ToolsSection() {
         </p>
       )}
       {tools.data && tools.data.length === 0 && <p className="mb-4 text-sm text-ink-muted">{s.tools.none}</p>}
+      {tools.data && <SharedNames tools={tools.data} />}
       {tools.data && tools.data.length > 0 && (
         <ul className={`mb-4 ${itemGrid}`}>
           {tools.data.map((tool) => (
@@ -36,12 +39,32 @@ export function ToolsSection() {
   );
 }
 
+/** The names several tools share from before names had to differ (#267), which no binding resolves. */
+function SharedNames({ tools }: { tools: Tool[] }) {
+  const shared = sharedNames(tools);
+  if (shared.length === 0) return null;
+  return (
+    <div role="alert" className="mb-4 rounded-control border border-warning bg-warning-subtle px-3 py-2 text-sm text-ink" data-shared-names>
+      <p>{s.toolNames.shared}</p>
+      <ul className="list-disc pl-5">
+        {shared.map(([name, count]) => (
+          <li key={name} data-shared-name={name}>
+            {s.toolNames.sharedBy(name, count)}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function ToolRow({ tool }: { tool: Tool }) {
   const client = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const remove = useMutation({ mutationFn: () => removeTool(tool.id), onSuccess: () => client.invalidateQueries({ queryKey: toolsQueryKey }) });
-  const again = useMutation({ mutationFn: () => addTool({ baseURL: tool.baseURL }), onSuccess: () => client.invalidateQueries({ queryKey: toolsQueryKey }) });
-  const check = useMutation({ mutationFn: () => checkTool(tool.id), onSuccess: () => client.invalidateQueries({ queryKey: toolsQueryKey }) });
+  // Registering again and checking again change what Tool accounts shows, so both lists are read again.
+  const changed = () => Promise.all([client.invalidateQueries({ queryKey: toolsQueryKey }), client.invalidateQueries({ queryKey: connectionsQueryKey })]);
+  const again = useMutation({ mutationFn: () => addTool({ baseURL: tool.baseURL }), onSuccess: changed });
+  const check = useMutation({ mutationFn: () => checkTool(tool.id), onSuccess: changed });
   const missing = tool.missing ?? [];
   const name = toolName(tool);
   const ready = tool.status === "ready";
@@ -55,7 +78,16 @@ function ToolRow({ tool }: { tool: Tool }) {
       </div>
       <p className="break-all text-sm text-ink-muted">{tool.baseURL}</p>
       {tool.status === "awaiting_approval" && <p className="mt-1 text-sm text-ink-muted">{s.capabilities.awaiting(name)}</p>}
+      {tool.status === "needs_registration" && (
+        <p className="mt-1 text-sm text-ink-muted" data-needs-registration>
+          {s.tools.needsRegistration}
+        </p>
+      )}
       <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs">
+        <dt className="text-ink-muted">{s.toolNames.product}</dt>
+        <dd className="text-ink" data-product>
+          {tool.product}
+        </dd>
         <dt className="text-ink-muted">{s.tools.capabilities}</dt>
         <dd className="break-words text-ink">{tool.capabilities.join(", ")}</dd>
         <dt className="text-ink-muted">{s.tools.scopes}</dt>
@@ -82,6 +114,7 @@ function ToolRow({ tool }: { tool: Tool }) {
         <button type="button" className={secondary} disabled={check.isPending} onClick={() => check.mutate()} data-action="check-tool">
           {check.isPending ? s.capabilities.checking : s.capabilities.checkAgain}
         </button>
+        <RenameTool tool={tool} />
         {!confirming ? (
           <button type="button" className={secondary} onClick={() => setConfirming(true)} data-action="remove-tool">
             {s.tools.remove}
@@ -98,7 +131,10 @@ function ToolRow({ tool }: { tool: Tool }) {
           </span>
         )}
       </div>
-      {(HOOK_PRODUCTS as readonly string[]).includes(tool.name) && !lacks(tool, CAPABILITY_WEBHOOKS) && <HookPanel toolID={tool.id} name={name} />}
+      {(HOOK_PRODUCTS as readonly string[]).includes(tool.product) && !lacks(tool, CAPABILITY_WEBHOOKS) && (
+        // The webhook is added in the product, and its secret starts with the product's name, whatever Rotor calls it.
+        <HookPanel toolID={tool.id} name={toolName({ name: tool.product })} />
+      )}
       {check.isSuccess && (
         <p role="status" className="mt-2 text-sm text-success">
           {s.capabilities.checked(name)}
@@ -117,13 +153,18 @@ function AddTool() {
   const client = useQueryClient();
   const id = useId();
   const [baseURL, setBaseURL] = useState("");
+  const [name, setName] = useState("");
   const [manual, setManual] = useState(false);
   const [clientID, setClientID] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const add = useMutation({
-    mutationFn: () => addTool(manual ? { baseURL, clientID, clientSecret } : { baseURL }),
+    mutationFn: () => {
+      const named = name.trim() ? { baseURL, name: name.trim() } : { baseURL };
+      return addTool(manual ? { ...named, clientID, clientSecret } : named);
+    },
     onSuccess: () => {
       setBaseURL("");
+      setName("");
       setClientID("");
       setClientSecret("");
       return client.invalidateQueries({ queryKey: toolsQueryKey });
@@ -155,6 +196,15 @@ function AddTool() {
         />
         <p id={`${id}-url-hint`} className="text-xs text-ink-muted">
           {s.tools.add.baseURLHint}
+        </p>
+      </div>
+      <div className="flex flex-col gap-1 lg:max-w-2xl">
+        <label htmlFor={`${id}-name`} className="text-sm font-medium text-ink">
+          {s.toolNames.name}
+        </label>
+        <input id={`${id}-name`} name="name" className={input} value={name} onChange={(e) => setName(e.target.value)} aria-describedby={`${id}-name-hint`} />
+        <p id={`${id}-name-hint`} className="text-xs text-ink-muted">
+          {s.toolNames.nameHint("exciter")}
         </p>
       </div>
       <label className="flex items-center gap-2 text-sm text-ink">

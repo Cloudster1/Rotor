@@ -36,16 +36,8 @@ export const RETENTION_DEFAULT = { runDataDays: 90, maxDays: 3650, changedBy: nu
 /** Workspaces as a fresh installation has them (#136): no image allowed, no mirror, the default limits. */
 export const WORKSPACES_DEFAULT = { images: [] as { name: string; reference: string }[], packageMirror: "", maxStepTime: "1h", maxVolume: "1Gi" };
 
-/** LangSmith as a fresh installation has it: off, with no key. */
-export const LANGSMITH_OFF = {
-  enabled: false,
-  project: "rotor",
-  keySet: false,
-  keySetAt: null,
-  changedBy: null,
-  updatedAt: "2026-10-19T08:00:00Z",
-  endpoint: "https://api.smith.langchain.com/otel/v1/traces",
-};
+/** Traces as a fresh installation keeps them: 14 days, no text, set by nobody (#242). */
+export const TRACE_SETTING_DEFAULT = { retentionDays: 14, keepContent: false, changedBy: null, updatedAt: "2026-10-19T08:00:00Z" };
 
 const NOBODY = { error: { code: "unauthorized", message: "Sign in to continue." } };
 
@@ -94,12 +86,16 @@ export async function renderAt(path: string, { me = ME as Me | null, answers = {
     // The Skills page and the editor's skill picker list the skills the person reads (#223): none unless a test says so.
     "/api/v1/skills": { skills: [], total: 0, limit: 50, offset: 0 },
     "/api/v1/runs": { runs: [] },
+    // The Traces page lists the traces senders posted of no run (#257): none unless a test says so.
+    "/api/v1/traces": { traces: [], total: 0, limit: 50, offset: 0 },
     // The sidebar asks for the badge's number on every page.
     "/api/v1/approvals/count": { waitingOnMe: 0 },
     "/api/v1/approvals": { approvals: [] },
     "/api/v1/triggers": { triggers: [] },
-    // An administrator's settings show whether runs go to LangSmith (#37); off unless a test says otherwise.
-    "/api/v1/settings/langsmith": LANGSMITH_OFF,
+    // The Traces page lists the destinations (#246) and the trace setting (#242): none, and the defaults.
+    "/api/v1/settings/trace-destinations": { destinations: [] },
+    "/api/v1/settings/ingest-keys": { keys: [] },
+    "/api/v1/settings/traces": TRACE_SETTING_DEFAULT,
     "/api/v1/settings/retention": RETENTION_DEFAULT,
     "/api/v1/oauth/grants": { grants: [] },
     "/api/v1/oauth/grants/everyone": { grants: [] },

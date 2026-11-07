@@ -15,6 +15,7 @@ afterEach(() => {
 const EXCITER: Tool = {
   id: "0190a5c4-0000-7000-8000-0000000000e1",
   name: "exciter",
+  product: "exciter",
   baseURL: "https://exciter.test",
   resource: "https://exciter.test/api/v1/mcp",
   mcpURL: "https://exciter.test/api/v1/mcp",

@@ -138,7 +138,13 @@ type otlpCall struct {
 // sendSpans posts to the endpoint as an exporter would, and answers the status, the headers and the body.
 func sendSpans(t *testing.T, c otlpCall) (int, http.Header, []byte) {
 	t.Helper()
-	req, err := http.NewRequest(http.MethodPost, apiURL(t)+httpapi.APIPrefix+"/otlp/v1/traces", bytes.NewReader(c.body))
+	return sendSpansTo(t, "/otlp/v1/traces", c)
+}
+
+// sendSpansTo posts to one of OTLP's paths under the API, as an SDK posts its traces, metrics or logs.
+func sendSpansTo(t *testing.T, path string, c otlpCall) (int, http.Header, []byte) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, apiURL(t)+httpapi.APIPrefix+path, bytes.NewReader(c.body))
 	if err != nil {
 		t.Fatal(err)
 	}

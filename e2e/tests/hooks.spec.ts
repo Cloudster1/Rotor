@@ -1,9 +1,10 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { createHmac, randomUUID } from "node:crypto";
 import { createWorkflow } from "../fixtures/runs";
 import { PEOPLE } from "../fixtures/auth";
 import { expectAccessible, startInScheme, type ColourScheme } from "../fixtures/shell";
 import { toolStubURL } from "../fixtures/stack";
+import { test } from "../fixtures/tools";
 
 const SCHEMES: ColourScheme[] = ["light", "dark"];
 
@@ -28,11 +29,14 @@ function echo(name: string): string {
 }
 
 /** Adds a tool of its own at the double as alice and answers its address and id. */
-async function addTool(page: Page): Promise<{ address: string; id: string }> {
+async function addTool(page: Page, trackTool: (address: string) => void): Promise<{ address: string; id: string }> {
   const address = `${toolStubURL()}/t/e2e-${randomUUID().slice(0, 12)}`;
+  trackTool(address);
   await page.goto("/admin/tools");
   const form = page.locator("[data-add-tool]");
   await form.getByLabel("Address").fill(address);
+  // Names are unique (#267), so a tool of its own also takes a name of its own beside others' Exciters.
+  await form.getByLabel("Name", { exact: true }).fill(address.split("/t/")[1] ?? "");
   await form.locator('[data-action="add-tool"]').click();
   await expect(page.locator("[data-tools] li", { hasText: address })).toHaveAttribute("data-status", "ready");
   const tools = (await (await page.request.get("/api/v1/tools")).json()) as { tools: { id: string; baseURL: string }[] };
@@ -64,63 +68,55 @@ async function deliver(page: Page, toolID: string, secret: string, key: string):
 }
 
 for (const scheme of SCHEMES) {
-  test(`an administrator lets a tool's events in and a person starts a workflow from them, in ${scheme} @desktop`, async ({ page }) => {
-    const { address, id } = await addTool(page);
-    try {
-      await startInScheme(page, scheme);
-      await page.goto("/admin/tools");
-      const row = page.locator("[data-tools] li", { hasText: address });
-      const hook = row.locator("[data-hook]");
-      await expect(hook.locator("[data-hook-url]")).toHaveValue(new RegExp(`/api/v1/hooks/${id}$`));
-      const secret = `exciter_whs_${randomUUID().replaceAll("-", "")}`;
-      await hook.getByLabel("Webhook secret").fill(secret);
-      await hook.locator('[data-action="save-hook-secret"]').click();
-      await expect(hook).toContainText("Rotor keeps the secret in OpenBao.");
-      await expect(hook.locator("[data-hook-secret]")).toHaveAttribute("data-hook-secret", "set");
-      await expectAccessible(page);
+  test(`an administrator lets a tool's events in and a person starts a workflow from them, in ${scheme} @desktop`, async ({ page, trackTool }) => {
+    const { address, id } = await addTool(page, trackTool);
+    await startInScheme(page, scheme);
+    await page.goto("/admin/tools");
+    const row = page.locator("[data-tools] li", { hasText: address });
+    const hook = row.locator("[data-hook]");
+    await expect(hook.locator("[data-hook-url]")).toHaveValue(new RegExp(`/api/v1/hooks/${id}$`));
+    const secret = `exciter_whs_${randomUUID().replaceAll("-", "")}`;
+    await hook.getByLabel("Webhook secret").fill(secret);
+    await hook.locator('[data-action="save-hook-secret"]').click();
+    await expect(hook).toContainText("Rotor keeps the secret in OpenBao.");
+    await expect(hook.locator("[data-hook-secret]")).toHaveAttribute("data-hook-secret", "set");
+    await expectAccessible(page);
 
-      // The trigger's owner reads each event's subject as themselves, so alice connects first.
-      await page.goto("/settings/accounts");
-      const card = page.locator("li[data-connection]", { hasText: address });
-      await card.locator('[data-action="connect"]').click();
-      await page.waitForURL(`${toolStubURL()}/**`);
-      await page.locator("#username").fill(PEOPLE.alice.username);
-      await page.locator('button[data-action="allow"]').click();
-      await expect(card).toHaveAttribute("data-status", "connected");
+    // The trigger's owner reads each event's subject as themselves, so alice connects first.
+    await page.goto("/settings/accounts");
+    const card = page.locator("li[data-connection]", { hasText: address });
+    await card.locator('[data-action="connect"]').click();
+    await page.waitForURL(`${toolStubURL()}/**`);
+    await page.locator("#username").fill(PEOPLE.alice.username);
+    await page.locator('button[data-action="allow"]').click();
+    await expect(card).toHaveAttribute("data-status", "connected");
 
-      const workflowID = await createWorkflow(page, echo(`e2e-${randomUUID().slice(0, 12)}`));
-      await page.goto(`/workflows/${workflowID}/settings/triggers`);
-      const section = page.locator("[data-triggers]");
-      await section.locator('[data-action="add-trigger"]').click();
-      const form = section.locator("[data-trigger-form]");
-      await form.getByLabel("Name").fill("On new requirements");
-      await form.locator('[data-trigger-kind="event"]').check();
-      await form.locator("[data-event-tool]").selectOption(id);
-      await form.locator('[data-event-topic="requirement.created"]').check();
-      await form.locator("[data-event-projects]").fill("RTR");
-      // The event carries no status, and a missing path equals nothing, so the condition holds for it.
-      await form.locator('[data-action="add-condition"]').click();
-      await form.getByLabel("Path of condition 1").fill("payload.requirement.status");
-      await form.getByLabel("Comparison of condition 1").selectOption("notEquals");
-      await form.getByLabel("Value of condition 1").fill("archived");
-      await expectAccessible(page);
-      await form.locator('[data-action="save-trigger"]').click();
-      const trigger = section.locator('[data-trigger="On new requirements"]');
-      await expect(trigger.locator("[data-trigger-events]")).toContainText("requirement.created");
+    const workflowID = await createWorkflow(page, echo(`e2e-${randomUUID().slice(0, 12)}`));
+    await page.goto(`/workflows/${workflowID}/settings/triggers`);
+    const section = page.locator("[data-triggers]");
+    await section.locator('[data-action="add-trigger"]').click();
+    const form = section.locator("[data-trigger-form]");
+    await form.getByLabel("Name").fill("On new requirements");
+    await form.locator('[data-trigger-kind="event"]').check();
+    await form.locator("[data-event-tool]").selectOption(id);
+    await form.locator('[data-event-topic="requirement.created"]').check();
+    await form.locator("[data-event-projects]").fill("RTR");
+    // The event carries no status, and a missing path equals nothing, so the condition holds for it.
+    await form.locator('[data-action="add-condition"]').click();
+    await form.getByLabel("Path of condition 1").fill("payload.requirement.status");
+    await form.getByLabel("Comparison of condition 1").selectOption("notEquals");
+    await form.getByLabel("Value of condition 1").fill("archived");
+    await expectAccessible(page);
+    await form.locator('[data-action="save-trigger"]').click();
+    const trigger = section.locator('[data-trigger="On new requirements"]');
+    await expect(trigger.locator("[data-trigger-events]")).toContainText("requirement.created");
 
-      // The double does not show alice requirement RTR-1, so the firing is skipped and no run starts.
-      expect(await deliver(page, id, secret, "RTR-1")).toBe(202);
-      await expect(async () => {
-        await page.reload();
-        await expect(section.locator('[data-trigger="On new requirements"] [data-last-fire]')).toHaveAttribute("data-last-fire", "skipped", { timeout: 1_000 });
-      }).toPass({ timeout: 60_000 });
-      await expectAccessible(page);
-    } finally {
-      await page.goto("/admin/tools");
-      const row = page.locator("[data-tools] li", { hasText: address });
-      await row.locator('[data-action="remove-tool"]').click();
-      await row.locator('[data-action="confirm-remove"]').click();
-      await expect(row).toHaveCount(0);
-    }
+    // The double does not show alice requirement RTR-1, so the firing is skipped and no run starts.
+    expect(await deliver(page, id, secret, "RTR-1")).toBe(202);
+    await expect(async () => {
+      await page.reload();
+      await expect(section.locator('[data-trigger="On new requirements"] [data-last-fire]')).toHaveAttribute("data-last-fire", "skipped", { timeout: 1_000 });
+    }).toPass({ timeout: 60_000 });
+    await expectAccessible(page);
   });
 }

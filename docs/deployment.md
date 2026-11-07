@@ -35,7 +35,7 @@ Four things come from outside the chart.
   older versions, so older runs still open; an installation upgraded from before #41 may delete the unused key
   `rotor-checkpoints`.
   Finished runs are deleted after the retention an administrator sets under Admin, Retention (90 days by default); traces
-  sent to a collector or to LangSmith follow their own retention there. The api and the worker sign in with their own ServiceAccount tokens
+  sent to a collector or a trace destination follow their own retention there. The api and the worker sign in with their own ServiceAccount tokens
   (`openbao.auth: kubernetes`); sandboxes hold no OpenBao credential at all, only the single-use wrapping tokens they
   are handed.
   - With `openbao.configure.enabled` a hook Job runs Rotor's init script (`deploy/openbao/init.sh`) against it with
@@ -205,13 +205,41 @@ route to the collector. `telemetry.sampleRatio` keeps a share of new traces.
 Prometheus scrapes the worker on `worker.metricsPort` (9464: sandboxes, runs by state, run durations) and the api on
 `api.metricsPort` (9465: token mint failures); both also serve the process's own Go and process metrics.
 
-LangSmith is off until an administrator turns it on in Rotor's settings with a key, which Rotor keeps in OpenBao. The
-api then sends runs' spans, with prompts and answers, to `telemetry.langsmithEndpoint`, so the api's pods must reach
-that host; the sandboxes never do. `docs/api-contract-m7-telemetry.md` says what is sent.
+Administrators send runs' traces to OTLP/HTTP destinations under Admin, Traces (#246): Langfuse, Arize Phoenix, Jaeger,
+LangSmith or any tool taking OTLP, at most eight, with headers Rotor keeps in OpenBao under
+`rotor/settings/trace-destinations/`. The api sends them, so the api's pods must reach each endpoint, which an
+administrator chooses and Rotor does not hold to its network guard, as `telemetry.otlpEndpoint` is not; the sandboxes
+never do. A destination gets prompt, tool and answer text only once an administrator acknowledges that it leaves.
+`docs/api-contract-m18.md` says what is sent.
+
+LangSmith is a destination like the others, with the headers `x-api-key` and `Langsmith-Project` (#246); its setting of
+#37, `/settings/langsmith` and `telemetry.langsmithEndpoint` are gone (#256). A development database that still holds a
+LangSmith key the api of #246 never moved is refused by migration 01540, which says to start the previous version once
+with OpenBao reachable, so its api moves the key into the destination, and then to migrate again.
 
 Apps and tool services send their own spans to `/api/v1/otlp/v1/traces` (#243). The nginx of the compose file and the
 chart passes `/api/` through and leaves body sizes to the api, which takes 4 MiB a request; a proxy or ingress of your
 own in front of Rotor must pass that path and such a body too, or exporters see its 404 or 413.
+
+OTLP over gRPC (#262) has a port of its own on the api, `api.otlpGrpcPort` (4317, `ROTOR_OTLP_GRPC_ADDR`), since gRPC
+needs HTTP/2 all the way and the web's nginx speaks HTTP/1.1 to the api. The port carries no TLS, as the api's HTTP port
+carries none: never publish it without TLS in front, since bearer tokens ride on it. Set `ingress.otlpGrpc.enabled`
+and `ingress.otlpGrpc.host` for a second Ingress on a host of its own, with its own TLS secret
+(`ingress.otlpGrpc.tls.secretName`) and `nginx.ingress.kubernetes.io/backend-protocol: GRPC`, which ingress-nginx sets
+per Ingress; another controller needs its own way of saying the backend speaks gRPC, or put a TLS load balancer in
+front of the Service's `otlp-grpc` port. An SDK then sends with:
+
+```sh
+OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp.rotor.example.com
+OTEL_EXPORTER_OTLP_HEADERS=authorization=Bearer%20rotor_ik_...
+```
+
+The endpoint is the host alone, as gRPC takes no path, and the header's name is written in lower case, as gRPC's
+metadata wants it. The same tokens, ingest keys and limits hold as over HTTP, and a sender's rates count across both.
+Metrics and logs are refused at either (`/api/v1/otlp/v1/metrics` and `/logs` answer 501, gRPC `UNIMPLEMENTED`):
+send them to your own collector, or set `OTEL_METRICS_EXPORTER=none` and `OTEL_LOGS_EXPORTER=none`. In development,
+`make up` publishes the port on 127.0.0.1 and says where.
 
 In development, `make observe` starts the stack with a collector, Jaeger and Prometheus and says where they are.
 

@@ -280,6 +280,14 @@ to the documents vendored in `api/tools/` and the `tools/list` recorded beside
 them. Each test makes a tenant of its own,
 `/t/<name>`, so tests never share a tool.
 
+The dev stack's `tool-stub` keeps its tenants' OAuth clients, grants and tokens
+on the `tool-stub-data` volume, so `make up` after a rebuild leaves every tool
+connection working. What a test wrote at a tenant (comments, records,
+repositories) and consent requests in flight are not kept. `make down` keeps
+the volume too; `make tool-stub-reset` (or `make clean`) forgets everything the
+stub held, and Rotor's connections then need connecting again. The control API's
+`DELETE /control/tenants` does the same from inside the stack's network.
+
 What only a real sibling or a cluster can settle runs outside the gate:
 `make test-suite` against the real Exciter and Armature (`make suite-up` first),
 `make test-kube` and `make test-chart-install` against a kind cluster
@@ -318,12 +326,24 @@ get (`rotor_token_mint_failures_total`), beside the Go runtime's own.
 **Traces.** With `ROTOR_OTLP_ENDPOINT` set to a collector's traces URL, the api
 and the worker send OpenTelemetry spans, each run one trace. The runner's
 spans travel over the runner protocol and the api sends them on, redacted
-again, so a sandbox reaches no collector. An administrator may also send runs'
-spans, prompts and answers included, to LangSmith with a key kept in OpenBao.
+again, so a sandbox reaches no collector. Administrators send runs' traces to
+up to eight OTLP destinations under Admin, Traces, such as Langfuse, Arize
+Phoenix, Jaeger or LangSmith, with headers kept in OpenBao; prompt, tool and
+answer text goes to one only once an administrator acknowledges it leaves.
 A LangChain app or a tool sends its own spans to `/api/v1/otlp/v1/traces`
 with a bearer token, setting `OTEL_EXPORTER_OTLP_ENDPOINT` to
 `<rotor>/api/v1/otlp`; they join the run whose trace they name when the
-sender may read it, and a trace of the sender's own otherwise.
+sender may read it, and a trace of the sender's own otherwise. A service that
+should not refresh a token sends with an ingest key an administrator makes
+under Admin, Traces, as
+`OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer%20rotor_ik_...`; each key
+sends as one account and works at the OTLP endpoint alone. An SDK that
+speaks OTLP over gRPC sends to the api's port 4317 instead, with
+`OTEL_EXPORTER_OTLP_PROTOCOL=grpc`, `OTEL_EXPORTER_OTLP_ENDPOINT` set to that
+host and port, and `OTEL_EXPORTER_OTLP_HEADERS=authorization=Bearer%20<token>`;
+the same tokens, keys and limits hold. Spans keep their links, which the run's
+page opens where the reader may read the linked trace. Metrics and logs are
+refused with a sentence saying so: send them to your own collector.
 `make observe` starts a collector, Jaeger and Prometheus beside the stack.
 
 **Security at the edges.** A session is an opaque token whose SHA-256 alone is
@@ -394,8 +414,8 @@ with every problem it found listed, so an operator fixes them in one go.
 | `ROTOR_SANDBOX_ALLOW_RUNC` | `false` | lets a test cluster without gVisor run sandboxes; refused in production |
 | `ROTOR_APPROVAL_TTL` | `72h` | how long an approval waits when its node says nothing |
 | `ROTOR_OTLP_ENDPOINT` | none | the collector's traces URL, `/v1/traces` included |
+| `ROTOR_OTLP_GRPC_ADDR` | `:4317` | where the api takes OTLP over gRPC, without TLS; blank takes none |
 | `ROTOR_TRACE_SAMPLE_RATIO` | `1` | share of new traces kept |
-| `ROTOR_LANGSMITH_ENDPOINT` | LangSmith's own | where runs' spans go once an administrator allows it |
 | `ROTOR_API_METRICS_ADDR` | `:9465` | the api's metrics listener; blank serves none |
 | `ROTOR_WORKER_METRICS_ADDR` | `:9464` | the worker's metrics listener |
 
@@ -416,7 +436,7 @@ with every problem it found listed, so an operator fixes them in one go.
 | `backend/internal/providers/`, `usage/` | model providers, prices, usage and limits |
 | `backend/internal/oauth/`, `netguard/` | Rotor's own authorization server for assistants, and the guarded client for an address somebody else chose |
 | `backend/internal/envelope/`, `redact/`, `retention/` | sealing a run's data, cutting credentials, and deleting what was kept long enough |
-| `backend/internal/audit/`, `observability/`, `metrics/`, `langsmith/` | the audit log, logs, traces and metrics |
+| `backend/internal/audit/`, `observability/`, `metrics/`, `traces/`, `tracedest/` | the audit log, logs, traces, metrics and the destinations traces go to |
 | `backend/internal/db/`, `openapi/`, `config/` | the Postgres roles, the OpenAPI builder, and every setting |
 | `backend/migrations/` | goose migrations, embedded into `migrate` |
 | `backend/test/` | the integration suite (`-tags integration`) |

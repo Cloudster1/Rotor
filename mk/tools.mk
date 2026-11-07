@@ -26,6 +26,12 @@ tool-contracts: ## Vendor a tool's api/openapi.json at a commit: make tool-contr
 tool-contracts-main: ## Vendor every tool's api/openapi.json at its main, to test against what is not tagged yet
 	@for tool in exciter armature stator; do $(MAKE) --no-print-directory tool-contracts TOOL=$$tool REF=main || exit 1; done
 
+.PHONY: tool-stub-reset
+tool-stub-reset: stack-env ## Make the tool stub forget every client and grant (#268): drop its state volume and start it again
+	docker compose rm -sf tool-stub
+	-docker volume rm $(STACK_PROJECT)_tool-stub-data
+	docker compose up -d --wait tool-stub
+
 .PHONY: test-contracts
 test-contracts: | $(GO_CACHE) ## Hold the tool-stub and what Rotor reads of each tool to the vendored documents
 	$(DOCKER_GO) go test -count=1 ./internal/toolstub/ ./internal/tools/

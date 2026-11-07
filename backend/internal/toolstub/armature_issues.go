@@ -13,13 +13,18 @@ import (
 // answer body is the structured result, so the shapes are those of api/tools/armature/openapi.json.
 
 // Issue is an Armature issue of a tenant's options; readers are the usernames that may see it, as in Armature's
-// projects, and reporter the username that filed it.
+// projects, reporter the username that filed it, and labels the names of the labels it carries (#270). Category is
+// its status's, todo unless said; createdAt and resolvedAt are when it was filed and done (#271).
 type Issue struct {
-	Type                string   `json:"type,omitempty"`
-	Summary             string   `json:"summary"`
-	DescriptionMarkdown string   `json:"descriptionMarkdown,omitempty"`
-	Reporter            string   `json:"reporter,omitempty"`
-	Readers             []string `json:"readers"`
+	Type                string     `json:"type,omitempty"`
+	Summary             string     `json:"summary"`
+	DescriptionMarkdown string     `json:"descriptionMarkdown,omitempty"`
+	Reporter            string     `json:"reporter,omitempty"`
+	Readers             []string   `json:"readers"`
+	Labels              []string   `json:"labels,omitempty"`
+	Category            string     `json:"category,omitempty"`
+	CreatedAt           *time.Time `json:"createdAt,omitempty"`
+	ResolvedAt          *time.Time `json:"resolvedAt,omitempty"`
 }
 
 // The Armature tools the stub answers.
@@ -47,7 +52,8 @@ const (
 // appWrites; allows is how Armature words each in a refusal.
 var (
 	armatureWrites = map[string]string{AddCommentTool: ArmatureCommentWrite, AddRemoteLinkTool: ArmatureIssueWrite,
-		CreateIssueBranchTool: ArmatureIssueWrite, OpenPullRequestTool: ArmatureIssueWrite}
+		CreateIssueBranchTool: ArmatureIssueWrite, OpenPullRequestTool: ArmatureIssueWrite,
+		BulkEditIssuesTool: ArmatureIssueWrite}
 	allows = map[string]string{ArmatureIssueWrite: "file and edit issues", ArmatureCommentWrite: "comment on issues"}
 )
 
@@ -83,6 +89,12 @@ func (s *Stub) callArmature(c *call, who *caller, tool map[string]any, arguments
 	switch name {
 	case WhoamiTool:
 		return answered(armatureWhoami(c.t, who)), nil
+	case ListLabelsTool:
+		return answered(listLabels(c.t, args)), nil
+	case BulkEditIssuesTool:
+		return s.bulkEdit(c, who, args), nil
+	case ListProjectIssuesTool:
+		return s.listProjectIssues(c, who, args), nil
 	case GetIssueTool, ListCommentsTool, AddCommentTool, ListRemoteLinksTool, AddRemoteLinkTool:
 		if !readable {
 			return refusal(issueNotFound), nil
@@ -93,7 +105,7 @@ func (s *Stub) callArmature(c *call, who *caller, tool map[string]any, arguments
 	written := c.t.written
 	switch name {
 	case GetIssueTool:
-		return answered(map[string]any{"issue": armatureIssue(key, issue, len(written.comments[key]))}), nil
+		return answered(map[string]any{"issue": armatureIssue(key, issue, len(written.comments[key]), labelRefs(c.t, key))}), nil
 	case ListCommentsTool:
 		return answered(map[string]any{"comments": orEmpty(written.comments[key])}), nil
 	case ListRemoteLinksTool:
@@ -153,22 +165,32 @@ func armatureWhoami(t *tenant, who *caller) map[string]any {
 	}
 }
 
-// armatureIssue is an issue of the options in Armature's Issue shape, in its project's first status.
-func armatureIssue(key string, is Issue, comments int) map[string]any {
+// armatureIssue is an issue of the options in Armature's Issue shape, in its category's status, last updated when
+// it was resolved or else filed.
+func armatureIssue(key string, is Issue, comments int, labels []any) map[string]any {
 	project, _, _ := strings.Cut(key, "-")
 	kind := is.Type
 	if kind == "" {
 		kind = defaultIssueType
 	}
-	at := stubTime.Format(time.RFC3339)
+	category := issueCategory(is)
+	created := issueTime(is, "created").UTC()
+	at, updated := created.Format(time.RFC3339), created.Format(time.RFC3339)
+	if is.ResolvedAt != nil {
+		updated = is.ResolvedAt.UTC().Format(time.RFC3339)
+	}
 	out := map[string]any{
 		"id": stubID("issue", key), "key": key, "projectId": stubID("project", project), "projectKey": project,
 		"type": map[string]any{"id": stubID("issue-type", kind), "name": kind, "icon": strings.ToLower(kind), "level": 0,
 			"isSubtask": false},
 		"summary": is.Summary, "priority": "medium", "timeSpentMinutes": 0, "commentCount": comments,
-		"status": map[string]any{"id": stubID("status", project, "todo"), "name": "To Do", "category": "todo", "position": 0},
-		"labels": []any{}, "fixVersions": []any{}, "affectsVersions": []any{}, "components": []any{},
-		"createdAt": at, "updatedAt": at,
+		"status": map[string]any{"id": stubID("status", project, category), "name": statusNames[category], "category": category,
+			"position": slices.Index(statusOrder, category)},
+		"labels": labels, "fixVersions": []any{}, "affectsVersions": []any{}, "components": []any{},
+		"createdAt": at, "updatedAt": updated,
+	}
+	if is.ResolvedAt != nil {
+		out["resolvedAt"] = updated
 	}
 	if doc := markdownDocument(is.DescriptionMarkdown); doc != nil {
 		out["description"] = doc

@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -51,6 +52,8 @@ var (
 func runError(err error) error {
 	var refused *runs.InputsRefused
 	var needs *runs.NeedsConnections
+	var unregistered *runs.NeedsRegistration
+	var ambiguous *runs.AmbiguousTools
 	var quota *usage.Refused
 	var changed *runs.ToolsChanged
 	var image *runs.ImageNotAllowed
@@ -87,6 +90,25 @@ func runError(err error) error {
 		}
 		return &APIError{Status: http.StatusUnprocessableEntity, Code: "inputs_invalid", Fields: fields,
 			Message: "The inputs do not fit the workflow. " + refused.Problems[0].Message}
+	case errors.As(err, &ambiguous):
+		// Fields name each shared name with no id, since no one tool is meant (#267).
+		fields := map[string]string{}
+		for _, name := range ambiguous.Names {
+			fields[name] = ""
+		}
+		return &APIError{Status: http.StatusConflict, Code: spec.CodeToolAmbiguous, Fields: fields,
+			Message: fmt.Sprintf("Several tools are called %s, so this workflow cannot tell which one to act in. Ask an administrator "+
+				"to rename all but one under Admin, Tools, then start the run again.", strings.Join(ambiguous.Names, ", "))}
+	case errors.As(err, &unregistered):
+		// Fields name each tool with its id, as connections_needed does, for an administrator's Admin, Tools.
+		fields, names := map[string]string{}, make([]string, 0, len(unregistered.Tools))
+		for _, t := range unregistered.Tools {
+			fields[t.Name] = t.ID.String()
+			names = append(names, t.Name)
+		}
+		return &APIError{Status: http.StatusConflict, Code: "needs_registration", Fields: fields,
+			Message: fmt.Sprintf("%s no longer knows Rotor, so ask an administrator to register it again under Admin, Tools, "+
+				"then start the run again.", strings.Join(names, ", "))}
 	case errors.As(err, &needs):
 		// Fields names each tool to connect, with its id; an empty id is a tool this installation does not have.
 		fields, names := map[string]string{}, ""

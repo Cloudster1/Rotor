@@ -124,6 +124,7 @@ describe("a run's trace", () => {
     const bare = (span: TraceSpan): TraceSpan => ({ ...span, input: null, output: null, children: span.children.map(bare) });
     const fetch = show(SUCCEEDED, { ...trace, content: false, roots: trace.roots.map(bare) });
     expect(await screen.findByText(s.trace.noText)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: s.trace.chooseText })).toBeNull();
     await userEvent.click(screen.getByText("ChatOpenAI"));
     const details = screen.getByRole("region", { name: s.trace.details.title("ChatOpenAI") });
     expect(within(details).getAllByText(s.trace.details.notKept)).toHaveLength(2);

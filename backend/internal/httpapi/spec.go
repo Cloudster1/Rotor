@@ -16,14 +16,15 @@ import (
 const ProductName = "Rotor"
 
 // The schemes a caller is let in by: the browser's session, at the serviceAccount and tokensOnly rows a realm's
-// access token, and at the tokensOnly rows Rotor's own.
+// access token, and at the tokensOnly rows Rotor's own and an ingest key.
 const (
 	sessionScheme     = "session"
 	realmBearerScheme = "realmToken"
 	rotorBearerScheme = "rotorToken"
+	ingestKeyScheme   = "ingestKey"
 )
 
-// securitySchemes describes both schemes for the document's components.
+// securitySchemes describes every scheme for the document's components.
 func securitySchemes() map[string]openapi.SecurityScheme {
 	return map[string]openapi.SecurityScheme{
 		sessionScheme: {Type: "apiKey", In: "cookie", Name: config.DefaultSessionCookie,
@@ -35,6 +36,9 @@ func securitySchemes() map[string]openapi.SecurityScheme {
 		rotorBearerScheme: {Type: "http", Scheme: "bearer",
 			Description: "An access token from Rotor's own authorization server, made for an assistant or an app; " +
 				"taken at MCP and the OTLP endpoint alone."},
+		ingestKeyScheme: {Type: "http", Scheme: "bearer",
+			Description: "A long-lived key an administrator made under Admin, Traces, starting rotor_ik_, sending as one " +
+				"account; taken at the OTLP endpoint alone."},
 	}
 }
 
@@ -171,7 +175,7 @@ func (op operation) describe(b *openapi.Builder, errorSchema *openapi.Schema) *o
 		o.Security = []map[string][]string{{sessionScheme: {}}, {realmBearerScheme: {}}}
 	}
 	if op.tokensOnly {
-		o.Security = []map[string][]string{{rotorBearerScheme: {}}, {realmBearerScheme: {}}}
+		o.Security = []map[string][]string{{ingestKeyScheme: {}}, {rotorBearerScheme: {}}, {realmBearerScheme: {}}}
 	}
 	return o
 }

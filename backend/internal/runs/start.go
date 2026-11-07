@@ -90,6 +90,10 @@ func (s *Service) Start(ctx context.Context, req StartRequest) (Run, bool, error
 		if len(changed) > 0 {
 			return Run{}, false, &ToolsChanged{Problems: changed}
 		}
+		// Reading the tools may have found a client forgotten or a grant ended, which the run would fail at (#266).
+		if err := s.Connected(ctx, parsed); err != nil {
+			return Run{}, false, err
+		}
 	}
 	// The run's trace begins here, so the worker's and the runner's spans join what started it (#37).
 	ctx, endSpan := observability.StartSpan(ctx, "run.start", attribute.String("rotor.workflow", w.ID.String()))
@@ -214,8 +218,8 @@ func (s *Service) pinned(ctx context.Context, req StartRequest) (workflows.Workf
 	return w, v, err
 }
 
-// Connected refuses a run whose bindings name a tool the caller has no working connection to, with every scope the
-// binding asks for; the run would otherwise fail at its first call.
+// Connected refuses a run whose bindings name a tool that must be registered again, or one the caller has no working
+// connection to with every scope the binding asks for; the run would otherwise fail at its first call.
 func (s *Service) Connected(ctx context.Context, parsed *spec.Spec) error {
 	mine, err := s.connections.List(ctx)
 	if err != nil {
@@ -227,14 +231,21 @@ func (s *Service) Connected(ctx context.Context, parsed *spec.Spec) error {
 			consent[c.ToolID] = c.Scopes
 		}
 	}
-	missing := map[string]MissingTool{}
+	missing, unregistered := map[string]MissingTool{}, map[string]MissingTool{}
+	var ambiguous []string
 	for _, b := range parsed.Tools {
 		tool, err := s.tools.ByName(ctx, b.Tool)
 		switch {
+		case errors.Is(err, tools.ErrAmbiguous):
+			if !slices.Contains(ambiguous, b.Tool) {
+				ambiguous = append(ambiguous, b.Tool)
+			}
 		case errors.Is(err, tools.ErrNotFound):
 			missing[b.Tool] = MissingTool{Name: b.Tool}
 		case err != nil:
 			return err
+		case tool.Status == tools.StatusNeedsRegistration:
+			unregistered[b.Tool] = MissingTool{ID: tool.ID, Name: tool.Name}
 		default:
 			scopes, ok := consent[tool.ID]
 			if !ok || !tool.Profile().Covers(scopes, tool.Profile().BindingScopes(b.Scopes, b.Writes(), b.Repository != nil)) {
@@ -242,15 +253,28 @@ func (s *Service) Connected(ctx context.Context, parsed *spec.Spec) error {
 			}
 		}
 	}
+	if len(ambiguous) > 0 {
+		// First, since nothing else about such a binding can be told until it names one tool.
+		slices.Sort(ambiguous)
+		return &AmbiguousTools{Names: ambiguous}
+	}
+	if len(unregistered) > 0 {
+		// First, since connecting cannot help until an administrator has registered the tool again.
+		return &NeedsRegistration{Tools: byName(unregistered)}
+	}
 	if len(missing) == 0 {
 		return nil
 	}
-	out := make([]MissingTool, 0, len(missing))
-	for _, t := range missing {
+	return &NeedsConnections{Tools: byName(missing)}
+}
+
+func byName(set map[string]MissingTool) []MissingTool {
+	out := make([]MissingTool, 0, len(set))
+	for _, t := range set {
 		out = append(out, t)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return &NeedsConnections{Tools: out}
+	return out
 }
 
 // startedData is what run.started records: the workflow, its version and, for a triggered run, the trigger.

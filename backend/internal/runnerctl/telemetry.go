@@ -14,14 +14,24 @@ import (
 	"github.com/cloudster1/rotor/backend/internal/runnerpb"
 )
 
-// Telemetry is where a run's spans go once the control plane checked them (#37); *langsmith.Forwarder is the real
-// one, sending them to the collector and, when an administrator allows it, to LangSmith.
+// Telemetry is where a run's spans go once the control plane checked them (#37); *tracedest.Forwarder is the real
+// one, sending them to the collector and to the trace destinations an administrator chose (#246).
 type Telemetry interface {
-	// Spans sends a run's spans on by ctx's deadline; no stream waits for it.
-	Spans(ctx context.Context, runID uuid.UUID, spans []observability.RunnerSpan)
-	// Content says whether a destination may get text, so a run's spans carry it (#241): until #246, while LangSmith
-	// is on. Each place that may not keep text gets the spans without it.
-	Content(ctx context.Context) bool
+	// Spans sends a run's spans on by ctx's deadline, where its workflow's choice says; no stream waits for it.
+	Spans(ctx context.Context, runID uuid.UUID, choice observability.RunTracing, spans []observability.RunnerSpan)
+	// Content says whether a destination the run's trace goes to may get text, so its spans carry it (#241, #246,
+	// #259). Each place that may not keep text gets the spans without it.
+	Content(ctx context.Context, choice observability.RunTracing, traceID trace.TraceID) bool
+}
+
+// traceContent says whether a run starting now sends its spans' text: never when its workflow chose none (#259),
+// else while Rotor keeps text or a destination its trace goes to takes it.
+func (s *Server) traceContent(ctx context.Context, r *run) bool {
+	if r.tracing.NoText {
+		return false
+	}
+	traceID := trace.SpanContextFromContext(observability.Extract(context.Background(), r.Traceparent)).TraceID()
+	return (s.Traces != nil && s.Traces.KeepContent(ctx)) || (s.Telemetry != nil && s.Telemetry.Content(ctx, r.tracing, traceID))
 }
 
 // runnerRotorKeys are the rotor.* attributes a runner writes besides the run and the workflow, which the control
@@ -53,7 +63,7 @@ func (s *Server) spans(ctx context.Context, r *run, batch *runnerpb.SpanBatch) {
 		return
 	}
 	if s.Telemetry != nil {
-		s.export(ctx, r.ID, out)
+		s.export(ctx, r, out)
 	}
 	if s.Traces != nil {
 		s.keep(ctx, r, out)
@@ -62,7 +72,8 @@ func (s *Server) spans(ctx context.Context, r *run, batch *runnerpb.SpanBatch) {
 
 // export sends a run's spans on without the stream waiting (#234): the runner's Done follows its last spans, and the
 // run reaches waiting and opens its approval whatever the collector does. With every slot taken the batch is dropped.
-func (s *Server) export(ctx context.Context, runID uuid.UUID, spans []observability.RunnerSpan) {
+func (s *Server) export(ctx context.Context, r *run, spans []observability.RunnerSpan) {
+	runID, choice := r.ID, r.tracing
 	s.exportingOnce.Do(func() { s.exporting = make(chan struct{}, config.MaxRunnerSpanExports) })
 	select {
 	case s.exporting <- struct{}{}:
@@ -76,7 +87,7 @@ func (s *Server) export(ctx context.Context, runID uuid.UUID, spans []observabil
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), config.RunnerSpanExportTimeout)
 	go func() {
 		defer func() { cancel(); <-s.exporting }()
-		s.Telemetry.Spans(ctx, runID, spans)
+		s.Telemetry.Spans(ctx, runID, choice, spans)
 	}()
 }
 

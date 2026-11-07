@@ -1,8 +1,10 @@
 import { audit } from "./strings_audit";
 import { usageStrings } from "./strings_usage";
-import { langSmithStrings, traceStrings } from "./strings_telemetry";
+import { traceDestinationStrings } from "./strings_destinations";
+import { traceStrings } from "./strings_telemetry";
+import { ownTraceStrings } from "./strings_traces";
 import { retentionStrings } from "./strings_retention";
-import { capabilityStrings } from "./strings_tools";
+import { capabilityStrings, toolNameStrings } from "./strings_tools";
 import { untrustedStrings } from "./strings_untrusted";
 import { canvasStrings } from "./strings_canvas";
 import { assistantStrings } from "./strings_assistants";
@@ -32,6 +34,7 @@ export const s = {
     workflows: "Workflows",
     skills: "Skills",
     runs: "Runs",
+    traces: "Traces",
     approvals: "Approvals",
     settings: "Settings",
     admin: "Admin",
@@ -188,6 +191,7 @@ export const s = {
       starting: "Starting",
       cancel: "Cancel",
       connectFirst: "Connect these tools first; the run acts as you there:",
+      registerFirst: "These tools no longer know Rotor. Ask an administrator to register them again under Admin, Tools:",
       missingTool: (name: string) => `${name} is not set up in Rotor. Ask an administrator to add it.`,
       yes: "Yes",
       no: "No",
@@ -379,6 +383,7 @@ export const s = {
       added: (name: string) => `${name} is added. People can connect to it now.`,
     },
     registerAgain: "Register again",
+    needsRegistration: "This tool no longer knows Rotor, so no workflow acts in it. Register again; then everyone connects again.",
     remove: "Remove",
     confirmRemove: (name: string) => `Remove ${name}? Every connection to it ends, for everyone.`,
     confirm: "Remove it",
@@ -473,10 +478,12 @@ export const s = {
   api: {
     unexpected: (status: number) => `The server answered ${status} without saying why. Try again in a moment.`,
   },
-  langsmith: langSmithStrings,
+  traceDestinations: traceDestinationStrings,
   trace: traceStrings,
+  traces: ownTraceStrings,
   retention: retentionStrings,
   capabilities: capabilityStrings,
+  toolNames: toolNameStrings,
   untrusted: untrustedStrings,
   canvas: canvasStrings,
   assistants: assistantStrings,

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/cloudster1/rotor/backend/internal/config"
 )
 
@@ -72,5 +74,41 @@ func TestASpanTooLargeDropsItsLongestTextFirstAndSaysSo(t *testing.T) {
 	without := WithoutText([]RunnerSpan{got, {Events: []SpanEvent{{Attributes: map[string]string{"exception.message": "m", "input.value": "v"}}}}})
 	if len(without[0].Attributes) != 3 || len(without[1].Events[0].Attributes) != 1 {
 		t.Errorf("without text the spans keep %v and %v", without[0].Attributes, without[1].Events[0].Attributes)
+	}
+}
+
+// A link keeps its attributes without text alone, at most MaxSpanLinkAttributes of them, and a link without whole ids
+// is not kept (#262).
+func TestASpansLinksAreHeldToTheLimits(t *testing.T) {
+	attrs := map[string]string{"input.value": "the question", "llm.system": strings.Repeat("k", config.MaxSpanAttrChars+5)}
+	for i := range config.MaxSpanLinkAttributes {
+		attrs[fmt.Sprintf("metadata.%02d", i)] = "v"
+	}
+	whole := SpanLink{TraceID: trace.TraceID{1}, SpanID: trace.SpanID{2}, Attributes: attrs}
+	got := Hold(RunnerSpan{Name: "batch", Links: []SpanLink{{TraceID: trace.TraceID{1}}, whole}})
+	if len(got.Links) != 1 {
+		t.Fatalf("links = %v", got.Links)
+	}
+	kept := got.Links[0].Attributes
+	if len(kept) != config.MaxSpanLinkAttributes || kept["input.value"] != "" || len(kept["llm.system"]) != config.MaxSpanAttrChars {
+		t.Errorf("a link's attributes = %d of them, text %q, %d characters of llm.system", len(kept), kept["input.value"],
+			len(kept["llm.system"]))
+	}
+}
+
+// Links count toward MaxSpanBytes and go after the events and before the attributes that say what the span was.
+func TestASpanTooLargeLosesItsLinksBeforeItsAttributes(t *testing.T) {
+	var links []SpanLink
+	for i := range config.MaxSpanLinks {
+		attrs := map[string]string{}
+		for j := range config.MaxSpanLinkAttributes {
+			attrs[fmt.Sprintf("metadata.%02d", j)] = strings.Repeat("x", config.MaxSpanAttrChars)
+		}
+		links = append(links, SpanLink{TraceID: trace.TraceID{1}, SpanID: trace.SpanID{byte(i + 1)}, Attributes: attrs})
+	}
+	got := Hold(RunnerSpan{Name: "batch", Attributes: map[string]string{"llm.model_name": "gpt-5"}, Links: links})
+	if len(got.Links) == 0 || len(got.Links) == config.MaxSpanLinks || got.Attributes["llm.model_name"] != "gpt-5" ||
+		got.Attributes[ContentCut] != "true" {
+		t.Errorf("kept %d links and attributes %v", len(got.Links), got.Attributes)
 	}
 }

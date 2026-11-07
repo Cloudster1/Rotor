@@ -18,7 +18,7 @@ const indexRoute = createRoute({
   },
 });
 
-function section<TPath extends string>(path: TPath, name: "GeneralPage" | "VersionsPage" | "SharingPage" | "TriggersPage") {
+function section<TPath extends string>(path: TPath, name: "GeneralPage" | "VersionsPage" | "SharingPage" | "TriggersPage" | "TracingPage") {
   return createRoute({ getParentRoute: () => workflowSettingsRoute, path, component: lazyRouteComponent(settingsModule, name) });
 }
 
@@ -28,4 +28,5 @@ export const workflowSettingsTree = workflowSettingsRoute.addChildren([
   section("versions", "VersionsPage"),
   section("sharing", "SharingPage"),
   section("triggers", "TriggersPage"),
+  section("tracing", "TracingPage"),
 ]);

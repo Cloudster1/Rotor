@@ -3,6 +3,7 @@ chain, node, tool and model call, sent over the channel, redacted, and with text
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -25,6 +26,7 @@ PARENT = "b7ad6b7169203331"
 TRACEPARENT = f"00-{TRACE}-{PARENT}-01"
 SECRET = "stub_oat_the-run-token-1234"
 RUN = "run-1"
+FAILURE = "The story has no title (line 2)"
 AGENT = "  - {id: a, type: agent, prompt: 'Look up project p', tools: [t]}"
 CALL = AIMessage("", tool_calls=[{"name": "get_project", "args": {"project": "p"}, "id": "call-1"}])
 
@@ -40,6 +42,8 @@ class TracedTools(FakeTools):
 
     async def call(self, binding: str, name: str, arguments: dict[str, Any], node: str) -> Any:
         with self.tracing.maybe(f"mcp {name}", {"mcp.tool": name}, kind=TOOL):
+            if arguments.get("fail"):
+                raise ValueError(FAILURE)
             return await super().call(binding, name, arguments, node)
 
     async def langchain_tools(self, bindings: list[str], node: str) -> list[BaseTool]:
@@ -56,7 +60,9 @@ class Spans(dict[str, pb.RunnerSpan]):
     every: list[pb.RunnerSpan]
 
 
-async def traced_run(content: bool, nodes: str, model: list[AIMessage] | None = None) -> Spans:
+async def traced_run(
+    content: bool, nodes: str, model: list[AIMessage] | None = None, status: str = "succeeded"
+) -> Spans:
     sent: list[pb.ConnectRequest] = []
     tracing = RunTracing(TRACEPARENT, sent.append, scrub, content, run=RUN)
     tools = TracedTools({"whoami": {"username": "bob"}})
@@ -72,8 +78,12 @@ async def traced_run(content: bool, nodes: str, model: list[AIMessage] | None = 
         model=(lambda: ToolCallingModel(responses=list(model))) if model else None,
         tracing=tracing,
     )
-    outcome = await run_workflow(ctx, {"note": SECRET}, thread_id=RUN)
-    assert outcome.status == "succeeded", outcome
+    try:
+        outcome = await run_workflow(ctx, {"note": SECRET}, thread_id=RUN)
+        assert outcome.status == status, outcome
+    except ValueError:
+        # A node's own error ends the run in the runner's caller; the spans are what is under test.
+        assert status == "raised"
     await tracing.flush()
     every = [span for message in sent for span in message.spans.spans]
     assert {s.trace_id.hex() for s in every} == {TRACE}
@@ -118,6 +128,20 @@ async def test_a_tool_node_s_mcp_call_nests_in_its_node() -> None:
     assert ancestors(spans, "mcp whoami")[0] == "node a"
     assert spans["node a"].attributes["openinference.span.kind"] == "CHAIN"
     assert spans["node a"].attributes["rotor.node.type"] == "tool"
+
+
+async def test_a_failed_span_s_status_holds_the_error_alone_and_its_event_the_whole_stack() -> None:
+    node = "  - {id: a, type: tool, tool: t, call: whoami, arguments: {fail: true}}"
+    spans = await traced_run(False, node, status="raised")
+    for name in ("mcp whoami", "node a"):
+        message = spans[name].status_message
+        assert "Traceback" not in message, message
+        assert "\n" not in message
+        assert FAILURE in message
+    assert spans["node a"].status_message == f"ValueError: {FAILURE}"
+    stack = {k: v for e in spans["node a"].events for k, v in e.attributes.items()}["exception.stacktrace"]
+    assert stack.startswith("Traceback (most recent call last):")
+    assert stack.rstrip().endswith(f"ValueError: {FAILURE}")
 
 
 async def test_without_content_no_span_carries_text() -> None:
@@ -178,3 +202,34 @@ async def test_an_mcp_request_carries_the_traceparent_of_its_span() -> None:
     )
     assert int(flags, 16) & 1, "the tool continues a sampled trace"
     assert RunTracing().headers() == {}, "a run that is not traced sends no trace context"
+
+
+async def test_two_runs_in_one_process_keep_their_spans_apart() -> None:
+    other = "1" * 32
+    sent: list[list[pb.ConnectRequest]] = [[], []]
+    traces = [TRACEPARENT, f"00-{other}-{PARENT}-01"]
+
+    async def one(i: int) -> None:
+        tracing = RunTracing(traces[i], sent[i].append, scrub, False, run=f"run-{i}")
+        tools = TracedTools({"whoami": {"username": "bob"}})
+        tools.tracing = tracing
+
+        async def emit(_kind: str, _node: str, _payload: dict[str, Any]) -> None:
+            return None
+
+        ctx = RunContext(
+            spec=parse(workflow(AGENT)),
+            tools=tools,
+            emit=emit,
+            model=lambda: ToolCallingModel(responses=[CALL, AIMessage("It has 3.")]),
+            tracing=tracing,
+        )
+        await run_workflow(ctx, {"note": "x"}, thread_id=f"run-{i}")
+        await tracing.flush()
+
+    await asyncio.gather(one(0), one(1))
+    for i, trace_id in enumerate([TRACE, other]):
+        spans = [s for m in sent[i] for s in m.spans.spans]
+        assert len(spans) > 4
+        assert {s.trace_id.hex() for s in spans} == {trace_id}
+        assert {s.attributes["rotor.run"] for s in spans} == {f"run-{i}"}

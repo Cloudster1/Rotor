@@ -32,7 +32,7 @@ func toTraceTree(t traces.Trace, roots []*traces.Node, chars int) traceTree {
 func traceHead(t traces.Trace) traceTree {
 	out := traceTree{TraceID: t.TraceID, State: traceState(t.State), Content: t.Content, Cut: t.Cut, Dropped: t.Dropped,
 		Spans: t.Spans, Bytes: t.Bytes, StartedAt: t.StartedAt, EndedAt: t.EndedAt, ExpiresAt: t.ExpiresAt,
-		// Destinations' trace links come with #246; until then there are none to give.
+		// A run's trace route adds the destinations' links; a sender's own trace went to none.
 		Links: []traceLink{}, Roots: []traceSpan{}}
 	if t.RunID != nil {
 		id := t.RunID.String()
@@ -77,6 +77,19 @@ func toSpanFields(sp traces.Span, chars int) spanFields {
 		attrs := map[string]string{}
 		maps.Copy(attrs, e.Attributes)
 		out.Events = append(out.Events, spanEvent{Name: e.Name, At: e.Time, Attributes: attrs})
+	}
+	out.Links = make([]spanLink, 0, len(sp.Links))
+	for _, l := range sp.Links {
+		link := spanLink{TraceID: l.TraceID, SpanID: l.SpanID, Attributes: map[string]string{}}
+		maps.Copy(link.Attributes, l.Attributes)
+		if l.RunID != nil {
+			id := l.RunID.String()
+			link.RunID = &id
+		} else if l.Owner != nil {
+			id := l.Owner.String()
+			link.Sender = &id
+		}
+		out.Links = append(out.Links, link)
 	}
 	return out
 }
